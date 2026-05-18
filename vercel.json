@@ -1,0 +1,14 @@
+{
+  "buildCommand": "npm run build:vercel",
+  "ignoreCommand": "node scripts/ignore-vercel-build.mjs",
+  "crons": [
+    {
+      "path": "/api/cron/refresh-data",
+      "schedule": "10 20 * * 1-5"
+    },
+    {
+      "path": "/api/cron/refresh-data",
+      "schedule": "10 21 * * 1-5"
+    }
+  ]
+}

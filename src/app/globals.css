@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+:root {
+  --font-inter: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --background: #f7f8fa;
+  --foreground: #0f172a;
+  --accent: #8b5cf6;
+  --accent-dim: #7c3aed;
+  --card-bg: #ffffff;
+  --card-border: #d4d9e1;
+  --input-bg: #ffffff;
+  --muted: #475569;
+  --accent-contrast: #ffffff;
+  --positive-text: #0f9f6e;
+  --negative-text: #dc2626;
+  --score-text: #0f766e;
+  --value-accent-text: #7c3aed;
+}
+
+html.dark {
+  --background: #0c0d0d;
+  --foreground: #e5e7eb;
+  --accent: #a78bfa;
+  --accent-dim: #8b5cf6;
+  --card-bg: #141516;
+  --card-border: #2a2b2d;
+  --input-bg: #1a1b1d;
+  --muted: #9ca3af;
+  --accent-contrast: #000000;
+  --positive-text: #00FA9A;
+  --negative-text: #f87171;
+  --score-text: #22d3ee;
+  --value-accent-text: #c084fc;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-input-bg: var(--input-bg);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-inter);
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Chart tooltip */
+.chartjs-tooltip {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+}
+
+/* Number input arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Date picker icon contrast */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
+}
+
+html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.4);
+  opacity: 0.95;
+}
+
+.text-positive {
+  color: var(--positive-text);
+}
+
+.text-negative {
+  color: var(--negative-text);
+}
+
+.text-score {
+  color: var(--score-text);
+}
+
+.text-value-accent {
+  color: var(--value-accent-text);
+}

@@ -1,0 +1,81 @@
+{
+  "name": "l-etf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Next.js app for backtesting leveraged-ETF strategies over long market history with rolling-window analysis, SMA timing rules, risk-off switching, and trade-level detail.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:vercel": "node --import tsx scripts/build-vercel.ts",
+    "start": "next start",
+    "lint": "eslint --max-warnings 0",
+    "knip": "knip",
+    "typecheck": "tsc --noEmit",
+    "fetch-data": "node --import tsx scripts/fetch-data.ts",
+    "calibrate": "node --import tsx scripts/calibrate-etfs.ts",
+    "commit-data": "node scripts/commit-data.mjs",
+    "notify:sma-alerts": "node --import tsx scripts/notify-sma-alerts.ts",
+    "snapshots:generate": "node --import tsx scripts/generate-snapshots.ts",
+    "snapshots:test": "node --input-type=module -e \"import('./scripts/test-snapshots.mjs')\"",
+    "test": "node --import tsx --test unit-tests/**/*.test.ts",
+    "test:coverage": "node --import tsx --experimental-test-coverage --test unit-tests/**/*.test.ts",
+    "ui-tests": "node ui-tests/run.mjs",
+    "prepush": "./scripts/pre-push.sh",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.37.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/functions": "^3.4.4",
+    "@vercel/speed-insights": "^2.0.0",
+    "chart.js": "^4.5.1",
+    "chartjs-adapter-date-fns": "^3.0.0",
+    "chartjs-plugin-zoom": "^2.2.0",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.4.2",
+    "next": "16.2.4",
+    "nodemailer": "^6.9.7",
+    "react": "19.2.5",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "19.2.5",
+    "sonner": "^2.0.7",
+    "web-push": "^3.6.7",
+    "yaml": "^2.4.5",
+    "zod": "^4.3.6"
+  },
+  "knip": {
+    "entry": [
+      "scripts/*.{ts,mjs,js}"
+    ],
+    "ignore": [
+      "public/sw.js",
+      "ui-tests/**"
+    ]
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/typography": "^0.5.19",
+    "@types/node": "^25.6.0",
+    "@types/nodemailer": "^6.4.14",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "husky": "^9.1.7",
+    "knip": "^6.5.0",
+    "lint-staged": "^16.4.0",
+    "postcss": "^8.5.10",
+    "puppeteer": "^24.42.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^6"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
+  }
+}

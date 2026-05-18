@@ -1,0 +1,31 @@
+{
+  "files.watcherExclude": {
+    "**/.git/**": true,
+    "**/.next/**": true,
+    "**/node_modules/**": true,
+    "**/.vercel/**": true,
+    "**/coverage/**": true,
+    "**/build/**": true,
+    "**/out/**": true,
+    "**/historical_data/**": true,
+    "**/public/*.csv": true,
+    "**/src/lib/tool-snapshots/*.json": true
+  },
+  "search.exclude": {
+    "**/.next": true,
+    "**/node_modules": true,
+    "**/.vercel": true,
+    "**/coverage": true,
+    "**/build": true,
+    "**/out": true
+  },
+  "explorer.autoReveal": false,
+  "files.exclude": {
+    "**/.next": true
+  },
+  "git.autoRefresh": false,
+  "git.decorations.enabled": false,
+  "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor"
+  }
+}
