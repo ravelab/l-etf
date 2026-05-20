@@ -1,3 +1,8 @@
+// Runs in the build container or ad-hoc, never as a serving function — its
+// runtime cache writes would never be read. The flag is checked at write time
+// (not import time), so this runs before any `writeRuntimeCachedFile` call.
+process.env.DISABLE_RUNTIME_CACHE_WRITES = "1";
+
 import { config as loadEnv } from "dotenv";
 import {
   isPushInfrastructureReady,

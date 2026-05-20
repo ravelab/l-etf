@@ -1,6 +1,11 @@
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+// The build container is not a serving region — anything it writes to the
+// runtime cache will never be read by another invocation. Disable writes
+// for the build process and every child it spawns (next build, scripts).
+process.env.DISABLE_RUNTIME_CACHE_WRITES = "1";
 import {
   consumeCronTriggeredBuildMarker,
   isCronBuildMarkerStorageReady,

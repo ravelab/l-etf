@@ -9,7 +9,19 @@ const RUNTIME_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 const RUNTIME_CACHE_CHUNK_TARGET_BYTES = 1_500_000;
 const RUNTIME_CACHE_TAGS = ["csv-data"];
 
+// Bump when the parsed row schema changes — invalidates all prior cache entries.
+const RUNTIME_CACHE_SCHEMA_VERSION = "v1";
+
 const runtimeCache = getCache({ namespace: "csv-data" });
+
+// Skip writes outside of request-serving function contexts. The runtime cache is
+// per-region and only useful for sharing data across function invocations in the
+// same region — populating it from a build container, a script, or a one-shot
+// process just burns the free-tier write budget.
+function shouldWriteRuntimeCache(): boolean {
+  if (process.env.DISABLE_RUNTIME_CACHE_WRITES === "1") return false;
+  return true;
+}
 
 type CsvCacheManifest = {
   mtime: number;
@@ -63,8 +75,7 @@ function isCsvCacheManifest(value: unknown): value is CsvCacheManifest {
 
 function getRuntimeCacheKeys(filePath: string, mtime: number) {
   const fileKey = relative(DATA_DIR, filePath).replaceAll("\\", "/");
-  const version = process.env.VERCEL_GIT_COMMIT_SHA ?? `mtime-${mtime}`;
-  const baseKey = `${version}:${fileKey}`;
+  const baseKey = `${RUNTIME_CACHE_SCHEMA_VERSION}:mtime-${mtime}:${fileKey}`;
   return {
     manifestKey: `${baseKey}:manifest`,
     chunkKeyPrefix: `${baseKey}:chunk:`,
@@ -110,6 +121,7 @@ async function readRuntimeCachedFile<T>(filePath: string, mtime: number): Promis
 }
 
 async function writeRuntimeCachedFile(filePath: string, mtime: number, data: unknown[]): Promise<void> {
+  if (!shouldWriteRuntimeCache()) return;
   const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime);
   const chunks: unknown[][] = [];
   let currentChunk: unknown[] = [];
