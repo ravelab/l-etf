@@ -71,71 +71,67 @@ function getRuntimeCacheKeys(filePath: string, mtime: number) {
   };
 }
 
+function describeCacheError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function safeCacheGet(key: string): Promise<unknown> {
+  return runtimeCache.get(key).catch((error) => {
+    console.warn(`Runtime cache read failed for ${key}: ${describeCacheError(error)}`);
+    return undefined;
+  });
+}
+
+function safeCacheSet(key: string, value: unknown): Promise<void> {
+  return runtimeCache
+    .set(key, value, { ttl: RUNTIME_CACHE_TTL_SECONDS, tags: RUNTIME_CACHE_TAGS })
+    .catch((error) => {
+      console.warn(`Runtime cache write failed for ${key}: ${describeCacheError(error)}`);
+    });
+}
+
 async function readRuntimeCachedFile<T>(filePath: string, mtime: number): Promise<T[] | null> {
-  try {
-    const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime);
-    const manifest = await runtimeCache.get(manifestKey);
-    if (!isCsvCacheManifest(manifest) || manifest.mtime !== mtime || manifest.chunkCount < 1) {
-      return null;
-    }
-
-    const chunks = await Promise.all(
-      Array.from({ length: manifest.chunkCount }, (_, index) => runtimeCache.get(`${chunkKeyPrefix}${index}`)),
-    );
-
-    if (!chunks.every(Array.isArray)) {
-      return null;
-    }
-
-    return chunks.flat() as T[];
-  } catch (error) {
-    console.warn("Runtime cache read failed:", error);
+  const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime);
+  const manifest = await safeCacheGet(manifestKey);
+  if (!isCsvCacheManifest(manifest) || manifest.mtime !== mtime || manifest.chunkCount < 1) {
     return null;
   }
+
+  const chunks = await Promise.all(
+    Array.from({ length: manifest.chunkCount }, (_, index) => safeCacheGet(`${chunkKeyPrefix}${index}`)),
+  );
+
+  if (!chunks.every(Array.isArray)) {
+    return null;
+  }
+
+  return chunks.flat() as T[];
 }
 
 async function writeRuntimeCachedFile(filePath: string, mtime: number, data: unknown[]): Promise<void> {
-  try {
-    const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime);
-    const chunks: unknown[][] = [];
-    let currentChunk: unknown[] = [];
-    let currentSize = 2;
+  const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime);
+  const chunks: unknown[][] = [];
+  let currentChunk: unknown[] = [];
+  let currentSize = 2;
 
-    for (const row of data) {
-      const rowSize = JSON.stringify(row).length + 1;
-      if (currentChunk.length > 0 && currentSize + rowSize > RUNTIME_CACHE_CHUNK_TARGET_BYTES) {
-        chunks.push(currentChunk);
-        currentChunk = [];
-        currentSize = 2;
-      }
-      currentChunk.push(row);
-      currentSize += rowSize;
-    }
-
-    if (currentChunk.length > 0 || chunks.length === 0) {
+  for (const row of data) {
+    const rowSize = JSON.stringify(row).length + 1;
+    if (currentChunk.length > 0 && currentSize + rowSize > RUNTIME_CACHE_CHUNK_TARGET_BYTES) {
       chunks.push(currentChunk);
+      currentChunk = [];
+      currentSize = 2;
     }
-
-    await Promise.all(
-      chunks.map((chunk, index) =>
-        runtimeCache.set(`${chunkKeyPrefix}${index}`, chunk, {
-          ttl: RUNTIME_CACHE_TTL_SECONDS,
-          tags: RUNTIME_CACHE_TAGS,
-        }),
-      ),
-    );
-
-    await runtimeCache.set(
-      manifestKey,
-      { mtime, chunkCount: chunks.length },
-      {
-        ttl: RUNTIME_CACHE_TTL_SECONDS,
-        tags: RUNTIME_CACHE_TAGS,
-      },
-    );
-  } catch (error) {
-    console.warn("Runtime cache write failed:", error);
+    currentChunk.push(row);
+    currentSize += rowSize;
   }
+
+  if (currentChunk.length > 0 || chunks.length === 0) {
+    chunks.push(currentChunk);
+  }
+
+  await Promise.all(chunks.map((chunk, index) => safeCacheSet(`${chunkKeyPrefix}${index}`, chunk)));
+  await safeCacheSet(manifestKey, { mtime, chunkCount: chunks.length });
 }
 
 export class LocalStorage implements IStorage {
