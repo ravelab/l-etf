@@ -370,6 +370,157 @@ const FAQ_DATA: FAQItem[] = [
     ),
   },
   {
+    id: "letf-simulation",
+    question: "How does this app simulate leveraged ETFs?",
+    answer: (
+      <>
+        <p className="mb-3">
+          <strong className="text-foreground">Why simulate at all?</strong> The real ETFs are
+          young — UPRO and SSO launched in 2006-2009, TQQQ and QLD in 2006-2010. That&apos;s not
+          enough history to test how a strategy would have done through, say, the 1929 crash or
+          the 1970s. So the app builds a synthetic version of each ETF going back as far as the
+          underlying index data exists (S&amp;P 500 since the 1800s, Nasdaq 100 since the 1980s).
+        </p>
+
+        <p className="mb-3">
+          <strong className="text-foreground">How a real leveraged ETF works in plain terms.</strong>{" "}
+          A 3x fund like UPRO doesn&apos;t hold $3 of stock for every $1 you put in — it holds
+          roughly $1 of stock plus a $2 swap with a bank that mirrors the index. The bank
+          essentially lends UPRO $2 of exposure, and UPRO pays for that loan every day. So your
+          daily return is:
+        </p>
+        <ol className="list-decimal list-inside space-y-1 ml-4 mb-3">
+          <li>3 × what the index did today, minus</li>
+          <li>the fund&apos;s expense ratio (a tiny daily slice), minus</li>
+          <li>the cost of borrowing the extra $2 of exposure (interest + a bank fee).</li>
+        </ol>
+        <p className="mb-3">
+          That&apos;s exactly what the simulation does. Step 1 is the index. Step 2 is the
+          published expense ratio. Step 3 is what we have to model.
+        </p>
+
+        <p className="mb-3">
+          <strong className="text-foreground">Modeling the borrowing cost.</strong> The base
+          borrowing rate is a real interest-rate series: historical bank rates back to 1885,
+          stitched with the modern overnight SOFR rate from 2018 onward. On top of that base rate
+          the bank charges an extra premium (called the &quot;swap spread&quot;). The premium
+          isn&apos;t fixed — when interest rates are higher, banks charge a higher premium. So we
+          model it as a slope and an intercept: <em>rate-sensitivity</em> (how much the premium
+          rises when rates rise) plus a small <em>base-spread</em> (the fee when rates are zero).
+        </p>
+
+        <p className="mb-3">
+          <strong className="text-foreground">How we know those two numbers are right.</strong>{" "}
+          We have actual UPRO, TQQQ, SSO, and QLD prices going back to their launch dates. The
+          app runs the simulation against those real prices and adjusts the two numbers until the
+          simulated NAV tracks the real ETF as closely as possible day by day, over the full
+          15-20 year history. The fitter looks at four kinds of error at once (day-to-day
+          tracking, long-term drift, average gap, worst gap) and picks the parameters that
+          minimize the combined score. This calibration re-runs automatically every Monday.
+        </p>
+
+        <p className="mb-3">
+          <strong className="text-foreground">Current calibrated values:</strong>
+        </p>
+        <div className="overflow-x-auto mb-3">
+          <table className="text-xs md:text-sm w-full">
+            <thead>
+              <tr className="text-left text-muted">
+                <th className="pr-4 pb-1">ETF</th>
+                <th className="pr-4 pb-1">Index / Leverage</th>
+                <th className="pr-4 pb-1">Rate sensitivity</th>
+                <th className="pb-1">Base spread</th>
+              </tr>
+            </thead>
+            <tbody className="font-mono">
+              <tr><td className="pr-4">SSO</td>  <td className="pr-4">S&amp;P 500 / 2x</td>   <td className="pr-4">0.6893</td><td>0.248%</td></tr>
+              <tr><td className="pr-4">UPRO</td> <td className="pr-4">S&amp;P 500 / 3x</td>   <td className="pr-4">0.7310</td><td>0.364%</td></tr>
+              <tr><td className="pr-4">QLD</td>  <td className="pr-4">Nasdaq 100 / 2x</td>  <td className="pr-4">0.7099</td><td>0.073%</td></tr>
+              <tr><td className="pr-4">TQQQ</td> <td className="pr-4">Nasdaq 100 / 3x</td>  <td className="pr-4">0.8198</td><td>0.058%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="mb-3">
+          A few sanity checks fall out of this. 3x funds have higher rate sensitivities than 2x —
+          banks charge more for taking on more leverage. Nasdaq-tracking funds are slightly more
+          rate-sensitive than S&amp;P-tracking ones, which fits the intuition that a more volatile
+          index has a more expensive swap book.
+        </p>
+
+        <p className="mb-3">
+          <strong className="text-foreground">If you want the math.</strong> The daily formula is:
+        </p>
+        <pre className="text-xs md:text-sm bg-muted/20 p-3 rounded mb-3 overflow-x-auto whitespace-pre-wrap">
+{`R_LETF(t) = L × R_index(t)
+            − ER_daily
+            − (|L| − 1) × (R_borrow(t) + swapSpread_daily(t))
+
+swapSpread_daily(t) = (rateSensitivity × R_borrow_annual(t) + baseSpread) / 360
+NAV(t) = NAV(t-1) × (1 + R_LETF(t))      (floored at 0)`}
+        </pre>
+        <p className="mb-3">
+          The <code>(|L| − 1)</code> factor is &quot;you only pay financing on the borrowed
+          portion&quot; — a 3x fund borrows 2x its own capital, so it pays the borrow + spread on
+          that 2x slice. Compounding day by day is what produces volatility decay over long
+          horizons.
+        </p>
+
+        <p className="mb-3">
+          <strong className="text-foreground">How well does it match reality?</strong> After the
+          latest calibration, the simulated cumulative returns for UPRO, TQQQ, SSO, and QLD match
+          their real counterparts to within roughly a few basis points of final return over
+          15-20 years. You can verify this yourself on the{" "}
+          <a
+            href="/tools?tab=backtest&letf=UPRO%2BTQQQ&sd=2006-06-21&ed=2026-05-22&sma=0&e0_n=QLD&e1_n=SSO&e2_n=UPRO-real&e3_n=TQQQ-real&e4_n=QLD-real&e5_n=SSO-real"
+            className="text-accent underline hover:opacity-80"
+          >
+            backtest with simulated and real ETFs side-by-side
+          </a>{" "}
+          — the simulated and <code>-real</code> lines should overlap.
+        </p>
+
+        <p>
+          <strong className="text-foreground">What this simulation does <em>not</em> capture.</strong>{" "}
+          Intraday rebalancing slippage, bid/ask widening during stress, dividend timing quirks,
+          and any future regime change in how banks price these swaps. Treat the synthetic
+          history as a reasonable approximation for research, not a guarantee.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "links",
+    question: "Where can I find the source code or discuss this app?",
+    answer: (
+      <>
+        <ul className="list-disc list-inside space-y-2 ml-4">
+          <li>
+            <strong className="text-foreground">Source code on GitHub:</strong>{" "}
+            <a
+              href="https://github.com/ravelab/l-etf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline hover:opacity-80 break-all"
+            >
+              github.com/ravelab/l-etf
+            </a>
+          </li>
+          <li>
+            <strong className="text-foreground">Reddit discussion (r/LETFs):</strong>{" "}
+            <a
+              href="https://www.reddit.com/r/LETFs/comments/1tiu8ar/letfcom_track_sma_signals_backtest_leveraged_etf/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline hover:opacity-80 break-all"
+            >
+              r/LETFs thread
+            </a>
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
     question: "Are past results a guarantee of future performance?",
     answer: (
       <>
@@ -391,11 +542,7 @@ export default function FAQPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-3 md:p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">Frequently Asked Questions</h1>
-        <p className="text-muted mb-8">
-          Plain-English answers about leveraged ETFs, moving-average strategies, and how to read the
-          backtests.
-        </p>
+        <h1 className="text-3xl md:text-4xl font-bold mb-8">Frequently Asked Questions</h1>
 
         <div className="space-y-4 md:space-y-6">
           {FAQ_DATA.map((item, index) => (
