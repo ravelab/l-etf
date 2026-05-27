@@ -3,6 +3,11 @@
 import { Card } from "@/components/ui/Card";
 import type { RunSummary } from "@/lib/run-summary";
 
+function formatBufferPair(lower: number, upper: number): string {
+  if (lower === upper) return `${upper}%`;
+  return `−${lower}/${upper}%`;
+}
+
 function formatRiskOffAsset(asset: string): string {
   const parts = asset.split("+").filter(Boolean);
   if (parts.length <= 1) return asset;
@@ -71,7 +76,7 @@ export function SimulationRunSummary({
         )}
         {showBufferSp && (
           <span className="text-muted min-w-0">
-            SPX Buffer: <span className="text-foreground">{summary.smaSpUpperBuffer}%</span>
+            SPX Buffer: <span className="text-foreground">{formatBufferPair(summary.smaSpLowerBuffer, summary.smaSpUpperBuffer)}</span>
           </span>
         )}
         {showPeriodNq && (
@@ -81,7 +86,7 @@ export function SimulationRunSummary({
         )}
         {showBufferNq && (
           <span className="text-muted min-w-0">
-            NDX Buffer: <span className="text-foreground">{summary.smaNqUpperBuffer}%</span>
+            NDX Buffer: <span className="text-foreground">{formatBufferPair(summary.smaNqLowerBuffer, summary.smaNqUpperBuffer)}</span>
           </span>
         )}
         {showRiskOffAsset && (
