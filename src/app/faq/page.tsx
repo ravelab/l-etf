@@ -355,13 +355,25 @@ const FAQ_DATA: FAQItem[] = [
           switching just because the price barely crossed the line.
         </p>
         <p className="mb-3">
-          <strong className="text-foreground">How it works:</strong>
+          The buffer is a <strong className="text-foreground">pair</strong> of values: the lower
+          (sell-side) threshold for falling below the SMA, and the upper (buy-side) threshold for
+          rising above it. They&apos;re shown in the input field as{" "}
+          <code className="text-foreground">−[lower] , [upper] %</code>.
         </p>
-        <ul className="list-disc list-inside space-y-1 ml-4">
-          <li>With a <strong className="text-foreground">5% buffer</strong>, you only exit when 
-            price falls 5% below the SMA</li>
-          <li>You only re-enter when price rises 5% above the SMA</li>
-        </ul>
+        <p className="mb-3">
+          <strong className="text-foreground">Symmetric example:</strong> set both to{" "}
+          <strong className="text-foreground">5%</strong> and the strategy exits when price falls
+          5% below the SMA and re-enters when price rises 5% above it.
+        </p>
+        <p className="mb-3">
+          <strong className="text-foreground">Asymmetric example:</strong> set{" "}
+          <code className="text-foreground">−4 / 8%</code> to exit relatively quickly on the way
+          down (4% below SMA) but wait for a clearer recovery before buying back in (8% above
+          SMA). The reverse —{" "}
+          <code className="text-foreground">−8 / 4%</code> — is more reluctant to sell but eager to
+          re-enter. Tuning the two sides independently lets you bias toward fewer whipsaws or
+          earlier exits.
+        </p>
         <p>
           Buffers can reduce false switches and trading costs. The tradeoff is that they can also
           delay exits or delay buying back in.
