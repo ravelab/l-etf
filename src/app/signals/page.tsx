@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Input } from "@/components/ui/Input";
+import { BufferPairInput } from "@/components/ui/BufferPairInput";
 import { Card } from "@/components/ui/Card";
 import { SignalCard } from "@/components/home/SignalCard";
 import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
@@ -28,10 +29,12 @@ export default function SignalsPage() {
   const { inputs, persist } = getSharedInputs();
 
   const [smaSpPeriod, setSmaSpPeriod] = useState(inputs.smaSpPeriod ?? 160);
-  const [smaSpBuffer, setSmaSpBuffer] = useState(inputs.smaSpBuffer ?? 4);
+  const [smaSpUpperBuffer, setSmaSpUpperBuffer] = useState(inputs.smaSpUpperBuffer ?? 4);
+  const [smaSpLowerBuffer, setSmaSpLowerBuffer] = useState(inputs.smaSpLowerBuffer ?? 4);
   const [smaSpEnabled, setSmaSpEnabled] = useState(inputs.smaSpEnabled ?? true);
   const [smaNqPeriod, setSmaNqPeriod] = useState(inputs.smaNqPeriod ?? 70);
-  const [smaNqBuffer, setSmaNqBuffer] = useState(inputs.smaNqBuffer ?? 12);
+  const [smaNqUpperBuffer, setSmaNqUpperBuffer] = useState(inputs.smaNqUpperBuffer ?? 12);
+  const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(inputs.smaNqLowerBuffer ?? 12);
   const [smaNqEnabled, setSmaNqEnabled] = useState(inputs.smaNqEnabled ?? true);
   // notifyEveryClose is push-only, persisted under the push alert config blob,
   // so it survives reloads even though it isn't part of the shared input set.
@@ -46,10 +49,10 @@ export default function SignalsPage() {
 
   const pushSmaConfig: PushSmaConfig = {
     smaSpPeriod,
-    smaSpBuffer,
+    smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpEnabled,
     smaNqPeriod,
-    smaNqBuffer,
+    smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqEnabled,
     notifyEveryClose,
   };
@@ -61,13 +64,13 @@ export default function SignalsPage() {
   useEffect(() => {
     persist({
       smaSpPeriod,
-      smaSpBuffer,
+      smaSpUpperBuffer, smaSpLowerBuffer,
       smaSpEnabled,
       smaNqPeriod,
-      smaNqBuffer,
+      smaNqUpperBuffer, smaNqLowerBuffer,
       smaNqEnabled,
     });
-  }, [smaSpPeriod, smaSpBuffer, smaSpEnabled, smaNqPeriod, smaNqBuffer, smaNqEnabled, persist]);
+  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaSpEnabled, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaNqEnabled, persist]);
 
   const fetchSignals = useCallback(async () => {
     setLoading(true);
@@ -76,9 +79,11 @@ export default function SignalsPage() {
     try {
       const params = new URLSearchParams({
         smaSpPeriod: String(smaSpPeriod),
-        smaSpBuffer: String(smaSpBuffer),
+        smaSpUpperBuffer: String(smaSpUpperBuffer),
+        smaSpLowerBuffer: String(smaSpLowerBuffer),
         smaNqPeriod: String(smaNqPeriod),
-        smaNqBuffer: String(smaNqBuffer),
+        smaNqUpperBuffer: String(smaNqUpperBuffer),
+        smaNqLowerBuffer: String(smaNqLowerBuffer),
       });
 
       const res = await fetch(`/api/sma-signals?${params}`);
@@ -94,7 +99,7 @@ export default function SignalsPage() {
     } finally {
       setLoading(false);
     }
-  }, [smaSpPeriod, smaSpBuffer, smaNqPeriod, smaNqBuffer]);
+  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -128,16 +133,13 @@ export default function SignalsPage() {
                 value={smaSpPeriod}
                 onChange={(e) => setSmaSpPeriod(Number(e.target.value))}
               />
-              <Input
+              <BufferPairInput
                 label="SPX SMA Buffer"
-                info="A cushion around the SPX moving-average line. Price has to rise this far above the line to switch into the leveraged ETF, or fall this far below to switch out. A small buffer prevents flipping back and forth on tiny moves."
-                type="number"
-                step={0.1}
-                min={0}
-                max={30}
-                suffix="%"
-                value={smaSpBuffer}
-                onChange={(e) => setSmaSpBuffer(Number(e.target.value))}
+                info="Two cushions around the SPX moving-average line. The first (with the −) is the below-SMA threshold: SPX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: SPX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
+                lowerValue={smaSpLowerBuffer}
+                upperValue={smaSpUpperBuffer}
+                onLowerChange={setSmaSpLowerBuffer}
+                onUpperChange={setSmaSpUpperBuffer}
               />
               <Input
                 label="NDX SMA Period"
@@ -149,16 +151,13 @@ export default function SignalsPage() {
                 value={smaNqPeriod}
                 onChange={(e) => setSmaNqPeriod(Number(e.target.value))}
               />
-              <Input
+              <BufferPairInput
                 label="NDX SMA Buffer"
-                info="A cushion around the NDX moving-average line. Price has to rise this far above the line to switch into the leveraged ETF, or fall this far below to switch out. A small buffer prevents flipping back and forth on tiny moves."
-                type="number"
-                step={0.1}
-                min={0}
-                max={30}
-                suffix="%"
-                value={smaNqBuffer}
-                onChange={(e) => setSmaNqBuffer(Number(e.target.value))}
+                info="Two cushions around the NDX moving-average line. The first (with the −) is the below-SMA threshold: NDX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: NDX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
+                lowerValue={smaNqLowerBuffer}
+                upperValue={smaNqUpperBuffer}
+                onLowerChange={setSmaNqLowerBuffer}
+                onUpperChange={setSmaNqUpperBuffer}
               />
             </div>
             <div className="mt-4 min-h-[20px] text-sm text-muted">

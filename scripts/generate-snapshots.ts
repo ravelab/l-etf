@@ -189,8 +189,10 @@ type SharedInputs = {
   windowLength: number;
   smaSpPeriod: number;
   smaNqPeriod: number;
-  smaSpBuffer: number;
-  smaNqBuffer: number;
+  smaSpUpperBuffer: number;
+  smaSpLowerBuffer: number;
+  smaNqUpperBuffer: number;
+  smaNqLowerBuffer: number;
   riskOffAsset: RiskOffAsset;
   smaExecutionMode: NonNullable<EtfConfig["smaExecutionMode"]>;
 };
@@ -213,8 +215,10 @@ async function main() {
     windowLength: getDefaultWindowLength(),
     smaSpPeriod: getDefaultSmaPeriod("sp500"),
     smaNqPeriod: getDefaultSmaPeriod("nasdaq100"),
-    smaSpBuffer: getDefaultSmaBuffer("sp500"),
-    smaNqBuffer: getDefaultSmaBuffer("nasdaq100"),
+    smaSpUpperBuffer: getDefaultSmaBuffer("sp500"),
+    smaSpLowerBuffer: getDefaultSmaBuffer("sp500"),
+    smaNqUpperBuffer: getDefaultSmaBuffer("nasdaq100"),
+    smaNqLowerBuffer: getDefaultSmaBuffer("nasdaq100"),
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     smaExecutionMode: "next-day-open",
   } as const;
@@ -326,7 +330,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
     createPresetEtfConfig(`etf${idx + 1}`, preset, {
       smaEnabled: true,
       smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
-      smaBuffer: preset.index === "nasdaq100" ? shared.smaNqBuffer : shared.smaSpBuffer,
+      smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
       riskOffAsset: shared.riskOffAsset,
     })
   );
@@ -401,8 +405,10 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
     endDate: shared.endDate,
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaSpLowerBuffer: shared.smaSpLowerBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaNqLowerBuffer: shared.smaNqLowerBuffer,
     riskOffAsset: shared.riskOffAsset,
     smaMode: 1,
     etfConfigs: [],
@@ -485,17 +491,17 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   }> =
     yearSpan > 90
       ? [
-          { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: shared.smaSpPeriod, buffer: shared.smaSpBuffer },
-          { index: "sp500", leverage: 3, period: shared.smaSpPeriod, buffer: shared.smaSpBuffer },
+          { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
+          { index: "sp500", leverage: 3, period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
         ]
       : [
-          { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: shared.smaSpPeriod, buffer: shared.smaSpBuffer },
-          { index: "sp500", leverage: 5, period: shared.smaSpPeriod, buffer: shared.smaSpBuffer },
-          { index: "sp500", leverage: 3, period: shared.smaSpPeriod, buffer: shared.smaSpBuffer },
+          { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
+          { index: "sp500", leverage: 5, period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
+          { index: "sp500", leverage: 3, period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
           ...(hasNqData
             ? ([
-                { index: "nasdaq100" as const, leverage: 4, period: shared.smaNqPeriod, buffer: shared.smaNqBuffer },
-                { index: "nasdaq100" as const, leverage: 3, period: shared.smaNqPeriod, buffer: shared.smaNqBuffer },
+                { index: "nasdaq100" as const, leverage: 4, period: shared.smaNqPeriod, buffer: shared.smaNqUpperBuffer },
+                { index: "nasdaq100" as const, leverage: 3, period: shared.smaNqPeriod, buffer: shared.smaNqUpperBuffer },
               ])
             : []),
         ];
@@ -514,7 +520,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
         maxLeverage: step.maxLeverage,
         displayName: step.displayName,
         smaPeriod: step.period,
-        smaBuffer: step.buffer,
+        smaUpperBuffer: step.buffer, smaLowerBuffer: step.buffer,
         riskOffAsset: shared.riskOffAsset,
         riskOffCloseByTicker: step.index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
         riskOffOpenByTicker: step.index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
@@ -580,9 +586,11 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     letf: "FUTURES",
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaSpLowerBuffer: shared.smaSpLowerBuffer,
     smaNqPeriod: shared.smaNqPeriod,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaNqLowerBuffer: shared.smaNqLowerBuffer,
     riskOffAsset: shared.riskOffAsset,
     amount,
     leverageTolerance: `${leverageTolerancePct}%`,
@@ -599,8 +607,8 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
     riskOffAsset: shared.riskOffAsset,
     amount,
     leverageTolerancePct,
@@ -647,7 +655,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
     const smaConfig: EtfConfig = createPresetEtfConfig(`${sub.name}-wr-sma`, sub, {
       smaEnabled: true,
       smaPeriod: sub.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
-      smaBuffer: sub.index === "nasdaq100" ? shared.smaNqBuffer : shared.smaSpBuffer,
+      smaUpperBuffer: sub.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: sub.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
       riskOffAsset: shared.riskOffAsset,
       smaExecutionMode: shared.smaExecutionMode,
     });
@@ -675,8 +683,8 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
     riskOffAsset: shared.riskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     annualizedInflation: inflationData.annualizedInflation,
@@ -685,9 +693,9 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
       startDate: shared.startDate,
       endDate: shared.endDate,
       smaSpPeriod: shared.smaSpPeriod,
-      smaSpBuffer: shared.smaSpBuffer,
+      smaSpUpperBuffer: shared.smaSpUpperBuffer,
       smaNqPeriod: shared.smaNqPeriod,
-      smaNqBuffer: shared.smaNqBuffer,
+      smaNqUpperBuffer: shared.smaNqUpperBuffer,
       letf: shared.preset,
       riskOffAsset: shared.riskOffAsset,
     },
@@ -726,8 +734,10 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
   const { sp500Variants, nasdaqVariants } = buildStrategyVariants({
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaSpLowerBuffer: shared.smaSpLowerBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaNqLowerBuffer: shared.smaNqLowerBuffer,
     riskOffAsset: shared.riskOffAsset,
   });
 
@@ -807,8 +817,8 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
     riskOffAsset: shared.riskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     annualizedInflation: inflationData.annualizedInflation,
@@ -859,7 +869,7 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
           name: `${preset.leverage}x SMA ${preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod} (${asset})`,
           smaEnabled: true,
           smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
-          smaBuffer: preset.index === "nasdaq100" ? shared.smaNqBuffer : shared.smaSpBuffer,
+          smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
           riskOffAsset: asset,
           smaExecutionMode: shared.smaExecutionMode,
         });
@@ -869,7 +879,7 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
         simulated: true,
         smaEnabled: false,
         smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
-        smaBuffer: 0,
+        smaUpperBuffer: 0, smaLowerBuffer: 0,
         riskOffAsset: shared.riskOffAsset,
         smaExecutionMode: shared.smaExecutionMode,
       });
@@ -913,8 +923,8 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaExecutionMode: shared.smaExecutionMode,
     showBaseline: true,
     annualizedInflation: inflationData.annualizedInflation,
@@ -969,7 +979,7 @@ async function buildSmaSweepSnapshot(
         name: `${preset.leverage}x SMA ${sma}`,
         smaEnabled: true,
         smaPeriod: sma,
-        smaBuffer: preset.index === "nasdaq100" ? shared.smaNqBuffer : shared.smaSpBuffer,
+        smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
         riskOffAsset: shared.riskOffAsset,
         smaExecutionMode: shared.smaExecutionMode,
       }));
@@ -979,7 +989,7 @@ async function buildSmaSweepSnapshot(
       simulated: true,
       smaEnabled: false,
       smaPeriod: getDefaultSmaPeriod(preset.index),
-      smaBuffer: 0,
+      smaUpperBuffer: 0, smaLowerBuffer: 0,
       riskOffAsset: shared.riskOffAsset,
       smaExecutionMode: shared.smaExecutionMode,
     });
@@ -1013,8 +1023,8 @@ async function buildSmaSweepSnapshot(
     minSmaPeriod: params.minSmaPeriod,
     maxSmaPeriod: params.maxSmaPeriod,
     stepSize: params.stepSize,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
     riskOffAsset: shared.riskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     showBaseline: true,
@@ -1074,7 +1084,7 @@ async function buildBufferSweepSnapshot(
         name: `${preset.leverage}x SMA ${roundedBuffer}%`,
         smaEnabled: true,
         smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
-        smaBuffer: roundedBuffer,
+        smaUpperBuffer: roundedBuffer, smaLowerBuffer: roundedBuffer,
         riskOffAsset: shared.riskOffAsset,
         smaExecutionMode: shared.smaExecutionMode,
       }));
@@ -1084,7 +1094,7 @@ async function buildBufferSweepSnapshot(
       simulated: true,
       smaEnabled: false,
       smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
-      smaBuffer: 0,
+      smaUpperBuffer: 0, smaLowerBuffer: 0,
       riskOffAsset: shared.riskOffAsset,
       smaExecutionMode: shared.smaExecutionMode,
     });

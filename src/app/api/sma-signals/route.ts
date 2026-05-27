@@ -6,9 +6,11 @@ import type { SmaSignalResult } from "@/lib/sma-signals";
 
 const querySchema = z.object({
   smaSpPeriod: z.coerce.number().min(5).max(500),
-  smaSpBuffer: z.coerce.number().min(0).max(30),
+  smaSpUpperBuffer: z.coerce.number().min(0).max(30),
+  smaSpLowerBuffer: z.coerce.number().min(0).max(30),
   smaNqPeriod: z.coerce.number().min(5).max(500),
-  smaNqBuffer: z.coerce.number().min(0).max(30),
+  smaNqUpperBuffer: z.coerce.number().min(0).max(30),
+  smaNqLowerBuffer: z.coerce.number().min(0).max(30),
 });
 
 export async function GET(request: NextRequest) {
@@ -17,9 +19,11 @@ export async function GET(request: NextRequest) {
 
   const parsed = querySchema.safeParse({
     smaSpPeriod: searchParams.get("smaSpPeriod") || String(defaults.smaSpPeriod),
-    smaSpBuffer: searchParams.get("smaSpBuffer") || String(defaults.smaSpBuffer),
+    smaSpUpperBuffer: searchParams.get("smaSpUpperBuffer") || String(defaults.smaSpUpperBuffer),
+    smaSpLowerBuffer: searchParams.get("smaSpLowerBuffer") || String(defaults.smaSpLowerBuffer),
     smaNqPeriod: searchParams.get("smaNqPeriod") || String(defaults.smaNqPeriod),
-    smaNqBuffer: searchParams.get("smaNqBuffer") || String(defaults.smaNqBuffer),
+    smaNqUpperBuffer: searchParams.get("smaNqUpperBuffer") || String(defaults.smaNqUpperBuffer),
+    smaNqLowerBuffer: searchParams.get("smaNqLowerBuffer") || String(defaults.smaNqLowerBuffer),
   });
 
   if (!parsed.success) {
@@ -29,7 +33,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { smaSpPeriod, smaSpBuffer, smaNqPeriod, smaNqBuffer } = parsed.data;
+  const { smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer } = parsed.data;
 
   try {
     // Fetch latest prices for both indexes (last 2 years of data for SMA calculation)
@@ -86,9 +90,9 @@ export async function GET(request: NextRequest) {
       config: {
         ...getDefaultSmaSignalConfig(),
         smaSpPeriod,
-        smaSpBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
-        smaNqBuffer,
+        smaNqUpperBuffer, smaNqLowerBuffer,
       },
     }) satisfies {
       sp500: SmaSignalResult;

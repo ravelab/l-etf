@@ -4,9 +4,11 @@ export type RunSummary = {
   endDate: string;
   windowLength: number;
   smaSpPeriod: number;
-  smaSpBuffer: number;
+  smaSpUpperBuffer: number;
+  smaSpLowerBuffer: number;
   smaNqPeriod: number;
-  smaNqBuffer: number;
+  smaNqUpperBuffer: number;
+  smaNqLowerBuffer: number;
   riskOffAsset: string;
   tradeAfterHours: boolean;
   amount?: number;
@@ -19,9 +21,11 @@ export function buildRunSummary(summary: {
   endDate: string;
   windowLength: number;
   smaSpPeriod: number;
-  smaSpBuffer: number;
+  smaSpUpperBuffer: number;
+  smaSpLowerBuffer: number;
   smaNqPeriod: number;
-  smaNqBuffer: number;
+  smaNqUpperBuffer: number;
+  smaNqLowerBuffer: number;
   riskOffAsset: string;
   tradeAfterHours?: boolean;
   amount?: number;

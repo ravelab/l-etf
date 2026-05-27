@@ -9,17 +9,19 @@ test("buildPresetBacktestUrl builds correct query params", () => {
     startDate: "2020-01-01",
     endDate: "2021-01-01",
     smaPeriod: 185,
-    smaBuffer: 3.5,
+    smaUpperBuffer: 3.5,
+    smaLowerBuffer: 3.5,
     riskOffAsset: "SGOV"
   });
-  
+
   const u = new URL(url, "http://localhost");
   assert.equal(u.searchParams.get("tab"), "backtest");
   assert.equal(u.searchParams.get("letf"), "UPRO");
   assert.equal(u.searchParams.get("sd"), "2020-01-01");
   assert.equal(u.searchParams.get("ed"), "2021-01-01");
   assert.equal(u.searchParams.get("smaPsp"), "185");
-  assert.equal(u.searchParams.get("smatsp"), "3.5");
+  assert.equal(u.searchParams.get("smatspU"), "3.5");
+  assert.equal(u.searchParams.get("smatspL"), "3.5");
   assert.equal(u.searchParams.get("ro"), "SGOV");
   assert.equal(u.searchParams.get("autorun"), "1");
 });
@@ -30,12 +32,14 @@ test("buildPresetBacktestUrl uses nasdaq params for nasdaq index", () => {
     startDate: "2020-01-01",
     endDate: "2021-01-01",
     smaPeriod: 150,
-    smaBuffer: 12,
+    smaUpperBuffer: 12,
+    smaLowerBuffer: 8,
     riskOffAsset: "SGOV"
   });
-  
+
   const u = new URL(url, "http://localhost");
   assert.equal(u.searchParams.get("smaPnq"), "150");
-  assert.equal(u.searchParams.get("smatnq"), "12");
+  assert.equal(u.searchParams.get("smatnqU"), "12");
+  assert.equal(u.searchParams.get("smatnqL"), "8");
   assert.equal(u.searchParams.has("smaPsp"), false);
 });

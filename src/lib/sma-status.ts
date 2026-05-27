@@ -4,10 +4,12 @@ import { getSmaSignal, type SmaSignalResult } from "@/lib/sma-signals";
 
 export type SmaSignalConfig = {
   smaSpPeriod: number;
-  smaSpBuffer: number;
+  smaSpUpperBuffer: number;
+  smaSpLowerBuffer: number;
   smaSpEnabled: boolean;
   smaNqPeriod: number;
-  smaNqBuffer: number;
+  smaNqUpperBuffer: number;
+  smaNqLowerBuffer: number;
   smaNqEnabled: boolean;
   /** If true, deliver a push every market close regardless of whether the SMA signal changed. */
   notifyEveryClose: boolean;
@@ -21,10 +23,12 @@ export type SmaSignalSnapshot = {
 
 const DEFAULT_SMA_SIGNAL_CONFIG: SmaSignalConfig = {
   smaSpPeriod: getDefaultSmaPeriod("sp500"),
-  smaSpBuffer: getDefaultSmaBuffer("sp500"),
+  smaSpUpperBuffer: getDefaultSmaBuffer("sp500"),
+  smaSpLowerBuffer: getDefaultSmaBuffer("sp500"),
   smaSpEnabled: true,
   smaNqPeriod: getDefaultSmaPeriod("nasdaq100"),
-  smaNqBuffer: getDefaultSmaBuffer("nasdaq100"),
+  smaNqUpperBuffer: getDefaultSmaBuffer("nasdaq100"),
+  smaNqLowerBuffer: getDefaultSmaBuffer("nasdaq100"),
   smaNqEnabled: true,
   notifyEveryClose: false,
 };
@@ -38,10 +42,12 @@ export function getDefaultSmaSignalConfig(): SmaSignalConfig {
 export function buildSmaSignalConfigFingerprint(config: SmaSignalConfig): string {
   return [
     config.smaSpPeriod,
-    config.smaSpBuffer,
+    config.smaSpUpperBuffer,
+    config.smaSpLowerBuffer,
     config.smaSpEnabled ? "1" : "0",
     config.smaNqPeriod,
-    config.smaNqBuffer,
+    config.smaNqUpperBuffer,
+    config.smaNqLowerBuffer,
     config.smaNqEnabled ? "1" : "0",
     config.notifyEveryClose ? "1" : "0",
   ].join("|");
@@ -98,10 +104,10 @@ export function describeSmaSignalStatus(snapshot: SmaSignalSnapshot, config?: Sm
 export function describeSmaSignalConfig(config: SmaSignalConfig): string {
   const parts = [];
   if (config.smaSpEnabled) {
-    parts.push(`SPX ${config.smaSpPeriod} SMA, ${formatCompactPercent(config.smaSpBuffer)}`);
+    parts.push(`SPX ${config.smaSpPeriod} SMA, −${formatCompactPercent(config.smaSpLowerBuffer)}/${formatCompactPercent(config.smaSpUpperBuffer)}`);
   }
   if (config.smaNqEnabled) {
-    parts.push(`NDX ${config.smaNqPeriod} SMA, ${formatCompactPercent(config.smaNqBuffer)}`);
+    parts.push(`NDX ${config.smaNqPeriod} SMA, −${formatCompactPercent(config.smaNqLowerBuffer)}/${formatCompactPercent(config.smaNqUpperBuffer)}`);
   }
   return parts.length > 0 ? parts.join("; ") : "None";
 }
@@ -168,8 +174,8 @@ export function computeSmaSignalSnapshot(params: {
   const { sp500Prices, nasdaqPrices, config, timestamp = new Date().toISOString() } = params;
 
   return {
-    sp500: getSmaSignal(sp500Prices, config.smaSpPeriod, config.smaSpBuffer),
-    nasdaq100: getSmaSignal(nasdaqPrices, config.smaNqPeriod, config.smaNqBuffer),
+    sp500: getSmaSignal(sp500Prices, config.smaSpPeriod, { upper: config.smaSpUpperBuffer, lower: config.smaSpLowerBuffer }),
+    nasdaq100: getSmaSignal(nasdaqPrices, config.smaNqPeriod, { upper: config.smaNqUpperBuffer, lower: config.smaNqLowerBuffer }),
     timestamp,
   };
 }

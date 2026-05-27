@@ -168,8 +168,10 @@ export function persistedToolStateMatchesUrl(state: Record<string, unknown>, par
 
   if (!urlNumMatchesState(params, "smaPsp", state.smaSpPeriod)) return false;
   if (!urlNumMatchesState(params, "smaPnq", state.smaNqPeriod)) return false;
-  if (!urlNumMatchesState(params, "smatsp", state.smaSpBuffer)) return false;
-  if (!urlNumMatchesState(params, "smatnq", state.smaNqBuffer)) return false;
+  if (!urlNumMatchesState(params, "smatspU", state.smaSpUpperBuffer)) return false;
+  if (!urlNumMatchesState(params, "smatspL", state.smaSpLowerBuffer)) return false;
+  if (!urlNumMatchesState(params, "smatnqU", state.smaNqUpperBuffer)) return false;
+  if (!urlNumMatchesState(params, "smatnqL", state.smaNqLowerBuffer)) return false;
 
   const ro = params.get("ro");
   if (ro != null && ro !== "") {

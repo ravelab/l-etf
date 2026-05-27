@@ -164,7 +164,7 @@ async function main() {
     createPresetEtfConfig("upro", ETF_PRESETS.UPRO, {
       smaEnabled: true,
       smaPeriod: smaSpPeriod,
-      smaBuffer: smaSpBufferPct,
+      smaUpperBuffer: smaSpBufferPct, smaLowerBuffer: smaSpBufferPct,
       riskOffAsset,
     }),
   ];
@@ -209,7 +209,7 @@ async function main() {
     initialEquity: amount,
     targetLeverage: 3,
     smaPeriod: smaSpPeriod,
-    smaBuffer: smaSpBufferPct,
+    smaUpperBuffer: smaSpBufferPct, smaLowerBuffer: smaSpBufferPct,
     riskOffAsset,
     riskOffCloseByTicker,
     riskOffOpenByTicker,

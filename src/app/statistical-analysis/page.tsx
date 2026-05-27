@@ -85,7 +85,7 @@ export function StatisticalAnalysisPageContent({
     letf, setLetf, index, setIndex, startDate, setStartDate, endDate, setEndDate,
     windowLength,
     smaSpPeriod, smaNqPeriod,
-    smaSpBuffer, smaNqBuffer,
+    smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     riskOffAsset,
     isCombo, selectedPreset,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
@@ -281,7 +281,7 @@ export function StatisticalAnalysisPageContent({
           simulated: true,
           smaEnabled: true,
           smaPeriod: sub.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod,
-          smaBuffer: sub.index === "nasdaq100" ? smaNqBuffer : smaSpBuffer,
+          smaUpperBuffer: sub.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer, smaLowerBuffer: sub.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
           smaIndex: sub.index,
           riskOffAsset,
         };
@@ -315,9 +315,9 @@ export function StatisticalAnalysisPageContent({
         endDate,
         windowLength,
         smaSpPeriod,
-        smaSpBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
-        smaNqBuffer,
+        smaNqUpperBuffer, smaNqLowerBuffer,
         letf,
         riskOffAsset,
       });
@@ -332,8 +332,7 @@ export function StatisticalAnalysisPageContent({
         windowLength,
         smaSpPeriod,
         smaNqPeriod,
-        smaSpBuffer,
-        smaNqBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         riskOffAsset,
         annualizedInflation: inflationData.annualizedInflation,
         monthlyCpi: inflationData.monthlyCpi,
@@ -395,9 +394,9 @@ export function StatisticalAnalysisPageContent({
     setRunSummary,
     setWinRatesByWindow,
     selectedPreset,
-    smaNqBuffer,
+    smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqPeriod,
-    smaSpBuffer,
+    smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
     startDate,
     updateUrl,
@@ -425,7 +424,7 @@ export function StatisticalAnalysisPageContent({
         <SharedToolInputs
           values={{
             letf, startDate, endDate, windowLength,
-            smaSpPeriod, smaSpBuffer, smaNqPeriod, smaNqBuffer, riskOffAsset,
+            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset,
           }}
           onChange={handleFieldChange}
           showRollingFields={false}

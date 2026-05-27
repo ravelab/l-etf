@@ -26,7 +26,10 @@ export interface EtfConfig {
   displayStartDate?: string;
   smaEnabled: boolean;
   smaPeriod: number;
-  smaBuffer: number;
+  // Upper = above-SMA threshold (price > SMA * (1 + upper/100)) — re-entry signal.
+  // Lower = below-SMA threshold (price < SMA * (1 - lower/100)) — exit signal.
+  smaUpperBuffer: number;
+  smaLowerBuffer: number;
   smaIndex: "sp500" | "nasdaq100";
   smaExecutionMode?: "trigger-day-close" | "next-day-close" | "next-day-open";
   riskOffAsset: "SGOV" | "VGSH" | "GLDM" | "BRK.B" | "VOO" | "QQQ" | "BRK.B+GLDM" | "VGSH+GLDM" | "BRK.B+VGSH" | "BRK.B+GLDM+VGSH";

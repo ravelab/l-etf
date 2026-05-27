@@ -8,24 +8,25 @@ test("decodeBacktestParams returns null when no recognized params present", () =
 });
 
 test("decodeBacktestParams parses valid numeric SMA params", () => {
-  const result = decodeBacktestParams("?sd=2020-01-01&smaPsp=185&smaPnq=150&smatsp=3.6&smatnq=12");
+  const result = decodeBacktestParams("?sd=2020-01-01&smaPsp=185&smaPnq=150&smatspU=3.6&smatspL=3.6&smatnqU=12&smatnqL=8");
   assert.ok(result !== null);
   assert.equal(result.smaSpPeriod, 185);
   assert.equal(result.smaNqPeriod, 150);
-  assert.equal(result.smaSpBuffer, 3.6);
-  assert.equal(result.smaNqBuffer, 12);
+  assert.equal(result.smaSpUpperBuffer, 3.6);
+  assert.equal(result.smaSpLowerBuffer, 3.6);
+  assert.equal(result.smaNqUpperBuffer, 12);
+  assert.equal(result.smaNqLowerBuffer, 8);
 });
 
 test("decodeBacktestParams returns undefined (not NaN) for non-numeric SMA params", () => {
-  const result = decodeBacktestParams("?sd=2020-01-01&smaPsp=invalid&smaPnq=NaN&smatsp=abc&smatnq=");
+  const result = decodeBacktestParams("?sd=2020-01-01&smaPsp=invalid&smaPnq=NaN&smatspU=abc&smatspL=&smatnqU=abc&smatnqL=");
   assert.ok(result !== null);
   assert.equal(result.smaSpPeriod, undefined);
   assert.equal(result.smaNqPeriod, undefined);
-  assert.equal(result.smaSpBuffer, undefined);
-  assert.equal(result.smaNqBuffer, undefined);
-  // None of these should be NaN
-  assert.ok(!Number.isNaN(result.smaSpPeriod));
-  assert.ok(!Number.isNaN(result.smaNqPeriod));
+  assert.equal(result.smaSpUpperBuffer, undefined);
+  assert.equal(result.smaSpLowerBuffer, undefined);
+  assert.equal(result.smaNqUpperBuffer, undefined);
+  assert.equal(result.smaNqLowerBuffer, undefined);
 });
 
 test("decodeBacktestParams returns undefined for absent SMA params", () => {
@@ -33,8 +34,10 @@ test("decodeBacktestParams returns undefined for absent SMA params", () => {
   assert.ok(result !== null);
   assert.equal(result.smaSpPeriod, undefined);
   assert.equal(result.smaNqPeriod, undefined);
-  assert.equal(result.smaSpBuffer, undefined);
-  assert.equal(result.smaNqBuffer, undefined);
+  assert.equal(result.smaSpUpperBuffer, undefined);
+  assert.equal(result.smaSpLowerBuffer, undefined);
+  assert.equal(result.smaNqUpperBuffer, undefined);
+  assert.equal(result.smaNqLowerBuffer, undefined);
 });
 
 test("decodeBacktestParams parses ETF configs and date range", () => {

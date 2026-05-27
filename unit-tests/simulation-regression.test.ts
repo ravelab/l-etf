@@ -24,7 +24,7 @@ const uproConfig: EtfConfig = {
   simulated: true,
   smaEnabled: false,
   smaPeriod: 200,
-  smaBuffer: 0,
+  smaUpperBuffer: 0, smaLowerBuffer: 0,
   smaIndex: "sp500",
   riskOffAsset: "SGOV"
 };
@@ -53,7 +53,7 @@ test("simulateBacktest (SMA) matches exact mathematical expectation", () => {
     id: "upro-sma",
     smaEnabled: true,
     smaPeriod: 2,
-    smaBuffer: 0,
+    smaUpperBuffer: 0, smaLowerBuffer: 0,
     smaExecutionMode: "trigger-day-close"
   };
   

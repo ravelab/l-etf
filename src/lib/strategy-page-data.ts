@@ -56,8 +56,10 @@ export function shouldIncludeStrategyChartLabel(label: string): boolean {
 export function buildStrategyVariants(params: {
   smaSpPeriod: number;
   smaNqPeriod: number;
-  smaSpBuffer: number;
-  smaNqBuffer: number;
+  smaSpUpperBuffer: number;
+  smaSpLowerBuffer: number;
+  smaNqUpperBuffer: number;
+  smaNqLowerBuffer: number;
   riskOffAsset: EtfConfig["riskOffAsset"];
   tradeAfterHours?: boolean;
 }): StrategyVariantBuckets {
@@ -82,7 +84,7 @@ export function buildStrategyVariants(params: {
     simulated: true,
     smaEnabled,
     smaPeriod: preset.index === "nasdaq100" ? params.smaNqPeriod : params.smaSpPeriod,
-    smaBuffer: preset.index === "nasdaq100" ? params.smaNqBuffer : params.smaSpBuffer,
+    smaUpperBuffer: preset.index === "nasdaq100" ? params.smaNqUpperBuffer : params.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? params.smaNqLowerBuffer : params.smaSpLowerBuffer,
     smaIndex: preset.index,
     smaExecutionMode: executionMode,
     riskOffAsset: params.riskOffAsset,
@@ -96,7 +98,7 @@ export function buildStrategyVariants(params: {
     simulated: true,
     smaEnabled: false,
     smaPeriod: indexName === LABEL_INDEX_SP500_TR ? params.smaSpPeriod : params.smaNqPeriod,
-    smaBuffer: 0,
+    smaUpperBuffer: 0, smaLowerBuffer: 0,
     smaIndex: indexName === LABEL_INDEX_SP500_TR ? "sp500" : "nasdaq100",
     riskOffAsset: params.riskOffAsset,
   });

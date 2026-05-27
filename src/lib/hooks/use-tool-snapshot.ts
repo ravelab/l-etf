@@ -129,9 +129,11 @@ export function useToolSnapshot<T = Record<string, unknown>>({
                   endDate: payload.sharedInputs.endDate,
                   windowLength: payload.sharedInputs.windowLength as number | undefined,
                   smaSpPeriod: payload.sharedInputs.smaSpPeriod,
-                  smaSpBuffer: payload.sharedInputs.smaSpBuffer,
+                  smaSpUpperBuffer: payload.sharedInputs.smaSpUpperBuffer,
+                  smaSpLowerBuffer: payload.sharedInputs.smaSpLowerBuffer,
                   smaNqPeriod: payload.sharedInputs.smaNqPeriod,
-                  smaNqBuffer: payload.sharedInputs.smaNqBuffer,
+                  smaNqUpperBuffer: payload.sharedInputs.smaNqUpperBuffer,
+                  smaNqLowerBuffer: payload.sharedInputs.smaNqLowerBuffer,
                   letf: typeof payload.sharedInputs.preset === "string" ? payload.sharedInputs.preset : undefined,
                   riskOffAsset: typeof payload.sharedInputs.riskOffAsset === "string" ? payload.sharedInputs.riskOffAsset : undefined,
                 }

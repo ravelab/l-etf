@@ -4,7 +4,7 @@ import { simulateBacktest } from "../src/lib/simulation/engine";
 import type { PricePoint, RatePoint, EtfConfig } from "../src/lib/simulation/types";
 
 const mockRates: RatePoint[] = [{ date: "2020-01-01", rateValue: 0.05, rateType: "borrow" }];
-const defaultConfig: EtfConfig = { id: "test", name: "UPRO", leverage: 3, expenseRatio: 0.91, simulated: true, smaEnabled: true, smaPeriod: 200, smaBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" };
+const defaultConfig: EtfConfig = { id: "test", name: "UPRO", leverage: 3, expenseRatio: 0.91, simulated: true, smaEnabled: true, smaPeriod: 200, smaUpperBuffer: 0, smaLowerBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" };
 
 test("Edge Case: Empty price array returns empty result", () => {
   const result = simulateBacktest([], mockRates, [defaultConfig]);
@@ -53,7 +53,7 @@ test("Edge Case: Large buffer", () => {
     { date: "2020-01-03", adj_close: 150, close: 150 }, // +50%
   ];
   // 100% buffer means price must double to trigger signal
-  const config: EtfConfig = { ...defaultConfig, smaPeriod: 2, smaBuffer: 100 };
+  const config: EtfConfig = { ...defaultConfig, smaPeriod: 2, smaUpperBuffer: 100, smaLowerBuffer: 100};
   const result = simulateBacktest(prices, mockRates, [config]);
   
   const etf = result.etfResults.find(r => r.id === "test-sma");

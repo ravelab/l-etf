@@ -758,7 +758,8 @@ export type FuturesStrategyParams = {
   maxLeverage?: number;
   displayName?: string;
   smaPeriod: number;
-  smaBuffer: number;
+  smaUpperBuffer: number;
+  smaLowerBuffer: number;
   riskOffAsset: RiskOffAsset;
   riskOffCloseByTicker?: Record<string, number[]>;
   riskOffOpenByTicker?: Record<string, number[]>;
@@ -847,7 +848,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     fullDates,
     fullSmaInput,
     params.smaPeriod,
-    params.smaBuffer
+    { upper: params.smaUpperBuffer, lower: params.smaLowerBuffer }
   );
   const fullInvestedByDate = new Map<string, boolean>();
   for (let i = 0; i < fullDates.length; i++) {

@@ -27,9 +27,9 @@ const mockRates: RatePoint[] = [{ date: "2020-01-01", rateValue: 0, rateType: "b
 
 test("Law: Higher leverage always leads to higher volatility", () => {
   const configs: EtfConfig[] = [
-    { id: "1x", name: "1x", leverage: 1, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" },
-    { id: "2x", name: "2x", leverage: 2, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" },
-    { id: "3x", name: "3x", leverage: 3, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" },
+    { id: "1x", name: "1x", leverage: 1, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaUpperBuffer: 0, smaLowerBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" },
+    { id: "2x", name: "2x", leverage: 2, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaUpperBuffer: 0, smaLowerBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" },
+    { id: "3x", name: "3x", leverage: 3, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaUpperBuffer: 0, smaLowerBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" },
   ];
   
   const result = simulateBacktest(mockPrices, mockRates, configs);
@@ -42,7 +42,7 @@ test("Law: Higher leverage always leads to higher volatility", () => {
 });
 
 test("Law: 1x leverage with 0 fees and 0 spread should match index return exactly", () => {
-  const config: EtfConfig = { id: "idx", name: "idx", leverage: 1, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" };
+  const config: EtfConfig = { id: "idx", name: "idx", leverage: 1, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaUpperBuffer: 0, smaLowerBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" };
   const result = simulateBacktest(mockPrices, mockRates, [config]);
   const etf = result.etfResults[0];
   
@@ -61,7 +61,7 @@ test("Law: Total loss floor - portfolio value never goes negative", () => {
     { date: "2020-01-03", adj_close: 10, close: 10 }, // -80% more
   ];
   // 3x leverage on -50% would be -150% return (total wipeout)
-  const config: EtfConfig = { id: "3x", name: "3x", leverage: 3, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" };
+  const config: EtfConfig = { id: "3x", name: "3x", leverage: 3, expenseRatio: 0, simulated: true, smaEnabled: false, smaPeriod: 20, smaUpperBuffer: 0, smaLowerBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV" };
   const result = simulateBacktest(crashPrices, mockRates, [config]);
   const values = result.etfResults[0].dailyValues;
   

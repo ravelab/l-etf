@@ -34,8 +34,10 @@ export function useToolForm<T extends Record<string, unknown>>(
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
-    smaSpBuffer: shared.smaSpBuffer,
-    smaNqBuffer: shared.smaNqBuffer,
+    smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaSpLowerBuffer: shared.smaSpLowerBuffer,
+    smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaNqLowerBuffer: shared.smaNqLowerBuffer,
     riskOffAsset: shared.riskOffAsset,
   };
 
@@ -58,8 +60,10 @@ export function useToolForm<T extends Record<string, unknown>>(
       windowLength: { integer: true, min: 1 },
       smaSpPeriod: { integer: true, min: 1 },
       smaNqPeriod: { integer: true, min: 1 },
-      smaSpBuffer: { min: 0 },
-      smaNqBuffer: { min: 0 },
+      smaSpUpperBuffer: { min: 0 },
+      smaSpLowerBuffer: { min: 0 },
+      smaNqUpperBuffer: { min: 0 },
+      smaNqLowerBuffer: { min: 0 },
       minSmaPeriod: { integer: true, min: 1 },
       maxSmaPeriod: { integer: true, min: 1 },
       stepSize: { integer: true, min: 1 },
@@ -72,8 +76,10 @@ export function useToolForm<T extends Record<string, unknown>>(
     next.windowLength = normalizeNumberValue(next.windowLength, shared.windowLength, { integer: true, min: 1 });
     next.smaSpPeriod = normalizeNumberValue(next.smaSpPeriod, shared.smaSpPeriod, { integer: true, min: 1 });
     next.smaNqPeriod = normalizeNumberValue(next.smaNqPeriod, shared.smaNqPeriod, { integer: true, min: 1 });
-    next.smaSpBuffer = normalizeNumberValue(next.smaSpBuffer, shared.smaSpBuffer, { min: 0 });
-    next.smaNqBuffer = normalizeNumberValue(next.smaNqBuffer, shared.smaNqBuffer, { min: 0 });
+    next.smaSpUpperBuffer = normalizeNumberValue(next.smaSpUpperBuffer, shared.smaSpUpperBuffer, { min: 0 });
+    next.smaSpLowerBuffer = normalizeNumberValue(next.smaSpLowerBuffer, shared.smaSpLowerBuffer, { min: 0 });
+    next.smaNqUpperBuffer = normalizeNumberValue(next.smaNqUpperBuffer, shared.smaNqUpperBuffer, { min: 0 });
+    next.smaNqLowerBuffer = normalizeNumberValue(next.smaNqLowerBuffer, shared.smaNqLowerBuffer, { min: 0 });
     next.riskOffAsset = normalizeRiskOffAsset(next.riskOffAsset, shared.riskOffAsset);
     return next;
   })();
@@ -85,8 +91,10 @@ export function useToolForm<T extends Record<string, unknown>>(
   const [windowLength, setWindowLength] = useState(() => sanitizedInitial.windowLength);
   const [smaSpPeriod, setSmaSpPeriod] = useState(sanitizedInitial.smaSpPeriod);
   const [smaNqPeriod, setSmaNqPeriod] = useState(sanitizedInitial.smaNqPeriod);
-  const [smaSpBuffer, setSmaSpBuffer] = useState(sanitizedInitial.smaSpBuffer);
-  const [smaNqBuffer, setSmaNqBuffer] = useState(sanitizedInitial.smaNqBuffer);
+  const [smaSpUpperBuffer, setSmaSpUpperBuffer] = useState(sanitizedInitial.smaSpUpperBuffer);
+  const [smaSpLowerBuffer, setSmaSpLowerBuffer] = useState(sanitizedInitial.smaSpLowerBuffer);
+  const [smaNqUpperBuffer, setSmaNqUpperBuffer] = useState(sanitizedInitial.smaNqUpperBuffer);
+  const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(sanitizedInitial.smaNqLowerBuffer);
   const [riskOffAsset, setRiskOffAsset] = useState<EtfConfig["riskOffAsset"]>(sanitizedInitial.riskOffAsset as EtfConfig["riskOffAsset"]);
 
   const { isCombo, selectedPreset, comboSubs, comboLabels } = useMemo(
@@ -103,8 +111,10 @@ export function useToolForm<T extends Record<string, unknown>>(
           windowLength: setWindowLength,
           smaSpPeriod: setSmaSpPeriod,
           smaNqPeriod: setSmaNqPeriod,
-          smaSpBuffer: setSmaSpBuffer,
-          smaNqBuffer: setSmaNqBuffer,
+          smaSpUpperBuffer: setSmaSpUpperBuffer,
+          smaSpLowerBuffer: setSmaSpLowerBuffer,
+          smaNqUpperBuffer: setSmaNqUpperBuffer,
+          smaNqLowerBuffer: setSmaNqLowerBuffer,
           riskOffAsset: setRiskOffAsset,
         } as unknown as Parameters<typeof applySharedFieldChange>[2]["setters"],
         onLetf: (nextValue) => {
@@ -125,13 +135,17 @@ export function useToolForm<T extends Record<string, unknown>>(
     urlParams.set("py", String(windowLength));
     urlParams.set("smaPsp", String(smaSpPeriod));
     urlParams.set("smaPnq", String(smaNqPeriod));
-    urlParams.set("smatsp", String(smaSpBuffer));
-    urlParams.set("smatnq", String(smaNqBuffer));
+    urlParams.set("smatspU", String(smaSpUpperBuffer));
+    urlParams.set("smatspL", String(smaSpLowerBuffer));
+    urlParams.set("smatnqU", String(smaNqUpperBuffer));
+    urlParams.set("smatnqL", String(smaNqLowerBuffer));
     urlParams.set("ro", riskOffAsset);
     return urlParams;
   }, [
     letf, startDate, endDate, windowLength,
-    smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer, riskOffAsset
+    smaSpPeriod, smaNqPeriod,
+    smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+    riskOffAsset
   ]);
 
   return {
@@ -142,8 +156,10 @@ export function useToolForm<T extends Record<string, unknown>>(
     windowLength, setWindowLength,
     smaSpPeriod, setSmaSpPeriod,
     smaNqPeriod, setSmaNqPeriod,
-    smaSpBuffer, setSmaSpBuffer,
-    smaNqBuffer, setSmaNqBuffer,
+    smaSpUpperBuffer, setSmaSpUpperBuffer,
+    smaSpLowerBuffer, setSmaSpLowerBuffer,
+    smaNqUpperBuffer, setSmaNqUpperBuffer,
+    smaNqLowerBuffer, setSmaNqLowerBuffer,
     riskOffAsset, setRiskOffAsset,
     isCombo, selectedPreset, comboSubs, comboLabels,
     handleFieldChange,

@@ -123,7 +123,8 @@ export function BacktestingPageContent({
     startDate, setStartDate, endDate, setEndDate,
     windowLength,
     smaSpPeriod, setSmaSpPeriod, smaNqPeriod, setSmaNqPeriod,
-    smaSpBuffer, setSmaSpBuffer, smaNqBuffer, setSmaNqBuffer,
+    smaSpUpperBuffer, setSmaSpUpperBuffer, smaSpLowerBuffer, setSmaSpLowerBuffer,
+    smaNqUpperBuffer, setSmaNqUpperBuffer, smaNqLowerBuffer, setSmaNqLowerBuffer,
     riskOffAsset, setRiskOffAsset,
     handleFieldChange, initial, save, restoredFromCache,
   } = form;
@@ -206,14 +207,14 @@ export function BacktestingPageContent({
             : getLaunchDateForPresetName(cfg.name, etfLaunchDates) || cfg.displayStartDate,
         smaEnabled: smaMode !== 0 && cfg.smaEnabled,
         smaPeriod: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqPeriod : smaSpPeriod) : 0,
-        smaBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqBuffer : smaSpBuffer) : 0,
+        smaUpperBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer) : 0, smaLowerBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer) : 0,
         riskOffAsset,
       }));
 
       if (smaMode === 0) return baseConfigs;
       return baseConfigs;
     },
-    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer, riskOffAsset, smaMode, checkSimulationDisplayStarts, etfLaunchDates]
+    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, smaMode, checkSimulationDisplayStarts, etfLaunchDates]
   );
 
   type BacktestingSnapshotState = typeof initial;
@@ -245,8 +246,8 @@ export function BacktestingPageContent({
       if (decoded.endDate) setEndDate(normalizeDateString(decoded.endDate, getIsoDate(new Date())));
       if (decoded.smaSpPeriod != null) setSmaSpPeriod(normalizeNumberValue(decoded.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }));
       if (decoded.smaNqPeriod != null) setSmaNqPeriod(normalizeNumberValue(decoded.smaNqPeriod, getDefaultSmaPeriod("nasdaq100"), { integer: true, min: 1 }));
-      if (decoded.smaSpBuffer != null) setSmaSpBuffer(normalizeNumberValue(decoded.smaSpBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }));
-      if (decoded.smaNqBuffer != null) setSmaNqBuffer(normalizeNumberValue(decoded.smaNqBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }));
+      if (decoded.smaSpUpperBuffer != null) setSmaSpUpperBuffer(normalizeNumberValue(decoded.smaSpUpperBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }));
+      if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }));
       if (decoded.riskOffAsset) setRiskOffAsset(normalizeRiskOffAsset(decoded.riskOffAsset));
       const smaParam = params.get("sma");
       // Use Promise.resolve().then() to defer state updates and avoid cascading render warnings
@@ -302,8 +303,7 @@ export function BacktestingPageContent({
     setEndDate,
     setSmaSpPeriod,
     setSmaNqPeriod,
-    setSmaSpBuffer,
-    setSmaNqBuffer,
+    setSmaSpUpperBuffer, setSmaSpLowerBuffer, setSmaNqUpperBuffer, setSmaNqLowerBuffer,
     setRiskOffAsset,
   ]);
 
@@ -539,8 +539,8 @@ export function BacktestingPageContent({
     // Always include SMA params so the URL is shareable
     urlParams.set("smaPsp", String(smaSpPeriod));
     urlParams.set("smaPnq", String(smaNqPeriod));
-    urlParams.set("smatsp", String(smaSpBuffer));
-    urlParams.set("smatnq", String(smaNqBuffer));
+    urlParams.set("smatsp", String(smaSpUpperBuffer));
+    urlParams.set("smatnq", String(smaNqUpperBuffer));
     urlParams.set("ro", riskOffAsset);
     if (smaMode === 0) urlParams.set("sma", "0");
 
@@ -552,7 +552,7 @@ export function BacktestingPageContent({
 
     markNextSearchAsInternal();
     router.push(buildToolsUrl("backtest", urlParams));
-  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer, riskOffAsset, etfConfigs, router, markNextSearchAsInternal]);
+  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaNqUpperBuffer, riskOffAsset, etfConfigs, router, markNextSearchAsInternal]);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -889,9 +889,9 @@ export function BacktestingPageContent({
         letf: getValidPresetKey(letf, DEFAULT_COMBO_PRESET),
         windowLength,
         smaSpPeriod,
-        smaSpBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
-        smaNqBuffer,
+        smaNqUpperBuffer, smaNqLowerBuffer,
         riskOffAsset,
       });
       setRunSummary(nextRunSummary);
@@ -904,8 +904,7 @@ export function BacktestingPageContent({
         windowLength,
         smaSpPeriod,
         smaNqPeriod,
-        smaSpBuffer,
-        smaNqBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         riskOffAsset,
         etfConfigs,
         result: {
@@ -961,8 +960,8 @@ export function BacktestingPageContent({
         historyParams.set("ed", endDate);
         historyParams.set("smaPsp", String(smaSpPeriod));
         historyParams.set("smaPnq", String(smaNqPeriod));
-        historyParams.set("smatsp", String(smaSpBuffer));
-        historyParams.set("smatnq", String(smaNqBuffer));
+        historyParams.set("smatsp", String(smaSpUpperBuffer));
+        historyParams.set("smatnq", String(smaNqUpperBuffer));
         historyParams.set("ro", riskOffAsset);
         if (smaMode === 0) historyParams.set("sma", "0");
         etfConfigs.forEach((cfg, i) => {
@@ -977,9 +976,9 @@ export function BacktestingPageContent({
             endDate,
             windowLength: windowLength,
             smaSpPeriod,
-            smaSpBuffer,
+            smaSpUpperBuffer, smaSpLowerBuffer,
             smaNqPeriod,
-            smaNqBuffer,
+            smaNqUpperBuffer, smaNqLowerBuffer,
             letf: getValidPresetKey(letf, DEFAULT_COMBO_PRESET),
             riskOffAsset,
             tradeAfterHours: false,
@@ -1015,9 +1014,9 @@ export function BacktestingPageContent({
     riskOffAsset,
     save,
     setRunSummary,
-    smaNqBuffer,
+    smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqPeriod,
-    smaSpBuffer,
+    smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
     smaMode,
     startDate,
@@ -1083,7 +1082,7 @@ export function BacktestingPageContent({
       ...etf,
       smaEnabled: false,
       smaPeriod: 0,
-      smaBuffer: 0,
+      smaUpperBuffer: 0, smaLowerBuffer: 0,
       riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     }));
 
@@ -1125,8 +1124,7 @@ export function BacktestingPageContent({
             windowLength,
             smaSpPeriod,
             smaNqPeriod,
-            smaSpBuffer,
-            smaNqBuffer,
+            smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
             riskOffAsset,
           }}
           onChange={handleFieldChange}

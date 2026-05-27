@@ -59,7 +59,7 @@ async function main() {
   const cfg: EtfConfig = createPresetEtfConfig("upro", ETF_PRESETS.UPRO, {
     smaEnabled: true,
     smaPeriod: smaSpPeriod,
-    smaBuffer: smaSpBuffer,
+    smaUpperBuffer: smaSpBuffer, smaLowerBuffer: smaSpBuffer,
     riskOffAsset,
   });
 

@@ -3174,3 +3174,8 @@ date,adj_open,adj_close,name,source
 2026-05-14,,100.52,SGOV,tiingo
 2026-05-15,,100.55,SGOV,tiingo
 2026-05-18,,100.56,SGOV,tiingo
+2026-05-19,,100.57,SGOV,tiingo
+2026-05-20,,100.58,SGOV,tiingo
+2026-05-21,100.59,100.58,SGOV,tiingo
+2026-05-22,100.625,100.63,SGOV,tiingo
+2026-05-26,,100.64,SGOV,tiingo

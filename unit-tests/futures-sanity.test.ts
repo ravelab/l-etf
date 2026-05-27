@@ -79,7 +79,7 @@ function runFuturesResult(
     initialEquity: 30_000,
     targetLeverage: leverage,
     smaPeriod: 200,
-    smaBuffer: 0,
+    smaUpperBuffer: 0, smaLowerBuffer: 0,
     riskOffAsset: "SGOV",
     riskOffCloseByTicker: riskCloseByTicker,
     riskOffOpenByTicker: riskOpenByTicker,
@@ -196,7 +196,7 @@ test("futures sanity: risk-off basket sell falls back when one leg has missing o
     initialEquity: 100_000,
     targetLeverage: 3,
     smaPeriod: 2,
-    smaBuffer: 0,
+    smaUpperBuffer: 0, smaLowerBuffer: 0,
     riskOffAsset: "BRK.B+GLDM+VGSH",
     riskOffOpenByTicker: {
       "BRK.B": [500, 500, 500, 510],
@@ -232,7 +232,7 @@ test("futures sanity: explicit max leverage caps rounded-up contract sizing", ()
     targetLeverage: 4.5,
     maxLeverage: 4.5,
     smaPeriod: 185,
-    smaBuffer: 0,
+    smaUpperBuffer: 0, smaLowerBuffer: 0,
     riskOffAsset: "SGOV",
   });
   const firstBuy = result.transactions.find((row) => row.instrument === "futures" && row.action === "buy");
@@ -255,7 +255,7 @@ test("futures sanity: explicit max leverage trims on open when breach is beyond 
     maxLeverage: 4.5,
     leverageTolerancePct: 0,
     smaPeriod: 185,
-    smaBuffer: 0,
+    smaUpperBuffer: 0, smaLowerBuffer: 0,
     riskOffAsset: "SGOV",
   });
   const trims = result.transactions.filter((row) =>
@@ -431,7 +431,7 @@ test("futures sanity: e-mini mode trades futures for accounts that can support o
     initialEquity: 60_000,
     targetLeverage: 3,
     smaPeriod: 185,
-    smaBuffer: 0.036,
+    smaUpperBuffer: 0.036, smaLowerBuffer: 0.036,
     riskOffAsset: "SGOV",
     riskOffCloseByTicker: riskCloseByTicker,
     riskOffOpenByTicker: riskOpenByTicker,

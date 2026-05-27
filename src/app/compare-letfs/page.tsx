@@ -430,7 +430,8 @@ export function CompareLETFsPageContent({
     letf,
     startDate, endDate, setEndDate,
     windowLength,
-    smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer,
+    smaSpPeriod, smaNqPeriod,
+    smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     riskOffAsset,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
@@ -561,7 +562,8 @@ export function CompareLETFsPageContent({
     save({
       letf: form.letf, index: form.index,
       startDate, endDate, windowLength,
-      smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer,
+      smaSpPeriod, smaNqPeriod,
+      smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
       riskOffAsset,
       annualizedInflation,
       monthlyCpi,
@@ -576,7 +578,8 @@ export function CompareLETFsPageContent({
     hasInvalidCachedResults,
     form.letf, form.index,
     startDate, endDate, windowLength,
-    smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer,
+    smaSpPeriod, smaNqPeriod,
+    smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     riskOffAsset,
     annualizedInflation,
     monthlyCpi,
@@ -710,8 +713,7 @@ export function CompareLETFsPageContent({
       const { sp500Variants, nasdaqVariants } = buildStrategyVariants({
         smaSpPeriod,
         smaNqPeriod,
-        smaSpBuffer,
-        smaNqBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         riskOffAsset,
         tradeAfterHours,
       });
@@ -807,9 +809,9 @@ export function CompareLETFsPageContent({
         endDate,
         windowLength,
         smaSpPeriod,
-        smaSpBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
-        smaNqBuffer,
+        smaNqUpperBuffer, smaNqLowerBuffer,
         letf,
         riskOffAsset,
         tradeAfterHours,
@@ -820,7 +822,8 @@ export function CompareLETFsPageContent({
       save({
       letf: form.letf, index: form.index,
       startDate, endDate, windowLength,
-      smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer,
+      smaSpPeriod, smaNqPeriod,
+      smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
       riskOffAsset,
       annualizedInflation: inflationData.annualizedInflation,
       monthlyCpi: inflationData.monthlyCpi,
@@ -864,7 +867,7 @@ export function CompareLETFsPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer, riskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
+  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -1082,7 +1085,8 @@ export function CompareLETFsPageContent({
       presetKey: "UPRO" | "SSO" | "TQQQ" | "QLD";
       preset: typeof uproPreset;
       smaPeriod: number;
-      smaBuffer: number;
+      smaUpperBuffer: number;
+      smaLowerBuffer: number;
     } => {
       const isSp500 = label.includes("S&P") || label.includes("UPRO") || label.includes("SSO");
       const isIndex = label.includes("S&P 500") || label.includes("Nasdaq 100");
@@ -1102,10 +1106,11 @@ export function CompareLETFsPageContent({
         presetKey,
         preset,
         smaPeriod: isSp500 ? smaSpPeriod : smaNqPeriod,
-        smaBuffer: isSp500 ? smaSpBuffer : smaNqBuffer,
+        smaUpperBuffer: isSp500 ? smaSpUpperBuffer : smaNqUpperBuffer,
+        smaLowerBuffer: isSp500 ? smaSpLowerBuffer : smaNqLowerBuffer,
       };
     },
-    [presetKeyForLabel, uproPreset, ssoPreset, tqqqPreset, qldPreset, smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer]
+    [presetKeyForLabel, uproPreset, ssoPreset, tqqqPreset, qldPreset, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer]
   );
 
   const buildBacktestUrl = useCallback(
@@ -1116,7 +1121,8 @@ export function CompareLETFsPageContent({
         startDate: dates.start,
         endDate: dates.end,
         smaPeriod: meta.smaPeriod,
-        smaBuffer: meta.smaBuffer,
+        smaUpperBuffer: meta.smaUpperBuffer,
+        smaLowerBuffer: meta.smaLowerBuffer,
         riskOffAsset,
       });
     },
@@ -1380,7 +1386,8 @@ export function CompareLETFsPageContent({
         <SharedToolInputs
           values={{
             startDate, endDate, windowLength,
-            smaSpPeriod, smaSpBuffer, smaNqPeriod, smaNqBuffer,
+            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer,
+            smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
             riskOffAsset,
           }}
           onChange={(field, val) => {

@@ -13936,3 +13936,8 @@ date,adj_close,open,close,name,source
 2026-05-14,719.79,29372.7,29580.3,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-05-15,708.93,29191.4,29125.2,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-05-18,705.88,29246.2,28994.37,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-05-19,701.53,28795,28818.84,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-05-20,713.15,29006.6,29297.7,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-05-21,714.51,29150.1,29357.27,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-05-22,717.54,29476.3,29481.64,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-05-26,730.28,29854.6,30001.32,QQQ,yahoo(open+close)+tiingo(adj_close)

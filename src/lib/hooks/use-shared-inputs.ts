@@ -36,10 +36,12 @@ type SharedInputs = {
   endDate: string;
   windowLength: number;
   smaSpPeriod: number;
-  smaSpBuffer: number;
+  smaSpUpperBuffer: number;
+  smaSpLowerBuffer: number;
   smaSpEnabled: boolean;
   smaNqPeriod: number;
-  smaNqBuffer: number;
+  smaNqUpperBuffer: number;
+  smaNqLowerBuffer: number;
   smaNqEnabled: boolean;
   riskOffAsset: EtfConfig["riskOffAsset"];
   hateDrawdown: boolean;
@@ -53,8 +55,10 @@ export const SHARED_KEYS = new Set<string>([
   "windowLength",
   "smaSpPeriod",
   "smaNqPeriod",
-  "smaSpBuffer",
-  "smaNqBuffer",
+  "smaSpUpperBuffer",
+  "smaSpLowerBuffer",
+  "smaNqUpperBuffer",
+  "smaNqLowerBuffer",
   "smaSpEnabled",
   "smaNqEnabled",
   "riskOffAsset",
@@ -70,8 +74,10 @@ const DEFAULTS: SharedInputs = {
   windowLength: getDefaultWindowLength(),
   smaSpPeriod: getDefaultSmaPeriod("sp500"),
   smaNqPeriod: getDefaultSmaPeriod("nasdaq100"),
-  smaSpBuffer: getDefaultSmaBuffer("sp500"),
-  smaNqBuffer: getDefaultSmaBuffer("nasdaq100"),
+  smaSpUpperBuffer: getDefaultSmaBuffer("sp500"),
+  smaSpLowerBuffer: getDefaultSmaBuffer("sp500"),
+  smaNqUpperBuffer: getDefaultSmaBuffer("nasdaq100"),
+  smaNqLowerBuffer: getDefaultSmaBuffer("nasdaq100"),
   smaSpEnabled: true,
   smaNqEnabled: true,
   riskOffAsset: DEFAULT_RISK_OFF_ASSET,
@@ -85,8 +91,10 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     windowLength: { integer: true, min: 1 },
     smaSpPeriod: { integer: true, min: 1 },
     smaNqPeriod: { integer: true, min: 1 },
-    smaSpBuffer: { min: 0 },
-    smaNqBuffer: { min: 0 },
+    smaSpUpperBuffer: { min: 0 },
+    smaSpLowerBuffer: { min: 0 },
+    smaNqUpperBuffer: { min: 0 },
+    smaNqLowerBuffer: { min: 0 },
   });
 
   return {
@@ -96,8 +104,10 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     windowLength: normalizeNumberValue(base.windowLength, getDefaultWindowLength(), { integer: true, min: 1 }),
     smaSpPeriod: normalizeNumberValue(base.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }),
     smaNqPeriod: normalizeNumberValue(base.smaNqPeriod, getDefaultSmaPeriod("nasdaq100"), { integer: true, min: 1 }),
-    smaSpBuffer: normalizeNumberValue(base.smaSpBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }),
-    smaNqBuffer: normalizeNumberValue(base.smaNqBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }),
+    smaSpUpperBuffer: normalizeNumberValue(base.smaSpUpperBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }),
+    smaSpLowerBuffer: normalizeNumberValue(base.smaSpLowerBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }),
+    smaNqUpperBuffer: normalizeNumberValue(base.smaNqUpperBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }),
+    smaNqLowerBuffer: normalizeNumberValue(base.smaNqLowerBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }),
     smaSpEnabled: normalizeBooleanValue(base.smaSpEnabled, true),
     smaNqEnabled: normalizeBooleanValue(base.smaNqEnabled, true),
     riskOffAsset: normalizeRiskOffAsset(base.riskOffAsset),
@@ -169,11 +179,17 @@ export function getSharedInputs(urlParams?: URLSearchParams): {
     if (p.has("smaPnq")) {
       merged.smaNqPeriod = Number(p.get("smaPnq")) || merged.smaNqPeriod;
     }
-    if (p.has("smatsp")) {
-      merged.smaSpBuffer = Number(p.get("smatsp")) || merged.smaSpBuffer;
+    if (p.has("smatspU")) {
+      merged.smaSpUpperBuffer = Number(p.get("smatspU")) || merged.smaSpUpperBuffer;
     }
-    if (p.has("smatnq")) {
-      merged.smaNqBuffer = Number(p.get("smatnq")) || merged.smaNqBuffer;
+    if (p.has("smatspL")) {
+      merged.smaSpLowerBuffer = Number(p.get("smatspL")) || merged.smaSpLowerBuffer;
+    }
+    if (p.has("smatnqU")) {
+      merged.smaNqUpperBuffer = Number(p.get("smatnqU")) || merged.smaNqUpperBuffer;
+    }
+    if (p.has("smatnqL")) {
+      merged.smaNqLowerBuffer = Number(p.get("smatnqL")) || merged.smaNqLowerBuffer;
     }
     if (p.has("ro")) {
       merged.riskOffAsset = normalizeRiskOffAsset(p.get("ro"), merged.riskOffAsset);

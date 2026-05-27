@@ -53,7 +53,7 @@ function makeConfig(id: string, presetKey: string): EtfConfig {
     simulated: preset.simulated,
     smaEnabled: false,
     smaPeriod: 0,
-    smaBuffer: 0,
+    smaUpperBuffer: 0, smaLowerBuffer: 0,
     smaIndex: preset.index,
     riskOffAsset: "VGSH",
   };

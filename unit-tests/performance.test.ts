@@ -23,7 +23,7 @@ test("Performance: Batch simulation of 50 configurations", () => {
     simulated: true,
     smaEnabled: true,
     smaPeriod: 50 + i * 2,
-    smaBuffer: 1 + i * 0.1,
+    smaUpperBuffer: 1 + i * 0.1, smaLowerBuffer: 1 + i * 0.1,
     smaIndex: "sp500",
     riskOffAsset: "SGOV"
   }));

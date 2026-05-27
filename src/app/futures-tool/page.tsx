@@ -109,8 +109,7 @@ export function FuturesPageContent({
     windowLength,
     smaSpPeriod,
     smaNqPeriod,
-    smaSpBuffer,
-    smaNqBuffer,
+    smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     riskOffAsset,
     handleFieldChange,
     initial,
@@ -222,11 +221,11 @@ export function FuturesPageContent({
     }
     const smatsp = params.get("smatsp");
     if (smatsp != null && smatsp !== "") {
-      handleFieldChange("smaSpBuffer", normalizeNumberValue(Number(smatsp), 3.6, { min: 0 }));
+      handleFieldChange("smaSpUpperBuffer", normalizeNumberValue(Number(smatsp), 3.6, { min: 0 }));
     }
     const smatnq = params.get("smatnq");
     if (smatnq != null && smatnq !== "") {
-      handleFieldChange("smaNqBuffer", normalizeNumberValue(Number(smatnq), 11.9, { min: 0 }));
+      handleFieldChange("smaNqUpperBuffer", normalizeNumberValue(Number(smatnq), 11.9, { min: 0 }));
     }
     const ro = params.get("ro");
     if (ro != null && ro !== "") {
@@ -282,8 +281,8 @@ export function FuturesPageContent({
     params.set("ed", endDate);
     params.set("smaPsp", String(smaSpPeriod));
     params.set("smaPnq", String(smaNqPeriod));
-    params.set("smatsp", String(smaSpBuffer));
-    params.set("smatnq", String(smaNqBuffer));
+    params.set("smatsp", String(smaSpUpperBuffer));
+    params.set("smatnq", String(smaNqUpperBuffer));
     params.set("ro", riskOffAsset);
     params.set("amt", String(amount));
     params.set("lt", String(leverageTolerancePct));
@@ -299,9 +298,9 @@ export function FuturesPageContent({
     riskOffAsset,
     router,
     showEmulations,
-    smaNqBuffer,
+    smaNqUpperBuffer,
     smaNqPeriod,
-    smaSpBuffer,
+    smaSpUpperBuffer,
     smaSpPeriod,
     startDate,
   ]);
@@ -456,27 +455,27 @@ export function FuturesPageContent({
         buffer: number;
       }> = showEmulations
         ? [
-            { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpBuffer },
+            { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpUpperBuffer },
             ...(hasNqData
               ? ([
-                  { index: "nasdaq100", leverage: 3, period: smaNqPeriod, buffer: smaNqBuffer },
-                  { index: "nasdaq100", leverage: 2, period: smaNqPeriod, buffer: smaNqBuffer },
+                  { index: "nasdaq100", leverage: 3, period: smaNqPeriod, buffer: smaNqUpperBuffer },
+                  { index: "nasdaq100", leverage: 2, period: smaNqPeriod, buffer: smaNqUpperBuffer },
                 ] as const)
               : []),
           ]
         : yearSpan > 90
           ? [
-              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, buffer: smaSpBuffer },
-              { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpBuffer },
+              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, buffer: smaSpUpperBuffer },
+              { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpUpperBuffer },
             ]
           : [
-              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, buffer: smaSpBuffer },
-              { index: "sp500", leverage: 5, period: smaSpPeriod, buffer: smaSpBuffer },
-              { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpBuffer },
+              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, buffer: smaSpUpperBuffer },
+              { index: "sp500", leverage: 5, period: smaSpPeriod, buffer: smaSpUpperBuffer },
+              { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpUpperBuffer },
               ...(hasNqData
                 ? ([
-                    { index: "nasdaq100", leverage: 4, period: smaNqPeriod, buffer: smaNqBuffer },
-                    { index: "nasdaq100", leverage: 3, period: smaNqPeriod, buffer: smaNqBuffer },
+                    { index: "nasdaq100", leverage: 4, period: smaNqPeriod, buffer: smaNqUpperBuffer },
+                    { index: "nasdaq100", leverage: 3, period: smaNqPeriod, buffer: smaNqUpperBuffer },
                   ] as const)
                 : []),
             ];
@@ -493,7 +492,7 @@ export function FuturesPageContent({
           maxLeverage: step.maxLeverage,
           displayName: step.displayName,
           smaPeriod: step.period,
-          smaBuffer: step.buffer,
+          smaUpperBuffer: step.buffer, smaLowerBuffer: step.buffer,
           riskOffAsset,
           riskOffCloseByTicker: step.index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
           riskOffOpenByTicker: step.index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
@@ -525,7 +524,7 @@ export function FuturesPageContent({
           createPresetEtfConfig("upro", ETF_PRESETS.UPRO, {
             smaEnabled: true,
             smaPeriod: smaSpPeriod,
-            smaBuffer: smaSpBuffer,
+            smaUpperBuffer: smaSpUpperBuffer, smaLowerBuffer: smaSpLowerBuffer,
             riskOffAsset,
           }),
           ...(hasNqData
@@ -533,13 +532,13 @@ export function FuturesPageContent({
                 createPresetEtfConfig("tqqq", ETF_PRESETS.TQQQ, {
                   smaEnabled: true,
                   smaPeriod: smaNqPeriod,
-                  smaBuffer: smaNqBuffer,
+                  smaUpperBuffer: smaNqUpperBuffer, smaLowerBuffer: smaNqLowerBuffer,
                   riskOffAsset,
                 }),
                 createPresetEtfConfig("qld", ETF_PRESETS.QLD, {
                   smaEnabled: true,
                   smaPeriod: smaNqPeriod,
-                  smaBuffer: smaNqBuffer,
+                  smaUpperBuffer: smaNqUpperBuffer, smaLowerBuffer: smaNqLowerBuffer,
                   riskOffAsset,
                 }),
               ]
@@ -638,9 +637,9 @@ export function FuturesPageContent({
         letf: "FUTURES",
         windowLength,
         smaSpPeriod,
-        smaSpBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
-        smaNqBuffer,
+        smaNqUpperBuffer, smaNqLowerBuffer,
         riskOffAsset,
         amount,
         leverageTolerance: `${leverageTolerancePct}%`,
@@ -653,8 +652,7 @@ export function FuturesPageContent({
         windowLength,
         smaSpPeriod,
         smaNqPeriod,
-        smaSpBuffer,
-        smaNqBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         riskOffAsset,
         amount,
         result: combined,
@@ -684,9 +682,9 @@ export function FuturesPageContent({
     leverageTolerancePct,
     setRunSummary,
     showEmulations,
-    smaNqBuffer,
+    smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqPeriod,
-    smaSpBuffer,
+    smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
     startDate,
     updateUrl,
@@ -721,8 +719,7 @@ export function FuturesPageContent({
             windowLength,
             smaSpPeriod,
             smaNqPeriod,
-            smaSpBuffer,
-            smaNqBuffer,
+            smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
             riskOffAsset,
           }}
           onChange={handleFieldChange}

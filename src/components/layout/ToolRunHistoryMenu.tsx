@@ -102,8 +102,8 @@ function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
   const pieces = [];
   if (entry.summaryDisplay?.showLetf ?? true) pieces.push(summary.letf);
   if (entry.summaryDisplay?.showRiskOffAsset ?? true) pieces.push(`Risk-Off ${summary.riskOffAsset}`);
-  pieces.push(`SPX ${summary.smaSpPeriod}/${summary.smaSpBuffer}`);
-  pieces.push(`NDX ${summary.smaNqPeriod}/${summary.smaNqBuffer}`);
+  pieces.push(`SPX ${summary.smaSpPeriod}/−${summary.smaSpLowerBuffer}/${summary.smaSpUpperBuffer}`);
+  pieces.push(`NDX ${summary.smaNqPeriod}/−${summary.smaNqLowerBuffer}/${summary.smaNqUpperBuffer}`);
   return pieces.join(" - ");
 }
 

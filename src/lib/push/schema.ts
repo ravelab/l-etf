@@ -11,10 +11,12 @@ export const pushSubscriptionSchema = z.object({
 
 export const pushSmaConfigSchema = z.object({
   smaSpPeriod: z.number().int().min(5).max(500),
-  smaSpBuffer: z.number().min(0).max(30),
+  smaSpUpperBuffer: z.number().min(0).max(30),
+  smaSpLowerBuffer: z.number().min(0).max(30),
   smaSpEnabled: z.boolean().default(true),
   smaNqPeriod: z.number().int().min(5).max(500),
-  smaNqBuffer: z.number().min(0).max(30),
+  smaNqUpperBuffer: z.number().min(0).max(30),
+  smaNqLowerBuffer: z.number().min(0).max(30),
   smaNqEnabled: z.boolean().default(true),
   notifyEveryClose: z.boolean().default(false),
 });

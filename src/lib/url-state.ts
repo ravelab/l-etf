@@ -1,6 +1,13 @@
 import type { EtfConfig } from "./simulation/types";
 import { ETF_PRESETS } from "./simulation/presets";
 
+function parseNumParam(params: URLSearchParams, key: string): number | undefined {
+  const r = params.get(key);
+  if (!r) return undefined;
+  const v = Number(r);
+  return Number.isFinite(v) ? v : undefined;
+}
+
 /**
  * Encode backtest parameters into URL search params for sharing.
  * Note: simulated flag and leverage are inferred from the preset name.
@@ -15,8 +22,10 @@ export function decodeBacktestParams(search: string): {
   endDate?: string;
   smaSpPeriod?: number;
   smaNqPeriod?: number;
-  smaSpBuffer?: number;
-  smaNqBuffer?: number;
+  smaSpUpperBuffer?: number;
+  smaSpLowerBuffer?: number;
+  smaNqUpperBuffer?: number;
+  smaNqLowerBuffer?: number;
   riskOffAsset?: string;
   etfConfigs?: Partial<EtfConfig>[];
 } | null {
@@ -55,8 +64,10 @@ export function decodeBacktestParams(search: string): {
     endDate: params.get("ed") || undefined,
     smaSpPeriod: (() => { const r = params.get("smaPsp"); if (!r) return undefined; const v = Number(r); return Number.isFinite(v) ? v : undefined; })(),
     smaNqPeriod: (() => { const r = params.get("smaPnq"); if (!r) return undefined; const v = Number(r); return Number.isFinite(v) ? v : undefined; })(),
-    smaSpBuffer: (() => { const r = params.get("smatsp"); if (!r) return undefined; const v = Number(r); return Number.isFinite(v) ? v : undefined; })(),
-    smaNqBuffer: (() => { const r = params.get("smatnq"); if (!r) return undefined; const v = Number(r); return Number.isFinite(v) ? v : undefined; })(),
+    smaSpUpperBuffer: parseNumParam(params, "smatspU"),
+    smaSpLowerBuffer: parseNumParam(params, "smatspL"),
+    smaNqUpperBuffer: parseNumParam(params, "smatnqU"),
+    smaNqLowerBuffer: parseNumParam(params, "smatnqL"),
     riskOffAsset: params.get("ro") || undefined,
     etfConfigs: etfConfigs.length > 0 ? etfConfigs : undefined,
   };

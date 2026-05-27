@@ -24,8 +24,10 @@ export interface SmaSignalResult {
 export function getSmaSignal(
   prices: DailyPrice[],
   period: number,
-  bufferPercent: number
+  buffer: { upper: number; lower: number }
 ): SmaSignalResult {
+  const upperPercent = buffer.upper;
+  const lowerPercent = buffer.lower;
   if (prices.length === 0 || period <= 0) {
     return {
       signal: "hold",
@@ -63,7 +65,8 @@ export function getSmaSignal(
   }
 
   const percentDiff = ((currentPrice - currentSma) / currentSma) * 100;
-  const bufferDecimal = bufferPercent / 100;
+  const upperDecimal = upperPercent / 100;
+  const lowerDecimal = lowerPercent / 100;
 
   // Determine current position by finding the last time price crossed outside the buffer zone
   let lastPosition: "risk-on" | "risk-off" = "risk-on";
@@ -71,11 +74,11 @@ export function getSmaSignal(
     const sma = smaValues[i];
     if (!isFinite(sma) || sma === 0) break;
     const price = priceIndex[i];
-    if (price > sma * (1 + bufferDecimal)) {
+    if (price > sma * (1 + upperDecimal)) {
       lastPosition = "risk-on";
       break;
     }
-    if (price < sma * (1 - bufferDecimal)) {
+    if (price < sma * (1 - lowerDecimal)) {
       lastPosition = "risk-off";
       break;
     }
@@ -85,11 +88,11 @@ export function getSmaSignal(
   let signalLabel = lastPosition === "risk-on" ? "Buy L-ETFs" : "Sell L-ETFs";
   let signalEmoji = lastPosition === "risk-on" ? "🟢" : "🔴";
 
-  if (currentPrice > currentSma * (1 + bufferDecimal)) {
+  if (currentPrice > currentSma * (1 + upperDecimal)) {
     signal = "buy";
     signalLabel = "Buy";
     signalEmoji = "🟢";
-  } else if (currentPrice < currentSma * (1 - bufferDecimal)) {
+  } else if (currentPrice < currentSma * (1 - lowerDecimal)) {
     signal = "sell";
     signalLabel = "Sell";
     signalEmoji = "🔴";

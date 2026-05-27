@@ -211,6 +211,7 @@ export function getConfigDefaultStartDate(config: Pick<EtfConfig, "name" | "simu
 }
 
 export function createDefaultEtfConfig(id: string): EtfConfig {
+  const defaultBuffer = getDefaultSmaBuffer("sp500");
   return {
     id,
     name: "UPRO",
@@ -219,7 +220,8 @@ export function createDefaultEtfConfig(id: string): EtfConfig {
     simulated: true,
     smaEnabled: true,
     smaPeriod: getDefaultSmaPeriod("sp500"),
-    smaBuffer: getDefaultSmaBuffer("sp500"),
+    smaUpperBuffer: defaultBuffer,
+    smaLowerBuffer: defaultBuffer,
     smaIndex: "sp500",
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
   };
@@ -230,6 +232,7 @@ export function createPresetEtfConfig(
   preset: EtfPreset,
   overrides: Partial<EtfConfig>,
 ): EtfConfig {
+  const defaultBuffer = getDefaultSmaBuffer(preset.index);
   return {
     id,
     name: preset.name,
@@ -238,7 +241,8 @@ export function createPresetEtfConfig(
     simulated: preset.simulated,
     smaEnabled: true,
     smaPeriod: getDefaultSmaPeriod(preset.index),
-    smaBuffer: getDefaultSmaBuffer(preset.index),
+    smaUpperBuffer: defaultBuffer,
+    smaLowerBuffer: defaultBuffer,
     smaIndex: preset.index,
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     ...overrides,

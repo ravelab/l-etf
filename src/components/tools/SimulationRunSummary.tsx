@@ -71,7 +71,7 @@ export function SimulationRunSummary({
         )}
         {showBufferSp && (
           <span className="text-muted min-w-0">
-            SPX Buffer: <span className="text-foreground">{summary.smaSpBuffer}%</span>
+            SPX Buffer: <span className="text-foreground">{summary.smaSpUpperBuffer}%</span>
           </span>
         )}
         {showPeriodNq && (
@@ -81,7 +81,7 @@ export function SimulationRunSummary({
         )}
         {showBufferNq && (
           <span className="text-muted min-w-0">
-            NDX Buffer: <span className="text-foreground">{summary.smaNqBuffer}%</span>
+            NDX Buffer: <span className="text-foreground">{summary.smaNqUpperBuffer}%</span>
           </span>
         )}
         {showRiskOffAsset && (

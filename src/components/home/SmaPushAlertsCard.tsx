@@ -33,10 +33,10 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
   if (!config) return "";
   const parts = [];
   if (config.smaSpEnabled) {
-    parts.push(`SPX: ${config.smaSpPeriod}/${config.smaSpBuffer}%`);
+    parts.push(`SPX: ${config.smaSpPeriod}/−${config.smaSpLowerBuffer}/${config.smaSpUpperBuffer}%`);
   }
   if (config.smaNqEnabled) {
-    parts.push(`NDX: ${config.smaNqPeriod}/${config.smaNqBuffer}%`);
+    parts.push(`NDX: ${config.smaNqPeriod}/−${config.smaNqLowerBuffer}/${config.smaNqUpperBuffer}%`);
   }
   if (parts.length === 0) return " (Disabled)";
   return ` (${parts.join(", ")})`;
@@ -140,10 +140,18 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange }: SmaPushAlertsCa
   }, [browserState]);
 
   const spActive = subscriptionActive && !!subscriptionConfig?.smaSpEnabled;
-  const spNeedsUpdate = spActive && (subscriptionConfig.smaSpPeriod !== smaConfig.smaSpPeriod || subscriptionConfig.smaSpBuffer !== smaConfig.smaSpBuffer);
+  const spNeedsUpdate = spActive && (
+    subscriptionConfig.smaSpPeriod !== smaConfig.smaSpPeriod ||
+    subscriptionConfig.smaSpUpperBuffer !== smaConfig.smaSpUpperBuffer ||
+    subscriptionConfig.smaSpLowerBuffer !== smaConfig.smaSpLowerBuffer
+  );
 
   const nqActive = subscriptionActive && !!subscriptionConfig?.smaNqEnabled;
-  const nqNeedsUpdate = nqActive && (subscriptionConfig.smaNqPeriod !== smaConfig.smaNqPeriod || subscriptionConfig.smaNqBuffer !== smaConfig.smaNqBuffer);
+  const nqNeedsUpdate = nqActive && (
+    subscriptionConfig.smaNqPeriod !== smaConfig.smaNqPeriod ||
+    subscriptionConfig.smaNqUpperBuffer !== smaConfig.smaNqUpperBuffer ||
+    subscriptionConfig.smaNqLowerBuffer !== smaConfig.smaNqLowerBuffer
+  );
 
   const handleUpdateSubscription = async (config: PushSmaConfig, successMessage: string) => {
     setBusy(true);

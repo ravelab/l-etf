@@ -15,14 +15,16 @@ test("formats SMA push parameters compactly", () => {
   assert.equal(
     describeSmaSignalConfig({
       smaSpPeriod: 185,
-      smaSpBuffer: 3.6,
+      smaSpUpperBuffer: 3.6,
+      smaSpLowerBuffer: 3.6,
       smaSpEnabled: true,
       smaNqPeriod: 150,
-      smaNqBuffer: 12,
+      smaNqUpperBuffer: 12,
+      smaNqLowerBuffer: 12,
       smaNqEnabled: true,
       notifyEveryClose: false,
     }),
-    "SPX 185 SMA, 3.6%; NDX 150 SMA, 12%"
+    "SPX 185 SMA, −3.6%/3.6%; NDX 150 SMA, −12%/12%"
   );
 });
 
@@ -50,10 +52,12 @@ test("does not include SMA parameters in the notification body", () => {
   };
   const config = {
     smaSpPeriod: 185,
-    smaSpBuffer: 3.6,
+    smaSpUpperBuffer: 3.6,
+    smaSpLowerBuffer: 3.6,
     smaSpEnabled: true,
     smaNqPeriod: 150,
-    smaNqBuffer: 12,
+    smaNqUpperBuffer: 12,
+    smaNqLowerBuffer: 12,
     smaNqEnabled: true,
     notifyEveryClose: false,
   };
@@ -71,8 +75,8 @@ test("does not leak disabled SMA parameters into notification", () => {
     timestamp: "2026-04-22T00:00:00.000Z",
   };
   const config = {
-    smaSpPeriod: 185, smaSpBuffer: 3.6, smaSpEnabled: true,
-    smaNqPeriod: 150, smaNqBuffer: 12, smaNqEnabled: false,
+    smaSpPeriod: 185, smaSpUpperBuffer: 3.6, smaSpLowerBuffer: 3.6, smaSpEnabled: true,
+    smaNqPeriod: 150, smaNqUpperBuffer: 12, smaNqLowerBuffer: 12, smaNqEnabled: false,
     notifyEveryClose: false,
   };
 
@@ -94,10 +98,12 @@ test("subscribe payload preserves alert flags", () => {
     installId: "00000000-0000-4000-8000-000000000000",
     smaConfig: {
       smaSpPeriod: 185,
-      smaSpBuffer: 3.6,
+      smaSpUpperBuffer: 3.6,
+      smaSpLowerBuffer: 3.6,
       smaSpEnabled: false,
       smaNqPeriod: 150,
-      smaNqBuffer: 12,
+      smaNqUpperBuffer: 12,
+      smaNqLowerBuffer: 12,
       smaNqEnabled: true,
       notifyEveryClose: true,
     },

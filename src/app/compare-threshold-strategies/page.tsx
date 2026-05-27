@@ -23,6 +23,16 @@ import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
 import { buildPresetBacktestUrl } from "@/lib/url-builders";
 import { runParallelSimulations } from "@/lib/simulation/parallel";
+import {
+  planCoarseGrid,
+  planFineGrid,
+  dedupePoints,
+  pickTopCell,
+  type AsymmetricSweepRow,
+  type BufferPoint,
+  type ObjectiveKey,
+} from "@/lib/simulation/buffer-grid-search";
+import { BufferHeatmap } from "@/components/tools/BufferHeatmap";
 import type {
   EtfConfig,
   IndexKey,
@@ -33,6 +43,7 @@ import type {
 } from "@/lib/simulation/types";
 import { createSweepChartOptions, getBestSweepRow, getSweepTradesPerYear, sortSweepRowsByPeriod } from "@/lib/sweep";
 import { runCompareSweep } from "@/lib/compare-sweep-runner";
+import type { EtfPreset } from "@/lib/simulation/presets";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
 import type { RunSummary } from "@/lib/run-summary";
 import { buildRunSummary } from "@/lib/run-summary";
@@ -68,8 +79,10 @@ export function CompareBufferStrategiesPageContent({
 
   const form = useToolForm("compare-threshold", {
     minBuffer: 0,
-    maxBuffer: 18,
-    bufferStep: 0.5,
+    maxBuffer: 24,
+    fineStep: 0.5,
+    coarseStep: 2,
+    fineHalfWidth: 1.5,
     showBaseline: true,
     annualizedInflation: 0,
     monthlyCpi: [] as Array<{ date: string; value: number }>,
@@ -77,28 +90,38 @@ export function CompareBufferStrategiesPageContent({
     rows2: [] as SmaComparisonRow[],
     baseline: null as SmaComparisonRow | null,
     baseline2: null as SmaComparisonRow | null,
+    asymRows: [] as AsymmetricSweepRow[],
+    asymRows2: [] as AsymmetricSweepRow[],
+    asymFineWindow: null as { minU: number; maxU: number; minL: number; maxL: number } | null,
+    asymFineWindow2: null as { minU: number; maxU: number; minL: number; maxL: number } | null,
     runSummaryInputs: null as RunSummary | null,
   }, {
-    persistKeys: ["minBuffer", "maxBuffer", "bufferStep", "showBaseline", "rows", "rows2", "baseline", "baseline2", "annualizedInflation", "monthlyCpi", "runSummaryInputs"],
+    persistKeys: ["minBuffer", "maxBuffer", "fineStep", "coarseStep", "fineHalfWidth", "showBaseline", "rows", "rows2", "baseline", "baseline2", "asymRows", "asymRows2", "asymFineWindow", "asymFineWindow2", "annualizedInflation", "monthlyCpi", "runSummaryInputs"],
   });
 
   const {
     letf, setLetf, index, setIndex, startDate, endDate, setEndDate,
     windowLength,
-    smaSpPeriod, setSmaSpPeriod, smaSpBuffer, smaNqPeriod, setSmaNqPeriod, smaNqBuffer, riskOffAsset,
+    smaSpPeriod, setSmaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, setSmaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset,
     isCombo, selectedPreset, comboSubs,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
 
   const [minBuffer, setMinBuffer] = useState(initial.minBuffer as number);
   const [maxBuffer, setMaxBuffer] = useState(initial.maxBuffer as number);
-  const [bufferStep, setBufferStep] = useState(initial.bufferStep as number);
+  const [fineStep, setFineStep] = useState(initial.fineStep as number);
+  const [coarseStep, setCoarseStep] = useState(initial.coarseStep as number);
+  const [fineHalfWidth, setFineHalfWidth] = useState(initial.fineHalfWidth as number);
   const [annualizedInflation, setAnnualizedInflation] = useState(initial.annualizedInflation);
   const [monthlyCpi, setMonthlyCpi] = useState<Array<{ date: string; value: number }>>(initial.monthlyCpi);
   const [rows, setRows] = useState<SmaComparisonRow[]>(initial.rows);
   const [baseline, setBaseline] = useState<SmaComparisonRow | null>(initial.baseline);
   const [rows2, setRows2] = useState<SmaComparisonRow[]>(initial.rows2);
   const [baseline2, setBaseline2] = useState<SmaComparisonRow | null>(initial.baseline2);
+  const [asymRows, setAsymRows] = useState<AsymmetricSweepRow[]>(initial.asymRows);
+  const [asymRows2, setAsymRows2] = useState<AsymmetricSweepRow[]>(initial.asymRows2);
+  const [asymFineWindow, setAsymFineWindow] = useState<{ minU: number; maxU: number; minL: number; maxL: number } | null>(initial.asymFineWindow);
+  const [asymFineWindow2, setAsymFineWindow2] = useState<{ minU: number; maxU: number; minL: number; maxL: number } | null>(initial.asymFineWindow2);
   const {
     runSummary,
     setRunSummary,
@@ -113,6 +136,25 @@ export function CompareBufferStrategiesPageContent({
   const abortControllerRef = useRef<AbortController | null>(null);
   const initializedRef = useRef(false);
   const skipNextPresetEffectRef = useRef(false);
+  // Cross-stage hand-off: handleRun pre-plans coarse asym points per preset and
+  // runBufferSweepForPreset appends them to its config batch so the worker pool
+  // sees symmetric + coarse asym as one job (one round of precomputeAllConfigDailyValues
+  // instead of two). After the batch returns, runBufferSweepForPreset writes the
+  // asym coarse rows + the per-preset sim context (prices/rates/risk-off/cpi) into
+  // the refs below, and handleRun reads them to dispatch the fine stage per preset.
+  type AsymContext = {
+    prices: PricePoint[];
+    rates: RatePoint[];
+    riskOffSeries: {
+      closeValuesByAsset: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+      openValuesByAsset: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+    };
+    monthlyCpi: Array<{ date: string; value: number }> | undefined;
+    coarsePoints: BufferPoint[];
+  };
+  const asymCoarsePointsByPresetRef = useRef<Map<string, BufferPoint[]>>(new Map());
+  const asymCoarseRowsByPresetRef = useRef<Map<string, AsymmetricSweepRow[]>>(new Map());
+  const asymContextByPresetRef = useRef<Map<string, AsymContext>>(new Map());
 
 
   type CompareThresholdSnapshotState = typeof initial;
@@ -138,7 +180,13 @@ export function CompareBufferStrategiesPageContent({
       const snapshot = state as Partial<CompareThresholdSnapshotState>;
       if (snapshot.minBuffer != null) setMinBuffer(snapshot.minBuffer as number);
       if (snapshot.maxBuffer != null) setMaxBuffer(snapshot.maxBuffer as number);
-      if (snapshot.bufferStep) setBufferStep(snapshot.bufferStep as number);
+      if (snapshot.fineStep) setFineStep(snapshot.fineStep as number);
+      if (snapshot.coarseStep) setCoarseStep(snapshot.coarseStep as number);
+      if (snapshot.fineHalfWidth) setFineHalfWidth(snapshot.fineHalfWidth as number);
+      if (snapshot.asymRows) setAsymRows(snapshot.asymRows as AsymmetricSweepRow[]);
+      if (snapshot.asymRows2) setAsymRows2(snapshot.asymRows2 as AsymmetricSweepRow[]);
+      if (snapshot.asymFineWindow !== undefined) setAsymFineWindow(snapshot.asymFineWindow);
+      if (snapshot.asymFineWindow2 !== undefined) setAsymFineWindow2(snapshot.asymFineWindow2);
       if (snapshot.rows) setRows(snapshot.rows as SmaComparisonRow[]);
       if (snapshot.baseline !== undefined) setBaseline(snapshot.baseline as SmaComparisonRow | null);
       if (snapshot.rows2) setRows2(snapshot.rows2 as SmaComparisonRow[]);
@@ -193,11 +241,15 @@ export function CompareBufferStrategiesPageContent({
       const minT = params.get("minT");
       const maxT = params.get("maxT");
       const step = params.get("stepT");
+      const cstep = params.get("cstepT");
+      const hw = params.get("hwT");
       if (smaPsp) setSmaSpPeriod(parseNumberOrKeep(smaPsp, getDefaultSmaPeriod("sp500")));
       if (smaPnq) setSmaNqPeriod(parseNumberOrKeep(smaPnq, getDefaultSmaPeriod("nasdaq100")));
       if (minT) setMinBuffer(parseNumberOrKeep(minT, 0));
-      if (maxT) setMaxBuffer(parseNumberOrKeep(maxT, 18));
-      if (step) setBufferStep(parseNumberOrKeep(step, 0.5));
+      if (maxT) setMaxBuffer(parseNumberOrKeep(maxT, 24));
+      if (step) setFineStep(parseNumberOrKeep(step, 0.5));
+      if (cstep) setCoarseStep(parseNumberOrKeep(cstep, 2));
+      if (hw) setFineHalfWidth(parseNumberOrKeep(hw, 1.5));
     });
   }, [searchParams, pathname, shouldAutoRunFromSearch, active, suppressAutoRun, allowInitialSearchAutoRun, hasCachedResults, setLetf, setIndex, setSmaSpPeriod, setSmaNqPeriod]);
 
@@ -232,7 +284,7 @@ export function CompareBufferStrategiesPageContent({
         startDate: dates.start,
         endDate: dates.end,
         smaPeriod: p.index === "nasdaq100" ? display.summary.smaNqPeriod : display.summary.smaSpPeriod,
-        smaBuffer: row.parameterValue,
+        smaUpperBuffer: row.parameterValue, smaLowerBuffer: row.parameterValue,
         riskOffAsset: display.summary.riskOffAsset as RiskOffAsset,
       });
     },
@@ -334,7 +386,7 @@ export function CompareBufferStrategiesPageContent({
     const blConfig: EtfConfig = {
       id: "baseline", name: `${presetDef.name} (No SMA)`,
       leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: true,
-      smaEnabled: false, smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod, smaBuffer: 0,
+      smaEnabled: false, smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod, smaUpperBuffer: 0, smaLowerBuffer: 0,
       smaIndex: presetDef.index, riskOffAsset,
     };
 
@@ -342,18 +394,39 @@ export function CompareBufferStrategiesPageContent({
       { paramValue: 0, config: blConfig },  // Baseline first
     ];
 
-    for (let buf = minBuffer; buf <= maxBuffer + 1e-9; buf += bufferStep) {
+    for (let buf = minBuffer; buf <= maxBuffer + 1e-9; buf += fineStep) {
       const rt = Math.round(buf * 1000) / 1000;
       items.push({
         paramValue: rt,
         config: {
           id: `buffer-${rt}`, name: `${presetDef.name} SMA ${presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod} Buffer ${rt}%`,
           leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: presetDef.simulated,
-          smaEnabled: true, smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod, smaBuffer: rt,
+          smaEnabled: true, smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod, smaUpperBuffer: rt, smaLowerBuffer: rt,
           smaIndex: presetDef.index, riskOffAsset,
         },
       });
     }
+
+    // Append the coarse asymmetric (upper × lower) configs for this preset so the
+    // worker pool sees symmetric + coarse asym as one batch. precomputeAllConfigDailyValues
+    // runs once across the combined set instead of twice.
+    const coarseAsymPoints = asymCoarsePointsByPresetRef.current.get(presetDef.name) ?? [];
+    const period = presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod;
+    for (const p of coarseAsymPoints) {
+      const encoded = Math.round(p.upper * 100) * 10000 + Math.round(p.lower * 100);
+      items.push({
+        paramValue: encoded,
+        config: {
+          id: `asym-${encoded}`,
+          name: `${presetDef.name} SMA ${period} U${p.upper}/L${p.lower} (coarse)`,
+          leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: presetDef.simulated,
+          smaEnabled: true, smaPeriod: period,
+          smaUpperBuffer: p.upper, smaLowerBuffer: p.lower,
+          smaIndex: presetDef.index, riskOffAsset,
+        },
+      });
+    }
+
     const allSweepRows = await runParallelSimulations({
       prices, rates,
       windowLength, startDate, endDate,
@@ -370,12 +443,32 @@ export function CompareBufferStrategiesPageContent({
         }),
     }) as SmaComparisonRow[];
 
-    // Extract baseline (first item) and sweep rows (rest)
-    const bl = allSweepRows.length > 0 ? allSweepRows[0] : null;
-    const sweepRows = allSweepRows.slice(1);
+    // Split rows by parameterValue magnitude. Asym configs encode (upper, lower) as
+    // `upper*100 * 10000 + lower*100`, so any non-trivial pair is >= 10000 — well
+    // above the symmetric range (0..30). Threshold of 1000 is a safe boundary.
+    const ASYM_THRESHOLD = 1000;
+    const symRows: SmaComparisonRow[] = [];
+    const asymRowsForPreset: AsymmetricSweepRow[] = [];
+    let bl: SmaComparisonRow | null = null;
+    for (const row of allSweepRows) {
+      if (row.parameterValue >= ASYM_THRESHOLD) {
+        const encoded = row.parameterValue;
+        const l = encoded % 10000;
+        const u = (encoded - l) / 10000;
+        asymRowsForPreset.push({ ...row, upperBuffer: u / 100, lowerBuffer: l / 100, stage: "coarse" });
+      } else if (bl === null) {
+        bl = row;
+      } else {
+        symRows.push(row);
+      }
+    }
+    asymCoarseRowsByPresetRef.current.set(presetDef.name, asymRowsForPreset);
+    asymContextByPresetRef.current.set(presetDef.name, {
+      prices, rates, riskOffSeries, monthlyCpi: cpiData, coarsePoints: coarseAsymPoints,
+    });
 
-    return { rows: sweepRows, baseline: bl };
-  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, minBuffer, maxBuffer, bufferStep, windowLength, startDate, endDate, setRunProgress]);
+    return { rows: symRows, baseline: bl };
+  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, minBuffer, maxBuffer, fineStep, windowLength, startDate, endDate, setRunProgress]);
 
   const buildSmaBufferUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -383,9 +476,11 @@ export function CompareBufferStrategiesPageContent({
     params.delete("smatnq");
     params.set("minT", String(minBuffer));
     params.set("maxT", String(maxBuffer));
-    params.set("stepT", String(bufferStep));
+    params.set("stepT", String(fineStep));
+    params.set("cstepT", String(coarseStep));
+    params.set("hwT", String(fineHalfWidth));
     return params;
-  }, [getUrlParams, minBuffer, maxBuffer, bufferStep]);
+  }, [getUrlParams, minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth]);
 
   const updateUrl = useCallback(() => {
     markNextSearchAsInternal();
@@ -403,6 +498,85 @@ export function CompareBufferStrategiesPageContent({
     setRunProgress(null);
   }, [setRunProgress]);
 
+  // Asymmetric FINE-only sweep for a single sub-preset. Coarse rows already came
+  // from the symmetric+coarse batch in runBufferSweepForPreset and live in
+  // asymCoarseRowsByPresetRef. Here we just pick the top coarse cell, plan the
+  // refined grid around it, dispatch the fine run reusing the per-preset
+  // context (prices/rates/risk-off) captured by runBufferSweepForPreset.
+  const runAsymmetricFineForPreset = useCallback(async (
+    presetDef: EtfPreset,
+    inflPct: number,
+    signal: AbortSignal,
+    progressBase: number,
+    progressSpan: number,
+  ): Promise<{ rows: AsymmetricSweepRow[]; fineWindow: { minU: number; maxU: number; minL: number; maxL: number } | null }> => {
+    const coarseRows = asymCoarseRowsByPresetRef.current.get(presetDef.name) ?? [];
+    const ctx = asymContextByPresetRef.current.get(presetDef.name);
+    if (!ctx || coarseRows.length === 0) return { rows: coarseRows, fineWindow: null };
+
+    const top = pickTopCell(coarseRows, "score", inflPct);
+    if (!top) return { rows: coarseRows, fineWindow: null };
+
+    const finePoints = dedupePoints(
+      planFineGrid({
+        centerUpper: top.upperBuffer,
+        centerLower: top.lowerBuffer,
+        halfWidth: fineHalfWidth,
+        fineStep,
+        bounds: { minUpper: minBuffer, maxUpper: maxBuffer, minLower: minBuffer, maxLower: maxBuffer },
+      }),
+      ctx.coarsePoints,
+    );
+    const fineWindow = {
+      minU: Math.max(minBuffer, top.upperBuffer - fineHalfWidth),
+      maxU: Math.min(maxBuffer, top.upperBuffer + fineHalfWidth),
+      minL: Math.max(minBuffer, top.lowerBuffer - fineHalfWidth),
+      maxL: Math.min(maxBuffer, top.lowerBuffer + fineHalfWidth),
+    };
+    if (finePoints.length === 0) return { rows: coarseRows, fineWindow };
+
+    const period = presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod;
+    const fineConfigs: EtfConfig[] = finePoints.map((p) => {
+      const encoded = Math.round(p.upper * 100) * 10000 + Math.round(p.lower * 100);
+      return {
+        id: `asym-${encoded}`,
+        name: `${presetDef.name} SMA ${period} U${p.upper}/L${p.lower} (fine)`,
+        leverage: presetDef.leverage,
+        expenseRatio: presetDef.expenseRatio,
+        simulated: presetDef.simulated,
+        smaEnabled: true,
+        smaPeriod: period,
+        smaUpperBuffer: p.upper,
+        smaLowerBuffer: p.lower,
+        smaIndex: presetDef.index,
+        riskOffAsset,
+      };
+    });
+    const fineResult = (await runParallelSimulations({
+      prices: ctx.prices,
+      rates: ctx.rates,
+      windowLength,
+      startDate,
+      endDate,
+      configs: fineConfigs,
+      riskOffValuesByAsset: ctx.riskOffSeries.closeValuesByAsset,
+      riskOffOpenValuesByAsset: ctx.riskOffSeries.openValuesByAsset,
+      monthlyCpi: ctx.monthlyCpi,
+      mode: "sweep",
+      signal,
+      onProgress: (fraction, label) =>
+        setRunProgress({ pct: progressBase + fraction * progressSpan, label: label ?? "Asymmetric fine…" }),
+    })) as SmaComparisonRow[];
+
+    const fineRows: AsymmetricSweepRow[] = fineResult.map((row) => {
+      const encoded = row.parameterValue;
+      const l = encoded % 10000;
+      const u = (encoded - l) / 10000;
+      return { ...row, upperBuffer: u / 100, lowerBuffer: l / 100, stage: "fine" };
+    });
+    return { rows: [...coarseRows, ...fineRows], fineWindow };
+  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, minBuffer, maxBuffer, fineStep, fineHalfWidth, windowLength, startDate, endDate, setRunProgress]);
+
   const handleRun = useCallback(async () => {
     setLoading(true);
     setRunProgress({ pct: 5, label: "Loading market data..." });
@@ -413,6 +587,24 @@ export function CompareBufferStrategiesPageContent({
     const controller = new AbortController();
     abortControllerRef.current = controller;
     const signal = controller.signal;
+
+    // Reset asym output. Pre-plan the coarse (upper × lower) grid per preset so
+    // runBufferSweepForPreset can append those configs to its symmetric batch and
+    // the worker pool sees one job instead of two (saves one round of
+    // precomputeAllConfigDailyValues per preset). The fine stage runs after the
+    // combined batch — it depends on the best coarse cell.
+    setAsymRows([]); setAsymRows2([]); setAsymFineWindow(null); setAsymFineWindow2(null);
+    const asymPresets: EtfPreset[] = comboSubs ?? [selectedPreset];
+    const coarsePointsPlan = planCoarseGrid({
+      minUpper: minBuffer,
+      maxUpper: maxBuffer,
+      minLower: minBuffer,
+      maxLower: maxBuffer,
+      coarseStep,
+    });
+    asymCoarsePointsByPresetRef.current = new Map(asymPresets.map((sub) => [sub.name, coarsePointsPlan]));
+    asymCoarseRowsByPresetRef.current = new Map();
+    asymContextByPresetRef.current = new Map();
 
     try {
       const rawRiskOffSeriesPromise = loadAllRiskOffPricePoints(
@@ -433,7 +625,9 @@ export function CompareBufferStrategiesPageContent({
         startDate,
         endDate,
         warmUpTradingDays: Math.max(smaSpPeriod, smaNqPeriod),
-        onProgress: (pct, label) => setRunProgress({ pct, label }),
+        // Combined symmetric + coarse-asym batch claims pct 0→80; the fine asym
+        // dispatch below claims 80→100. Monotonic clamping handles the boundary.
+        onProgress: (pct, label) => setRunProgress({ pct: pct * 0.8, label }),
         loadRiskOffValues: async (_preset, prices) =>
           alignRiskOffPriceSeries(prices, await rawRiskOffSeriesPromise),
         runSweepForPreset: runBufferSweepForPreset,
@@ -456,8 +650,7 @@ export function CompareBufferStrategiesPageContent({
         windowLength,
         smaSpPeriod,
         smaNqPeriod,
-        smaSpBuffer,
-        smaNqBuffer,
+        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         letf,
         riskOffAsset,
       });
@@ -465,19 +658,55 @@ export function CompareBufferStrategiesPageContent({
 
       save({
         letf, index, startDate, endDate, windowLength,
-        smaSpPeriod, smaNqPeriod, smaSpBuffer: form.smaSpBuffer, smaNqBuffer: form.smaNqBuffer,
-        minBuffer, maxBuffer, bufferStep, riskOffAsset,
+        smaSpPeriod, smaNqPeriod,
+        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+        minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, riskOffAsset,
         showBaseline: true, annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
         rows: computedRows,
         baseline: computedBaseline,
         rows2: computedRows2,
         baseline2: computedBaseline2,
+        asymRows: [],
+        asymRows2: [],
+        asymFineWindow: null,
+        asymFineWindow2: null,
         runSummaryInputs: nextRunSummary,
       });
 
       if (inflationWarning) {
         setError("Inflation data unavailable — Real CAGR may be inaccurate.");
       }
+
+      // Coarse asym rows were already produced in the symmetric+coarse merged batch
+      // above (one less precompute round). Now dispatch the fine refinement per
+      // preset in parallel — each preset's fine grid depends only on its own coarse
+      // top cell, and reuses the prices/rates/risk-off context cached by
+      // runBufferSweepForPreset.
+      const inflPctForAsym = inflationData.monthlyCpi.length >= 2 ? 0 : inflationData.annualizedInflation * 100;
+      const finePromises = asymPresets.map((sub, i) => {
+        const span = 20 / Math.max(1, asymPresets.length); // fine claims 80→100
+        const base = 80 + span * i;
+        return runAsymmetricFineForPreset(sub, inflPctForAsym, signal, base, span).catch((asymErr) => {
+          if (!(asymErr instanceof Error && asymErr.name === "AbortError")) {
+            console.error("Asymmetric fine sweep failed:", asymErr);
+          }
+          return { rows: asymCoarseRowsByPresetRef.current.get(sub.name) ?? [], fineWindow: null };
+        });
+      });
+      const fineResults = await Promise.all(finePromises);
+      if (!signal.aborted) {
+        for (let i = 0; i < fineResults.length; i++) {
+          const { rows: subAsymRows, fineWindow } = fineResults[i];
+          if (i === 0) {
+            setAsymRows(subAsymRows);
+            setAsymFineWindow(fineWindow);
+          } else if (i === 1) {
+            setAsymRows2(subAsymRows);
+            setAsymFineWindow2(fineWindow);
+          }
+        }
+      }
+
       clearMetadata();
       setRunProgress({ pct: 100, label: "Done" });
       if (computedRows.length > 0 || computedRows2.length > 0) {
@@ -511,7 +740,7 @@ export function CompareBufferStrategiesPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpBuffer, smaNqBuffer, riskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaBufferUrlParams, runBufferSweepForPreset, setRunSummary, save, clearMetadata, form.smaSpBuffer, form.smaNqBuffer, bufferStep, maxBuffer, minBuffer, updateUrl, setRunProgress]);
+  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaBufferUrlParams, runBufferSweepForPreset, runAsymmetricFineForPreset, setRunSummary, save, clearMetadata, fineStep, coarseStep, fineHalfWidth, maxBuffer, minBuffer, updateUrl, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -566,15 +795,37 @@ export function CompareBufferStrategiesPageContent({
             onChange={(e) => setMaxBuffer(parseNumberOrKeep(e.currentTarget.value, maxBuffer))}
           />
           <Input
-            label="Buffer Step Size"
+            label="Fine Step"
             suffix="%"
-            info="The gap between each buffer value tested. e.g. a step of 0.5% between 0% and 5% tests 0%, 0.5%, 1%, …, 5%. Smaller steps try more buffers but take longer to run."
+            info="Drives the symmetric 1D sweep and the asymmetric stage-2 refinement grid. Smaller steps try more buffers but take longer."
             type="number"
             step={0.1}
             min={0.1}
             max={5}
-            value={bufferStep}
-            onChange={(e) => setBufferStep(parseNumberOrKeep(e.currentTarget.value, bufferStep))}
+            value={fineStep}
+            onChange={(e) => setFineStep(parseNumberOrKeep(e.currentTarget.value, fineStep))}
+          />
+          <Input
+            label="Coarse Step"
+            suffix="%"
+            info="Stage-1 grid resolution for the asymmetric (upper × lower) sweep. Larger = fewer runs."
+            type="number"
+            step={0.5}
+            min={0.5}
+            max={10}
+            value={coarseStep}
+            onChange={(e) => setCoarseStep(parseNumberOrKeep(e.currentTarget.value, coarseStep))}
+          />
+          <Input
+            label="Fine Window Half-Width"
+            suffix="%"
+            info="How far around the best coarse cell the asymmetric stage-2 grid refines."
+            type="number"
+            step={0.5}
+            min={0.5}
+            max={10}
+            value={fineHalfWidth}
+            onChange={(e) => setFineHalfWidth(parseNumberOrKeep(e.currentTarget.value, fineHalfWidth))}
           />
         </SharedToolInputs>
 
@@ -724,7 +975,86 @@ export function CompareBufferStrategiesPageContent({
           </>
         )}
 
+        {/* Asymmetric (upper × lower) heatmaps + per-sub-preset tables. */}
+        {display && (asymRows.length > 0 || asymRows2.length > 0) && (
+          <>
+            <AsymmetricSection
+              title={display.comboLabels ? `${display.comboLabels[0]} — Asymmetric (Upper × Lower)` : "Asymmetric (Upper × Lower)"}
+              rows={asymRows}
+              fineWindow={asymFineWindow}
+              inflationPct={inflPct}
+              windowYears={display.summary.windowLength}
+              startDate={display.summary.startDate}
+              hateDrawdown={hateDrawdown}
+            />
+            {display.comboLabels && asymRows2.length > 0 && (
+              <AsymmetricSection
+                title={`${display.comboLabels[1]} — Asymmetric (Upper × Lower)`}
+                rows={asymRows2}
+                fineWindow={asymFineWindow2}
+                inflationPct={inflPct}
+                windowYears={display.summary.windowLength}
+                startDate={display.summary.startDate}
+                hateDrawdown={hateDrawdown}
+              />
+            )}
+          </>
+        )}
+
       </div>
     </div>
   );
 }
+
+function AsymmetricSection({
+  title,
+  rows,
+  fineWindow,
+  inflationPct,
+  windowYears,
+  startDate,
+  hateDrawdown,
+}: {
+  title: string;
+  rows: AsymmetricSweepRow[];
+  fineWindow: { minU: number; maxU: number; minL: number; maxL: number } | null;
+  inflationPct: number;
+  windowYears: number;
+  startDate?: string;
+  hateDrawdown?: boolean;
+}) {
+  const objective: ObjectiveKey = "score";
+  const top = pickTopCell(rows, objective, inflationPct);
+  // Asymmetric rows carry upper/lower buffers; format the first table column as
+  // `−lower%/upper%` so the existing SweepComparisonTable renders the right pair.
+  const formatPair = (r: SmaComparisonRow) => {
+    const a = r as AsymmetricSweepRow;
+    return `−${a.lowerBuffer.toFixed(2)}%/${a.upperBuffer.toFixed(2)}%`;
+  };
+  return (
+    <Card>
+      <h2 className="text-lg font-semibold mb-3">{title}</h2>
+      <BufferHeatmap
+        rows={rows}
+        objective={objective}
+        inflationPct={inflationPct}
+        highlight={top ? { upper: top.upperBuffer, lower: top.lowerBuffer } : null}
+        fineWindow={fineWindow}
+      />
+      <div className="mt-4">
+        <SweepComparisonTable
+          rows={rows as SmaComparisonRow[]}
+          inflationPct={inflationPct}
+          windowYears={windowYears}
+          firstColumnLabel="−Lower / +Upper"
+          formatFirstColumn={formatPair}
+          getBacktestUrl={() => null}
+          startDate={startDate}
+          showStartDate={false}
+          hateDrawdown={hateDrawdown}
+        />
+      </div>
+    </Card>
+  );
+}
+

@@ -51,7 +51,7 @@ async function main() {
     spIndex.map((p) => p.date),
     fullCloses,
     185,
-    3.6,
+    { upper: 3.6, lower: 3.6 },
   );
   /** Mirrors ETF + futures: next-session-open execution of raw `generateSmaSignals` invested flags. */
   const investedExecFull = buildInvestedForNextDayOpenExecution(fullSma.invested);

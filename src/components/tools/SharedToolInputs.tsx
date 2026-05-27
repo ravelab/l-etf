@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { Input } from "@/components/ui/Input";
+import { BufferPairInput } from "@/components/ui/BufferPairInput";
 import { Select } from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -22,8 +23,10 @@ export type SharedFieldValues = {
   windowLength: number;
   smaSpPeriod?: number;
   smaNqPeriod?: number;
-  smaSpBuffer?: number;
-  smaNqBuffer?: number;
+  smaSpUpperBuffer?: number;
+  smaSpLowerBuffer?: number;
+  smaNqUpperBuffer?: number;
+  smaNqLowerBuffer?: number;
   riskOffAsset?: EtfConfig["riskOffAsset"];
 };
 
@@ -265,17 +268,14 @@ export function SharedToolInputs({
             onChange={num("smaSpPeriod", values.smaSpPeriod)}
           />
         )}
-        {values.smaSpBuffer !== undefined && (
-          <Input
+        {values.smaSpUpperBuffer !== undefined && values.smaSpLowerBuffer !== undefined && (
+          <BufferPairInput
             label="SPX SMA Buffer"
-            info="A cushion around the SPX moving-average line. Price has to rise this far above the line to switch into the leveraged ETF, or fall this far below to switch out. A small buffer prevents flipping back and forth on tiny moves."
-            type="number"
-            step={0.1}
-            min={0}
-            max={30}
-            suffix="%"
-            value={values.smaSpBuffer}
-            onChange={num("smaSpBuffer", values.smaSpBuffer)}
+            info="Two cushions around the SPX moving-average line. The first (with the −) is the below-SMA threshold: SPX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: SPX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
+            lowerValue={values.smaSpLowerBuffer}
+            upperValue={values.smaSpUpperBuffer}
+            onLowerChange={(v) => onChange("smaSpLowerBuffer", v as never)}
+            onUpperChange={(v) => onChange("smaSpUpperBuffer", v as never)}
           />
         )}
         {values.smaNqPeriod !== undefined && (
@@ -290,17 +290,14 @@ export function SharedToolInputs({
             onChange={num("smaNqPeriod", values.smaNqPeriod)}
           />
         )}
-        {values.smaNqBuffer !== undefined && (
-          <Input
+        {values.smaNqUpperBuffer !== undefined && values.smaNqLowerBuffer !== undefined && (
+          <BufferPairInput
             label="NDX SMA Buffer"
-            info="A cushion around the NDX moving-average line. Price has to rise this far above the line to switch into the leveraged ETF, or fall this far below to switch out. A small buffer prevents flipping back and forth on tiny moves."
-            type="number"
-            step={0.1}
-            min={0}
-            max={30}
-            suffix="%"
-            value={values.smaNqBuffer}
-            onChange={num("smaNqBuffer", values.smaNqBuffer)}
+            info="Two cushions around the NDX moving-average line. The first (with the −) is the below-SMA threshold: NDX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: NDX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
+            lowerValue={values.smaNqLowerBuffer}
+            upperValue={values.smaNqUpperBuffer}
+            onLowerChange={(v) => onChange("smaNqLowerBuffer", v as never)}
+            onUpperChange={(v) => onChange("smaNqUpperBuffer", v as never)}
           />
         )}
         {values.riskOffAsset !== undefined && (

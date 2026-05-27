@@ -49,7 +49,7 @@ const config: EtfConfig = {
   simulated: true,
   smaEnabled: true,
   smaPeriod: 3,
-  smaBuffer: 0,
+  smaUpperBuffer: 0, smaLowerBuffer: 0,
   smaIndex: "sp500",
   riskOffAsset: "SGOV",
 };

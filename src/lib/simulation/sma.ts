@@ -49,16 +49,10 @@ export function computeSma(prices: number[], period: number): number[] {
 /**
  * Generate SMA buy/sell signals.
  *
- * Buy when price crosses above SMA * (1 + buffer/100)
- * Sell when price crosses below SMA * (1 - buffer/100)
+ * Re-enter when price crosses above SMA * (1 + buffer.upper / 100).
+ * Exit when price crosses below SMA * (1 - buffer.lower / 100).
  *
  * checkFrequency: only check every N trading days.
- */
-/**
- * Cache for generateSmaSignals: keyed by (prices identity, smaPeriod, checkFrequency, bufferPct).
- * In rolling simulations the same window prices are reused across parameter sweeps,
- * but buffer/frequency usually differ, so this mainly helps when the exact same
- * config is evaluated multiple times on the same window (e.g. SMA + SMA Close variants).
  */
 const signalCache = new WeakMap<number[], Map<string, { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] }>>();
 
@@ -66,9 +60,10 @@ export function generateSmaSignals(
   dates: string[],
   prices: number[],
   smaPeriod: number,
-  bufferPct: number
+  buffer: { upper: number; lower: number }
 ): { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] } {
-  const cacheKey = `${smaPeriod}|${bufferPct}`;
+  const { upper: upperBufferPct, lower: lowerBufferPct } = buffer;
+  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
     const cached = byPrices.get(cacheKey);
@@ -107,8 +102,8 @@ export function generateSmaSignals(
     if (daysSinceCheck >= CONSTANT_SMA_CHECK_FREQUENCY) {
       daysSinceCheck = 0;
 
-      const upperBand = effectiveSma * (1 + bufferPct / 100);
-      const lowerBand = effectiveSma * (1 - bufferPct / 100);
+      const upperBand = effectiveSma * (1 + upperBufferPct / 100);
+      const lowerBand = effectiveSma * (1 - lowerBufferPct / 100);
 
       if (!isInvested && prices[i] > upperBand) {
         isInvested = true;
