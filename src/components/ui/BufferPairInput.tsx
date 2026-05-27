@@ -60,6 +60,9 @@ export function BufferPairInput({
           min={min}
           max={max}
         />
+        <span className="text-muted select-none" aria-hidden="true">
+          ,
+        </span>
         <NumberCell
           ariaLabel={`${label} upper`}
           value={upperValue}
