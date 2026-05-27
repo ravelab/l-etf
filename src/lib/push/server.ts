@@ -123,8 +123,25 @@ function normalizePushSubscription(input: unknown): PushSubscriptionInput {
   return pushSubscriptionSchema.parse(input);
 }
 
+function migrateLegacyPushSmaConfig(input: unknown): unknown {
+  if (!input || typeof input !== "object") return input;
+  const source = input as Record<string, unknown>;
+  const migrated: Record<string, unknown> = { ...source };
+  if (typeof source.smaSpBuffer === "number") {
+    migrated.smaSpUpperBuffer ??= source.smaSpBuffer;
+    migrated.smaSpLowerBuffer ??= source.smaSpBuffer;
+    delete migrated.smaSpBuffer;
+  }
+  if (typeof source.smaNqBuffer === "number") {
+    migrated.smaNqUpperBuffer ??= source.smaNqBuffer;
+    migrated.smaNqLowerBuffer ??= source.smaNqBuffer;
+    delete migrated.smaNqBuffer;
+  }
+  return migrated;
+}
+
 function normalizePushSmaConfig(input: unknown): SmaSignalConfig {
-  return pushSmaConfigSchema.parse(input);
+  return pushSmaConfigSchema.parse(migrateLegacyPushSmaConfig(input));
 }
 
 function getPushSubscriptionId(endpoint: string): string {
