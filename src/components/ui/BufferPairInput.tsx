@@ -18,9 +18,10 @@ interface BufferPairInputProps {
 }
 
 /**
- * Dual-number input rendered as `− [lower] [upper] %`. The leading minus sign is a visual
- * cue that the first box is the below-SMA threshold (`price < SMA × (1 − lower/100)`).
- * Fits the same horizontal slot as a single `Input` with a `%` suffix.
+ * Dual-number input rendered as `− [lower] %, [upper] %` (e.g. `−3.3%, 3%`). The leading
+ * minus sign is a visual cue that the first box is the below-SMA threshold
+ * (`price < SMA × (1 − lower/100)`). Fits the same horizontal slot as a single `Input`
+ * with a `%` suffix.
  */
 export function BufferPairInput({
   label,
@@ -60,6 +61,9 @@ export function BufferPairInput({
           min={min}
           max={max}
         />
+        <span className="text-xs text-muted select-none" aria-hidden="true">
+          %
+        </span>
         <span className="text-muted select-none" aria-hidden="true">
           ,
         </span>

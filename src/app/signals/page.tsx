@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { SignalCard } from "@/components/home/SignalCard";
 import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
 import { getSharedInputs } from "@/lib/hooks/use-shared-inputs";
+import { formatSmaSummary } from "@/lib/buffer-format";
 import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
@@ -207,6 +208,15 @@ export default function SignalsPage() {
             )}
           </div>
         )}
+
+        <p className="text-center text-sm text-muted tabular-nums">
+          <span className="mx-2 whitespace-nowrap">
+            {formatSmaSummary("SPX", smaSpPeriod, smaSpLowerBuffer, smaSpUpperBuffer)}
+          </span>
+          <span className="mx-2 whitespace-nowrap">
+            {formatSmaSummary("NDX", smaNqPeriod, smaNqLowerBuffer, smaNqUpperBuffer)}
+          </span>
+        </p>
       </div>
     </div>
   );
