@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState, type ChangeEvent, type FocusEvent, type InputHTMLAttributes, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type ChangeEvent, type FocusEvent, type InputHTMLAttributes, type ReactNode } from "react";
 import { InfoPopoverButton } from "./InfoPopoverButton";
+import { caretForDigit, countDigits, formatDateDraft, parseDateInput, toDisplayDate } from "@/lib/date-input";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -32,6 +33,20 @@ export function Input({ label, suffix, info, labelAction, labelActions, classNam
   const [draftValue, setDraftValue] = useState(() =>
     isDate ? toDisplayDate(toText(value)) : toText(value)
   );
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  // Caret position to restore after a date reformat reflows the text.
+  const pendingCaretRef = useRef<number | null>(null);
+
+  // After auto-inserting "/" separators the input value changes length, which
+  // would otherwise push the caret to the end. Restore it next to the digit the
+  // user was actually editing.
+  useLayoutEffect(() => {
+    if (pendingCaretRef.current !== null && inputRef.current) {
+      const pos = pendingCaretRef.current;
+      inputRef.current.setSelectionRange(pos, pos);
+      pendingCaretRef.current = null;
+    }
+  }, [draftValue]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (!isNumeric && !isDate) {
@@ -39,9 +54,15 @@ export function Input({ label, suffix, info, labelAction, labelActions, classNam
       return;
     }
     if (isDate) {
-      // Keep the user's raw text while typing so caret position is stable.
-      // We normalize/validate on blur.
-      setDraftValue(e.currentTarget.value);
+      // Auto-format toward YYYY/MM/DD as the user types so mobile keypads (which
+      // have no "/") can enter a date with digits alone. We normalize/validate
+      // the final value on blur.
+      const rawValue = e.currentTarget.value;
+      const caret = e.currentTarget.selectionStart ?? rawValue.length;
+      const digitsBefore = countDigits(rawValue, caret);
+      const formatted = formatDateDraft(rawValue);
+      pendingCaretRef.current = caretForDigit(formatted, digitsBefore);
+      setDraftValue(formatted);
       return;
     }
     setDraftValue(e.currentTarget.value);
@@ -156,6 +177,7 @@ export function Input({ label, suffix, info, labelAction, labelActions, classNam
       )}
       <div className="relative">
         <input
+          ref={inputRef}
           id={inputId}
           className={`w-full bg-input-bg border border-card-border rounded-lg px-3 py-1.5 text-sm
             text-foreground placeholder-muted/50 focus:outline-none focus:border-accent/50
@@ -182,26 +204,6 @@ export function Input({ label, suffix, info, labelAction, labelActions, classNam
 function toText(value: InputProps["value"]): string {
   if (value === null || value === undefined) return "";
   return String(value);
-}
-
-function parseDateInput(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const normalized = trimmed.replaceAll("/", "-");
-  const match = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (!match) return null;
-  const [, y, rawMonth, rawDay] = match;
-  const m = rawMonth.padStart(2, "0");
-  const d = rawDay.padStart(2, "0");
-  const date = new Date(`${y}-${m}-${d}T00:00:00Z`);
-  if (!Number.isFinite(date.getTime())) return null;
-  if (date.toISOString().slice(0, 10) !== `${y}-${m}-${d}`) return null;
-  return `${y}-${m}-${d}`;
-}
-
-function toDisplayDate(value: string): string {
-  if (!value) return "";
-  return value.replaceAll("-", "/");
 }
 
 function toDisplayValue(value: InputProps["value"], isDate: boolean): string {
