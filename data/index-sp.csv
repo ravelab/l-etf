@@ -35363,3 +35363,8 @@ date,adj_close,open,close,name,source
 2026-05-28,693.91,7519.82,7563.63,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-05-29,695.49,7579.33,7580.06,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-06-01,697.3,7582.29,7599.96,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-06-02,698.26,7595.4,7609.78,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-06-03,693.36,7605.31,7553.68,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-06-04,696.06,7516.54,7584.31,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-06-05,678,7537.36,7383.74,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-06-08,680.019,7440.57,7405.73,VOO,yahoo(open+close)+provisional(adj_close)
