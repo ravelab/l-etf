@@ -6,6 +6,7 @@ import { writeFile, readFile, open, appendFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { computeAdjustedRebaseRatio } from "../src/lib/data/adjusted-rebase";
 import {
   fetchYahooDailyBarsByDate,
   type YahooDailyBar,
@@ -680,23 +681,38 @@ async function generateIncrementalIndexCsv(params: {
     return;
   }
 
+  // Rows previously stored with a provisional adj_close (placeholder used
+  // when Tiingo's authoritative value wasn't yet available) are always
+  // overwritten by the fresh value, so they don't participate in overlap
+  // comparison.
+  const overlapPairs = parsedRows.flatMap((row) => {
+    const fresh = freshByDate.get(row.date);
+    if (!fresh || row.adj_close == null || fresh.adj_close == null) return [];
+    if (row.source?.includes("provisional") === true) return [];
+    return [{ date: row.date, stored: row.adj_close, fresh: fresh.adj_close }];
+  });
+
+  let rebaseRatio: number | null;
+  try {
+    rebaseRatio = computeAdjustedRebaseRatio(overlapPairs);
+  } catch (err) {
+    throw new Error(
+      `Overlap mismatch for ${params.filename}: ${err instanceof Error ? err.message : err}`
+    );
+  }
+  if (rebaseRatio != null) {
+    console.log(
+      `  ! ${params.filename} adjusted closes shifted uniformly by ${rebaseRatio.toFixed(8)} across ${overlapPairs.length} overlap row(s); re-basing older rows (dividend/split re-adjustment)`
+    );
+  }
+
   let changed = false;
   const mergedRows = parsedRows.map((row) => {
     const fresh = freshByDate.get(row.date);
-    if (!fresh) return row;
-
-    // Rows previously stored with a provisional adj_close (placeholder used
-    // when Tiingo's authoritative value wasn't yet available) should always
-    // be overwritten by the fresh value, not flagged as a conflict.
-    const isProvisional = row.source?.includes("provisional") === true;
-
-    if (
-      !isProvisional &&
-      row.adj_close != null &&
-      fresh.adj_close != null &&
-      !nearlyEqual(row.adj_close, fresh.adj_close)
-    ) {
-      throw new Error(`Overlap mismatch for ${params.filename} on ${row.date}`);
+    if (!fresh) {
+      if (rebaseRatio == null || row.adj_close == null) return row;
+      changed = true;
+      return { ...row, adj_close: row.adj_close * rebaseRatio };
     }
 
     changed = true;
@@ -1139,11 +1155,16 @@ async function fetchYahooIndexBars(
   yahooSymbol: "^GSPC" | "^NDX" | "^IXIC",
   options: { startDate?: string; endDate?: string; fullHistory?: boolean } = {}
 ): Promise<Array<{ date: string; open: number; close: number; source: "yahoo" }>> {
-  const requestCacheKey = `${yahooSymbol}:${options.fullHistory ? "full" : "recent"}`;
+  const requestCacheKey = options.fullHistory
+    ? `${yahooSymbol}:full`
+    : `${yahooSymbol}:recent:${options.startDate ?? "1mo"}`;
   let yahooByDate = yahooIndexBarsCache.get(requestCacheKey);
 
   if (!yahooByDate) {
-    yahooByDate = await fetchYahooDailyBarsByDate(yahooSymbol, { fullHistory: options.fullHistory });
+    yahooByDate = await fetchYahooDailyBarsByDate(yahooSymbol, {
+      fullHistory: options.fullHistory,
+      startDate: options.fullHistory ? undefined : options.startDate,
+    });
     yahooIndexBarsCache.set(requestCacheKey, yahooByDate);
   }
 

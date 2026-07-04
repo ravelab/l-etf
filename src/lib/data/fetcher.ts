@@ -44,19 +44,41 @@ export type YahooDailyBar = {
   open?: number;
 };
 
+// Pad the requested window start so the NY session bar for `startDate` is
+// always inside it regardless of timezone/DST boundaries.
+const YAHOO_WINDOW_MARGIN_SECONDS = 2 * 24 * 60 * 60;
+
+function buildYahooRecentWindowQuery(startDate: string, nowSeconds: number): string {
+  const parsedMs = /^\d{4}-\d{2}-\d{2}$/.test(startDate)
+    ? Date.parse(`${startDate}T00:00:00Z`)
+    : Number.NaN;
+  if (!Number.isFinite(parsedMs)) {
+    throw new Error(`Invalid Yahoo window start date "${startDate}"; expected YYYY-MM-DD`);
+  }
+  const period1 = Math.floor(parsedMs / 1000) - YAHOO_WINDOW_MARGIN_SECONDS;
+  return `period1=${period1}&period2=${nowSeconds}&interval=1d`;
+}
+
 /**
  * Daily bars (open + close) from the Yahoo chart, keyed by NY session date.
  * Same session-boundary rules as {@link fetchYahooDailyClosesByDate}.
+ *
+ * Window selection: `fullHistory` fetches everything; `startDate` (YYYY-MM-DD)
+ * fetches from that date to now — required when callers must bridge back to a
+ * CSV tail older than Yahoo's default window; otherwise the last month.
  */
 export async function fetchYahooDailyBarsByDate(
   symbol: "^GSPC" | "^NDX" | "^IXIC",
-  options: { fullHistory?: boolean } = {}
+  options: { fullHistory?: boolean; startDate?: string } = {}
 ): Promise<Map<string, YahooDailyBar>> {
   console.log(`[yahoo] Fetching daily OHLC for ${symbol}...`);
   const encoded = encodeURIComponent(symbol);
+  const nowSeconds = Math.floor(Date.now() / 1000);
   const query = options.fullHistory
-    ? `period1=0&period2=${Math.floor(Date.now() / 1000)}&interval=1d&events=history`
-    : "interval=1d&range=1mo";
+    ? `period1=0&period2=${nowSeconds}&interval=1d&events=history`
+    : options.startDate
+      ? buildYahooRecentWindowQuery(options.startDate, nowSeconds)
+      : "interval=1d&range=1mo";
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?${query}`;
   const response = await fetch(url, {
     headers: {
