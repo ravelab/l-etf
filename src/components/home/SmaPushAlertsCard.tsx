@@ -27,6 +27,8 @@ type PushState = {
 type SmaPushAlertsCardProps = {
   smaConfig: PushSmaConfig;
   onConfigChange?: (field: keyof PushSmaConfig, value: boolean) => void;
+  useCalibratedDefaults: boolean;
+  onUseCalibratedDefaultsChange: (value: boolean) => void;
 };
 
 function formatConfigSuffix(config: PushSmaConfig | null): string {
@@ -42,7 +44,7 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
   return ` (${parts.join(", ")})`;
 }
 
-export function SmaPushAlertsCard({ smaConfig, onConfigChange }: SmaPushAlertsCardProps) {
+export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefaults, onUseCalibratedDefaultsChange }: SmaPushAlertsCardProps) {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [subscriptionConfig, setSubscriptionConfig] = useState<PushSmaConfig | null>(null);
@@ -314,11 +316,16 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange }: SmaPushAlertsCa
               {nqActive ? (nqNeedsUpdate ? "Update NDX SMA alerts" : "Disable NDX SMA alerts") : "Enable NDX SMA alerts"}
             </Button>
           </div>
-          <div className="pt-1">
+          <div className="pt-1 flex flex-col gap-2">
             <Toggle
               label="Notify me after every market close"
               checked={Boolean(smaConfig.notifyEveryClose)}
               onChange={handleNotifyEveryCloseChange}
+            />
+            <Toggle
+              label="Use default values which are calibrated over time"
+              checked={useCalibratedDefaults}
+              onChange={onUseCalibratedDefaultsChange}
             />
           </div>
           <p className="text-sm font-bold text-foreground">{state.message}</p>
