@@ -29,8 +29,8 @@ test("normalizeRiskOffAsset accepts valid values and falls back for unknown", ()
   assert.equal(normalizeRiskOffAsset("SGOV"), "SGOV");
   assert.equal(normalizeRiskOffAsset("VGSH"), "VGSH");
   assert.equal(normalizeRiskOffAsset("GLDM"), "GLDM");
-  assert.equal(normalizeRiskOffAsset("NOT_REAL"), "SGOV");
-  assert.equal(normalizeRiskOffAsset(null), "SGOV");
+  assert.equal(normalizeRiskOffAsset("NOT_REAL"), "BRK.B+GLDM+VGSH");
+  assert.equal(normalizeRiskOffAsset(null), "BRK.B+GLDM+VGSH");
 });
 
 test("normalizeDateString parses valid dates and rejects invalid ones", () => {

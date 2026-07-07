@@ -32,7 +32,7 @@ import {
   type MonthlyCpiPoint,
 } from "./lib/sweep-data";
 import { CONSTANT_SP500_SHORTCUT_DATE } from "../src/lib/constants";
-import { getDefaultWindowLength } from "../src/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSET, getDefaultWindowLength } from "../src/lib/simulation/defaults";
 import { DEFAULT_COMBO_PRESET, createPresetEtfConfig, getComboSubPresets } from "../src/lib/simulation/presets";
 import { buildRollingWindows, summarizeSmaRow, type RollingWindow } from "../src/lib/simulation/rolling";
 import { getBestSweepRow } from "../src/lib/sweep";
@@ -69,14 +69,6 @@ const SANE_STARTING_BUFFER: Record<IndexKey, number> = {
   nasdaq100: 11.9,
 };
 
-/**
- * Diversified risk-off asset used for calibration (matches how these SMA
- * parameters are actually evaluated/backtested — not SGOV). Risk-off asset
- * choice materially changes which buffer/period scores best, since it
- * changes the return/drawdown profile of every "sell" period.
- */
-const CALIBRATION_RISK_OFF_ASSET = "BRK.B+GLDM+VGSH" as const;
-
 type SweepContext = {
   prices: PricePoint[];
   rates: RatePoint[];
@@ -102,7 +94,7 @@ function runPeriodSweep(
         smaPeriod: p,
         smaUpperBuffer: upper,
         smaLowerBuffer: lower,
-        riskOffAsset: CALIBRATION_RISK_OFF_ASSET,
+        riskOffAsset: DEFAULT_RISK_OFF_ASSET,
       })
     );
   }
@@ -137,7 +129,7 @@ function runBufferPoints(
       smaPeriod: period,
       smaUpperBuffer: upper,
       smaLowerBuffer: lower,
-      riskOffAsset: CALIBRATION_RISK_OFF_ASSET,
+      riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     })
   );
   const results = runPrecomputedSweep({
@@ -208,7 +200,7 @@ async function calibrateIndex(
     fetchInflationData(startDate, endDate),
   ]);
   const riskOffSeries = await loadRiskOffValuesForReference(
-    getUniquePrimitiveRiskOffAssets([CALIBRATION_RISK_OFF_ASSET]),
+    getUniquePrimitiveRiskOffAssets([DEFAULT_RISK_OFF_ASSET]),
     prices,
     expandedStartDate,
     endDate

@@ -181,8 +181,8 @@ export default function SignalsPage() {
                 onUpperChange={setSmaNqUpperBuffer}
               />
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2 min-h-[20px] text-sm text-muted">
-              <Button variant="secondary" size="sm" disabled={!calibration} onClick={handleSetDefault}>
+            <div className="mt-4 flex items-center gap-1.5 md:gap-2 min-h-[20px] text-[11px] md:text-sm text-muted">
+              <Button variant="secondary" size="sm" disabled={!calibration} onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
                 Set default
               </Button>
               {calibration ? (

@@ -4,7 +4,7 @@ const DEFAULT_SMA_SP500_BUFFER = 3.6;
 const DEFAULT_SMA_NASDAQ_BUFFER = 11.9;
 const DEFAULT_PERIOD_YEARS = 10;
 
-export const DEFAULT_RISK_OFF_ASSET = "SGOV" as const;
+export const DEFAULT_RISK_OFF_ASSET = "BRK.B+GLDM+VGSH" as const;
 
 export const DEFAULT_FUTURES_AMOUNT = 100_000;
 
