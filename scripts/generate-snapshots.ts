@@ -18,9 +18,19 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getBorrowRate, getPriceDateBounds, getPrices } from "../src/lib/db/queries";
+import {
+  fetchInflationData,
+  getLatestSharedTradeDate,
+  getSmaWarmupStartDate,
+  getUniquePrimitiveRiskOffAssets,
+  loadPrices,
+  loadRates,
+  loadRiskOffValuesForReference,
+  runPrecomputedSweep,
+  type MonthlyCpiPoint,
+} from "./lib/sweep-data";
 import {
   CHART_COLORS,
   CONSTANT_INITIAL_INVESTMENT,
@@ -60,7 +70,6 @@ import {
   summarizeParallelResult,
   summarizeSmaRow,
   type RollingSimulationPoint,
-  type RollingWindow,
 } from "../src/lib/simulation/rolling";
 import { simulateBacktest, simulateWithWarmUp } from "../src/lib/simulation/engine";
 import {
@@ -94,8 +103,6 @@ import { computeWinRatesByWindowLength, type WinRatesByWindow } from "../src/lib
 const OUTPUT_DIR = join(process.cwd(), "src", "lib", "tool-snapshots");
 const MAX_SNAPSHOT_SIZE_BYTES = 5 * 1024 * 1024;
 const FUTURES_SNAPSHOT_TARGET_POINTS = 1000;
-const SMA_WARMUP_BUFFER_TRADING_DAYS = 20;
-const TRADING_DAYS_PER_YEAR = 250;
 const DATA_LATEST_END = "9999-12-31";
 
 const PAGE_KEYS = [
@@ -109,8 +116,6 @@ const PAGE_KEYS = [
 ] as const;
 
 type PageKey = (typeof PAGE_KEYS)[number];
-
-type MonthlyCpiPoint = { date: string; value: number };
 
 type StrategyResult = {
   label: string;
@@ -207,7 +212,14 @@ type PageSnapshot = {
 
 async function main() {
   const requestedPages = parseRequestedPages(process.argv.slice(2));
-  const snapshotEndDate = await getSnapshotEndDate();
+  const snapshotEndDate = await getLatestSharedTradeDate([
+    "sp500",
+    "nasdaq100",
+    "risk:SGOV",
+    "risk:VGSH",
+    "risk:GLDM",
+    "risk:BRKA",
+  ]);
   const sharedInputs: SharedInputs = {
     preset: DEFAULT_COMBO_PRESET,
     startDate: CONSTANT_SP500_SHORTCUT_DATE,
@@ -309,20 +321,6 @@ const SNAPSHOT_BUILDERS: Record<PageKey, (shared: SharedInputs) => Promise<Recor
   "backtesting": buildBacktestingSnapshot,
   "futures": buildFuturesSnapshot,
 };
-
-async function getSnapshotEndDate(): Promise<string> {
-  const priceKeys = ["sp500", "nasdaq100", "risk:SGOV", "risk:VGSH", "risk:GLDM", "risk:BRKA"];
-  const bounds = await Promise.all(priceKeys.map((key) => getPriceDateBounds(key)));
-
-  const maxDates = bounds.map((b, i) => {
-    if (!b?.maxDate) {
-      throw new Error(`Missing price data for ${priceKeys[i]}`);
-    }
-    return b.maxDate;
-  });
-
-  return maxDates.reduce((min, current) => (current < min ? current : min));
-}
 
 async function buildBacktestingSnapshot(shared: SharedInputs) {
   const comboSubs = getComboSubPresets(shared.preset);
@@ -1188,151 +1186,6 @@ function runPrecomputedRolling({
   return buckets[0]?.simulations ?? [];
 }
 
-/**
- * Precompute daily values for multiple configs, then slice rolling windows for each.
- * Used by sweep functions where many configs share the same price/rate data.
- */
-function runPrecomputedSweep({
-  prices,
-  rates,
-  configs,
-  windows,
-  riskOffValuesByAsset,
-  riskOffOpenValuesByAsset,
-}: {
-  prices: PricePoint[];
-  rates: RatePoint[];
-  configs: EtfConfig[];
-  windows: RollingWindow[];
-  riskOffValuesByAsset?: Partial<Record<RiskOffAsset, number[]>>;
-  riskOffOpenValuesByAsset?: Partial<Record<RiskOffAsset, number[]>>;
-}): Map<string, RollingSimulationPoint[]> {
-  const precomputed = precomputeAllConfigDailyValues(
-    prices,
-    rates,
-    configs,
-    riskOffValuesByAsset,
-    riskOffOpenValuesByAsset
-  );
-  const buckets = buildSimulationBuckets(precomputed, windows, prices, {
-    rates,
-    configs,
-    riskOffValuesByAsset,
-    riskOffOpenValuesByAsset,
-  });
-  const result = new Map<string, RollingSimulationPoint[]>();
-  for (const bucket of buckets) {
-    result.set(bucket.configId, bucket.simulations);
-  }
-  return result;
-}
-
-async function loadPrices(index: string, startDate: string, endDate: string): Promise<PricePoint[]> {
-  const rows = await getPrices(index, startDate, endDate);
-  return rows
-    .filter((row) => {
-      const adjClose = row.adj_close ?? Number.NaN;
-      return Number.isFinite(adjClose) && adjClose > 0;
-    })
-    .map((row) => ({
-      date: row.date,
-      adj_open: row.adj_open,
-      adj_close: row.adj_close as number,
-      open: row.open,
-      close: row.close ?? (row.adj_close as number),
-    }));
-}
-
-async function loadRates(startDate: string, endDate: string): Promise<RatePoint[]> {
-  const rows = await getBorrowRate(startDate, endDate);
-  return rows.map((row) => ({
-    date: row.date,
-    rateType: "borrow",
-    rateValue: row.value,
-  }));
-}
-
-async function loadRiskOffValuesForReference(
-  primitiveAssets: RiskOffAsset[],
-  referencePrices: PricePoint[],
-  startDate: string,
-  endDate: string
-): Promise<{
-  closeValuesByAsset: Partial<Record<RiskOffAsset, number[]>>;
-  openValuesByAsset: Partial<Record<RiskOffAsset, number[]>>;
-}> {
-  const closeValuesByAsset: Partial<Record<RiskOffAsset, number[]>> = {};
-  const openValuesByAsset: Partial<Record<RiskOffAsset, number[]>> = {};
-  for (const asset of primitiveAssets) {
-    const storageKey =
-      asset === "VOO"
-        ? "sp500"
-        : asset === "QQQ"
-          ? "nasdaq100"
-          : asset === "BRK.B"
-            ? "risk:BRKA"
-            : `risk:${asset.replace(".", "")}`;
-    const points = await loadPrices(storageKey, startDate, endDate);
-    closeValuesByAsset[asset] = alignCloseSeriesToDates(referencePrices, points);
-    openValuesByAsset[asset] = alignOpenSeriesToDates(referencePrices, points);
-  }
-  return { closeValuesByAsset, openValuesByAsset };
-}
-
-function getUniquePrimitiveRiskOffAssets(assets: RiskOffAsset[]): RiskOffAsset[] {
-  const out = new Set<RiskOffAsset>();
-  for (const asset of assets) {
-    if (asset.includes("+")) {
-      for (const part of asset.split("+")) out.add(part as RiskOffAsset);
-    } else {
-      out.add(asset);
-    }
-  }
-  return [...out];
-}
-
-async function fetchInflationData(startDate: string, endDate: string): Promise<{
-  annualizedInflation: number;
-  monthlyCpi: MonthlyCpiPoint[];
-}> {
-  // Read from inflation.csv (generated by fetch-data) instead of calling FRED API
-  const csvPath = join(__dirname, "..", "data", "inflation.csv");
-  let raw: string;
-  try {
-    raw = readFileSync(csvPath, "utf-8");
-  } catch {
-    console.warn("[snapshots] inflation.csv not found; inflation-dependent metrics will fall back to 0.");
-    return { annualizedInflation: 0, monthlyCpi: [] };
-  }
-
-  const lines = raw.trim().split("\n");
-  const allObservations: MonthlyCpiPoint[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",");
-    if (cols.length < 2) continue;
-    const dateStr = cols[0];
-    const value = Number(cols[1]);
-    if (!dateStr || !isFinite(value)) continue;
-    const normalized = dateStr.length === 7 ? `${dateStr}-01` : dateStr;
-    allObservations.push({ date: normalized, value });
-  }
-  allObservations.sort((a, b) => a.date.localeCompare(b.date));
-
-  // Filter to range: include observations from 2 months before startDate
-  const rangeStartDate = new Date(`${startDate}T00:00:00Z`);
-  rangeStartDate.setUTCMonth(rangeStartDate.getUTCMonth() - 2);
-  const rangeStart = rangeStartDate.toISOString().slice(0, 10);
-
-  const monthlyCpi = allObservations.filter(
-    (o) => o.date >= rangeStart && o.date <= endDate
-  );
-
-  return {
-    annualizedInflation: annualizedInflationForRange(monthlyCpi, startDate, endDate),
-    monthlyCpi,
-  };
-}
-
 function buildVariantSummary(label: string, runs: RollingSimulationPoint[]): VariantSummary {
   const summary = summarizeParallelResult(runs);
   return {
@@ -1556,20 +1409,6 @@ function percentile(sorted: number[], p: number): number {
 
 function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function shiftIsoDateByDays(isoDate: string, days: number): string {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function getSmaWarmupStartDate(startDate: string, maxSmaPeriod: number): string {
-  if (maxSmaPeriod <= 0) return startDate;
-  const warmupCalendarDays = Math.ceil(
-    ((maxSmaPeriod + SMA_WARMUP_BUFFER_TRADING_DAYS) * 365.25) / TRADING_DAYS_PER_YEAR
-  );
-  return shiftIsoDateByDays(startDate, -warmupCalendarDays);
 }
 
 /**

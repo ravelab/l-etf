@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "fetch-data": "node --import tsx scripts/fetch-data.ts",
     "calibrate": "node --import tsx scripts/calibrate-etfs.ts",
+    "calibrate-sma": "node --import tsx scripts/calibrate-sma.ts",
     "commit-data": "node scripts/commit-data.mjs",
     "notify:sma-alerts": "node --import tsx scripts/notify-sma-alerts.ts",
     "snapshots:generate": "node --import tsx scripts/generate-snapshots.ts",

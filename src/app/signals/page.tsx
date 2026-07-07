@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Input } from "@/components/ui/Input";
 import { BufferPairInput } from "@/components/ui/BufferPairInput";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { SignalCard } from "@/components/home/SignalCard";
 import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
 import { getSharedInputs } from "@/lib/hooks/use-shared-inputs";
@@ -11,6 +12,7 @@ import { formatSmaSummary } from "@/lib/buffer-format";
 import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
+import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 
 interface SmaSignalsResponse {
   sp500: SmaSignalResult;
@@ -61,6 +63,24 @@ export default function SignalsPage() {
   const [signals, setSignals] = useState<SmaSignalsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [calibration, setCalibration] = useState<SmaCalibrationResult | null>(null);
+
+  useEffect(() => {
+    fetch("/api/sma-calibration")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setCalibration(data))
+      .catch(() => setCalibration(null));
+  }, []);
+
+  const handleSetDefault = useCallback(() => {
+    if (!calibration) return;
+    setSmaSpPeriod(calibration.sp500.smaPeriod);
+    setSmaSpUpperBuffer(calibration.sp500.smaUpperBuffer);
+    setSmaSpLowerBuffer(calibration.sp500.smaLowerBuffer);
+    setSmaNqPeriod(calibration.nasdaq100.smaPeriod);
+    setSmaNqUpperBuffer(calibration.nasdaq100.smaUpperBuffer);
+    setSmaNqLowerBuffer(calibration.nasdaq100.smaLowerBuffer);
+  }, [calibration]);
 
   useEffect(() => {
     persist({
@@ -161,8 +181,22 @@ export default function SignalsPage() {
                 onUpperChange={setSmaNqUpperBuffer}
               />
             </div>
-            <div className="mt-4 min-h-[20px] text-sm text-muted">
-              {"\u00A0"}
+            <div className="mt-4 flex flex-wrap items-center gap-2 min-h-[20px] text-sm text-muted">
+              <Button variant="secondary" size="sm" disabled={!calibration} onClick={handleSetDefault}>
+                Set default
+              </Button>
+              {calibration ? (
+                <>
+                  <span className="whitespace-nowrap">
+                    {formatSmaSummary("SPX", calibration.sp500.smaPeriod, calibration.sp500.smaLowerBuffer, calibration.sp500.smaUpperBuffer)}
+                  </span>
+                  <span className="whitespace-nowrap">
+                    {formatSmaSummary("NDX", calibration.nasdaq100.smaPeriod, calibration.nasdaq100.smaLowerBuffer, calibration.nasdaq100.smaUpperBuffer)}
+                  </span>
+                </>
+              ) : (
+                <span className="whitespace-nowrap">Loading calibrated defaults\u2026</span>
+              )}
             </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <SignalCard
