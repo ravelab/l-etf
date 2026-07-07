@@ -25,7 +25,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    "/api/**/*": ["./data/**/*.csv"],
+    "/api/**/*": ["./data/**/*.csv", "./src/lib/tool-snapshots/**/*.json"],
   },
   async headers() {
     return [
