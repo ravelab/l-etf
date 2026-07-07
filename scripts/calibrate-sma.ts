@@ -4,9 +4,11 @@
  * compare-threshold-strategies tools against real price data, picking the
  * combo with the highest score (src/lib/simulation/score.ts).
  *
- * Runs alternating coordinate ascent (period -> buffer -> period -> ...) per
- * index, capped at a few rounds, since buffer choice shifts which period
- * scores best and vice versa.
+ * Two-phase, single pass per index (cheap, matches how the tools are used
+ * manually): sweep period at a known-good sensible buffer to find the best
+ * period, then run the asymmetric coarse+fine buffer grid search at that
+ * period (same coarse/fine steps as the compare-threshold-strategies tool)
+ * to find the best buffer.
  *
  * Usage:
  *   npx tsx scripts/calibrate-sma.ts
@@ -30,7 +32,7 @@ import {
   type MonthlyCpiPoint,
 } from "./lib/sweep-data";
 import { CONSTANT_SP500_SHORTCUT_DATE } from "../src/lib/constants";
-import { DEFAULT_RISK_OFF_ASSET, getDefaultSmaBuffer, getDefaultWindowLength } from "../src/lib/simulation/defaults";
+import { getDefaultWindowLength } from "../src/lib/simulation/defaults";
 import { DEFAULT_COMBO_PRESET, createPresetEtfConfig, getComboSubPresets } from "../src/lib/simulation/presets";
 import { buildRollingWindows, summarizeSmaRow, type RollingWindow } from "../src/lib/simulation/rolling";
 import { getBestSweepRow } from "../src/lib/sweep";
@@ -50,15 +52,30 @@ const OUTPUT_PATH = join(process.cwd(), "src", "lib", "tool-snapshots", "sma-cal
 
 const MIN_PERIOD = 20;
 const MAX_PERIOD = 280;
-const PERIOD_STEP = 5;
+const PERIOD_STEP = 1;
 
+// Same coarse grid params as compare-threshold-strategies/page.tsx's defaults.
+// Fine step is tighter than that page's 0.5 default so the fine pass can land
+// on precise combos (e.g. 3.3%) instead of only 0.5%-multiples.
 const MIN_BUFFER = 0;
 const MAX_BUFFER = 24;
 const COARSE_STEP = 2;
-const FINE_STEP = 0.5;
+const FINE_STEP = 0.1;
 const FINE_HALF_WIDTH = 1.5;
 
-const MAX_ROUNDS = 3;
+/** Sensible symmetric buffer to hold fixed while sweeping for the best period. */
+const SANE_STARTING_BUFFER: Record<IndexKey, number> = {
+  sp500: 3.3,
+  nasdaq100: 11.9,
+};
+
+/**
+ * Diversified risk-off asset used for calibration (matches how these SMA
+ * parameters are actually evaluated/backtested — not SGOV). Risk-off asset
+ * choice materially changes which buffer/period scores best, since it
+ * changes the return/drawdown profile of every "sell" period.
+ */
+const CALIBRATION_RISK_OFF_ASSET = "BRK.B+GLDM+VGSH" as const;
 
 type SweepContext = {
   prices: PricePoint[];
@@ -85,7 +102,7 @@ function runPeriodSweep(
         smaPeriod: p,
         smaUpperBuffer: upper,
         smaLowerBuffer: lower,
-        riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+        riskOffAsset: CALIBRATION_RISK_OFF_ASSET,
       })
     );
   }
@@ -120,7 +137,7 @@ function runBufferPoints(
       smaPeriod: period,
       smaUpperBuffer: upper,
       smaLowerBuffer: lower,
-      riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+      riskOffAsset: CALIBRATION_RISK_OFF_ASSET,
     })
   );
   const results = runPrecomputedSweep({
@@ -191,7 +208,7 @@ async function calibrateIndex(
     fetchInflationData(startDate, endDate),
   ]);
   const riskOffSeries = await loadRiskOffValuesForReference(
-    getUniquePrimitiveRiskOffAssets([DEFAULT_RISK_OFF_ASSET]),
+    getUniquePrimitiveRiskOffAssets([CALIBRATION_RISK_OFF_ASSET]),
     prices,
     expandedStartDate,
     endDate
@@ -216,34 +233,20 @@ async function calibrateIndex(
     windowLength,
   };
 
-  let upper = getDefaultSmaBuffer(indexKey);
-  let lower = getDefaultSmaBuffer(indexKey);
-  let period = MIN_PERIOD;
-  let bestBufferRow: AsymmetricSweepRow | null = null;
-  let previousPeriod: number | null = null;
+  const startBuffer = SANE_STARTING_BUFFER[indexKey];
+  const bestPeriodRow = runPeriodSweep(ctx, preset, startBuffer, startBuffer);
+  const period = bestPeriodRow.parameterValue;
+  console.log(`  [${indexKey}] best period at -${startBuffer}%/${startBuffer}% buffer = ${period}d`);
 
-  for (let round = 1; round <= MAX_ROUNDS; round++) {
-    const bestPeriodRow = runPeriodSweep(ctx, preset, upper, lower);
-    period = bestPeriodRow.parameterValue;
-    console.log(`  [${indexKey}] round ${round}: best period = ${period}d at buffer -${lower}%/${upper}%`);
-
-    bestBufferRow = runBufferGridSearch(ctx, preset, period);
-    upper = bestBufferRow.upperBuffer;
-    lower = bestBufferRow.lowerBuffer;
-    const score = scoreRow(bestBufferRow, inflPct, windowLength);
-    console.log(`  [${indexKey}] round ${round}: best buffer = -${lower}%/${upper}% (score ${score.toFixed(2)})`);
-
-    if (previousPeriod !== null && previousPeriod === period) break;
-    previousPeriod = period;
-  }
-
-  if (!bestBufferRow) throw new Error(`Calibration produced no result for ${indexKey}`);
+  const bestBufferRow = runBufferGridSearch(ctx, preset, period);
+  const score = scoreRow(bestBufferRow, inflPct, windowLength);
+  console.log(`  [${indexKey}] best buffer at ${period}d = -${bestBufferRow.lowerBuffer}%/${bestBufferRow.upperBuffer}% (score ${score.toFixed(2)})`);
 
   return {
     smaPeriod: period,
-    smaUpperBuffer: upper,
-    smaLowerBuffer: lower,
-    score: scoreRow(bestBufferRow, inflPct, windowLength),
+    smaUpperBuffer: bestBufferRow.upperBuffer,
+    smaLowerBuffer: bestBufferRow.lowerBuffer,
+    score,
     avgReturn: bestBufferRow.avgReturn,
     worstReturn: bestBufferRow.worstReturn,
     avgMaxDrawdown: bestBufferRow.avgMaxDrawdown,
