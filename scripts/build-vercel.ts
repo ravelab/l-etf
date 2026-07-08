@@ -145,8 +145,11 @@ async function main() {
   const runWeekly = weekly.should;
   const monthly = await isFirstMondayOfMonthPending(currentNyDate);
   console.log(`[build:vercel] First Monday of month? ${monthly.should} (${monthly.reason})`);
-  const runMonthlySmaCalibration = monthly.should;
-  const ranMonthlySmaCalibration = forceSmaCalibration || (isDeployHookBuild && runMonthlySmaCalibration);
+  const runMonthlyTasks = monthly.should;
+  const isDeployHookWeeklyRun = isDeployHookBuild && runWeekly;
+  const isDeployHookMonthlyRun = isDeployHookBuild && runMonthlyTasks;
+  const ranMonthlySmaCalibration = forceSmaCalibration || isDeployHookMonthlyRun;
+  const ranMonthlySnapshots = forceSnapshots || isDeployHookMonthlyRun;
 
   if (forceCalibrate || (isDeployHookBuild && runWeekly)) {
     console.log(
@@ -159,14 +162,14 @@ async function main() {
     );
   }
 
-  if (forceSnapshots || (isDeployHookBuild && runWeekly)) {
+  if (ranMonthlySnapshots) {
     console.log(
-      `[build:vercel] Generating snapshots (${forceSnapshots ? "forced" : "Deploy Hook on first trading day of week"})`
+      `[build:vercel] Generating snapshots (${forceSnapshots ? "forced" : "Deploy Hook on first Monday of month"})`
     );
     run("npm run snapshots:generate");
   } else {
     console.log(
-      `[build:vercel] Skipping snapshot generation (${isDeployHookBuild ? "not first trading day of week" : "not Deploy Hook build"})`
+      `[build:vercel] Skipping snapshot generation (${isDeployHookBuild ? "not first Monday of month" : "not Deploy Hook build"})`
     );
   }
 
@@ -185,22 +188,24 @@ async function main() {
 
   await maybeNotifySmaAlerts(cronBuildMarker);
 
-  if (runWeekly || forcePublicCsvCommit || ranMonthlySmaCalibration) {
+  if (runWeekly || forcePublicCsvCommit || ranMonthlySmaCalibration || ranMonthlySnapshots) {
     console.log(
-      `[build:vercel] Committing generated artifacts (${forcePublicCsvCommit ? "forced" : ranMonthlySmaCalibration ? "SMA calibration ran" : "first trading day of week"})`
+      `[build:vercel] Committing generated artifacts (${forcePublicCsvCommit ? "forced" : ranMonthlySmaCalibration || ranMonthlySnapshots ? "monthly task ran" : "first trading day of week"})`
     );
     run("npm run commit-data");
   } else {
-    console.log(`[build:vercel] Skipping generated artifact commit (not first trading day of week)`);
+    console.log(`[build:vercel] Skipping generated artifact commit (not first trading day of week or first Monday of month)`);
   }
 
   // Update markers only after the build pipeline succeeded so a failed weekly/monthly
-  // run is retried on the next build of the same week/month.
-  if (runWeekly) {
+  // run is retried on the next build of the same week/month. Gated on isDeployHookBuild
+  // (not just the calendar check) so a non-cron build landing on the trigger day can't
+  // mark the period done without the periodic tasks actually having run.
+  if (isDeployHookWeeklyRun) {
     await writeLastWeeklyRunTradingDate(weekly.weekMarkerDate);
     console.log(`[build:vercel] Recorded weekly run marker: ${weekly.weekMarkerDate}`);
   }
-  if (runMonthlySmaCalibration) {
+  if (isDeployHookMonthlyRun) {
     await writeLastMonthlyRunMonth(monthly.monthMarker);
     console.log(`[build:vercel] Recorded monthly run marker: ${monthly.monthMarker}`);
   }

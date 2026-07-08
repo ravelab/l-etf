@@ -141,18 +141,22 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefa
     };
   }, [browserState]);
 
+  const calibratedDefaultsChanged = Boolean(subscriptionConfig?.useCalibratedDefaults) !== useCalibratedDefaults;
+
   const spActive = subscriptionActive && !!subscriptionConfig?.smaSpEnabled;
   const spNeedsUpdate = spActive && (
     subscriptionConfig.smaSpPeriod !== smaConfig.smaSpPeriod ||
     subscriptionConfig.smaSpUpperBuffer !== smaConfig.smaSpUpperBuffer ||
-    subscriptionConfig.smaSpLowerBuffer !== smaConfig.smaSpLowerBuffer
+    subscriptionConfig.smaSpLowerBuffer !== smaConfig.smaSpLowerBuffer ||
+    calibratedDefaultsChanged
   );
 
   const nqActive = subscriptionActive && !!subscriptionConfig?.smaNqEnabled;
   const nqNeedsUpdate = nqActive && (
     subscriptionConfig.smaNqPeriod !== smaConfig.smaNqPeriod ||
     subscriptionConfig.smaNqUpperBuffer !== smaConfig.smaNqUpperBuffer ||
-    subscriptionConfig.smaNqLowerBuffer !== smaConfig.smaNqLowerBuffer
+    subscriptionConfig.smaNqLowerBuffer !== smaConfig.smaNqLowerBuffer ||
+    calibratedDefaultsChanged
   );
 
   const handleUpdateSubscription = async (config: PushSmaConfig, successMessage: string) => {

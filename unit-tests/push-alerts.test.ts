@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildSmaSignalConfigFingerprint,
   describeSmaSignalConfig,
+  type SmaSignalConfig,
   type SmaSignalSnapshot,
 } from "@/lib/sma-status";
 import {
@@ -9,7 +11,8 @@ import {
   shouldSeedInitialSmaPushNotification,
   shouldDeliverSmaPushNotification,
 } from "@/lib/push/server";
-import { pushSubscribePayloadSchema } from "@/lib/push/schema";
+import { pushSmaConfigSchema, pushSubscribePayloadSchema } from "@/lib/push/schema";
+import { applyCalibratedSmaDefaults, type SmaCalibrationResult } from "@/lib/sma-calibration";
 
 test("formats SMA push parameters compactly", () => {
   assert.equal(
@@ -23,6 +26,7 @@ test("formats SMA push parameters compactly", () => {
       smaNqLowerBuffer: 12,
       smaNqEnabled: true,
       notifyEveryClose: false,
+      useCalibratedDefaults: false,
     }),
     "SPX 185 SMA, −3.6%/3.6%; NDX 150 SMA, −12%/12%"
   );
@@ -60,6 +64,7 @@ test("does not include SMA parameters in the notification body", () => {
     smaNqLowerBuffer: 12,
     smaNqEnabled: true,
     notifyEveryClose: false,
+    useCalibratedDefaults: false,
   };
 
   const body = buildSmaPushPayload(current, null, config).body;
@@ -78,6 +83,7 @@ test("does not leak disabled SMA parameters into notification", () => {
     smaSpPeriod: 185, smaSpUpperBuffer: 3.6, smaSpLowerBuffer: 3.6, smaSpEnabled: true,
     smaNqPeriod: 150, smaNqUpperBuffer: 12, smaNqLowerBuffer: 12, smaNqEnabled: false,
     notifyEveryClose: false,
+    useCalibratedDefaults: false,
   };
 
   const payload = buildSmaPushPayload(current, null, config);
@@ -174,4 +180,56 @@ test("does not deliver when unchanged and not pending", () => {
     }),
     false
   );
+});
+
+test("defaults useCalibratedDefaults to false but preserves an explicit true", () => {
+  const withoutFlag = pushSmaConfigSchema.parse({
+    smaSpPeriod: 185, smaSpUpperBuffer: 3.6, smaSpLowerBuffer: 3.6, smaSpEnabled: true,
+    smaNqPeriod: 150, smaNqUpperBuffer: 12, smaNqLowerBuffer: 12, smaNqEnabled: true,
+  });
+  assert.equal(withoutFlag.useCalibratedDefaults, false);
+
+  const withFlag = pushSmaConfigSchema.parse({
+    smaSpPeriod: 185, smaSpUpperBuffer: 3.6, smaSpLowerBuffer: 3.6, smaSpEnabled: true,
+    smaNqPeriod: 150, smaNqUpperBuffer: 12, smaNqLowerBuffer: 12, smaNqEnabled: true,
+    useCalibratedDefaults: true,
+  });
+  assert.equal(withFlag.useCalibratedDefaults, true);
+});
+
+test("useCalibratedDefaults does not affect the signal config fingerprint", () => {
+  const base: SmaSignalConfig = {
+    smaSpPeriod: 185, smaSpUpperBuffer: 3.6, smaSpLowerBuffer: 3.6, smaSpEnabled: true,
+    smaNqPeriod: 150, smaNqUpperBuffer: 12, smaNqLowerBuffer: 12, smaNqEnabled: true,
+    notifyEveryClose: false, useCalibratedDefaults: false,
+  };
+
+  assert.equal(
+    buildSmaSignalConfigFingerprint(base),
+    buildSmaSignalConfigFingerprint({ ...base, useCalibratedDefaults: true })
+  );
+});
+
+test("applyCalibratedSmaDefaults overwrites only the period/buffer fields", () => {
+  const config: SmaSignalConfig = {
+    smaSpPeriod: 160, smaSpUpperBuffer: 4, smaSpLowerBuffer: 4, smaSpEnabled: false,
+    smaNqPeriod: 70, smaNqUpperBuffer: 12, smaNqLowerBuffer: 12, smaNqEnabled: true,
+    notifyEveryClose: true, useCalibratedDefaults: true,
+  };
+  const calibration: SmaCalibrationResult = {
+    generatedAt: "2026-07-06T00:00:00.000Z",
+    startDate: "2020-01-01",
+    endDate: "2026-07-06",
+    windowLength: 252,
+    sp500: { smaPeriod: 185, smaUpperBuffer: 3.6, smaLowerBuffer: 3.6, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
+    nasdaq100: { smaPeriod: 90, smaUpperBuffer: 8, smaLowerBuffer: 8, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
+  };
+
+  const next = applyCalibratedSmaDefaults(config, calibration);
+
+  assert.deepEqual(next, {
+    smaSpPeriod: 185, smaSpUpperBuffer: 3.6, smaSpLowerBuffer: 3.6, smaSpEnabled: false,
+    smaNqPeriod: 90, smaNqUpperBuffer: 8, smaNqLowerBuffer: 8, smaNqEnabled: true,
+    notifyEveryClose: true, useCalibratedDefaults: true,
+  });
 });

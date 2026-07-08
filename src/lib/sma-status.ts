@@ -13,6 +13,8 @@ export type SmaSignalConfig = {
   smaNqEnabled: boolean;
   /** If true, deliver a push every market close regardless of whether the SMA signal changed. */
   notifyEveryClose: boolean;
+  /** If true, the period/buffer fields above are kept in sync with the latest SMA calibration snapshot. */
+  useCalibratedDefaults: boolean;
 };
 
 export type SmaSignalSnapshot = {
@@ -31,6 +33,7 @@ const DEFAULT_SMA_SIGNAL_CONFIG: SmaSignalConfig = {
   smaNqLowerBuffer: getDefaultSmaBuffer("nasdaq100"),
   smaNqEnabled: true,
   notifyEveryClose: false,
+  useCalibratedDefaults: false,
 };
 
 const DEFAULT_LOOKBACK_YEARS = 2;
@@ -39,6 +42,9 @@ export function getDefaultSmaSignalConfig(): SmaSignalConfig {
   return { ...DEFAULT_SMA_SIGNAL_CONFIG };
 }
 
+// useCalibratedDefaults is deliberately excluded: it describes where the period/buffer
+// values came from, not a signal-affecting parameter, so toggling it alone shouldn't
+// register as a config change.
 export function buildSmaSignalConfigFingerprint(config: SmaSignalConfig): string {
   return [
     config.smaSpPeriod,

@@ -19,6 +19,7 @@ export const pushSmaConfigSchema = z.object({
   smaNqLowerBuffer: z.number().min(0).max(30),
   smaNqEnabled: z.boolean().default(true),
   notifyEveryClose: z.boolean().default(false),
+  useCalibratedDefaults: z.boolean().default(false),
 });
 
 export const pushInstallIdSchema = z.string().uuid();

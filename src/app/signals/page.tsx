@@ -52,6 +52,10 @@ export default function SignalsPage() {
     }
   }, []);
 
+  // Persisted separately from the shared SMA inputs since it's a Signals-page-only
+  // preference (the compare-* tools shouldn't inherit "always use calibrated values").
+  const [useCalibratedDefaults, setUseCalibratedDefaultsState] = useState(false);
+
   const pushSmaConfig: PushSmaConfig = {
     smaSpPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
@@ -60,6 +64,7 @@ export default function SignalsPage() {
     smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqEnabled,
     notifyEveryClose,
+    useCalibratedDefaults,
   };
 
   const [signals, setSignals] = useState<SmaSignalsResponse | null>(null);
@@ -83,10 +88,6 @@ export default function SignalsPage() {
     setSmaNqUpperBuffer(calibration.nasdaq100.smaUpperBuffer);
     setSmaNqLowerBuffer(calibration.nasdaq100.smaLowerBuffer);
   }, [calibration]);
-
-  // Persisted separately from the shared SMA inputs since it's a Signals-page-only
-  // preference (the compare-* tools shouldn't inherit "always use calibrated values").
-  const [useCalibratedDefaults, setUseCalibratedDefaultsState] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(USE_CALIBRATED_DEFAULTS_KEY);

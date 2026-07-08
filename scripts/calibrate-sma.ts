@@ -46,9 +46,13 @@ import {
 } from "../src/lib/simulation/buffer-grid-search";
 import { scoreRow } from "../src/lib/simulation/score";
 import type { EtfConfig, IndexKey, PricePoint, RatePoint, RiskOffAsset } from "../src/lib/simulation/types";
-import type { SmaCalibrationIndexResult, SmaCalibrationResult } from "../src/lib/sma-calibration";
+import {
+  SMA_CALIBRATION_SNAPSHOT_PATH,
+  type SmaCalibrationIndexResult,
+  type SmaCalibrationResult,
+} from "../src/lib/sma-calibration";
 
-const OUTPUT_PATH = join(process.cwd(), "src", "lib", "tool-snapshots", "sma-calibration.json");
+const OUTPUT_PATH = SMA_CALIBRATION_SNAPSHOT_PATH;
 
 const MIN_PERIOD = 20;
 const MAX_PERIOD = 280;

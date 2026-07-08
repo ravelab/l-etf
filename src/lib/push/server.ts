@@ -13,6 +13,7 @@ import {
   type SmaSignalConfig,
   type SmaSignalSnapshot,
 } from "@/lib/sma-status";
+import { applyCalibratedSmaDefaults, readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import type {
   PushSendPayload,
   PushSubscriptionKeys,
@@ -484,6 +485,72 @@ function shortFp(fp: string | null): string {
   return fp.slice(0, 10);
 }
 
+// Re-points any subscription that opted into "use calibrated defaults" at the latest
+// calibration snapshot before it's evaluated, so those subscribers stay current without
+// ever having to revisit the Signals page and click "Update alerts" themselves.
+async function syncCalibratedPushSubscriptions(
+  subscriptions: PushSubscriptionRecord[]
+): Promise<{ subscriptions: PushSubscriptionRecord[]; updated: number }> {
+  if (!subscriptions.some((subscription) => subscription.smaConfig.useCalibratedDefaults)) {
+    return { subscriptions, updated: 0 };
+  }
+
+  const calibration = await readSmaCalibrationSnapshot();
+  if (!calibration) {
+    return { subscriptions, updated: 0 };
+  }
+
+  const redis = getPushRedis();
+  const now = new Date().toISOString();
+  let updated = 0;
+
+  const results = await Promise.allSettled(
+    subscriptions.map(async (subscription): Promise<PushSubscriptionRecord> => {
+      if (!subscription.smaConfig.useCalibratedDefaults) {
+        return subscription;
+      }
+
+      const nextConfig = applyCalibratedSmaDefaults(subscription.smaConfig, calibration);
+      const previousConfigFingerprint = buildSmaSignalConfigFingerprint(subscription.smaConfig);
+      const nextConfigFingerprint = buildSmaSignalConfigFingerprint(nextConfig);
+      if (nextConfigFingerprint === previousConfigFingerprint) {
+        return subscription;
+      }
+
+      const nextRecord: PushSubscriptionRecord = {
+        ...subscription,
+        smaConfig: nextConfig,
+        updatedAt: now,
+      };
+
+      // State is keyed by config fingerprint, so recalibration alone points the
+      // subscriber at a state key that's never been written. Carry the last-known
+      // signal state forward to the new key (instead of just deleting the old one)
+      // so a parameter tweak with no actual regime change doesn't look like an
+      // unseen subscription and force a spurious push.
+      const previousState = await getStoredSmaPushState(subscription.id, subscription.smaConfig);
+      await Promise.all([
+        redis.set(getSubscriptionKey(subscription.id), nextRecord),
+        previousState ? redis.set(getSmaStateKey(subscription.id, nextConfig), previousState) : Promise.resolve(),
+        redis.del(getSmaStateKey(subscription.id, subscription.smaConfig)),
+      ]);
+      updated += 1;
+      return nextRecord;
+    })
+  );
+
+  const syncedSubscriptions = results.map((result, index) => {
+    if (result.status === "fulfilled") return result.value;
+    console.warn(
+      `[push] Failed to sync calibrated defaults for sub=${shortId(subscriptions[index].id)}:`,
+      result.reason
+    );
+    return subscriptions[index];
+  });
+
+  return { subscriptions: syncedSubscriptions, updated };
+}
+
 export async function sendSmaPushNotifications(
   options: SendSmaPushNotificationsOptions = {}
 ): Promise<SmaPushDeliveryResult> {
@@ -501,9 +568,9 @@ export async function sendSmaPushNotifications(
     };
   }
 
-  const subscriptions = await listPushSubscriptions();
-  console.log(`[push] Loaded ${subscriptions.length} subscription(s); force=${force}`);
-  if (subscriptions.length === 0) {
+  const loadedSubscriptions = await listPushSubscriptions();
+  console.log(`[push] Loaded ${loadedSubscriptions.length} subscription(s); force=${force}`);
+  if (loadedSubscriptions.length === 0) {
     console.log("[push] Skipping send: no push subscribers");
     return {
       changed: false,
@@ -513,6 +580,11 @@ export async function sendSmaPushNotifications(
       removed: 0,
       skippedReason: "No push subscribers",
     };
+  }
+
+  const { subscriptions, updated: calibratedSyncCount } = await syncCalibratedPushSubscriptions(loadedSubscriptions);
+  if (calibratedSyncCount > 0) {
+    console.log(`[push] Synced ${calibratedSyncCount} subscription(s) to the latest SMA calibration`);
   }
 
   const marketData = await fetchSmaMarketData();
