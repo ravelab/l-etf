@@ -4,8 +4,13 @@ export type AdjustedOverlapPair = {
   fresh: number;
 };
 
-const MATCH_TOLERANCE = 1e-8;
-const RATIO_CONSISTENCY_TOLERANCE = 1e-6;
+// Relative tolerances. Stored CSV adj_closes are typically rounded to a few
+// decimals while Tiingo returns full float precision, so day-to-day
+// fresh/stored ratios can scatter by ~1e-6 even when nothing was re-stated.
+// Keep these loose enough to absorb that noise, but tight enough that a real
+// single-row correction (or a genuine non-uniform rewrite) still throws.
+const MATCH_TOLERANCE = 1e-6;
+const RATIO_CONSISTENCY_TOLERANCE = 1e-5;
 
 function nearlyEqual(a: number, b: number, tolerance: number): boolean {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return false;

@@ -696,9 +696,18 @@ async function generateIncrementalIndexCsv(params: {
   try {
     rebaseRatio = computeAdjustedRebaseRatio(overlapPairs);
   } catch (err) {
-    throw new Error(
-      `Overlap mismatch for ${params.filename}: ${err instanceof Error ? err.message : err}`
+    // Non-uniform overlap usually means a provider corrected individual rows.
+    // Refuse to guess a rebase factor — rebuild the full series from sources
+    // instead of aborting the incremental update and leaving the CSV stale.
+    console.log(
+      `  ! Overlap mismatch for ${params.filename}: ${err instanceof Error ? err.message : err}`
     );
+    console.log(`    Rebuilding full file...`);
+    await rebuildOrKeepExisting(params.filename, () => buildAndWriteIndexCsv({
+      filename: params.filename,
+      fetchFullRows: params.fetchFullRows,
+    }));
+    return;
   }
   if (rebaseRatio != null) {
     console.log(

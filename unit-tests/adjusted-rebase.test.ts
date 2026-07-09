@@ -66,3 +66,14 @@ test("tolerates float noise within a uniform shift", () => {
   assert.ok(ratio !== null);
   assert.ok(Math.abs(ratio - factor) < 1e-6);
 });
+
+test("treats CSV-vs-Tiingo float scatter near 1.0 as a match", () => {
+  // Production failure mode from 2026-07-07 onward: stored VOO adj_closes are
+  // rounded in the CSV while Tiingo returns full precision, so fresh/stored
+  // ratios scatter around 1.0 by ~1ppm and used to trip the consistency check.
+  const ratio = computeAdjustedRebaseRatio([
+    { date: "2026-06-15", stored: 691.805, fresh: 691.805 * 0.99999961 },
+    { date: "2026-06-18", stored: 686.101, fresh: 686.101 * 1.00000062 },
+  ]);
+  assert.equal(ratio, null);
+});

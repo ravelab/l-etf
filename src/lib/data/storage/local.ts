@@ -10,7 +10,10 @@ const RUNTIME_CACHE_CHUNK_TARGET_BYTES = 1_500_000;
 const RUNTIME_CACHE_TAGS = ["csv-data"];
 
 // Bump when the parsed row schema changes — invalidates all prior cache entries.
-const RUNTIME_CACHE_SCHEMA_VERSION = "v1";
+// v2: include size in the key. Vercel deploy mtimes can collide across different
+// CSV contents, which previously let a stale runtime-cache entry shadow a newer
+// traced data/*.csv (SPX stuck at 2026-07-06 while NDX advanced).
+const RUNTIME_CACHE_SCHEMA_VERSION = "v2";
 
 const runtimeCache = getCache({ namespace: "csv-data" });
 
@@ -25,6 +28,7 @@ function shouldWriteRuntimeCache(): boolean {
 
 type CsvCacheManifest = {
   mtime: number;
+  size: number;
   chunkCount: number;
 };
 
@@ -69,13 +73,14 @@ function isCsvCacheManifest(value: unknown): value is CsvCacheManifest {
     typeof value === "object" &&
     value !== null &&
     typeof (value as CsvCacheManifest).mtime === "number" &&
+    typeof (value as CsvCacheManifest).size === "number" &&
     typeof (value as CsvCacheManifest).chunkCount === "number"
   );
 }
 
-function getRuntimeCacheKeys(filePath: string, mtime: number) {
+function getRuntimeCacheKeys(filePath: string, mtime: number, size: number) {
   const fileKey = relative(DATA_DIR, filePath).replaceAll("\\", "/");
-  const baseKey = `${RUNTIME_CACHE_SCHEMA_VERSION}:mtime-${mtime}:${fileKey}`;
+  const baseKey = `${RUNTIME_CACHE_SCHEMA_VERSION}:mtime-${mtime}:size-${size}:${fileKey}`;
   return {
     manifestKey: `${baseKey}:manifest`,
     chunkKeyPrefix: `${baseKey}:chunk:`,
@@ -102,10 +107,19 @@ function safeCacheSet(key: string, value: unknown): Promise<void> {
     });
 }
 
-async function readRuntimeCachedFile<T>(filePath: string, mtime: number): Promise<T[] | null> {
-  const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime);
+async function readRuntimeCachedFile<T>(
+  filePath: string,
+  mtime: number,
+  size: number,
+): Promise<T[] | null> {
+  const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime, size);
   const manifest = await safeCacheGet(manifestKey);
-  if (!isCsvCacheManifest(manifest) || manifest.mtime !== mtime || manifest.chunkCount < 1) {
+  if (
+    !isCsvCacheManifest(manifest) ||
+    manifest.mtime !== mtime ||
+    manifest.size !== size ||
+    manifest.chunkCount < 1
+  ) {
     return null;
   }
 
@@ -120,9 +134,14 @@ async function readRuntimeCachedFile<T>(filePath: string, mtime: number): Promis
   return chunks.flat() as T[];
 }
 
-async function writeRuntimeCachedFile(filePath: string, mtime: number, data: unknown[]): Promise<void> {
+async function writeRuntimeCachedFile(
+  filePath: string,
+  mtime: number,
+  size: number,
+  data: unknown[],
+): Promise<void> {
   if (!shouldWriteRuntimeCache()) return;
-  const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime);
+  const { manifestKey, chunkKeyPrefix } = getRuntimeCacheKeys(filePath, mtime, size);
   const chunks: unknown[][] = [];
   let currentChunk: unknown[] = [];
   let currentSize = 2;
@@ -143,7 +162,7 @@ async function writeRuntimeCachedFile(filePath: string, mtime: number, data: unk
   }
 
   await Promise.all(chunks.map((chunk, index) => safeCacheSet(`${chunkKeyPrefix}${index}`, chunk)));
-  await safeCacheSet(manifestKey, { mtime, chunkCount: chunks.length });
+  await safeCacheSet(manifestKey, { mtime, size, chunkCount: chunks.length });
 }
 
 export class LocalStorage implements IStorage {
@@ -158,6 +177,7 @@ export class LocalStorage implements IStorage {
     try {
       const stats = await stat(filePath);
       const mtime = stats.mtimeMs;
+      const size = stats.size;
       const cached = csvCache.get(filePath);
 
       if (cached && cached.mtime === mtime) {
@@ -165,7 +185,7 @@ export class LocalStorage implements IStorage {
         return cached.data as T[];
       }
 
-      const runtimeCached = await readRuntimeCachedFile<T>(filePath, mtime);
+      const runtimeCached = await readRuntimeCachedFile<T>(filePath, mtime, size);
       if (runtimeCached) {
         csvCache.set(filePath, { data: runtimeCached, mtime });
         recordCsvCacheSource(filePath, "runtime");
@@ -176,7 +196,7 @@ export class LocalStorage implements IStorage {
       const lines = raw.trim().split("\n");
       const data = parser(lines);
       csvCache.set(filePath, { data, mtime });
-      await writeRuntimeCachedFile(filePath, mtime, data);
+      await writeRuntimeCachedFile(filePath, mtime, size, data);
       recordCsvCacheSource(filePath, "file");
       return data;
     } catch (error) {
