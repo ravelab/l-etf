@@ -148,17 +148,18 @@ async function main() {
   const runMonthlyTasks = monthly.should;
   const isDeployHookWeeklyRun = isDeployHookBuild && runWeekly;
   const isDeployHookMonthlyRun = isDeployHookBuild && runMonthlyTasks;
+  const ranMonthlyEtfCalibration = forceCalibrate || isDeployHookMonthlyRun;
   const ranMonthlySmaCalibration = forceSmaCalibration || isDeployHookMonthlyRun;
   const ranMonthlySnapshots = forceSnapshots || isDeployHookMonthlyRun;
 
-  if (forceCalibrate || (isDeployHookBuild && runWeekly)) {
+  if (ranMonthlyEtfCalibration) {
     console.log(
-      `[build:vercel] Running ETF calibration (${forceCalibrate ? "forced" : "Deploy Hook on first trading day of week"})`
+      `[build:vercel] Running ETF calibration (${forceCalibrate ? "forced" : "Deploy Hook on first Monday of month"})`
     );
     run("npm run calibrate");
   } else {
     console.log(
-      `[build:vercel] Skipping ETF calibration (${isDeployHookBuild ? "not first trading day of week" : "not Deploy Hook build"})`
+      `[build:vercel] Skipping ETF calibration (${isDeployHookBuild ? "not first Monday of month" : "not Deploy Hook build"})`
     );
   }
 
@@ -188,9 +189,9 @@ async function main() {
 
   await maybeNotifySmaAlerts(cronBuildMarker);
 
-  if (runWeekly || forcePublicCsvCommit || ranMonthlySmaCalibration || ranMonthlySnapshots) {
+  if (runWeekly || forcePublicCsvCommit || ranMonthlyEtfCalibration || ranMonthlySmaCalibration || ranMonthlySnapshots) {
     console.log(
-      `[build:vercel] Committing generated artifacts (${forcePublicCsvCommit ? "forced" : ranMonthlySmaCalibration || ranMonthlySnapshots ? "monthly task ran" : "first trading day of week"})`
+      `[build:vercel] Committing generated artifacts (${forcePublicCsvCommit ? "forced" : ranMonthlyEtfCalibration || ranMonthlySmaCalibration || ranMonthlySnapshots ? "monthly task ran" : "first trading day of week"})`
     );
     run("npm run commit-data");
   } else {
