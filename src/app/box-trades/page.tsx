@@ -1,13 +1,22 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import {
   fetchSpxBoxtradesApyReport,
   type BoxtradesApyReport,
 } from "@/lib/boxtrades";
+import { pageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 const BOX_TRADES_ENABLED = process.env.NEXT_PUBLIC_DISPLAY_BOX_TRADES === "true";
+
+export const metadata: Metadata = pageMetadata({
+  title: "SPX Box Spread Financing Rates (APY)",
+  description:
+    "Current long-dated SPX box spread financing rates from Boxtrades.com, converted to APY — a reference for comparing box-spread borrowing to margin loans.",
+  path: "/box-trades",
+});
 
 function formatPercent(value: number | null): string {
   if (value === null) return "N/A";

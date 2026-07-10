@@ -8,6 +8,8 @@ import { ChartJSInitializer } from "@/components/ui/ChartJSInitializer";
 import { DeployVersionWatcher } from "@/components/DeployVersionWatcher";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -16,14 +18,81 @@ export const viewport: Viewport = {
   themeColor: "#000000",
 };
 
+const SITE_DESCRIPTION =
+  "Backtest leveraged ETF strategies (UPRO, TQQQ, SSO, QLD) with SMA timing rules over 100+ years of simulated history. Track live SPX and NDX SMA signals, compare risk-off assets, sweep SMA periods and buffers, and see inflation-adjusted returns.";
+
 export const metadata: Metadata = {
-  title: "L-ETF",
-  description:
-    "Backtest leveraged ETF strategies",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — Leveraged ETF Backtesting & SMA Signal Tracker`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "leveraged ETF backtest",
+    "UPRO backtest",
+    "TQQQ backtest",
+    "SMA strategy",
+    "moving average trading strategy",
+    "SPX SMA signal",
+    "NDX SMA signal",
+    "leveraged ETF simulator",
+    "3x ETF strategy",
+    "risk-off asset comparison",
+  ],
+  authors: [{ name: SITE_NAME }],
+  category: "finance",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — Leveraged ETF Backtesting & SMA Signal Tracker`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — Leveraged ETF Backtesting & SMA Signal Tracker`,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   appleWebApp: {
     capable: true,
     title: "L-ETF",
     statusBarStyle: "black-translucent",
+  },
+};
+
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: SITE_URL,
+  description: SITE_DESCRIPTION,
+};
+
+const SOFTWARE_APPLICATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: `${SITE_NAME} — Leveraged ETF Backtesting Lab`,
+  url: SITE_URL,
+  description: SITE_DESCRIPTION,
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Any",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
   },
 };
 
@@ -47,6 +116,8 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <JsonLd data={WEBSITE_JSON_LD} />
+        <JsonLd data={SOFTWARE_APPLICATION_JSON_LD} />
         <meta name="apple-touch-fullscreen" content="yes" />
         {/* iOS Splash Screens */}
         {/* iPhone 16 Pro Max */}

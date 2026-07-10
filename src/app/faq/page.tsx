@@ -1,10 +1,36 @@
+import type { Metadata } from "next";
+import { isValidElement, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { pageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = pageMetadata({
+  title: "FAQ — Leveraged ETFs, SMA Strategies & Methodology",
+  description:
+    "Answers on leveraged ETF mechanics, SMA timing strategies, drawdowns, risk-off assets, trading cost assumptions, and how this app simulates leveraged ETFs before they existed.",
+  path: "/faq",
+});
 
 type FAQItem = {
   id?: string;
   question: string;
   answer: React.ReactNode;
 };
+
+/** Plain-text version of a rich JSX answer, for the FAQPage JSON-LD (search engines/AI agents can't parse JSX). */
+function answerToPlainText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(answerToPlainText).join(" ");
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return answerToPlainText(node.props.children);
+  }
+  return "";
+}
+
+function faqAnswerText(answer: React.ReactNode): string {
+  return answerToPlainText(answer).replace(/\s+/g, " ").trim();
+}
 
 const FAQ_DATA: FAQItem[] = [
   {
@@ -550,9 +576,23 @@ NAV(t) = NAV(t-1) × (1 + R_LETF(t))      (floored at 0)`}
   },
 ];
 
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_DATA.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faqAnswerText(item.answer),
+    },
+  })),
+};
+
 export default function FAQPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-3 md:p-6">
+      <JsonLd data={FAQ_JSON_LD} />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl md:text-4xl font-bold mb-8">Frequently Asked Questions</h1>
 

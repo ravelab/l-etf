@@ -1,0 +1,25 @@
+# L-ETF
+
+> L-ETF is a free, open-source research tool for backtesting leveraged ETF (UPRO, TQQQ, SSO, QLD) SMA (simple moving average) timing strategies over long market history, and for tracking today's live SPX/NDX SMA signals.
+
+L-ETF simulates leveraged ETFs back beyond their real launch dates (S&P 500 data since the 1800s, Nasdaq 100 since the 1980s) by modeling daily leverage reset, expense ratios, and borrowing costs, then calibrates that model against real UPRO/TQQQ/SSO/QLD prices. The core strategy idea: hold the leveraged ETF while price is above its N-day moving average, switch to a defensive "risk-off" asset (e.g. SGOV, VGSH, GLDM, BRK.B) when price falls below it, with a percentage buffer around the line to reduce whipsaw trades.
+
+This is **not investment advice**. It is an educational/research tool; past backtested performance does not predict future results, and leveraged ETFs are high-risk instruments.
+
+## Pages
+
+- [Home](https://l-etf.com/): Overview and links to every tool.
+- [Signals](https://l-etf.com/signals): Today's live SPX and NDX SMA signal (in/out of the leveraged ETF), with configurable SMA period and buffer, and optional push notifications on signal flips.
+- [Backtesting Tool](https://l-etf.com/backtesting-tool): Single-period backtest with trade log, value chart, drawdowns, and real-vs-simulated ETF comparison.
+- [Compare Strategies](https://l-etf.com/compare-letfs): Compare leveraged ETF strategies across many rolling historical windows with percentile return distributions.
+- [Compare SMA Periods](https://l-etf.com/compare-sma-strategies): Sweep moving-average lengths and compare faster vs. slower trend-following rules.
+- [Compare SMA Buffers](https://l-etf.com/compare-threshold-strategies): Sweep buffer thresholds around the moving average to reduce false switches.
+- [Compare Risk-Off Assets](https://l-etf.com/compare-riskoff-assets): Compare defensive assets (SGOV, VGSH, GLDM, BRK.B, VOO, QQQ, and equal-weight mixes) held while the strategy is out of the leveraged ETF.
+- [Holding Period Statistics](https://l-etf.com/statistical-analysis): How win rates and returns change as the holding period changes.
+- [Futures Tool](https://l-etf.com/futures-tool): SMA strategy simulation using index futures instead of ETFs, with margin scenarios (Normal/Stress/Crisis/Extreme) and futures-specific fees.
+- [FAQ](https://l-etf.com/faq): Methodology — what leveraged ETFs are, how the SMA rule works, how borrowing-cost calibration works, trading-cost assumptions, and the full daily-return formula used in the simulation.
+
+## Data & source
+
+- Underlying market data: S&P 500 and Nasdaq 100 total-return history, real leveraged-ETF prices (UPRO/TQQQ/SSO/QLD), interest-rate series, and inflation (CPI) data, refreshed on a schedule.
+- Source code: https://github.com/ravelab/l-etf
