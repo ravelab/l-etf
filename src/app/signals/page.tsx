@@ -273,15 +273,6 @@ export default function SignalsPage() {
             )}
           </div>
         )}
-
-        <p className="text-center text-sm text-muted tabular-nums">
-          <span className="mx-2 whitespace-nowrap">
-            {formatSmaSummary("SPX", smaSpPeriod, smaSpLowerBuffer, smaSpUpperBuffer)}
-          </span>
-          <span className="mx-2 whitespace-nowrap">
-            {formatSmaSummary("NDX", smaNqPeriod, smaNqLowerBuffer, smaNqUpperBuffer)}
-          </span>
-        </p>
       </div>
     </div>
   );
