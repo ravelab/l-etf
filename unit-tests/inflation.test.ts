@@ -79,6 +79,20 @@ test("annualizedInflationForRange annualizes CPI growth correctly", () => {
   assert.ok(Math.abs(rate - 0.05) < 0.001);
 });
 
+test("annualizedInflationForRange annualizes over the CPI observation span, not past it", () => {
+  const cpi = [
+    { date: "2020-01-01", value: 100 },
+    { date: "2021-01-01", value: 105 },
+  ];
+  // endDate is months after the last CPI observation. The 5% CPI growth
+  // happened over one calendar year (366 days — 2020 is a leap year), so it
+  // must annualize over that span — stretching to endDate would dilute it
+  // to ~3.4%.
+  const rate = annualizedInflationForRange(cpi, "2020-01-01", "2021-06-15");
+  const expected = Math.pow(1.05, 1 / (366 / 365.25)) - 1;
+  assert.ok(Math.abs(rate - expected) < 1e-9, `expected ${expected}, got ${rate}`);
+});
+
 test("annualizedInflationForRange returns 0 when start equals end date", () => {
   const cpi = [{ date: "2020-01-01", value: 100 }, { date: "2021-01-01", value: 103 }];
   const rate = annualizedInflationForRange(cpi, "2021-01-01", "2021-01-01");

@@ -15,11 +15,12 @@ function makeDates(months: string[], daysPerMonth: number): string[] {
   return dates;
 }
 
-test("calcMonthlyExtremes uses first day of each month as base, not last day of previous month", () => {
+test("calcMonthlyExtremes measures each month from the prior month's close", () => {
   // Jan: 10 days, grows 10% (100 → 110)
-  // Feb: 10 days, drops 5% (110 → 104.5)
+  // Feb: gaps down 10% overnight into the 1st (110 → 99), then flat.
+  // The overnight drop belongs to February — it must not vanish from worstMonth.
   const janValues = Array.from({ length: 10 }, (_, i) => 100 + i * (10 / 9));
-  const febValues = Array.from({ length: 10 }, (_, i) => 110 - i * (5.5 / 9));
+  const febValues = Array.from({ length: 10 }, () => 99);
   const values = [...janValues, ...febValues];
   const dates = makeDates(["2024-01", "2024-02"], 10);
 
@@ -27,9 +28,8 @@ test("calcMonthlyExtremes uses first day of each month as base, not last day of 
 
   // Jan return: (110 - 100) / 100 = 10%
   assert.ok(Math.abs(bestMonth - 10) < 0.01, `bestMonth should be ~10%, got ${bestMonth}`);
-  // Feb return should start from values[10] (first Feb day = 110), not values[9] (last Jan day ~110)
-  // Feb: (104.5 - 110) / 110 = -5%
-  assert.ok(Math.abs(worstMonth - (-5)) < 0.01, `worstMonth should be ~-5%, got ${worstMonth}`);
+  // Feb return: (99 - 110) / 110 = -10%, measured from the last Jan close
+  assert.ok(Math.abs(worstMonth - (-10)) < 0.01, `worstMonth should be ~-10%, got ${worstMonth}`);
 });
 
 test("calcMonthlyExtremes monthly returns do not overlap across boundaries", () => {
@@ -70,9 +70,13 @@ test("calcMonthlyExtremes returns date spans for best and worst months", () => {
 
   const result = calcMonthlyExtremes(values, dates);
 
-  assert.equal(result.bestMonthDates?.start, "2024-02-01");
-  assert.equal(result.bestMonthDates?.end, "2024-02-29");
-  assert.equal(result.worstMonthDates?.start, "2024-03-01");
+  // Jan: 100 → 110 = +10%; Feb: 110 → 120 = +9.09%; Mar: 120 → 96 = -20%.
+  // Each span starts at the measurement base (prior month's last trading day).
+  assert.ok(Math.abs(result.bestMonth - 10) < 0.01, `bestMonth should be ~10%, got ${result.bestMonth}`);
+  assert.ok(Math.abs(result.worstMonth - (-20)) < 0.01, `worstMonth should be ~-20%, got ${result.worstMonth}`);
+  assert.equal(result.bestMonthDates?.start, "2024-01-01");
+  assert.equal(result.bestMonthDates?.end, "2024-01-31");
+  assert.equal(result.worstMonthDates?.start, "2024-02-29");
   assert.equal(result.worstMonthDates?.end, "2024-03-31");
 });
 
@@ -108,6 +112,7 @@ test("date-dependent metric caches keep separate date arrays", () => {
   const oneMonthDates = ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"];
   const splitMonthDates = ["2024-01-01", "2024-01-02", "2024-02-01", "2024-02-02"];
 
+  // One month: 100 → 180 = +80%. Split: Jan 100 → 120 = +20%, Feb 120 → 180 = +50%.
   assert.equal(calcMonthlyExtremes(monthlyValues, oneMonthDates).bestMonth, 80);
-  assert.equal(calcMonthlyExtremes(monthlyValues, splitMonthDates).bestMonth, 200);
+  assert.equal(calcMonthlyExtremes(monthlyValues, splitMonthDates).bestMonth, 50);
 });

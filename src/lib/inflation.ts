@@ -41,13 +41,17 @@ export function annualizedInflationForRange(
   let startCpi = NaN;
   let startCpiDate = startDate;
   let endCpi = NaN;
+  let endCpiDate = endDate;
 
   for (const obs of monthlyCpi) {
     if (obs.date <= startDate) {
       startCpi = obs.value;
       startCpiDate = obs.date;
     }
-    if (obs.date <= endDate) endCpi = obs.value;
+    if (obs.date <= endDate) {
+      endCpi = obs.value;
+      endCpiDate = obs.date;
+    }
   }
 
   // Fallback: use earliest available CPI when startDate predates CPI data
@@ -58,8 +62,10 @@ export function annualizedInflationForRange(
 
   if (isNaN(startCpi) || isNaN(endCpi) || startCpi <= 0) return 0;
 
+  // Annualize over the span the CPI ratio actually covers — endDate can be up
+  // to a month past the last observation, which would dilute short ranges.
   const startMs = new Date(startCpiDate).getTime();
-  const endMs = new Date(endDate).getTime();
+  const endMs = new Date(endCpiDate).getTime();
   const years = (endMs - startMs) / (365.25 * 24 * 60 * 60 * 1000);
   if (years <= 0) return 0;
 

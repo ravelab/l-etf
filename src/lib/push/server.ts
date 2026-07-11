@@ -239,10 +239,14 @@ async function applySubscribeRateLimit(installId: string, ip: string | null): Pr
   if (typeof installLast === "number" && now - installLast < PUSH_SUBSCRIBE_RATE_LIMIT_SECONDS * 1000) {
     throw new Error("Please wait a moment before updating alerts again.");
   }
-  const ipCount = (await redis.incr(ipKey)) as number;
-  if (ipCount === 1) {
-    await redis.expire(ipKey, PUSH_SUBSCRIBE_IP_WINDOW_SECONDS);
-  }
+  // Pipeline INCR with EXPIRE NX: both run in one round trip, and NX re-arms
+  // the TTL if a previous request died between the two commands — otherwise
+  // the counter would live forever and permanently 429 the IP.
+  const [ipCount] = await redis
+    .pipeline()
+    .incr(ipKey)
+    .expire(ipKey, PUSH_SUBSCRIBE_IP_WINDOW_SECONDS, "NX")
+    .exec<[number, 0 | 1]>();
   if (ipCount > PUSH_SUBSCRIBE_IP_MAX) {
     throw new Error("Too many alert signups from this network. Please wait a moment and try again.");
   }

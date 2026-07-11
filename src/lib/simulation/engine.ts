@@ -480,6 +480,7 @@ export function simulateSingleEtf(
 
   const L = config.leverage;
   const erDaily = config.expenseRatio / 100 / 252;
+  const executionMode = config.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE;
 
   // Compute SMA signals if enabled
   let investedForReturn: boolean[] | null = null;
@@ -487,9 +488,9 @@ export function simulateSingleEtf(
   let smaSignals: EtfResult["smaSignals"] = [];
   let smaPrices: number[] = [];
   let smaStartInvested: boolean | undefined;
+  let smaEndInvested: boolean | undefined;
 
   if (config.smaEnabled) {
-    const executionMode = config.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE;
     const missingCloseIdx = closePrices.findIndex((price) => !isFinite(price));
     if (missingCloseIdx !== -1) {
       throw new Error(`Missing close price for ${config.smaIndex} on ${dates[missingCloseIdx]}`);
@@ -504,6 +505,7 @@ export function simulateSingleEtf(
     smaSignals = smaResult.signals;
     smaPrices = smaResult.smaValues;
     smaStartInvested = signalInvested[0] ?? true;
+    smaEndInvested = signalInvested[signalInvested.length - 1] ?? true;
     
     // Choose execution mode: next-day open (default), next-day close, or trigger-day close.
     if (executionMode === "next-day-close") {
@@ -531,14 +533,21 @@ export function simulateSingleEtf(
   const transitionDates: string[] = [];
   
   // Per-symbol spread cost: trigger-day-close = after hours, everything else (including buy-and-hold) = regular hours
-  const afterHours = (config.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE) === "trigger-day-close";
+  const afterHours = executionMode === "trigger-day-close";
   const perTransitionSpread = config.smaEnabled
     ? getTransitionSpreadCost(config.id, config.riskOffAsset, afterHours)
     : 0;
 
-  // Signal state at the start/end of the window determines which spread to use for entry/exit
+  // Signal state at the start/end of the window determines which spread to use for entry/exit.
+  // trigger-day-close executes signals same-day, so a final-day signal transitions at the exit
+  // close and the raw signal state is the position being liquidated; the next-day modes already
+  // reflect their last executed transition in investedForReturn[last].
   const startInRiskOff = config.smaEnabled && investedForReturn && investedForReturn[1] === false;
-  const endInRiskOff = config.smaEnabled && investedForReturn && investedForReturn[dates.length - 1] === false;
+  const endInRiskOff = config.smaEnabled && (
+    executionMode === "trigger-day-close"
+      ? smaEndInvested === false
+      : Boolean(investedForReturn) && investedForReturn![dates.length - 1] === false
+  );
 
   // Initial entry spread: always use regular hours for backtest setup
   const entrySpread = startInRiskOff
@@ -566,7 +575,7 @@ export function simulateSingleEtf(
 
   for (let i = 1; i < dates.length; i++) {
     const borrowRate = dailyBorrowingRates[i];  // O(1) array access instead of binary search!
-    const transitionAtOpen = (config.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE) === "next-day-open" && Boolean(transitionOnDay?.[i]);
+    const transitionAtOpen = executionMode === "next-day-open" && Boolean(transitionOnDay?.[i]);
 
     let riskOnDailyReturn = 0;
 
@@ -750,7 +759,8 @@ export function simulateSingleEtf(
             baseValue += riskOffShares[j] * markPrice;
           } else {
             // Price is suddenly missing. Convert to cash and compound with borrow rate.
-            console.warn(`[RiskOff] Missing price for ${ticker} on ${dates[i]}. Falling back to borrow rate.`);
+            // (No console warning: this runs inside the daily loop across every sweep
+            // config and would flood the console; the fallback is the designed handling.)
             const lastPrice = riskOffCloseMarkPrice({ closeValues: values, index: i - 1 });
             if (riskOffCash) {
               riskOffCash[j] = riskOffShares[j] * (Number.isFinite(lastPrice) ? lastPrice : 1);

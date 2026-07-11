@@ -8,6 +8,7 @@ import {
   recordCronTriggerNyDate,
 } from "@/lib/cron-build-marker";
 import { fetchYahooDailyLatestClose } from "@/lib/data/fetcher";
+import { timingSafeStringEqual } from "@/lib/api/auth";
 import { getNewYorkIsoDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ function authorizeCronRequest(request: NextRequest): NextResponse | null {
   }
 
   const expected = `Bearer ${secret}`;
-  if (request.headers.get("authorization") !== expected) {
+  if (!timingSafeStringEqual(request.headers.get("authorization"), expected)) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 401 },

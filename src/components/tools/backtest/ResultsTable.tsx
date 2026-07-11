@@ -119,7 +119,9 @@ function DateRangeLink({
 }
 
 function formatMonthLinkLabel(dates?: { start: string; end: string }): string | undefined {
-  return dates?.start.slice(0, 7).replace("-", "/");
+  // The span starts at the prior month's close (the measurement base), so the
+  // month being labeled is the one the span ends in.
+  return dates?.end.slice(0, 7).replace("-", "/");
 }
 
 type SortKey =

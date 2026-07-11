@@ -34,17 +34,20 @@ type CachedJsonEntry = {
   expiresAt: number;
 };
 
-type CachedRiskOffSeriesEntry = {
-  points: PricePoint[];
-  expiresAt: number;
-};
-
 export const MARKET_DATA_EARLIEST_START = "1885-01-01";
 const DATA_LATEST_END = "9999-12-31";
 const DEFAULT_WARM_UP_TRADING_DAYS = 280;
 const TRADING_DAY_TO_CALENDAR_DAY_BUFFER = 1.6;
 const MARKET_DATA_CACHE_TTL_MS = 60 * 60 * 1000;
+const API_JSON_CACHE_MAX_ENTRIES = 64;
 const apiJsonCache = new Map<string, CachedJsonEntry>();
+const inFlightJsonRequests = new Map<string, Promise<CachedJsonResponse<unknown>>>();
+
+/** Test hook: reset the module-level caches so test runs stay isolated. */
+export function clearApiJsonCacheForTests(): void {
+  apiJsonCache.clear();
+  inFlightJsonRequests.clear();
+}
 
 function addDaysIso(isoDate: string, days: number): string {
   const date = new Date(`${isoDate}T00:00:00Z`);
@@ -61,29 +64,91 @@ export function getMarketDataWarmUpStartDate(
   return warmUpStart < MARKET_DATA_EARLIEST_START ? MARKET_DATA_EARLIEST_START : warmUpStart;
 }
 
+function pruneApiJsonCache(now: number): void {
+  for (const [url, entry] of apiJsonCache) {
+    if (entry.expiresAt <= now) apiJsonCache.delete(url);
+  }
+  // Cap total entries so distinct date-range URLs (each holding full price
+  // arrays) can't accumulate for a whole session. Map iterates in insertion
+  // order, so the oldest entries are dropped first.
+  while (apiJsonCache.size >= API_JSON_CACHE_MAX_ENTRIES) {
+    const oldestUrl = apiJsonCache.keys().next().value;
+    if (oldestUrl === undefined) break;
+    apiJsonCache.delete(oldestUrl);
+  }
+}
+
+function abortError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException("The operation was aborted.", "AbortError");
+}
+
+/**
+ * Resolve/reject with `promise`, but reject early if `signal` aborts.
+ * The underlying promise keeps running — for shared in-flight requests an
+ * abort detaches only the caller, letting the response land in the cache.
+ */
+function rejectOnAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortError(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError(signal));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+function startJsonRequest(url: string): Promise<CachedJsonResponse<unknown>> {
+  const request = fetch(url)
+    .then(async (res) => {
+      const data = (await res.json().catch(() => null)) as unknown;
+      return {
+        ok: res.ok,
+        status: res.status,
+        statusText: res.statusText,
+        data,
+      } satisfies CachedJsonResponse<unknown>;
+    })
+    .then((response) => {
+      if (response.ok) {
+        const now = Date.now();
+        pruneApiJsonCache(now);
+        apiJsonCache.set(url, {
+          response,
+          expiresAt: now + MARKET_DATA_CACHE_TTL_MS,
+        });
+      }
+      return response;
+    })
+    .finally(() => {
+      inFlightJsonRequests.delete(url);
+    });
+  inFlightJsonRequests.set(url, request);
+  // Callers can detach via abort before the request settles; keep the shared
+  // promise's rejection observed so it never surfaces as unhandled.
+  request.catch(() => {});
+  return request;
+}
+
 export async function fetchJsonCached<T>(url: string, signal?: AbortSignal): Promise<CachedJsonResponse<T>> {
-  const now = Date.now();
   const entry = apiJsonCache.get(url);
-  if (entry && entry.expiresAt > now) {
+  if (entry && entry.expiresAt > Date.now()) {
     return entry.response as CachedJsonResponse<T>;
   }
 
-  const response = await fetch(url, { signal }).then(async (res) => {
-    const data = (await res.json().catch(() => null)) as unknown;
-    return {
-      ok: res.ok,
-      status: res.status,
-      statusText: res.statusText,
-      data,
-    };
-  });
-  if (response.ok) {
-    apiJsonCache.set(url, {
-      response,
-      expiresAt: now + MARKET_DATA_CACHE_TTL_MS,
-    });
-  }
-  return response as CachedJsonResponse<T>;
+  // Identical concurrent requests share one fetch instead of double-fetching.
+  const request = inFlightJsonRequests.get(url) ?? startJsonRequest(url);
+  return rejectOnAbort(request, signal) as Promise<CachedJsonResponse<T>>;
 }
 
 export async function fetchMarketData(
@@ -236,18 +301,14 @@ export async function loadRiskOffPriceSeries(
 }
 
 
-const rawRiskOffSeriesCache = new Map<string, CachedRiskOffSeriesEntry>();
-
 async function fetchRiskOffPricePoints(
   ticker: string,
   startDate: string,
   endDate: string,
   signal?: AbortSignal,
 ): Promise<PricePoint[]> {
-  const cacheKey = `${ticker}|${startDate}|${endDate}`;
-  const cached = rawRiskOffSeriesCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.points;
-
+  // fetchJsonCached already caches (and dedups) per URL with the same TTL, so
+  // no separate series cache is needed here.
   const riskRes = await fetchJsonCached<PricePoint[]>(
     `/api/risk-off-prices?asset=${encodeURIComponent(ticker)}&startDate=${startDate}&endDate=${endDate}`,
     signal
@@ -256,12 +317,7 @@ async function fetchRiskOffPricePoints(
     const payload = (riskRes.data ?? {}) as { error?: string };
     throw new Error(payload.error ?? `Failed to load risk-off data for ${ticker}`);
   }
-  const riskPoints = riskRes.data ?? [];
-  rawRiskOffSeriesCache.set(cacheKey, {
-    points: riskPoints,
-    expiresAt: Date.now() + MARKET_DATA_CACHE_TTL_MS,
-  });
-  return riskPoints;
+  return riskRes.data ?? [];
 }
 
 export async function loadAllRiskOffPricePoints(

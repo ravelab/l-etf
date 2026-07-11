@@ -163,7 +163,6 @@ export function calcMonthlyExtremes(
   if (cached) return cached;
 
   if (values.length < 2 || dates.length < 2) {
-    console.warn("[calcMonthlyExtremes] insufficient data:", { valuesLen: values.length, datesLen: dates.length });
     return { bestMonth: 0, worstMonth: 0 };
   }
 
@@ -172,51 +171,41 @@ export function calcMonthlyExtremes(
   let bestMonthDates: { start: string; end: string } | undefined;
   let worstMonthDates: { start: string; end: string } | undefined;
 
-  // Group by year-month
-  let monthStart = 0;
+  // Each month's return is measured from the prior month's last value (or the
+  // series start) to the month's last value, so the move across the month
+  // boundary is attributed to the month it occurs in and monthly returns
+  // compound to the total return.
+  let monthBaseIdx = 0;
   let currentMonth = dates[0]?.slice(0, 7);
+
+  const recordMonth = (endIdx: number) => {
+    const base = values[monthBaseIdx];
+    if (base === 0 || !isFinite(base)) return;
+    const monthReturn = ((values[endIdx] - base) / base) * 100;
+    if (!isFinite(monthReturn)) return;
+    const monthDates = { start: dates[monthBaseIdx], end: dates[endIdx] };
+    if (monthReturn > bestMonth) {
+      bestMonth = monthReturn;
+      bestMonthDates = monthDates;
+    }
+    if (monthReturn < worstMonth) {
+      worstMonth = monthReturn;
+      worstMonthDates = monthDates;
+    }
+  };
 
   for (let i = 1; i < dates.length; i++) {
     const month = dates[i].slice(0, 7);
     if (month !== currentMonth) {
-      const base = values[monthStart];
-      if (base !== 0 && isFinite(base)) {
-        const monthReturn = ((values[i - 1] - base) / base) * 100;
-        if (isFinite(monthReturn)) {
-          const monthDates = { start: dates[monthStart], end: dates[i - 1] };
-          if (monthReturn > bestMonth) {
-            bestMonth = monthReturn;
-            bestMonthDates = monthDates;
-          }
-          if (monthReturn < worstMonth) {
-            worstMonth = monthReturn;
-            worstMonthDates = monthDates;
-          }
-        }
-      }
-      monthStart = i;
+      recordMonth(i - 1);
+      monthBaseIdx = i - 1;
       currentMonth = month;
     }
   }
 
-  // Last partial month
-  if (monthStart < values.length - 1) {
-    const base = values[monthStart];
-    if (base !== 0 && isFinite(base)) {
-      const monthReturn =
-        ((values[values.length - 1] - base) / base) * 100;
-      if (isFinite(monthReturn)) {
-        const monthDates = { start: dates[monthStart], end: dates[values.length - 1] };
-        if (monthReturn > bestMonth) {
-          bestMonth = monthReturn;
-          bestMonthDates = monthDates;
-        }
-        if (monthReturn < worstMonth) {
-          worstMonth = monthReturn;
-          worstMonthDates = monthDates;
-        }
-      }
-    }
+  // Last (possibly partial) month
+  if (monthBaseIdx < values.length - 1) {
+    recordMonth(values.length - 1);
   }
 
   const result = {

@@ -1497,8 +1497,12 @@ export async function runParallelBacktest({
     };
     const startSignal = hasSma ? lastSignalAtOrBefore(firstDate) : undefined;
     const endSignal = hasSma ? lastSignalAtOrBefore(lastDate) : undefined;
-    const startInRiskOff = startSignal?.type === "sell";
-    const endInRiskOff = endSignal?.type === "sell";
+    // etfResult.smaSignals were already filtered to the incoming window, so a
+    // regime carried in from warm-up has no signal at or before the cutoff —
+    // fall back to the window's start state instead of assuming risk-on.
+    const carriedInRiskOff = etfResult.smaStartInvested === false;
+    const startInRiskOff = startSignal ? startSignal.type === "sell" : carriedInRiskOff;
+    const endInRiskOff = endSignal ? endSignal.type === "sell" : carriedInRiskOff;
     const entrySpread = startInRiskOff
       ? getRiskOffSpread(config.riskOffAsset, false)
       : getSymbolSpread(config.name, false);
