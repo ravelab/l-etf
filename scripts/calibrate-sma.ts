@@ -62,7 +62,7 @@ const PERIOD_STEP = 1;
 // Fine step is tighter than that page's 0.5 default so the fine pass can land
 // on precise combos (e.g. 3.3%) instead of only 0.5%-multiples.
 const MIN_BUFFER = 0;
-const MAX_BUFFER = 12;
+const MAX_BUFFER = 21;
 const COARSE_STEP = 2;
 const FINE_STEP = 0.1;
 const FINE_HALF_WIDTH = 1.5;

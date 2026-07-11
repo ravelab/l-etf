@@ -843,7 +843,7 @@ async function buildCompareThresholdSnapshot(shared: SharedInputs) {
   // Match compare-threshold-strategies page defaults (symmetric + asymmetric grid).
   return buildBufferSweepSnapshot(shared, {
     minBuffer: 0,
-    maxBuffer: 12,
+    maxBuffer: 21,
     fineStep: 0.5,
     coarseStep: 2,
     fineHalfWidth: 1.5,

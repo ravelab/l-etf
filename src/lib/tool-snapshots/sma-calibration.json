@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-11T07:27:12.762Z",
+  "generatedAt": "2026-07-11T08:01:11.234Z",
   "startDate": "1985-10-01",
   "endDate": "2026-07-02",
   "windowLength": 10,
@@ -15,12 +15,12 @@
   },
   "nasdaq100": {
     "smaPeriod": 150,
-    "smaUpperBuffer": 7.4,
-    "smaLowerBuffer": 11.9,
-    "score": 15475.256193971074,
-    "avgReturn": 29.32603176781707,
-    "worstReturn": -4.002073972289189,
-    "avgMaxDrawdown": 70.39143940438608,
-    "avgTrades": 3.926530612244898
+    "smaUpperBuffer": 20.4,
+    "smaLowerBuffer": 17.6,
+    "score": 22359.20060261825,
+    "avgReturn": 32.489411927325406,
+    "worstReturn": -6.374428906718954,
+    "avgMaxDrawdown": 66.84480915776786,
+    "avgTrades": 1.473469387755102
   }
 }
