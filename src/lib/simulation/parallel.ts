@@ -1509,6 +1509,16 @@ export async function runParallelBacktest({
       ? getTransitionSpreadCost(config.name, config.riskOffAsset, false)
       : 0;
 
+    // Regime on the trimmed window's first day: the last signal before it wins;
+    // with none, the incoming window's start state carries through.
+    let smaStartInvested = etfResult.smaStartInvested;
+    if (smaStartInvested !== undefined) {
+      for (const s of etfResult.smaSignals) {
+        if (s.date >= firstDate) break;
+        smaStartInvested = s.type === "buy";
+      }
+    }
+
     if (dates.length < 2 || slicedDailyValues.length < 2) {
       const fallbackFinal = slicedDailyValues[slicedDailyValues.length - 1] ?? 0;
       return {
@@ -1525,6 +1535,7 @@ export async function runParallelBacktest({
         worstMonth: 0,
         smaPrices: slicedSmaPrices,
         smaSignals: slicedSmaSignals,
+        smaStartInvested,
         totalTradingCostPct: 0,
       };
     }
@@ -1580,6 +1591,7 @@ export async function runParallelBacktest({
       worstMonthDates: monthlyExtremes.worstMonthDates,
       smaPrices: slicedSmaPrices,
       smaSignals: slicedSmaSignals,
+      smaStartInvested,
       totalTradingCostPct,
     };
   };

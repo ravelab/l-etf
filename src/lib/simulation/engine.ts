@@ -486,6 +486,7 @@ export function simulateSingleEtf(
   let transitionOnDay: boolean[] | null = null;
   let smaSignals: EtfResult["smaSignals"] = [];
   let smaPrices: number[] = [];
+  let smaStartInvested: boolean | undefined;
 
   if (config.smaEnabled) {
     const executionMode = config.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE;
@@ -502,6 +503,7 @@ export function simulateSingleEtf(
     const signalInvested = smaResult.invested;
     smaSignals = smaResult.signals;
     smaPrices = smaResult.smaValues;
+    smaStartInvested = signalInvested[0] ?? true;
     
     // Choose execution mode: next-day open (default), next-day close, or trigger-day close.
     if (executionMode === "next-day-close") {
@@ -820,6 +822,7 @@ export function simulateSingleEtf(
       worstMonth: 0,
       smaSignals,
       smaPrices,
+      smaStartInvested,
       totalTradingCostPct: 0,
     };
   }
@@ -864,6 +867,7 @@ export function simulateSingleEtf(
     worstMonthDates: monthlyExtremes.worstMonthDates,
     smaSignals,
     smaPrices,
+    smaStartInvested,
     totalTradingCostPct,
   };
 }
@@ -976,6 +980,16 @@ function sliceBacktestResultToWindow(
     const monthlyExtremes = calcMonthlyExtremes(dailyValues, datesSlice);
     const sharpeRatio = calcSharpeRatio(dailyValues);
 
+    // Regime on the window's first day: the last warm-up signal wins; with none,
+    // the simulation's start state carries through. Signals are chronological.
+    let smaStartInvested = etf.smaStartInvested;
+    if (smaStartInvested !== undefined) {
+      for (const s of etf.smaSignals) {
+        if (s.date >= firstDate) break;
+        smaStartInvested = s.type === "buy";
+      }
+    }
+
     return {
       ...etf,
       dates: datesSlice,
@@ -994,6 +1008,7 @@ function sliceBacktestResultToWindow(
       worstMonthDates: monthlyExtremes.worstMonthDates,
       smaPrices: etf.smaPrices.length ? etf.smaPrices.slice(displayStartIdx) : etf.smaPrices,
       smaSignals: etf.smaSignals.filter((s) => s.date >= firstDate),
+      smaStartInvested,
     };
   });
 

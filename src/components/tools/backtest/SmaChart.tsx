@@ -6,14 +6,20 @@ import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
 import type { BacktestResult, EtfConfig, PricePoint } from "@/lib/simulation/types";
 import { formatDate } from "@/lib/format";
-import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import {
   getVisibleIndexBounds,
   pickLineChartIndices,
   selectSampledIndices,
   type VisibleRange,
 } from "@/lib/chart-resampling";
-import { formatRiskOffLiquidationAbbrev } from "@/lib/constants";
+import { buildSmaTradeRows, formatSignedNumber, type SmaTradeRow } from "@/lib/sma-trade-rows";
+import {
+  getDaysTillNextEvent,
+  getRiskOffAdvantage,
+  getRiskOffRealCagr,
+  getRiskOnRealCagr,
+  type SmaSegmentContext,
+} from "@/lib/sma-trade-metrics";
 
 const MAX_VISIBLE_POINTS = 1400;
 
@@ -84,7 +90,7 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
     if (!etf || etf.smaSignals.length === 0 || etfDates.length === 0) return null;
     const signals = [...etf.smaSignals].sort((a, b) => a.date.localeCompare(b.date));
     let riskOffDays = 0;
-    let isRiskOn = true;
+    let isRiskOn = etf.smaStartInvested ?? true;
     let prevIdx = 0;
     for (const signal of signals) {
       const idx = dateToIndex.get(signal.date);
@@ -106,130 +112,18 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
 
   const tradeRows = useMemo(() => {
     if (!etf || !baseConfig) return [];
-    const executionMode = baseConfig.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE;
-    const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
-    const anchorDate = etfDates[etfDates.length - 1] ?? null;
-
-    const toAnchoredRealPrice = (price: number, date: string): number => {
-      if (!Number.isFinite(price) || price <= 0) return price;
-      if (!anchorDate || !Number.isFinite(annualizedInflation)) return price;
-      const dateMs = new Date(`${date}T00:00:00Z`).getTime();
-      const anchorMs = new Date(`${anchorDate}T00:00:00Z`).getTime();
-      if (!Number.isFinite(dateMs) || !Number.isFinite(anchorMs)) return price;
-      const yearsToAnchor = (anchorMs - dateMs) / msPerYear;
-      const inflationFactor = Math.pow(1 + annualizedInflation, yearsToAnchor);
-      if (!Number.isFinite(inflationFactor) || inflationFactor <= 0) return price;
-      return price * inflationFactor;
-    };
-
-    const needsNextDay = executionMode === "next-day-open" || executionMode === "next-day-close";
-    const lastIdx = etfDates.length - 1;
-    const baseRows = etf.smaSignals.flatMap((signal) => {
-      const signalIdx = dateToIndex.get(signal.date);
-      // Hide signals whose next-day execution hasn't happened yet (no data beyond the signal day).
-      if (needsNextDay && typeof signalIdx === "number" && signalIdx >= lastIdx) return [];
-      const triggerClose = signalIdx != null ? closePrices[signalIdx] : undefined;
-      const triggerSma = signalIdx != null ? etf.smaPrices[signalIdx] : undefined;
-      const triggerSmaPctDiff =
-        triggerClose != null && triggerSma != null && Number.isFinite(triggerClose) && Number.isFinite(triggerSma) && triggerSma !== 0
-          ? ((triggerClose / syntheticPriceScale - triggerSma) / triggerSma) * 100
-          : null;
-      const executionIdx =
-        typeof signalIdx === "number"
-          ? needsNextDay
-            ? signalIdx + 1
-            : signalIdx
-          : null;
-      const tradingDay = executionIdx === null ? null : etfDates[executionIdx];
-      const effectiveDate = tradingDay ?? signal.date;
-      const closePriceAtExecution = executionIdx !== null ? (tradeClosePrices[executionIdx] ?? closePrices[executionIdx]) : undefined;
-      const openPriceAtExecution = executionIdx !== null ? (tradeOpenPrices[executionIdx] ?? openPrices[executionIdx]) : undefined;
-      const etfPrice = executionMode === "next-day-open"
-        ? openPriceAtExecution ?? closePriceAtExecution ?? signal.price
-        : closePriceAtExecution ?? signal.price;
-      const anchoredPrice =
-        Number.isFinite(etfPrice) && etfPrice > 0 && effectiveDate
-          ? toAnchoredRealPrice(etfPrice, effectiveDate)
-          : null;
-      const displayPrice = anchoredPrice && Number.isFinite(anchoredPrice) && anchoredPrice > 0 ? anchoredPrice : null;
-      const priceStr = displayPrice ? ` (${formatSignedNumber(displayPrice, "$")})` : "";
-      const displayClose =
-        triggerClose != null && Number.isFinite(triggerClose)
-          ? triggerClose / syntheticPriceScale
-          : null;
-      if (signal.type === "buy") {
-        return {
-          signalDate: signal.date,
-          tradingDay,
-          signalType: signal.type,
-          eventPrice: displayPrice,
-          triggerClose: displayClose,
-          triggerSmaPctDiff,
-          actionToneClass: "text-positive",
-          action: `Buy ${baseConfig.name}${priceStr}`,
-        };
-      }
-      return {
-        signalDate: signal.date,
-        tradingDay,
-        signalType: signal.type,
-        eventPrice: displayPrice,
-        triggerClose: displayClose,
-        triggerSmaPctDiff,
-        actionToneClass: "text-negative",
-        action: `Sell ${baseConfig.name}${priceStr}`,
-      };
+    return buildSmaTradeRows({
+      etf,
+      config: baseConfig,
+      etfDates,
+      closePrices,
+      openPrices,
+      tradeClosePrices,
+      tradeOpenPrices,
+      syntheticPriceScale,
+      annualizedInflation,
     });
-
-    if (baseRows.length === 0) return [];
-
-    const lastDay = etfDates[lastIdx] ?? "";
-    const closeAtLast = tradeClosePrices[lastIdx] ?? closePrices[lastIdx];
-    const openAtLast = tradeOpenPrices[lastIdx] ?? openPrices[lastIdx];
-    const etfPriceAtLiquidation =
-      executionMode === "next-day-open" ? openAtLast ?? closeAtLast : closeAtLast;
-    const anchoredLiquidation =
-      Number.isFinite(etfPriceAtLiquidation) &&
-      etfPriceAtLiquidation > 0 &&
-      lastDay
-        ? toAnchoredRealPrice(etfPriceAtLiquidation, lastDay)
-        : null;
-    const displayLiquidationPrice =
-      anchoredLiquidation != null &&
-      Number.isFinite(anchoredLiquidation) &&
-      anchoredLiquidation > 0
-        ? anchoredLiquidation
-        : null;
-
-    const sortedByExecution = [...baseRows].sort((a, b) => {
-      const da = a.tradingDay ?? a.signalDate;
-      const db = b.tradingDay ?? b.signalDate;
-      return da.localeCompare(db);
-    });
-    const lastExecuted = sortedByExecution[sortedByExecution.length - 1];
-    const endsRiskOn = lastExecuted?.signalType === "buy";
-
-    const liqPriceStr = displayLiquidationPrice
-      ? ` (${formatSignedNumber(displayLiquidationPrice, "$")})`
-      : "";
-    const liquidationLabel = endsRiskOn
-      ? `LIQUIDATE ${baseConfig.name}${liqPriceStr}`
-      : `LIQUIDATE ${formatRiskOffLiquidationAbbrev(baseConfig.riskOffAsset)}`;
-
-    const terminalRow = {
-      signalDate: lastDay,
-      tradingDay: lastDay,
-      signalType: "sell" as const,
-      eventPrice: displayLiquidationPrice,
-      triggerClose: null as number | null,
-      triggerSmaPctDiff: null as number | null,
-      actionToneClass: "text-negative",
-      action: liquidationLabel,
-      isEndLiquidation: true as const,
-    };
-
-    return [...baseRows, terminalRow];
-  }, [annualizedInflation, baseConfig, closePrices, dateToIndex, etf, etfDates, openPrices, syntheticPriceScale, tradeClosePrices, tradeOpenPrices]);
+  }, [annualizedInflation, baseConfig, closePrices, etf, etfDates, openPrices, syntheticPriceScale, tradeClosePrices, tradeOpenPrices]);
 
   const fullData = useMemo(() => {
     if (!etf || !etf.smaPrices.length) {
@@ -485,17 +379,7 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           endDate,
           finalEtfPrice,
           }: {
-          tradeRows: Array<{
-          signalDate: string;
-          tradingDay: string | null;
-          signalType: "buy" | "sell";
-          action: string;
-          eventPrice: number | null;
-          triggerClose: number | null;
-          triggerSmaPctDiff: number | null;
-          actionToneClass: string;
-          isEndLiquidation?: boolean;
-          }>;
+          tradeRows: SmaTradeRow[];
           etfPriceLabel: string;
           riskOffPricesByTicker?: Record<string, PricePoint[]>;
           annualizedInflation: number;
@@ -523,98 +407,12 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
 
   const totalPages = Math.ceil(tradeRows.length / TRADES_PAGE_SIZE);
   const paged = tradeRows.slice(page * TRADES_PAGE_SIZE, (page + 1) * TRADES_PAGE_SIZE);
-  const getDaysTillNextEvent = (index: number): number | null => {
-    if (tradeRows[index]?.isEndLiquidation) return null;
-    const current = tradeRows[index]?.tradingDay;
-    const next = tradeRows[index + 1]?.tradingDay ?? endDate;
-    if (!current || !next) return null;
-    const currentMs = new Date(`${current}T00:00:00Z`).getTime();
-    const nextMs = new Date(`${next}T00:00:00Z`).getTime();
-    if (!Number.isFinite(currentMs) || !Number.isFinite(nextMs)) return null;
-    return Math.max(0, Math.round((nextMs - currentMs) / 86400000));
-  };
-  const getRiskOffAdvantage = (index: number): number | null => {
-    if (tradeRows[index]?.isEndLiquidation) return null;
-    if (tradeRows[index]?.signalType !== "sell") return null;
-    const riskOff = getRiskOffTotalRealReturn(index);
-    const sellPrice = tradeRows[index]?.eventPrice;
-    const buyPrice = tradeRows[index + 1]?.eventPrice ?? finalEtfPrice;
-    const years = getYearsBetween(index);
-    if (
-      riskOff == null ||
-      sellPrice == null || buyPrice == null ||
-      !Number.isFinite(sellPrice) || !Number.isFinite(buyPrice) ||
-      sellPrice <= 0 || buyPrice <= 0 ||
-      years == null || years <= 0
-    ) {
-      return null;
-    }
-    const nominalRiskOnRatio = buyPrice / sellPrice;
-    const inflationFactor = Math.pow(1 + annualizedInflation, years);
-    const realRiskOnRatio = nominalRiskOnRatio / inflationFactor;
-    if (realRiskOnRatio <= 0) return null;
-    const realRiskOffRatio = 1 + riskOff / 100;
-    // Multiplier: risk-off ending value / risk-on ending value, both real
-    return realRiskOffRatio / realRiskOnRatio;
-  };
-  const getYearsBetween = (index: number): number | null => {
-    const current = tradeRows[index]?.tradingDay;
-    const next = tradeRows[index + 1]?.tradingDay ?? endDate;
-    if (!current || !next) return null;
-    const ms = new Date(`${next}T00:00:00Z`).getTime() - new Date(`${current}T00:00:00Z`).getTime();
-    if (!Number.isFinite(ms) || ms <= 0) return null;
-    return ms / (365.25 * 24 * 60 * 60 * 1000);
-  };
-  const getRiskOnCagr = (index: number): number | null => {
-    if (tradeRows[index]?.isEndLiquidation) return null;
-    const currentPrice = tradeRows[index]?.eventPrice;
-    const nextPrice = tradeRows[index + 1]?.eventPrice ?? finalEtfPrice;
-    if (
-      currentPrice == null || nextPrice == null ||
-      !Number.isFinite(currentPrice) || !Number.isFinite(nextPrice) ||
-      currentPrice <= 0 || nextPrice <= 0
-    ) return null;
-    if (tradeRows[index]?.signalType !== "buy") return null;
-    const years = getYearsBetween(index);
-    if (!years || years <= 0) return null;
-    const nominalRatio = nextPrice / currentPrice;
-    const inflationFactor = Math.pow(1 + annualizedInflation, years);
-    const realRatio = nominalRatio / inflationFactor;
-    if (realRatio <= 0) return null;
-    return (Math.pow(realRatio, 1 / years) - 1) * 100;
-  };
-  const getRiskOffTotalRealReturn = (index: number): number | null => {
-    if (tradeRows[index]?.isEndLiquidation) return null;
-    if (tradeRows[index]?.signalType !== "sell") return null;
-    if (riskOffLookups.length === 0) return null;
-    const sellDate = tradeRows[index]?.tradingDay;
-    const buyDate = tradeRows[index + 1]?.tradingDay ?? endDate;
-    if (!sellDate || !buyDate) return null;
-    const years = getYearsBetween(index);
-    if (!years || years <= 0) return null;
-    // Each component bought at equal weight; compute each component's return then average
-    let totalReturn = 0;
-    let count = 0;
-    for (const lookup of riskOffLookups) {
-      const sellPrice = lookup.get(sellDate);
-      const buyPrice = lookup.get(buyDate);
-      if (sellPrice == null || buyPrice == null || sellPrice <= 0 || buyPrice <= 0) continue;
-      totalReturn += buyPrice / sellPrice;
-      count++;
-    }
-    if (count === 0) return null;
-    const avgNominalReturn = totalReturn / count;
-    // Convert nominal return to real using inflation over the period
-    const inflationFactor = Math.pow(1 + annualizedInflation, years);
-    return (avgNominalReturn / inflationFactor - 1) * 100;
-  };
-  const getRiskOffCagr = (index: number): number | null => {
-    const totalReturn = getRiskOffTotalRealReturn(index);
-    const years = getYearsBetween(index);
-    if (totalReturn == null || years == null || years <= 0) return null;
-    const ratio = 1 + totalReturn / 100;
-    if (ratio <= 0) return null;
-    return (Math.pow(ratio, 1 / years) - 1) * 100;
+  const segmentCtx: SmaSegmentContext = {
+    tradeRows,
+    endDate,
+    finalEtfPrice,
+    annualizedInflation,
+    riskOffLookups,
   };
 
   return (
@@ -634,13 +432,13 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           {paged.map((row, pageIndex) => {
             const absoluteIndex = page * TRADES_PAGE_SIZE + pageIndex;
             const isTerminal = row.isEndLiquidation === true;
-            const daysTillNextEvent = getDaysTillNextEvent(absoluteIndex);
-            const riskOffReturn = isTerminal ? null : getRiskOffCagr(absoluteIndex);
-            const riskOffAdvantage = getRiskOffAdvantage(absoluteIndex);
-            const riskOnReturn = getRiskOnCagr(absoluteIndex);
+            const daysTillNextEvent = getDaysTillNextEvent(segmentCtx, absoluteIndex);
+            const riskOffReturn = isTerminal ? null : getRiskOffRealCagr(segmentCtx, absoluteIndex);
+            const riskOffAdvantage = getRiskOffAdvantage(segmentCtx, absoluteIndex);
+            const riskOnReturn = getRiskOnRealCagr(segmentCtx, absoluteIndex);
             return (
             <tr
-              key={`${row.signalDate}-${row.action}-${isTerminal ? "liq" : "sig"}`}
+              key={`${row.signalDate}-${row.action}-${isTerminal ? "liq" : row.isInitialEntry ? "init" : "sig"}`}
               className="border-b border-card-border/50"
             >
               <td className="py-2.5 pr-4">
@@ -759,23 +557,4 @@ function stripVariantSuffix(id: string): string {
   if (id.endsWith("-base")) return id.slice(0, -5);
   if (id.endsWith("-sma")) return id.slice(0, -4);
   return id;
-}
-
-function formatSignedNumber(value: number, prefix = "", suffix = ""): string {
-  const sign = value >= 0 ? "+" : "-";
-  const abs = Math.abs(value);
-
-  let formatted: string;
-  if (abs >= 1) {
-    formatted = abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  } else if (abs >= 0.01) {
-    formatted = abs.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 4 });
-  } else {
-    formatted = abs.toLocaleString(undefined, { minimumSignificantDigits: 3, maximumSignificantDigits: 4 });
-  }
-
-  if (prefix === "$") {
-    return `${prefix}${sign === "-" ? "-" : ""}${formatted}${suffix}`;
-  }
-  return `${sign}${formatted}${suffix}`;
 }

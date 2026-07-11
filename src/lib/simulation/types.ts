@@ -64,6 +64,8 @@ export interface EtfResult {
   worstMonthDates?: { start: string; end: string };
   smaSignals: SmaSignal[];
   smaPrices: number[];
+  /** SMA regime in effect on dates[0] (true = risk-on/invested). Undefined when SMA is disabled. */
+  smaStartInvested?: boolean;
   totalTradingCostPct: number;
 }
 
