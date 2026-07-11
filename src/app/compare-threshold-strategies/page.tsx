@@ -79,7 +79,7 @@ export function CompareBufferStrategiesPageContent({
 
   const form = useToolForm("compare-threshold", {
     minBuffer: 0,
-    maxBuffer: 24,
+    maxBuffer: 12,
     fineStep: 0.5,
     coarseStep: 2,
     fineHalfWidth: 1.5,
@@ -246,7 +246,7 @@ export function CompareBufferStrategiesPageContent({
       if (smaPsp) setSmaSpPeriod(parseNumberOrKeep(smaPsp, getDefaultSmaPeriod("sp500")));
       if (smaPnq) setSmaNqPeriod(parseNumberOrKeep(smaPnq, getDefaultSmaPeriod("nasdaq100")));
       if (minT) setMinBuffer(parseNumberOrKeep(minT, 0));
-      if (maxT) setMaxBuffer(parseNumberOrKeep(maxT, 24));
+      if (maxT) setMaxBuffer(parseNumberOrKeep(maxT, 12));
       if (step) setFineStep(parseNumberOrKeep(step, 0.5));
       if (cstep) setCoarseStep(parseNumberOrKeep(cstep, 2));
       if (hw) setFineHalfWidth(parseNumberOrKeep(hw, 1.5));

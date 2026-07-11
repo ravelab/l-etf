@@ -31,7 +31,7 @@ import {
   runPrecomputedSweep,
   type MonthlyCpiPoint,
 } from "./lib/sweep-data";
-import { CONSTANT_SP500_SHORTCUT_DATE } from "../src/lib/constants";
+import { CONSTANT_NASDAQ100_SHORTCUT_DATE, CONSTANT_SP500_SHORTCUT_DATE } from "../src/lib/constants";
 import { DEFAULT_RISK_OFF_ASSET, getDefaultWindowLength } from "../src/lib/simulation/defaults";
 import { DEFAULT_COMBO_PRESET, createPresetEtfConfig, getComboSubPresets } from "../src/lib/simulation/presets";
 import { buildRollingWindows, summarizeSmaRow, type RollingWindow } from "../src/lib/simulation/rolling";
@@ -62,7 +62,7 @@ const PERIOD_STEP = 1;
 // Fine step is tighter than that page's 0.5 default so the fine pass can land
 // on precise combos (e.g. 3.3%) instead of only 0.5%-multiples.
 const MIN_BUFFER = 0;
-const MAX_BUFFER = 24;
+const MAX_BUFFER = 12;
 const COARSE_STEP = 2;
 const FINE_STEP = 0.1;
 const FINE_HALF_WIDTH = 1.5;
@@ -251,23 +251,25 @@ async function calibrateIndex(
 }
 
 async function main() {
-  const startDate = CONSTANT_SP500_SHORTCUT_DATE;
   const endDate = await getLatestSharedTradeDate(["sp500", "nasdaq100", "risk:SGOV"]);
   const windowLength = getDefaultWindowLength();
+  const sp500StartDate = CONSTANT_SP500_SHORTCUT_DATE;
+  const nasdaq100StartDate = CONSTANT_NASDAQ100_SHORTCUT_DATE;
 
-  console.log(`[calibrate-sma] Calibrating over ${startDate} to ${endDate} (${windowLength}y rolling windows)`);
+  console.log(`[calibrate-sma] Calibrating to ${endDate} (${windowLength}y rolling windows)`);
+  console.log(`[calibrate-sma] SPX start=${sp500StartDate}, NDX start=${nasdaq100StartDate}, maxBuffer=${MAX_BUFFER}`);
 
   console.log("[calibrate-sma] Calibrating SPX...");
-  const sp500 = await calibrateIndex("sp500", startDate, endDate, windowLength);
+  const sp500 = await calibrateIndex("sp500", sp500StartDate, endDate, windowLength);
   console.log(`[calibrate-sma] SPX result: period=${sp500.smaPeriod} buffer=-${sp500.smaLowerBuffer}%/${sp500.smaUpperBuffer}% score=${sp500.score.toFixed(2)}`);
 
   console.log("[calibrate-sma] Calibrating NDX...");
-  const nasdaq100 = await calibrateIndex("nasdaq100", startDate, endDate, windowLength);
+  const nasdaq100 = await calibrateIndex("nasdaq100", nasdaq100StartDate, endDate, windowLength);
   console.log(`[calibrate-sma] NDX result: period=${nasdaq100.smaPeriod} buffer=-${nasdaq100.smaLowerBuffer}%/${nasdaq100.smaUpperBuffer}% score=${nasdaq100.score.toFixed(2)}`);
 
   const payload: SmaCalibrationResult = {
     generatedAt: new Date().toISOString(),
-    startDate,
+    startDate: nasdaq100StartDate,
     endDate,
     windowLength,
     sp500,

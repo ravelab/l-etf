@@ -110,7 +110,9 @@ export function buildCompareThresholdParams(pageState) {
       ro: pageState.riskOffAsset,
       minT: pageState.minBuffer,
       maxT: pageState.maxBuffer,
-      stepT: pageState.bufferStep,
+      stepT: pageState.fineStep,
+      cstepT: pageState.coarseStep,
+      hwT: pageState.fineHalfWidth,
       smaExec: pageState.smaExecutionMode,
     },
     pageState
