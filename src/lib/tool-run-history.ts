@@ -10,6 +10,10 @@ const TOOL_RUN_HISTORY_CHANGED_EVENT = "tool-run-history-changed";
 export type ToolRunHistorySummaryDisplay = {
   showLetf?: boolean;
   showRiskOffAsset?: boolean;
+  showSmaSpPeriod?: boolean;
+  showSmaSpBuffer?: boolean;
+  showSmaNqPeriod?: boolean;
+  showSmaNqBuffer?: boolean;
 };
 
 export type ToolRunHistoryEntry = {

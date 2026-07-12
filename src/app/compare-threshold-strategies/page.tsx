@@ -715,6 +715,7 @@ export function CompareBufferStrategiesPageContent({
           tabLabel: "SMA Buffer",
           href: buildToolsUrl("sma-buffer", buildSmaBufferUrlParams()),
           summary: nextRunSummary,
+          summaryDisplay: { showSmaSpBuffer: false, showSmaNqBuffer: false },
         });
       }
     } catch (err) {
@@ -830,7 +831,7 @@ export function CompareBufferStrategiesPageContent({
         </SharedToolInputs>
 
         {display && rows.length > 0 && (
-          <SimulationRunSummary summary={display.summary} />
+          <SimulationRunSummary summary={display.summary} showSmaSpBuffer={false} showSmaNqBuffer={false} />
         )}
 
         {display && bestRow && (

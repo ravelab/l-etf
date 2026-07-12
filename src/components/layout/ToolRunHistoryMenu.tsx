@@ -99,11 +99,20 @@ function buildWorstTimeBacktestParams(startDate: string, endDate: string): URLSe
 function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
   const summary = toValidRunSummary(entry.summary);
   if (!summary) return "";
+  const flags = entry.summaryDisplay;
   const pieces = [];
-  if (entry.summaryDisplay?.showLetf ?? true) pieces.push(summary.letf);
-  if (entry.summaryDisplay?.showRiskOffAsset ?? true) pieces.push(`Risk-Off ${summary.riskOffAsset}`);
-  pieces.push(`SPX ${summary.smaSpPeriod}/−${summary.smaSpLowerBuffer}/${summary.smaSpUpperBuffer}`);
-  pieces.push(`NDX ${summary.smaNqPeriod}/−${summary.smaNqLowerBuffer}/${summary.smaNqUpperBuffer}`);
+  if (flags?.showLetf ?? true) pieces.push(summary.letf);
+  if (flags?.showRiskOffAsset ?? true) pieces.push(`Risk-Off ${summary.riskOffAsset}`);
+  const spxParts = [
+    (flags?.showSmaSpPeriod ?? true) ? `${summary.smaSpPeriod}` : null,
+    (flags?.showSmaSpBuffer ?? true) ? `−${summary.smaSpLowerBuffer}/${summary.smaSpUpperBuffer}` : null,
+  ].filter((p): p is string => p !== null);
+  if (spxParts.length > 0) pieces.push(`SPX ${spxParts.join("/")}`);
+  const ndxParts = [
+    (flags?.showSmaNqPeriod ?? true) ? `${summary.smaNqPeriod}` : null,
+    (flags?.showSmaNqBuffer ?? true) ? `−${summary.smaNqLowerBuffer}/${summary.smaNqUpperBuffer}` : null,
+  ].filter((p): p is string => p !== null);
+  if (ndxParts.length > 0) pieces.push(`NDX ${ndxParts.join("/")}`);
   return pieces.join(" - ");
 }
 

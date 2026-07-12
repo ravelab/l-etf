@@ -490,6 +490,7 @@ export function CompareSmaStrategiesPageContent({
           tabLabel: "SMA Period",
           href: buildToolsUrl("sma-period", buildSmaPeriodUrlParams()),
           summary: nextRunSummary,
+          summaryDisplay: { showSmaSpPeriod: false, showSmaNqPeriod: false },
         });
       }
     } catch (err) {
@@ -574,7 +575,7 @@ export function CompareSmaStrategiesPageContent({
         </SharedToolInputs>
 
         {display && rows.length > 0 && (
-          <SimulationRunSummary summary={display.summary} />
+          <SimulationRunSummary summary={display.summary} showSmaSpPeriod={false} showSmaNqPeriod={false} />
         )}
 
         {display && bestRow && (
