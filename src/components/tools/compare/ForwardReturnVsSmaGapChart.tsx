@@ -436,7 +436,6 @@ export function ForwardReturnVsSmaGapChart({
       type: "line" as const,
       label: "UPRO n/total",
       data: uproStats.map((s) => (s && uproTotal > 0 ? (s.count / uproTotal) * 100 : null)),
-      isFreq: true,
       yAxisID: "yFreq",
       borderColor: "rgba(59, 130, 246, 0.55)",
       backgroundColor: "rgba(59, 130, 246, 0.55)",
@@ -451,7 +450,6 @@ export function ForwardReturnVsSmaGapChart({
       type: "line" as const,
       label: "TQQQ n/total",
       data: tqqqStats.map((s) => (s && tqqqTotal > 0 ? (s.count / tqqqTotal) * 100 : null)),
-      isFreq: true,
       yAxisID: "yFreq",
       borderColor: "rgba(249, 115, 22, 0.55)",
       backgroundColor: "rgba(249, 115, 22, 0.55)",
@@ -500,26 +498,20 @@ export function ForwardReturnVsSmaGapChart({
           borderWidth: 1,
           titleColor: colors.tooltipTitle,
           bodyColor: colors.tooltipBody,
-          // Suppress tooltip entries for the median connector lines — their
-          // value is already shown by the adjacent box body.
+          // Suppress tooltip entries for the median connector and n/total
+          // lines — the box entries already show the median and the bucket's
+          // share of total.
           filter(item: TooltipItem<"bar">) {
-            const ds = item.dataset as unknown as { boxStats?: Array<BoxStats | null>; isFreq?: boolean };
-            return ds.boxStats !== undefined || ds.isFreq === true;
+            const ds = item.dataset as unknown as { boxStats?: Array<BoxStats | null> };
+            return ds.boxStats !== undefined;
           },
           callbacks: {
             label(item: TooltipItem<"bar">) {
               const ds = item.dataset as unknown as {
                 boxStats?: Array<BoxStats | null>;
                 totalCount?: number;
-                isFreq?: boolean;
                 label: string;
               };
-              if (ds.isFreq) {
-                const v = item.parsed.y;
-                return typeof v === "number" && Number.isFinite(v)
-                  ? `${ds.label}: ${v.toFixed(1)}%`
-                  : `${ds.label}: no data`;
-              }
               const s = ds.boxStats?.[item.dataIndex];
               if (!s) return `${ds.label}: no data`;
               const total = ds.totalCount ?? 0;
