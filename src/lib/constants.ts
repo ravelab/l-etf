@@ -126,12 +126,26 @@ export function getRiskOffSpread(riskOffAsset: string, afterHours: boolean): num
  * Returns a fraction (e.g. 0.0003) representing the combined half-spread
  * of selling one side and buying the other.
  */
-export function getTransitionSpreadCost(
+function getTransitionSpreadCost(
   riskOnSymbol: string,
   riskOffAsset: string,
   afterHours: boolean,
 ): number {
   return getSymbolSpread(riskOnSymbol, afterHours) + getRiskOffSpread(riskOffAsset, afterHours);
+}
+
+/**
+ * Per-transition spread cost for a strategy config — the single owner of
+ * risk-on ticker resolution. Resolves from `config.name` (matching the
+ * entry/exit spread paths), never `config.id`: sweep and backtest configs
+ * carry ids like "buffer-2.5" or "etf1" that name no ticker and would
+ * silently resolve the risk-on half-spread to 0.
+ */
+export function getTransitionSpreadCostForConfig(
+  config: { name: string; riskOffAsset: string },
+  afterHours: boolean,
+): number {
+  return getTransitionSpreadCost(config.name, config.riskOffAsset, afterHours);
 }
 
 export const CONSTANT_INITIAL_INVESTMENT = 1;

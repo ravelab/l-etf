@@ -68,7 +68,11 @@ test("simulateBacktest (SMA) matches exact mathematical expectation", () => {
   assert.equal(signals[0].type, "sell");
   assert.equal(signals[0].date, "2020-01-04");
   
-  // Engine produce ~0.740352 with these inputs. Loose tolerance for the same
+  // Engine produce ~0.738804 with these inputs. Loose tolerance for the same
   // cross-platform float-drift reason as the No-SMA regression above.
-  assert.equal(Math.abs(etfSma!.finalValue - 0.740352) < 0.001, true, `Expected ~0.740352, got ${etfSma!.finalValue}`);
+  // Golden value shifted from ~0.740352 when the per-transition spread became
+  // resolved from config.name: the id "upro-sma" previously resolved the
+  // risk-on half-spread to 0 (lowercase, no SPREAD_COSTS entry), so the two
+  // transitions here each under-charged by UPRO's 10 bp after-hours spread.
+  assert.equal(Math.abs(etfSma!.finalValue - 0.738804) < 0.001, true, `Expected ~0.738804, got ${etfSma!.finalValue}`);
 });
