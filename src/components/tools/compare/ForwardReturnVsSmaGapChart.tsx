@@ -473,6 +473,13 @@ export function ForwardReturnVsSmaGapChart({
     () => ({
       responsive: true,
       maintainAspectRatio: false,
+      // Surface tooltips for the whole x-bucket while sweeping the cursor
+      // anywhere over the chart, rather than requiring pixel-perfect hover
+      // on a point or bar.
+      interaction: {
+        mode: "index",
+        intersect: false,
+      },
       layout: {
         padding: { left: 0, right: 0, top: 4, bottom: 0 },
       },
