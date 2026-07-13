@@ -20,21 +20,21 @@ export default function Home() {
         <div>
           <h2 className="text-2xl font-bold mb-4">Explore</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Link href={buildToolsUrl("strategies")}>
-              <div className="border border-card-border rounded-lg p-6 hover:border-accent transition h-full flex flex-col">
-                <h2 className="text-2xl font-bold mb-2">Strategies</h2>
-                <p className="text-muted mb-4 flex-1">
-                  Compare leveraged ETF strategies across rolling historical windows
-                </p>
-                <Button className="w-full">Explore</Button>
-              </div>
-            </Link>
-
             <Link href="/signals">
               <div className="border border-card-border rounded-lg p-6 hover:border-accent transition h-full flex flex-col">
                 <h2 className="text-2xl font-bold mb-2">Signals</h2>
                 <p className="text-muted mb-4 flex-1">
                   Check the current SPX and NDX SMA signals and enable Home Screen alerts
+                </p>
+                <Button className="w-full">Explore</Button>
+              </div>
+            </Link>
+
+            <Link href={buildToolsUrl("strategies")}>
+              <div className="border border-card-border rounded-lg p-6 hover:border-accent transition h-full flex flex-col">
+                <h2 className="text-2xl font-bold mb-2">Strategies</h2>
+                <p className="text-muted mb-4 flex-1">
+                  Compare leveraged ETF strategies across rolling historical windows
                 </p>
                 <Button className="w-full">Explore</Button>
               </div>

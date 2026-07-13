@@ -7,8 +7,8 @@ import { buildToolsUrl, getToolTabForPathname, type ToolTab } from "@/lib/tools-
 import { ToolRunHistoryMenu } from "@/components/layout/ToolRunHistoryMenu";
 
 const NAV_ITEMS = [
-  { tab: "strategies" as ToolTab, label: "Strategies" },
   { href: "/signals", label: "Signals" },
+  { tab: "strategies" as ToolTab, label: "Strategies" },
   { tab: "backtest" as ToolTab, label: "Backtest" },
   { tab: "futures" as ToolTab, label: "Futures" },
   { tab: "statistics" as ToolTab, label: "Holding Period" },

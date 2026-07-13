@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Chart } from "react-chartjs-2";
 import {
   BarController,
   BarElement,
@@ -20,6 +19,7 @@ import {
   type TooltipItem,
 } from "chart.js";
 import { Card } from "@/components/ui/Card";
+import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { getChartThemeColors } from "@/lib/chart-options";
 import type { PricePoint, RatePoint } from "@/lib/simulation/types";
 import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
@@ -230,7 +230,9 @@ interface ForwardReturnVsSmaGapChartProps {
 }
 
 // chart.js dataset with attached box stats for the whisker/median plugin.
+// Explicit `type: "bar"` because the ZoomableChart container is a line chart.
 type BoxDataset = {
+  type: "bar";
   label: string;
   data: Array<[number, number] | null>;
   boxStats: Array<BoxStats | null>;
@@ -383,6 +385,7 @@ export function ForwardReturnVsSmaGapChart({
     const uproTotal = uproStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
     const tqqqTotal = tqqqStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
     const uproDataset: BoxDataset = {
+      type: "bar",
       label: `UPRO — SMA(${smaPeriodSp})`,
       data: uproStats.map((s) => (s ? ([s.q1, s.q3] as [number, number]) : null)),
       boxStats: uproStats,
@@ -396,6 +399,7 @@ export function ForwardReturnVsSmaGapChart({
       whiskerColor: "rgba(59, 130, 246, 0.95)",
     };
     const tqqqDataset: BoxDataset = {
+      type: "bar",
       label: `TQQQ — SMA(${smaPeriodNq})`,
       data: tqqqStats.map((s) => (s ? ([s.q1, s.q3] as [number, number]) : null)),
       boxStats: tqqqStats,
@@ -597,8 +601,12 @@ export function ForwardReturnVsSmaGapChart({
         </div>
       ) : (
         <div className="h-[460px]">
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <Chart type="bar" data={data as any} options={options as any} />
+          {/* ZoomableChart is typed for line charts; this mixed chart declares
+              its bar datasets explicitly, so the cast is safe at runtime. */}
+          <ZoomableChart
+            data={data as unknown as ChartData<"line">}
+            options={options as unknown as ChartOptions<"line">}
+          />
         </div>
       )}
     </Card>
