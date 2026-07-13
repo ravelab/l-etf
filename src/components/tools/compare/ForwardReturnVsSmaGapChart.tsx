@@ -41,10 +41,10 @@ ChartJS.register(
 
 const TRADING_DAYS_PER_YEAR = 252;
 const BIN_WIDTH_PCT = 2; // x-axis bin width: 2 percentage points of gap
-// Bins clipped to [-22%, +22%] so the edge buckets read "≤-20%" / "≥20%";
-// any values past ±22% fold into those edge buckets.
-const BIN_MIN_PCT = -22;
-const BIN_MAX_PCT = 22;
+// Bins clipped to [-26%, +26%] so the edge buckets read "≤-24%" / "≥24%";
+// any values past ±26% fold into those edge buckets.
+const BIN_MIN_PCT = -26;
+const BIN_MAX_PCT = 26;
 
 // Match ETF_PRESETS in src/lib/simulation/presets.ts.
 const UPRO_LEVERAGE = 3;
@@ -234,6 +234,7 @@ type BoxDataset = {
   label: string;
   data: Array<[number, number] | null>;
   boxStats: Array<BoxStats | null>;
+  totalCount: number;
   backgroundColor: string;
   borderColor: string;
   borderWidth: number;
@@ -379,10 +380,13 @@ export function ForwardReturnVsSmaGapChart({
   }, [uproStats, tqqqStats]);
 
   const data = useMemo((): ChartData<"bar" | "line"> => {
+    const uproTotal = uproStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
+    const tqqqTotal = tqqqStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
     const uproDataset: BoxDataset = {
       label: `UPRO — SMA(${smaPeriodSp})`,
       data: uproStats.map((s) => (s ? ([s.q1, s.q3] as [number, number]) : null)),
       boxStats: uproStats,
+      totalCount: uproTotal,
       backgroundColor: "rgba(59, 130, 246, 0.35)",
       borderColor: "rgba(59, 130, 246, 0.95)",
       borderWidth: 1,
@@ -395,6 +399,7 @@ export function ForwardReturnVsSmaGapChart({
       label: `TQQQ — SMA(${smaPeriodNq})`,
       data: tqqqStats.map((s) => (s ? ([s.q1, s.q3] as [number, number]) : null)),
       boxStats: tqqqStats,
+      totalCount: tqqqTotal,
       backgroundColor: "rgba(249, 115, 22, 0.35)",
       borderColor: "rgba(249, 115, 22, 0.95)",
       borderWidth: 1,
@@ -427,10 +432,40 @@ export function ForwardReturnVsSmaGapChart({
       tension: 0,
       spanGaps: false,
     };
+    const uproFreqLine = {
+      type: "line" as const,
+      label: "UPRO n/total",
+      data: uproStats.map((s) => (s && uproTotal > 0 ? (s.count / uproTotal) * 100 : null)),
+      isFreq: true,
+      yAxisID: "yFreq",
+      borderColor: "rgba(59, 130, 246, 0.55)",
+      backgroundColor: "rgba(59, 130, 246, 0.55)",
+      borderWidth: 1.5,
+      borderDash: [5, 4],
+      pointRadius: 2,
+      pointHoverRadius: 3,
+      tension: 0,
+      spanGaps: false,
+    };
+    const tqqqFreqLine = {
+      type: "line" as const,
+      label: "TQQQ n/total",
+      data: tqqqStats.map((s) => (s && tqqqTotal > 0 ? (s.count / tqqqTotal) * 100 : null)),
+      isFreq: true,
+      yAxisID: "yFreq",
+      borderColor: "rgba(249, 115, 22, 0.55)",
+      backgroundColor: "rgba(249, 115, 22, 0.55)",
+      borderWidth: 1.5,
+      borderDash: [5, 4],
+      pointRadius: 2,
+      pointHoverRadius: 3,
+      tension: 0,
+      spanGaps: false,
+    };
     return {
       labels,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      datasets: [uproDataset, tqqqDataset, uproMedianLine, tqqqMedianLine] as any,
+      datasets: [uproDataset, tqqqDataset, uproMedianLine, tqqqMedianLine, uproFreqLine, tqqqFreqLine] as any,
     };
   }, [labels, uproStats, tqqqStats, smaPeriodSp, smaPeriodNq]);
 
@@ -461,17 +496,30 @@ export function ForwardReturnVsSmaGapChart({
           // Suppress tooltip entries for the median connector lines — their
           // value is already shown by the adjacent box body.
           filter(item: TooltipItem<"bar">) {
-            const ds = item.dataset as unknown as { boxStats?: Array<BoxStats | null> };
-            return ds.boxStats !== undefined;
+            const ds = item.dataset as unknown as { boxStats?: Array<BoxStats | null>; isFreq?: boolean };
+            return ds.boxStats !== undefined || ds.isFreq === true;
           },
           callbacks: {
             label(item: TooltipItem<"bar">) {
-              const ds = item.dataset as unknown as { boxStats?: Array<BoxStats | null>; label: string };
+              const ds = item.dataset as unknown as {
+                boxStats?: Array<BoxStats | null>;
+                totalCount?: number;
+                isFreq?: boolean;
+                label: string;
+              };
+              if (ds.isFreq) {
+                const v = item.parsed.y;
+                return typeof v === "number" && Number.isFinite(v)
+                  ? `${ds.label}: ${v.toFixed(1)}%`
+                  : `${ds.label}: no data`;
+              }
               const s = ds.boxStats?.[item.dataIndex];
               if (!s) return `${ds.label}: no data`;
+              const total = ds.totalCount ?? 0;
+              const share = total > 0 ? ` (${((s.count / total) * 100).toFixed(1)}% of ${total})` : "";
               return [
                 `${ds.label}`,
-                `n=${s.count}`,
+                `n=${s.count}${share}`,
                 `P10 ${factorToPctLabel(s.min)} / Q1 ${factorToPctLabel(s.q1)} / median ${factorToPctLabel(s.median)} / Q3 ${factorToPctLabel(s.q3)} / P90 ${factorToPctLabel(s.max)}`,
               ];
             },
@@ -506,6 +554,26 @@ export function ForwardReturnVsSmaGapChart({
             },
           },
           grid: { color: colors.grid },
+        },
+        yFreq: {
+          type: "linear",
+          position: "right",
+          min: 0,
+          title: {
+            display: true,
+            text: "n / total (%)",
+            color: colors.axisTitleText,
+            font: { size: 11 },
+          },
+          ticks: {
+            color: colors.tickText,
+            callback(value) {
+              const v = typeof value === "number" ? value : Number(value);
+              return `${v}%`;
+            },
+          },
+          // Right-axis gridlines would clutter the log-scaled return grid.
+          grid: { drawOnChartArea: false },
         },
       },
     }),
