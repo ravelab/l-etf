@@ -17,7 +17,7 @@ import {
 } from "./metrics";
 import {
   CONSTANT_INITIAL_INVESTMENT,
-  getTransitionSpreadCost,
+  getTransitionSpreadCostForConfig,
   getRiskOffFetchTickers,
   getSymbolSpread,
   getRiskOffSpread,
@@ -535,7 +535,7 @@ export function simulateSingleEtf(
   // Per-symbol spread cost: trigger-day-close = after hours, everything else (including buy-and-hold) = regular hours
   const afterHours = executionMode === "trigger-day-close";
   const perTransitionSpread = config.smaEnabled
-    ? getTransitionSpreadCost(config.id, config.riskOffAsset, afterHours)
+    ? getTransitionSpreadCostForConfig(config, afterHours)
     : 0;
 
   // Signal state at the start/end of the window determines which spread to use for entry/exit.

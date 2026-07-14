@@ -11,7 +11,7 @@ import {
   LABEL_INDEX_SP500_TR,
   getSymbolSpread,
   getRiskOffSpread,
-  getTransitionSpreadCost,
+  getTransitionSpreadCostForConfig,
 } from "../constants";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../input-normalization";
 import { buildWrappedTailCache, extractCachedWrappedWindowResult, extractOptimizedWrappedWindowResult } from "./wrapped-window";
@@ -406,7 +406,7 @@ export function precomputeAllConfigDailyValues(
     const riskOffSpreadRegular = getRiskOffSpread(config.riskOffAsset, false);
 
     const perTransitionSpreadFraction = config.smaEnabled
-      ? riskOnSpread + riskOffSpread
+      ? getTransitionSpreadCostForConfig(config, afterHours)
       : 0;
     const perTransitionSpreadPct = perTransitionSpreadFraction * 100;
 
@@ -518,7 +518,7 @@ async function precomputeAllConfigDailyValuesAsync(
     const riskOffSpreadRegular = getRiskOffSpread(config.riskOffAsset, false);
 
     const perTransitionSpreadFraction = config.smaEnabled
-      ? riskOnSpread + riskOffSpread
+      ? getTransitionSpreadCostForConfig(config, afterHours)
       : 0;
     const perTransitionSpreadPct = perTransitionSpreadFraction * 100;
 
@@ -1510,7 +1510,7 @@ export async function runParallelBacktest({
       ? getRiskOffSpread(config.riskOffAsset, false)
       : getSymbolSpread(config.name, false);
     const perTransitionSpread = config.smaEnabled
-      ? getTransitionSpreadCost(config.name, config.riskOffAsset, false)
+      ? getTransitionSpreadCostForConfig(config, false)
       : 0;
 
     // Regime on the trimmed window's first day: the last signal before it wins;
