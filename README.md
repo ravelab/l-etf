@@ -77,7 +77,7 @@ npm run build
 npm start
 ```
 
-If `TIINGO_API_KEY` and `FRED_API_KEY` are set, the running app refreshes its own CSVs once per NY weekday after 7pm — no external scheduler needed. You can also run `npm run fetch-data` manually any time, or wire it into your own cron / systemd timer if you prefer:
+If `TIINGO_API_KEY` and `FRED_API_KEY` are set, the running app refreshes its own CSVs once per NY weekday after 7pm — no external scheduler needed. This auto-refresh guards against concurrent runs with in-process state, so it assumes a single long-lived server process per `data/` directory; running multiple processes against a shared `data/` directory can race. You can also run `npm run fetch-data` manually any time, or wire it into your own cron / systemd timer if you prefer:
 
 ```cron
 0 17 * * 1-5 cd /path/to/l-etf && npm run fetch-data >> /var/log/l-etf-fetch.log 2>&1

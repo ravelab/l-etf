@@ -7,8 +7,9 @@ import { join } from "node:path";
 // for the build process and every child it spawns (next build, scripts).
 process.env.DISABLE_RUNTIME_CACHE_WRITES = "1";
 import {
-  consumeCronTriggeredBuildMarker,
+  clearCronTriggeredBuildMarker,
   isCronBuildMarkerStorageReady,
+  readCronTriggeredBuildMarker,
 } from "@/lib/cron-build-marker";
 import {
   isWeeklyBuildMarkerStorageReady,
@@ -63,14 +64,6 @@ async function maybeNotifySmaAlerts(cronBuildMarker: Record<string, unknown> | n
 
   console.log("[build:vercel] Running SMA push alerts for cron-triggered build");
   runBestEffort("npm run notify:sma-alerts");
-}
-
-async function readCronTriggeredBuildMarker(): Promise<Record<string, unknown> | null> {
-  if (!isCronBuildMarkerStorageReady()) {
-    return null;
-  }
-
-  return consumeCronTriggeredBuildMarker();
 }
 
 function readLatestSpxTradingDate(): string | null {
@@ -188,6 +181,15 @@ async function main() {
   run("next build");
 
   await maybeNotifySmaAlerts(cronBuildMarker);
+
+  // Clear the cron build marker only after `next build` succeeded and the notify
+  // step has been decided/run. Consuming it up front would make a retry of a
+  // failed build look non-cron-triggered, silently skipping that day's SMA push
+  // alerts (the daily trigger lock prevents a same-day re-trigger).
+  if (cronBuildMarker) {
+    await clearCronTriggeredBuildMarker();
+    console.log("[build:vercel] Cleared cron build marker");
+  }
 
   if (runWeekly || forcePublicCsvCommit || ranMonthlyEtfCalibration || ranMonthlySmaCalibration || ranMonthlySnapshots) {
     console.log(

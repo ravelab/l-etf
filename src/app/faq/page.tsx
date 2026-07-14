@@ -228,6 +228,35 @@ const FAQ_DATA: FAQItem[] = [
     ),
   },
   {
+    id: "monthly-interpolation",
+    question: "Some risk-off proxy data is only monthly. How does the app turn that into daily prices?",
+    answer: (
+      <>
+        <p className="mb-3">
+          Before some risk-off assets existed as ETFs, the app extends them with historical proxy
+          data (see <strong className="text-foreground">What are risk-off assets?</strong> above)
+          — for example gold before GLDM launched in 2018, or early segments of the SGOV/VGSH
+          Treasury proxies. Some of that historical source data only reports one price per month,
+          but backtests need a price for every trading day.
+        </p>
+        <p className="mb-3">
+          To fill the gap, the app spreads each month&apos;s total return smoothly across that
+          month&apos;s trading days instead of dumping the whole move onto a single day. This
+          avoids an artificial, one-day volatility spike that a naive fill would create.
+        </p>
+        <p>
+          The tradeoff: each mid-month daily price during these proxy-only stretches is partly
+          shaped by the following month-end price, so the proxy&apos;s real intra-month swings and
+          drawdowns are smoothed out, and an SMA crossing that lands mid-month in one of these
+          periods uses a mildly smoothed fill price rather than that day&apos;s actual close. This
+          is a deliberate, bounded look-ahead confined to filling in gaps within a single month of
+          early proxy history — it does not affect modern daily data, and it is not used anywhere
+          else in the simulation.
+        </p>
+      </>
+    ),
+  },
+  {
     question: "What trading costs are built into the simulations?",
     answer: (
       <>
