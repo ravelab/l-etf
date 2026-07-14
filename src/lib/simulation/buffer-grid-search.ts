@@ -22,7 +22,7 @@ export interface AsymmetricSweepRow extends SmaComparisonRow {
   stage: "coarse" | "fine";
 }
 
-export interface CoarseGridSpec {
+interface CoarseGridSpec {
   minUpper: number;
   maxUpper: number;
   minLower: number;
@@ -30,7 +30,7 @@ export interface CoarseGridSpec {
   coarseStep: number;
 }
 
-export interface FineGridSpec {
+interface FineGridSpec {
   centerUpper: number;
   centerLower: number;
   halfWidth: number;

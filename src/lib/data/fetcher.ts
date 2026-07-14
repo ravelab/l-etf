@@ -158,7 +158,7 @@ export async function fetchYahooDailyBarsByDate(
  * rules as {@link fetchYahooDailyLatestClose}). Use this to fill SPX/NDX index closes for
  * recent days when FRED lags - not only the single latest bar.
  */
-export async function fetchYahooDailyClosesByDate(symbol: "^GSPC" | "^NDX" | "^IXIC"): Promise<Map<string, number>> {
+async function fetchYahooDailyClosesByDate(symbol: "^GSPC" | "^NDX" | "^IXIC"): Promise<Map<string, number>> {
   const bars = await fetchYahooDailyBarsByDate(symbol);
   return new Map([...bars.entries()].map(([date, bar]) => [date, bar.close]));
 }
