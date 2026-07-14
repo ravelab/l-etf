@@ -16,6 +16,7 @@ import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate, loadAllRiskOffPr
 import { formatMultiple, formatPercent } from "@/lib/format";
 import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
 import { parseNumberOrKeep } from "@/lib/utils";
+import { normalizeNumberValue } from "@/lib/input-normalization";
 import { getDefaultSmaPeriod } from "@/lib/simulation/defaults";
 import { ETF_PRESETS, PRESET_SELECT_OPTIONS, getComboEffectiveDateRange, getActivePreset, resolvePresetSelection } from "@/lib/simulation/presets";
 import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
@@ -245,11 +246,11 @@ export function CompareBufferStrategiesPageContent({
       const hw = params.get("hwT");
       if (smaPsp) setSmaSpPeriod(parseNumberOrKeep(smaPsp, getDefaultSmaPeriod("sp500")));
       if (smaPnq) setSmaNqPeriod(parseNumberOrKeep(smaPnq, getDefaultSmaPeriod("nasdaq100")));
-      if (minT) setMinBuffer(parseNumberOrKeep(minT, 0));
-      if (maxT) setMaxBuffer(parseNumberOrKeep(maxT, 21));
-      if (step) setFineStep(parseNumberOrKeep(step, 0.5));
-      if (cstep) setCoarseStep(parseNumberOrKeep(cstep, 2));
-      if (hw) setFineHalfWidth(parseNumberOrKeep(hw, 1.5));
+      if (minT) setMinBuffer(normalizeNumberValue(minT, 0, { min: 0 }));
+      if (maxT) setMaxBuffer(normalizeNumberValue(maxT, 21, { min: 0 }));
+      if (step) setFineStep(normalizeNumberValue(step, 0.5, { min: 0.1 }));
+      if (cstep) setCoarseStep(normalizeNumberValue(cstep, 2, { min: 0.5 }));
+      if (hw) setFineHalfWidth(normalizeNumberValue(hw, 1.5, { min: 0.5 }));
     });
   }, [searchParams, pathname, shouldAutoRunFromSearch, active, suppressAutoRun, allowInitialSearchAutoRun, hasCachedResults, setLetf, setIndex, setSmaSpPeriod, setSmaNqPeriod]);
 
@@ -431,6 +432,7 @@ export function CompareBufferStrategiesPageContent({
       prices, rates,
       windowLength, startDate, endDate,
       configs: items.map(i => i.config),
+      paramValues: Object.fromEntries(items.map((i) => [i.config.id, i.paramValue])),
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
       monthlyCpi: cpiData,
@@ -536,9 +538,9 @@ export function CompareBufferStrategiesPageContent({
     if (finePoints.length === 0) return { rows: coarseRows, fineWindow };
 
     const period = presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod;
-    const fineConfigs: EtfConfig[] = finePoints.map((p) => {
+    const fineItems = finePoints.map((p) => {
       const encoded = Math.round(p.upper * 100) * 10000 + Math.round(p.lower * 100);
-      return {
+      const config: EtfConfig = {
         id: `asym-${encoded}`,
         name: `${presetDef.name} SMA ${period} U${p.upper}/L${p.lower} (fine)`,
         leverage: presetDef.leverage,
@@ -551,7 +553,9 @@ export function CompareBufferStrategiesPageContent({
         smaIndex: presetDef.index,
         riskOffAsset,
       };
+      return { paramValue: encoded, config };
     });
+    const fineConfigs: EtfConfig[] = fineItems.map((i) => i.config);
     const fineResult = (await runParallelSimulations({
       prices: ctx.prices,
       rates: ctx.rates,
@@ -559,6 +563,7 @@ export function CompareBufferStrategiesPageContent({
       startDate,
       endDate,
       configs: fineConfigs,
+      paramValues: Object.fromEntries(fineItems.map((i) => [i.config.id, i.paramValue])),
       riskOffValuesByAsset: ctx.riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: ctx.riskOffSeries.openValuesByAsset,
       monthlyCpi: ctx.monthlyCpi,
