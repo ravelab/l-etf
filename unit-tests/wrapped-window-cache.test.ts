@@ -80,6 +80,7 @@ test("cached wrapped window extraction matches per-window extraction", () => {
     riskOffOpenValuesByAsset
   );
   const cache = buildWrappedTailCache(
+    precomputed,
     windows,
     prices,
     config,

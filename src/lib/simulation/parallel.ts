@@ -647,6 +647,7 @@ export function buildSimulationBuckets(
     const config = configById.get(precomputed.configId);
     const wrappedTailCache = config && options?.rates
       ? buildWrappedTailCache(
+          precomputed,
           windows,
           prices,
           config,
@@ -712,6 +713,7 @@ async function buildSimulationBucketsAsync(
     const config = configById.get(precomputed.configId);
     const wrappedTailCache = config && options?.rates
       ? buildWrappedTailCache(
+          precomputed,
           windows,
           prices,
           config,

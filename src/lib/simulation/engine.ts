@@ -401,6 +401,14 @@ export function simulateSingleEtf(
     skipMetrics?: boolean;
     /** Pre-computed leveraged risk-on daily returns (same leverage/ER/index across sweep configs) */
     precomputedRiskOnReturns?: number[];
+    /** Seed for the SMA invested state at index 0 (defaults to true). Used by the
+     *  History Wrap tail simulation to start in the real simulation's regime at
+     *  the join instead of always starting risk-on. */
+    smaInitialInvested?: boolean;
+    /** Index at which `smaInitialInvested` becomes authoritative (defaults to 0). Lets
+     *  the History Wrap tail simulation hold its seed through the SMA warm-up bootstrap
+     *  until the join date, rather than at series start. */
+    smaSeedAtIndex?: number;
   }
 ): EtfResult {
   // Use actual ETF returns when aligned prices exist. Simulated presets can
@@ -431,7 +439,10 @@ export function simulateSingleEtf(
       dates,
       closePrices,
       config.smaPeriod,
-      { upper: config.smaUpperBuffer, lower: config.smaLowerBuffer }
+      { upper: config.smaUpperBuffer, lower: config.smaLowerBuffer },
+      options?.smaInitialInvested !== undefined
+        ? { initialInvested: options.smaInitialInvested, seedAtIndex: options?.smaSeedAtIndex }
+        : undefined
     );
     const signalInvested = smaResult.invested;
     smaSignals = smaResult.signals;

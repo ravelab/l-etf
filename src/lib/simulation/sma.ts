@@ -60,10 +60,13 @@ export function generateSmaSignals(
   dates: string[],
   prices: number[],
   smaPeriod: number,
-  buffer: { upper: number; lower: number }
+  buffer: { upper: number; lower: number },
+  options?: { initialInvested?: boolean; seedAtIndex?: number }
 ): { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] } {
   const { upper: upperBufferPct, lower: lowerBufferPct } = buffer;
-  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}`;
+  const initialInvested = options?.initialInvested ?? true;
+  const seedAtIndex = options?.seedAtIndex ?? 0;
+  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
     const cached = byPrices.get(cacheKey);
@@ -74,17 +77,25 @@ export function generateSmaSignals(
   const signals: SmaSignal[] = [];
   const invested: boolean[] = new Array(dates.length);
 
-  // Default to invested. During the warm-up period (before full SMA is available),
+  // Default to invested (or the caller-supplied seed — e.g. the History Wrap
+  // tail simulation seeds this from the real simulation's regime at the join
+  // so a hysteretic buffer band doesn't restart risk-on regardless of the
+  // real state). During the warm-up period (before full SMA is available),
   // use a progressive average of all data so far as a proto-SMA. This keeps the
   // strategy "on" when there's no SMA line (user's request) while still providing
   // trend-following protection — a short progressive average will trigger sell
   // signals if the market drops significantly from its recent average.
-  let isInvested = true;
+  let isInvested = initialInvested;
   let daysSinceCheck = 0;
   let warmUpSum = 0;
 
   for (let i = 0; i < dates.length; i++) {
     warmUpSum += prices[i];
+
+    if (i === seedAtIndex) {
+      isInvested = initialInvested;
+      daysSinceCheck = 0;
+    }
 
     // Use full SMA when available; otherwise progressive average of all data so far
     const effectiveSma = !isNaN(smaValues[i])
@@ -93,7 +104,7 @@ export function generateSmaSignals(
         ? warmUpSum / (i + 1)
         : NaN;
 
-    if (isNaN(effectiveSma)) {
+    if (i < seedAtIndex || isNaN(effectiveSma)) {
       invested[i] = isInvested;
       continue;
     }

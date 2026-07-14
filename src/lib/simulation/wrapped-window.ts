@@ -31,12 +31,31 @@ export interface WrappedPrecomputedConfigDailyValues {
 
 interface WrappedTailCache {
   joinDate: string;
+  initialInvested: boolean;
   tailJoinOffset: number;
   tailDates: string[];
   normalizedTailValues: number[];
   normalizedTailNonLeveragedValues: number[];
   smaSignals: Array<{ date: string; type: "buy" | "sell"; price: number }>;
   normalizedValueByDate: Map<string, number>;
+}
+
+/**
+ * Whether a simulation was invested (risk-on) as of `date`, given its signal
+ * list and the invested state it started from. `defaultInvested` matters when
+ * no signal has fired by `date`: a fresh (unseeded) simulation defaults to
+ * risk-on, but the wrapped tail is seeded from the real regime at the join —
+ * if it never crosses a buffer band, there's no signal to find, and the
+ * state must fall back to that seed rather than always assuming risk-on.
+ */
+function isInvestedAtDate(
+  signals: Array<{ date: string; type: "buy" | "sell"; price: number }> | undefined,
+  date: string,
+  defaultInvested = true
+): boolean {
+  if (!signals || signals.length === 0) return defaultInvested;
+  const last = [...signals].reverse().find((s) => s.date <= date);
+  return last ? last.type === "buy" : defaultInvested;
 }
 
 function findLastDateLte(dates: string[], date: string, lo = 0): number {
@@ -89,6 +108,7 @@ function computeRealWrappedPrefix(
 }
 
 export function buildWrappedTailCache(
+  precomputed: WrappedPrecomputedConfigDailyValues,
   windows: RollingWindow[],
   prices: PricePoint[],
   config: EtfConfig,
@@ -108,6 +128,8 @@ export function buildWrappedTailCache(
     (latest, window) => (window.endDate > latest ? window.endDate : latest),
     template.endDate
   );
+  const joinDate = prices[realEndIdx].date;
+  const initialInvested = isInvestedAtDate(precomputed.smaSignals, joinDate);
   const tailWarmUpDays = Math.max(config.smaPeriod, 2);
   const tailStartIdx = Math.max(0, realEndIdx - tailWarmUpDays);
   const tailWindow: RollingWindow = {
@@ -156,7 +178,11 @@ export function buildWrappedTailCache(
     tailSmaClosePrices,
     tailBorrowingRates,
     materialized.riskOffValuesByAsset,
-    materialized.riskOffOpenValuesByAsset
+    materialized.riskOffOpenValuesByAsset,
+    undefined,
+    undefined,
+    undefined,
+    { smaInitialInvested: initialInvested, smaSeedAtIndex: tailJoinOffset }
   );
 
   const tailBaseValue = tailEtfResult.dailyValues[tailJoinOffset];
@@ -195,7 +221,8 @@ export function buildWrappedTailCache(
   }
 
   return {
-    joinDate: prices[realEndIdx].date,
+    joinDate,
+    initialInvested,
     tailJoinOffset,
     tailDates,
     normalizedTailValues,
@@ -232,6 +259,7 @@ export function extractOptimizedWrappedWindowResult(
   let nonLeveragedMaxDrawdownPct = realPrefix.nonLeveragedMaxDrawdownPct;
 
   const joinDate = prices[realEndIdx].date;
+  const initialInvested = isInvestedAtDate(precomputed.smaSignals, joinDate);
   const tailWarmUpDays = Math.max(config.smaPeriod, 2);
   const tailStartIdx = Math.max(0, realEndIdx - tailWarmUpDays);
   const tailWindow: RollingWindow = {
@@ -277,7 +305,11 @@ export function extractOptimizedWrappedWindowResult(
     tailSmaClosePrices,
     tailBorrowingRates,
     materialized.riskOffValuesByAsset,
-    materialized.riskOffOpenValuesByAsset
+    materialized.riskOffOpenValuesByAsset,
+    undefined,
+    undefined,
+    undefined,
+    { smaInitialInvested: initialInvested, smaSeedAtIndex: tailJoinOffset }
   );
   const tailBaseValue = tailEtfResult.dailyValues[tailJoinOffset];
   if (!isFinite(tailBaseValue) || tailBaseValue <= 0) {
@@ -350,11 +382,11 @@ export function extractOptimizedWrappedWindowResult(
     }
   }
 
-  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
-  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) && 
-    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
-  const endInRiskOff = tailEtfResult.smaSignals.length > 0 && 
-    [...tailEtfResult.smaSignals].reverse().find(s => s.date <= window.endDate)?.type === 'sell';
+  const startInRiskOff = !isInvestedAtDate(precomputed.smaSignals, window.startDate);
+  // The tail was seeded from `initialInvested`, so when it never crosses a
+  // buffer band (no signal in `tailEtfResult.smaSignals`), the regime at
+  // window.endDate is that seed, not a default risk-on assumption.
+  const endInRiskOff = !isInvestedAtDate(tailEtfResult.smaSignals, window.endDate, initialInvested);
 
   const { entrySpread, exitSpread } = selectEdgeSpreads(precomputed, startInRiskOff, endInRiskOff);
   
@@ -449,11 +481,11 @@ export function extractCachedWrappedWindowResult(
     }
   }
 
-  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
-  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) &&
-    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
-  const endInRiskOff = cache.smaSignals.length > 0 &&
-    [...cache.smaSignals].reverse().find(s => s.date <= window.endDate)?.type === 'sell';
+  const startInRiskOff = !isInvestedAtDate(precomputed.smaSignals, window.startDate);
+  // Mirrors extractOptimizedWrappedWindowResult: fall back to the tail's seed
+  // regime (cache.initialInvested), not a default risk-on assumption, when no
+  // cached signal fires before window.endDate.
+  const endInRiskOff = !isInvestedAtDate(cache.smaSignals, window.endDate, cache.initialInvested);
 
   const { entrySpread, exitSpread } = selectEdgeSpreads(precomputed, startInRiskOff, endInRiskOff);
 
