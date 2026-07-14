@@ -25,6 +25,7 @@ self.onmessage = (event: MessageEvent<WrappedWorkerData>) => {
       const config = configById.get(precomputed.configId);
       const tailCache = config
         ? buildWrappedTailCache(
+            precomputed,
             windows,
             prices,
             config,
