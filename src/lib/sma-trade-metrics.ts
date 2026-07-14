@@ -22,7 +22,7 @@ export interface SmaSegmentContext {
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 
-export function getYearsBetween(ctx: SmaSegmentContext, index: number): number | null {
+function getYearsBetween(ctx: SmaSegmentContext, index: number): number | null {
   const current = ctx.tradeRows[index]?.tradingDay;
   const next = ctx.tradeRows[index + 1]?.tradingDay ?? ctx.endDate;
   if (!current || !next) return null;

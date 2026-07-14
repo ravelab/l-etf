@@ -11,7 +11,7 @@ import {
   calcSharpeRatio,
 } from "@/lib/simulation/metrics";
 
-export type FuturesContractSymbol = "ES" | "NQ";
+type FuturesContractSymbol = "ES" | "NQ";
 
 type FuturesMonthCode = "H" | "M" | "U" | "Z"; // Mar/Jun/Sep/Dec
 
@@ -414,7 +414,7 @@ function clampToFinite(n: number, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export function buildEtfResult(params: {
+function buildEtfResult(params: {
   id: string;
   name: string;
   sourceIndex: IndexKey;

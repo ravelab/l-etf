@@ -24,8 +24,3 @@ export function effectiveStartDateFromAlignedSeries(params: {
   }
   return effective;
 }
-
-export function maxIsoDate(a: string, b: string): string {
-  return a > b ? a : b;
-}
-

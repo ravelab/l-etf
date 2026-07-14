@@ -31,7 +31,7 @@ export async function writeLastWeeklyRunTradingDate(dateKey: string): Promise<vo
   await getRedis().set(KEY, dateKey);
 }
 
-export function dateKeyInTimeZone(date: Date, timeZone: string): string {
+function dateKeyInTimeZone(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",

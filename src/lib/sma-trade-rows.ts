@@ -15,7 +15,7 @@ export interface SmaTradeRow {
   isEndLiquidation?: boolean;
 }
 
-export interface BuildSmaTradeRowsParams {
+interface BuildSmaTradeRowsParams {
   etf: Pick<EtfResult, "smaSignals" | "smaPrices" | "smaStartInvested">;
   config: Pick<EtfConfig, "name" | "riskOffAsset" | "smaExecutionMode">;
   etfDates: string[];

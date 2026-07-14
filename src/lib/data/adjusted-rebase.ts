@@ -1,4 +1,4 @@
-export type AdjustedOverlapPair = {
+type AdjustedOverlapPair = {
   date: string;
   stored: number;
   fresh: number;

@@ -1,4 +1,4 @@
-export function firstFinitePositive(...values: Array<number | null | undefined>): number {
+function firstFinitePositive(...values: Array<number | null | undefined>): number {
   for (const value of values) {
     if (Number.isFinite(value) && (value as number) > 0) return value as number;
   }
