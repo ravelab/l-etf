@@ -58,7 +58,8 @@ function findLastDateLte(dates: string[], date: string, lo = 0): number {
 function computeRealWrappedPrefix(
   precomputed: WrappedPrecomputedConfigDailyValues,
   startIdx: number,
-  endIdx: number
+  endIdx: number,
+  entrySpread: number
 ): {
   realFinalValue: number;
   realNonLeveragedFinalValue: number;
@@ -68,7 +69,7 @@ function computeRealWrappedPrefix(
   nonLeveragedMaxDrawdownPct: number;
   internalDollarCost: number;
 } | null {
-  const realMetrics = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx);
+  const realMetrics = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx, entrySpread);
   if (!realMetrics) return null;
 
   const nonLeveragedMetrics = computeOptionalNonLeveragedMetrics(precomputed.nonLeveragedValues, startIdx, endIdx);
@@ -219,7 +220,15 @@ export function extractOptimizedWrappedWindowResult(
   const realWindowLength = realEndIdx - actualWindowStart + 1;
   if (realWindowLength < 2) return null;
 
-  const realPrefix = computeRealWrappedPrefix(precomputed, actualWindowStart, realEndIdx);
+  // Regime at the window's start only depends on precomputed signals, not the
+  // synthetic tail — resolve it early so the entry spread can be folded into
+  // the real-prefix renormalization instead of only reported afterward.
+  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
+  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) &&
+    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
+  const { entrySpread } = selectEdgeSpreads(precomputed, startInRiskOff, startInRiskOff);
+
+  const realPrefix = computeRealWrappedPrefix(precomputed, actualWindowStart, realEndIdx, entrySpread);
   if (!realPrefix) return null;
 
   const realFinalValue = realPrefix.realFinalValue;
@@ -350,13 +359,10 @@ export function extractOptimizedWrappedWindowResult(
     }
   }
 
-  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
-  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) && 
-    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
-  const endInRiskOff = tailEtfResult.smaSignals.length > 0 && 
+  const endInRiskOff = tailEtfResult.smaSignals.length > 0 &&
     [...tailEtfResult.smaSignals].reverse().find(s => s.date <= window.endDate)?.type === 'sell';
 
-  const { entrySpread, exitSpread } = selectEdgeSpreads(precomputed, startInRiskOff, endInRiskOff);
+  const { exitSpread } = selectEdgeSpreads(precomputed, startInRiskOff, endInRiskOff);
   
   const rawFinalValue = scaledTailValues[scaledTailValues.length - 1] ?? realFinalValue;
   const tradingCosts = finalizeTradingCosts({
@@ -396,7 +402,15 @@ export function extractCachedWrappedWindowResult(
   const realWindowLength = realEndIdx - actualWindowStart + 1;
   if (realWindowLength < 2) return null;
 
-  const realPrefix = computeRealWrappedPrefix(precomputed, actualWindowStart, realEndIdx);
+  // Regime at the window's start only depends on precomputed signals, not the
+  // synthetic tail — resolve it early so the entry spread can be folded into
+  // the real-prefix renormalization instead of only reported afterward.
+  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
+  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) &&
+    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
+  const { entrySpread } = selectEdgeSpreads(precomputed, startInRiskOff, startInRiskOff);
+
+  const realPrefix = computeRealWrappedPrefix(precomputed, actualWindowStart, realEndIdx, entrySpread);
   if (!realPrefix) return null;
 
   const realFinalValue = realPrefix.realFinalValue;
@@ -449,13 +463,10 @@ export function extractCachedWrappedWindowResult(
     }
   }
 
-  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
-  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) &&
-    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
   const endInRiskOff = cache.smaSignals.length > 0 &&
     [...cache.smaSignals].reverse().find(s => s.date <= window.endDate)?.type === 'sell';
 
-  const { entrySpread, exitSpread } = selectEdgeSpreads(precomputed, startInRiskOff, endInRiskOff);
+  const { exitSpread } = selectEdgeSpreads(precomputed, startInRiskOff, endInRiskOff);
 
   const rawFinalValue = (cache.normalizedTailValues[tailDisplayEndIdx] * tailScale) || realFinalValue;
   const tradingCosts = finalizeTradingCosts({
