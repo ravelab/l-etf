@@ -1,5 +1,5 @@
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
-import { buildRollingWindows } from "./rolling";
+import { buildRollingWindows, type RollingSimulationPoint } from "./rolling";
 import { precomputeAllConfigDailyValues, buildSimulationBuckets } from "./parallel";
 import { buildSgovFinalValuesByWindow } from "../sgov-benchmark";
 import { CONSTANT_HISTORY_WRAP_ENABLED, CONSTANT_INITIAL_INVESTMENT, LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "../constants";
@@ -51,6 +51,28 @@ function summarizeValues(values: number[]) {
     p50: percentile(sorted, 0.5),
     p90: percentile(sorted, 0.9),
   };
+}
+
+/**
+ * Pair each SMA-bucket window with its matching no-SMA-bucket window by
+ * (startDate, endDate) rather than array index. Buckets drop windows
+ * independently per config (extraction can return null for one config's
+ * bucket but not the other's on the same window), so index-based pairing
+ * silently shifts every later pair onto mismatched date ranges once that
+ * happens. Windows with no match in the no-SMA bucket carry `noSmaRun:
+ * undefined` — callers that need a "vs no-SMA" comparison should skip those.
+ */
+export function joinByWindow(
+  smaSimulations: RollingSimulationPoint[],
+  noSmaSimulations: RollingSimulationPoint[]
+): Array<{ smaRun: RollingSimulationPoint; noSmaRun: RollingSimulationPoint | undefined }> {
+  const noSmaByWindow = new Map(
+    noSmaSimulations.map((run) => [`${run.startDate}|${run.endDate}`, run])
+  );
+  return smaSimulations.map((smaRun) => ({
+    smaRun,
+    noSmaRun: noSmaByWindow.get(`${smaRun.startDate}|${smaRun.endDate}`),
+  }));
 }
 
 /**
@@ -179,13 +201,11 @@ export async function computeWinRatesByWindowLength(opts: {
     let totalVsIndex = 0;
     let totalVsSgov = 0;
 
-    for (let i = 0; i < smaBucket.simulations.length; i++) {
-      const smaRun = smaBucket.simulations[i];
-      const noSmaRun = noSmaBucket.simulations[i];
-      if (smaRun && (!earliestStartDate || smaRun.startDate < earliestStartDate)) {
+    for (const { smaRun, noSmaRun } of joinByWindow(smaBucket.simulations, noSmaBucket.simulations)) {
+      if (!earliestStartDate || smaRun.startDate < earliestStartDate) {
         earliestStartDate = smaRun.startDate;
       }
-      if (smaRun?.usedHistoryWrap || noSmaRun?.usedHistoryWrap) {
+      if (smaRun.usedHistoryWrap || noSmaRun?.usedHistoryWrap) {
         historyWrapApplied = true;
       }
       const inflationPct = monthlyCpi && monthlyCpi.length >= 2
