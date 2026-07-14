@@ -1185,7 +1185,8 @@ function extractResultsMainThread(
   pricesByIndex?: Record<string, PricePoint[]>,
   rates?: RatePoint[],
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
-  riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>
+  riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
+  paramValues?: Record<string, number>
 ): SmaComparisonRow[] | Array<{ label: string; simulations: RollingSimulationPoint[] }> | VariantSummaryResult[] | EtfResult[] {
   if (mode === 'sweep') {
     return extractWindowResults(precomputedDailyValues, windows, [], prices, monthlyCpi, {
@@ -1194,6 +1195,7 @@ function extractResultsMainThread(
       riskOffValuesByAsset,
       riskOffOpenValuesByAsset,
       pricesByIndex,
+      paramValues,
     });
   } else if (mode === 'variants' || mode === 'variant-summaries') {
     const buckets = buildSimulationBuckets(precomputedDailyValues, windows, prices, {
@@ -1306,7 +1308,8 @@ async function extractResultsMainThreadAsync(
       pricesByIndex,
       rates,
       riskOffValuesByAsset,
-      riskOffOpenValuesByAsset
+      riskOffOpenValuesByAsset,
+      paramValues
     );
     onProgress?.(1, "Preparing results...");
     return result;
