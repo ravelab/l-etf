@@ -97,6 +97,7 @@ interface PrecomputedConfigDailyValues {
 interface ConfigSimulationBucket {
   configId: string;
   simulations: RollingSimulationPoint[];
+  paramValue?: number;
 }
 
 interface VariantSummaryResult {
@@ -635,6 +636,7 @@ export function buildSimulationBuckets(
     riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
     riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
     pricesByIndex?: Record<string, PricePoint[]>;
+    paramValues?: Record<string, number>;
   }
 ): ConfigSimulationBucket[] {
   const buckets: ConfigSimulationBucket[] = [];
@@ -678,6 +680,7 @@ export function buildSimulationBuckets(
     buckets.push({
       configId: precomputed.configId,
       simulations,
+      paramValue: options?.paramValues?.[precomputed.configId],
     });
   }
 
@@ -694,6 +697,7 @@ async function buildSimulationBucketsAsync(
     riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
     riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
     pricesByIndex?: Record<string, PricePoint[]>;
+    paramValues?: Record<string, number>;
   },
   onProgress?: (completed: number, total: number, label?: string) => void,
   signal?: AbortSignal
@@ -741,6 +745,7 @@ async function buildSimulationBucketsAsync(
     buckets.push({
       configId: precomputed.configId,
       simulations,
+      paramValue: options?.paramValues?.[precomputed.configId],
     });
     onProgress?.(configIndex + 1, precomputedDailyValues.length, `Preparing results (${configIndex + 1}/${precomputedDailyValues.length})...`);
 
@@ -764,6 +769,7 @@ function extractWindowResults(
     riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
     riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
     pricesByIndex?: Record<string, PricePoint[]>;
+    paramValues?: Record<string, number>;
   }
 ): SmaComparisonRow[] {
   void warmUpOffsets;
@@ -775,7 +781,7 @@ function extractWindowResults(
   )
     .filter((bucket) => bucket.simulations.length > 0)
     .map((bucket) => {
-      const paramValue = parseFloat(bucket.configId.split('-')[1] || '0');
+      const paramValue = bucket.paramValue ?? 0;
       return summarizeSmaRow(paramValue, bucket.simulations, monthlyCpi);
     });
 }
@@ -792,6 +798,7 @@ export async function runParallelSimulations({
   historyWrap = CONSTANT_HISTORY_WRAP_ENABLED,
   configs,
   labels,
+  paramValues,
   riskOffValuesByAsset,
   riskOffOpenValuesByAsset,
   monthlyCpi,
@@ -809,6 +816,8 @@ export async function runParallelSimulations({
   historyWrap?: boolean;
   configs: EtfConfig[];
   labels?: string[];
+  /** Sweep parameter value keyed by config.id, carried explicitly instead of parsed from the id. */
+  paramValues?: Record<string, number>;
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   monthlyCpi?: Array<{ date: string; value: number }>;
@@ -890,6 +899,7 @@ export async function runParallelSimulations({
       rates,
       riskOffValuesByAsset,
       riskOffOpenValuesByAsset,
+      paramValues,
       (fraction, label) => onProgress?.(0.8 + fraction * 0.2, label),
       signal
     );
@@ -940,7 +950,7 @@ export async function runParallelSimulations({
       const result = combinedBuckets
         .filter((bucket) => bucket.simulations.length > 0)
         .map((bucket) => {
-          const paramValue = parseFloat(bucket.configId.split('-')[1] || '0');
+          const paramValue = paramValues?.[bucket.configId] ?? 0;
           const summary = summarizeSmaRow(paramValue, bucket.simulations, monthlyCpi);
           if (mode === 'variant-summaries') {
             const index = configs.findIndex((config) => config.id === bucket.configId);
@@ -989,7 +999,8 @@ export async function runParallelSimulations({
       monthlyCpi,
       mode: mode as 'sweep' | 'variants' | 'variant-summaries' | 'backtest',
       configs: workerConfigs,
-      labels: workerLabels
+      labels: workerLabels,
+      paramValues,
     }));
   }
 
@@ -1088,6 +1099,7 @@ async function runWorkerTask(data: {
   configs: EtfConfig[];
   labels?: string[];
   pricesByIndex?: Record<string, PricePoint[]>;
+  paramValues?: Record<string, number>;
 }): Promise<SmaComparisonRow[] | Array<{ label: string; simulations: RollingSimulationPoint[] }> | VariantSummaryResult[] | EtfResult[] | ConfigSimulationBucket[]> {
   return new Promise((resolve, reject) => {
     const entry = acquireWorker("regular");
@@ -1173,7 +1185,8 @@ function extractResultsMainThread(
   pricesByIndex?: Record<string, PricePoint[]>,
   rates?: RatePoint[],
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
-  riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>
+  riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
+  paramValues?: Record<string, number>
 ): SmaComparisonRow[] | Array<{ label: string; simulations: RollingSimulationPoint[] }> | VariantSummaryResult[] | EtfResult[] {
   if (mode === 'sweep') {
     return extractWindowResults(precomputedDailyValues, windows, [], prices, monthlyCpi, {
@@ -1182,6 +1195,7 @@ function extractResultsMainThread(
       riskOffValuesByAsset,
       riskOffOpenValuesByAsset,
       pricesByIndex,
+      paramValues,
     });
   } else if (mode === 'variants' || mode === 'variant-summaries') {
     const buckets = buildSimulationBuckets(precomputedDailyValues, windows, prices, {
@@ -1278,6 +1292,7 @@ async function extractResultsMainThreadAsync(
   rates?: RatePoint[],
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
   riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
+  paramValues?: Record<string, number>,
   onProgress?: (completedFraction: number, label?: string) => void,
   signal?: AbortSignal
 ): Promise<SmaComparisonRow[] | Array<{ label: string; simulations: RollingSimulationPoint[] }> | VariantSummaryResult[] | EtfResult[]> {
@@ -1293,7 +1308,8 @@ async function extractResultsMainThreadAsync(
       pricesByIndex,
       rates,
       riskOffValuesByAsset,
-      riskOffOpenValuesByAsset
+      riskOffOpenValuesByAsset,
+      paramValues
     );
     onProgress?.(1, "Preparing results...");
     return result;
@@ -1309,6 +1325,7 @@ async function extractResultsMainThreadAsync(
       riskOffValuesByAsset,
       riskOffOpenValuesByAsset,
       pricesByIndex,
+      paramValues,
     },
     (completed, total, label) => {
       const fraction = total > 0 ? completed / total : 1;
@@ -1321,7 +1338,7 @@ async function extractResultsMainThreadAsync(
     return buckets
       .filter((bucket) => bucket.simulations.length > 0)
       .map((bucket) => {
-        const paramValue = parseFloat(bucket.configId.split('-')[1] || '0');
+        const paramValue = bucket.paramValue ?? 0;
         return summarizeSmaRow(paramValue, bucket.simulations, monthlyCpi);
       });
   }

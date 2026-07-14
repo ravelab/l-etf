@@ -53,6 +53,7 @@ interface WorkerData {
   configs: EtfConfig[];
   labels?: string[];
   pricesByIndex?: Record<string, PricePoint[]>;
+  paramValues?: Record<string, number>;
 }
 
 type Simulation = RollingSimulationPoint;
@@ -241,7 +242,7 @@ function handleExtractWindows(data: WorkerData): void {
     const rows = [];
     for (const bucket of simulationBuckets) {
       if (bucket.simulations.length > 0) {
-        const paramValue = parseFloat(bucket.configId.split('-')[1] || '0');
+        const paramValue = data.paramValues?.[bucket.configId] ?? 0;
         rows.push(summarizeSmaRowInternal(paramValue, bucket.simulations, monthlyCpi));
       }
     }

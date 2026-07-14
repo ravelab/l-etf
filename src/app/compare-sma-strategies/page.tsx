@@ -364,6 +364,7 @@ export function CompareSmaStrategiesPageContent({
       prices, rates,
       windowLength, startDate, endDate,
       configs: items.map(i => i.config),
+      paramValues: Object.fromEntries(items.map((i) => [i.config.id, i.paramValue])),
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
       monthlyCpi: cpiData,
