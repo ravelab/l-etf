@@ -182,7 +182,7 @@ export function buildWrappedTailCache(
     undefined,
     undefined,
     undefined,
-    { smaInitialInvested: initialInvested }
+    { smaInitialInvested: initialInvested, smaSeedAtIndex: tailJoinOffset }
   );
 
   const tailBaseValue = tailEtfResult.dailyValues[tailJoinOffset];
@@ -309,7 +309,7 @@ export function extractOptimizedWrappedWindowResult(
     undefined,
     undefined,
     undefined,
-    { smaInitialInvested: initialInvested }
+    { smaInitialInvested: initialInvested, smaSeedAtIndex: tailJoinOffset }
   );
   const tailBaseValue = tailEtfResult.dailyValues[tailJoinOffset];
   if (!isFinite(tailBaseValue) || tailBaseValue <= 0) {
@@ -382,9 +382,7 @@ export function extractOptimizedWrappedWindowResult(
     }
   }
 
-  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
-  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) &&
-    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
+  const startInRiskOff = !isInvestedAtDate(precomputed.smaSignals, window.startDate);
   // The tail was seeded from `initialInvested`, so when it never crosses a
   // buffer band (no signal in `tailEtfResult.smaSignals`), the regime at
   // window.endDate is that seed, not a default risk-on assumption.
@@ -483,9 +481,7 @@ export function extractCachedWrappedWindowResult(
     }
   }
 
-  const isSma = precomputed.smaSignals !== undefined && precomputed.smaSignals.length > 0;
-  const startInRiskOff = isSma && precomputed.smaSignals!.some(s => s.date <= window.startDate) &&
-    [...precomputed.smaSignals!].reverse().find(s => s.date <= window.startDate)?.type === 'sell';
+  const startInRiskOff = !isInvestedAtDate(precomputed.smaSignals, window.startDate);
   // Mirrors extractOptimizedWrappedWindowResult: fall back to the tail's seed
   // regime (cache.initialInvested), not a default risk-on assumption, when no
   // cached signal fires before window.endDate.

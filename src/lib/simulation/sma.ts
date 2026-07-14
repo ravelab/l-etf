@@ -61,11 +61,12 @@ export function generateSmaSignals(
   prices: number[],
   smaPeriod: number,
   buffer: { upper: number; lower: number },
-  options?: { initialInvested?: boolean }
+  options?: { initialInvested?: boolean; seedAtIndex?: number }
 ): { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] } {
   const { upper: upperBufferPct, lower: lowerBufferPct } = buffer;
   const initialInvested = options?.initialInvested ?? true;
-  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}`;
+  const seedAtIndex = options?.seedAtIndex ?? 0;
+  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
     const cached = byPrices.get(cacheKey);
@@ -91,6 +92,11 @@ export function generateSmaSignals(
   for (let i = 0; i < dates.length; i++) {
     warmUpSum += prices[i];
 
+    if (i === seedAtIndex) {
+      isInvested = initialInvested;
+      daysSinceCheck = 0;
+    }
+
     // Use full SMA when available; otherwise progressive average of all data so far
     const effectiveSma = !isNaN(smaValues[i])
       ? smaValues[i]
@@ -98,7 +104,7 @@ export function generateSmaSignals(
         ? warmUpSum / (i + 1)
         : NaN;
 
-    if (isNaN(effectiveSma)) {
+    if (i < seedAtIndex || isNaN(effectiveSma)) {
       invested[i] = isInvested;
       continue;
     }
