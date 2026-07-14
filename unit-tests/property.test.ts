@@ -17,11 +17,16 @@ function getDailyReturns(portfolioValues: number[]) {
   return rets;
 }
 
-const mockPrices: PricePoint[] = Array.from({ length: 100 }, (_, i) => ({
-  date: `2020-01-${String(i + 1).padStart(2, "0")}`,
-  adj_close: 100 + Math.sin(i) * 10,
-  close: 100 + Math.sin(i) * 10,
-}));
+const mockPrices: PricePoint[] = Array.from({ length: 100 }, (_, i) => {
+  const date = new Date(Date.UTC(2020, 0, 1) + i * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  return {
+    date,
+    adj_close: 100 + Math.sin(i) * 10,
+    close: 100 + Math.sin(i) * 10,
+  };
+});
 
 const mockRates: RatePoint[] = [{ date: "2020-01-01", rateValue: 0, rateType: "borrow" }];
 
