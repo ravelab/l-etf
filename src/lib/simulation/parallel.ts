@@ -23,6 +23,8 @@ import {
   finalizeTradingCosts,
   getRangeTradeCount,
   getRangeTradeValueSum,
+  renormalizeSeriesFromIndex,
+  resolveEdgeRiskOffStates,
   selectEdgeSpreads,
 } from "./window-calculations";
 
@@ -255,15 +257,15 @@ function extractRegularWindowSimulation(
 ): RollingSimulationPoint | null {
   const startIdx = window.startIdx;
   const endIdx = window.endIdx;
-  const metrics = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx);
-  if (!metrics || !isFinite(metrics.finalValue)) return null;
-
-  const nonLeveragedMetrics = computeOptionalNonLeveragedMetrics(precomputed.nonLeveragedValues, startIdx, endIdx);
   const { entrySpread, exitSpread } = selectEdgeSpreads(
     precomputed,
     isRiskOffAt(precomputed, startIdx),
     isRiskOffAt(precomputed, endIdx)
   );
+  const metrics = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx, entrySpread);
+  if (!metrics || !isFinite(metrics.finalValue)) return null;
+
+  const nonLeveragedMetrics = computeOptionalNonLeveragedMetrics(precomputed.nonLeveragedValues, startIdx, endIdx);
   const spreadFrac = precomputed.perTransitionSpreadFraction ?? 0;
   const internalDollarCost = spreadFrac > 0
     ? metrics.factor * spreadFrac * getRangeTradeValueSum(precomputed, startIdx, endIdx)
@@ -1505,29 +1507,24 @@ export async function runParallelBacktest({
 
     const firstDate = dates[0];
     const lastDate = dates[dates.length - 1];
-    const hasSma = etfResult.smaSignals.length > 0;
-    const lastSignalAtOrBefore = (cutoff: string) => {
-      let latest: typeof etfResult.smaSignals[number] | undefined;
-      for (const s of etfResult.smaSignals) {
-        if (s.date <= cutoff) latest = s;
-        else break;
-      }
-      return latest;
-    };
-    const startSignal = hasSma ? lastSignalAtOrBefore(firstDate) : undefined;
-    const endSignal = hasSma ? lastSignalAtOrBefore(lastDate) : undefined;
     // etfResult.smaSignals were already filtered to the incoming window, so a
     // regime carried in from warm-up has no signal at or before the cutoff —
     // fall back to the window's start state instead of assuming risk-on.
     const carriedInRiskOff = etfResult.smaStartInvested === false;
-    const startInRiskOff = startSignal ? startSignal.type === "sell" : carriedInRiskOff;
-    const endInRiskOff = endSignal ? endSignal.type === "sell" : carriedInRiskOff;
-    const entrySpread = startInRiskOff
-      ? getRiskOffSpread(config.riskOffAsset, false)
-      : getSymbolSpread(config.name, false);
-    const exitSpread = endInRiskOff
-      ? getRiskOffSpread(config.riskOffAsset, false)
-      : getSymbolSpread(config.name, false);
+    const { startInRiskOff, endInRiskOff } = resolveEdgeRiskOffStates(
+      etfResult.smaSignals,
+      firstDate,
+      lastDate,
+      carriedInRiskOff
+    );
+    const { entrySpread, exitSpread } = selectEdgeSpreads(
+      {
+        riskOnSpreadRegular: getSymbolSpread(config.name, false),
+        riskOffSpreadRegular: getRiskOffSpread(config.riskOffAsset, false),
+      },
+      startInRiskOff,
+      endInRiskOff
+    );
     const perTransitionSpread = config.smaEnabled
       ? getTransitionSpreadCostForConfig(config, false)
       : 0;
@@ -1563,14 +1560,11 @@ export async function runParallelBacktest({
       };
     }
 
-    const baseValue = slicedDailyValues[0];
-    const factor = !Number.isFinite(baseValue) || baseValue <= 0 ? 1 : CONSTANT_INITIAL_INVESTMENT / baseValue;
     // When the display window starts after the simulation start, treat the window start
     // as a fresh "buy" that pays the entry spread (same as simulateSingleEtf).
-    const dailyValuesPreEntry = startIdx > 0 ? slicedDailyValues.map((value) => value * factor) : slicedDailyValues;
     const dailyValues = startIdx > 0
-      ? dailyValuesPreEntry.map((value) => value * (1 - entrySpread))
-      : dailyValuesPreEntry;
+      ? renormalizeSeriesFromIndex(etfResult.dailyValues, startIdx, entrySpread)
+      : slicedDailyValues;
 
     const rawFinalValue = dailyValues[dailyValues.length - 1] ?? 0;
     const exitDollarCost = rawFinalValue * exitSpread;

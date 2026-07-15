@@ -24,6 +24,7 @@ import {
 } from "../constants";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../input-normalization";
 import { adjustedOpenFromPricePoint } from "../utils";
+import { renormalizeSeriesFromIndex, resolveEdgeRiskOffStates, selectEdgeSpreads } from "./window-calculations";
 
 /**
  * Pre-computed derived arrays from PricePoint[].
@@ -904,27 +905,40 @@ export function computeSimulatedRiskOnReturn(
 function sliceBacktestResultToWindow(
   result: BacktestResult,
   displayStartIdx: number,
+  configs: EtfConfig[],
 ): BacktestResult {
   if (displayStartIdx <= 0) return result;
 
   const datesSlice = result.dates.slice(displayStartIdx);
   if (datesSlice.length < 2) return result;
 
-  const renormalize = (values: number[]): number[] => {
-    const slice = values.slice(displayStartIdx);
-    if (slice.length === 0) return [];
-    if (!isFinite(slice[0]) || slice[0] === 0) return slice;
-    const factor = CONSTANT_INITIAL_INVESTMENT / slice[0];
-    return slice.map((v) => v * factor);
-  };
-
-  const nonLeveragedValues = renormalize(result.nonLeveragedValues);
+  const nonLeveragedValues = renormalizeSeriesFromIndex(result.nonLeveragedValues, displayStartIdx);
   const investedValues = result.investedValues.slice(displayStartIdx);
 
   const etfResults = result.etfResults.map((etf): EtfResult => {
-    const dailyValues = renormalize(etf.dailyValues);
-    const finalValue = dailyValues[dailyValues.length - 1] ?? 0;
     const firstDate = datesSlice[0];
+    const lastDate = datesSlice[datesSlice.length - 1];
+
+    // Entry spread paid to establish the position at the display window's
+    // start — same "carried-in regime, else last signal at-or-before"
+    // resolution used when a per-config trim happens later (parallel.ts's
+    // trimEtfResultToStartDate), so both paths agree on which spread applies.
+    const config = configs.find((c) => c.id === etf.id || etf.id.startsWith(`${c.id}-`));
+    const carriedInRiskOff = etf.smaStartInvested === false;
+    const { startInRiskOff } = resolveEdgeRiskOffStates(etf.smaSignals, firstDate, lastDate, carriedInRiskOff);
+    const entrySpread = config
+      ? selectEdgeSpreads(
+          {
+            riskOnSpreadRegular: getSymbolSpread(config.name, false),
+            riskOffSpreadRegular: getRiskOffSpread(config.riskOffAsset, false),
+          },
+          startInRiskOff,
+          startInRiskOff
+        ).entrySpread
+      : 0;
+
+    const dailyValues = renormalizeSeriesFromIndex(etf.dailyValues, displayStartIdx, entrySpread);
+    const finalValue = dailyValues[dailyValues.length - 1] ?? 0;
     const firstDateMs = new Date(`${firstDate}T00:00:00Z`).getTime();
     const lastDateMs = new Date(`${datesSlice[datesSlice.length - 1]}T00:00:00Z`).getTime();
 
@@ -1051,5 +1065,5 @@ export function simulateWithWarmUp(
     onProgress: options?.onProgress,
   });
 
-  return sliceBacktestResultToWindow(result, warmUpOffset);
+  return sliceBacktestResultToWindow(result, warmUpOffset, configs);
 }

@@ -70,21 +70,28 @@ test("extractRegularWindowSimulation renormalizes, sums trade costs via prefix a
   assert.equal(buckets[0].simulations.length, 1);
   const sim = buckets[0].simulations[0];
 
-  // Hand-computed via exact fractions: factor = 1/1.21, renormalized path
-  // peaks at 150/121 (day 4/5) and ends at 90/121 (day 6) → 40% drawdown.
-  const factor = 1 / 1.21;
-  const rawFinalValue = 90 / 121;
+  // Entry spread (start not risk-off → risk-on spread) is folded into the
+  // renormalization factor per the entry/exit spread contract (AGENTS.md),
+  // so it compounds through the whole path: factor = (1 - entrySpread)/1.21.
+  // Peak/drawdown are unaffected since (1 - entrySpread) is a uniform scalar
+  // on every renormalized value, including the peak — the ratio cancels out.
+  const entrySpread = 0.0001;
+  const exitSpread = 0.0002; // end risk-off → risk-off spread
+  const factor = (1 - entrySpread) / 1.21;
+  const rawFinalValue = 0.9 * factor;
   assertClose(sim.maxDrawdownPct, 40, 1e-9, "maxDrawdownPct");
 
-  // Non-leveraged path: factor = 1/1.1, peak 25/22 (day 5), ends 23/22 (day 6) → 8%.
+  // Non-leveraged path is computed without an entry spread (window-calculations.ts's
+  // computeOptionalNonLeveragedMetrics never receives one): factor = 1/1.1,
+  // peak 25/22 (day 5), ends 23/22 (day 6) → 8%.
   assertClose(sim.nonLeveragedMaxDrawdownPct, 8, 1e-9, "nonLeveragedMaxDrawdownPct");
   assertClose(sim.nonLeveragedFinalValue, 1.15 / 1.1, 1e-9, "nonLeveragedFinalValue");
 
   assert.equal(sim.tradeCount, 2);
 
   const internalDollarCost = factor * 0.001 * 2.5;
-  const entryDollarCost = 1 * 0.0001; // start not risk-off → risk-on spread
-  const exitDollarCost = rawFinalValue * 0.0002; // end risk-off → risk-off spread
+  const entryDollarCost = 1 * entrySpread; // reported cost; already folded into rawFinalValue above
+  const exitDollarCost = rawFinalValue * exitSpread;
   const totalDollarCost = entryDollarCost + internalDollarCost + exitDollarCost;
   const expectedFinalValue = rawFinalValue - exitDollarCost;
   assertClose(sim.finalValue, expectedFinalValue, 1e-9, "finalValue");
@@ -123,10 +130,14 @@ test("extractRegularWindowSimulation falls back to trade-index scan and full-val
 
   assert.equal(sim.tradeCount, 1);
   // No riskOffStateByIndex → isRiskOffAt is always false → both edges use
-  // the risk-on spread.
-  const rawFinalValue = 0.8; // factor = 1/1 = 1, values already start at 1
-  const entryDollarCost = 1 * 0.0005;
-  const exitDollarCost = rawFinalValue * 0.0005;
+  // the risk-on spread. Entry spread is folded into the renormalization
+  // factor (AGENTS.md contract): factor = (1 - entrySpread)/1 since values
+  // already start at 1.
+  const spread = 0.0005;
+  const factor = 1 - spread;
+  const rawFinalValue = 0.8 * factor;
+  const entryDollarCost = 1 * spread;
+  const exitDollarCost = rawFinalValue * spread;
   const expectedFinalValue = rawFinalValue - exitDollarCost;
   assertClose(sim.finalValue, expectedFinalValue, 1e-9, "finalValue");
   assertClose(

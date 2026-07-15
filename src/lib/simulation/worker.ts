@@ -157,14 +157,14 @@ function buildWindowSimulation(
 ): Simulation | null {
   const startIdx = window.startIdx;
   const endIdx = window.endIdx;
-  const metrics = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx);
-  if (!metrics || !isFinite(metrics.finalValue)) return null;
-
   const { entrySpread, exitSpread } = selectEdgeSpreads(
     precomputed,
     isRiskOffAt(precomputed, startIdx),
     isRiskOffAt(precomputed, endIdx)
   );
+  const metrics = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx, entrySpread);
+  if (!metrics || !isFinite(metrics.finalValue)) return null;
+
   const spreadFrac = precomputed.perTransitionSpreadFraction ?? 0;
   const internalDollarCost = spreadFrac > 0
     ? metrics.factor * spreadFrac * getRangeTradeValueSum(precomputed, startIdx, endIdx)
