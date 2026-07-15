@@ -1124,10 +1124,14 @@ async function fetchTiingoRows(ticker: string, startDate?: string): Promise<Tiin
 
   const symbol = ticker.toLowerCase().replace(".", "-");
   const effectiveStartDate = startDate ?? "1900-01-01";
-  const url = `https://api.tiingo.com/tiingo/daily/${symbol}/prices?startDate=${effectiveStartDate}&token=${apiKey}`;
+  const url = `https://api.tiingo.com/tiingo/daily/${symbol}/prices?startDate=${effectiveStartDate}`;
 
   const response = await withRetry(
-    () => fetch(url, { signal: AbortSignal.timeout(30000), headers: { "Content-Type": "application/json" } }),
+    () =>
+      fetch(url, {
+        signal: AbortSignal.timeout(30000),
+        headers: { "Content-Type": "application/json", Authorization: `Token ${apiKey}` },
+      }),
     2,
     1000
   );
@@ -1391,6 +1395,7 @@ async function fetchFredSeries(
 
   const url = new URL("https://api.stlouisfed.org/fred/series/observations");
   url.searchParams.set("series_id", seriesId);
+  // FRED's API only accepts the key as a query param; it has no header-auth option.
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("file_type", "json");
   if (startDate) url.searchParams.set("observation_start", startDate);

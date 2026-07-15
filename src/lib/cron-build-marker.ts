@@ -39,15 +39,10 @@ export async function markNextBuildAsCronTriggered(details: Record<string, unkno
   return true;
 }
 
-export async function consumeCronTriggeredBuildMarker() {
+export async function readCronTriggeredBuildMarker(): Promise<Record<string, unknown> | null> {
   if (!hasRedisConfig()) return null;
 
-  const redis = getRedis();
-  const marker = await redis.get<Record<string, unknown>>(CRON_TRIGGERED_BUILD_MARKER_KEY);
-  if (marker) {
-    await redis.del(CRON_TRIGGERED_BUILD_MARKER_KEY);
-  }
-  return marker;
+  return getRedis().get<Record<string, unknown>>(CRON_TRIGGERED_BUILD_MARKER_KEY);
 }
 
 export async function clearCronTriggeredBuildMarker() {
