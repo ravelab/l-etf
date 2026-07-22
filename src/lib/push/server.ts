@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Redis } from "@upstash/redis";
-import webpush from "web-push";
+import webpush, { type RequestOptions } from "web-push";
 import {
   buildSmaSignalConfigFingerprint,
   buildSmaSignalFingerprint,
@@ -37,6 +37,22 @@ const PUSH_SUBSCRIBE_IP_MAX = 20;
 const DEFAULT_PUSH_URL = "/signals";
 const DEFAULT_PUSH_TAG = "l-etf-sma-status";
 const PUSH_SUBSCRIBE_RATE_LIMIT_SECONDS = 1;
+
+// `web-push` defaults to `Urgency: normal` and a 28-day TTL, and neither suits a
+// once-a-day market signal:
+//   - normal urgency is deferrable, so APNs/FCM may delay or silently drop the
+//     alert when the device is in Low Power Mode or briefly unreachable;
+//   - a 28-day TTL means a phone that was off for a week wakes up to a burst of
+//     stale "Buy L-ETFs (+6.12%)" alerts whose numbers no longer hold.
+// High urgency asks for prompt delivery, and the TTL expires an undelivered
+// alert before the next close so a late arrival can never contradict the
+// signal that has since replaced it.
+const PUSH_TTL_SECONDS = 20 * 60 * 60;
+
+export const SMA_PUSH_DELIVERY_OPTIONS = Object.freeze({
+  urgency: "high",
+  TTL: PUSH_TTL_SECONDS,
+} satisfies Pick<RequestOptions, "urgency" | "TTL">);
 
 const DEFAULT_SMA_CONFIG = getDefaultSmaSignalConfig();
 
@@ -477,7 +493,11 @@ async function sendPushNotification(
     keys: subscription.keys as PushSubscriptionKeys,
   };
 
-  await webpush.sendNotification(pushSubscription, JSON.stringify(payload));
+  await webpush.sendNotification(
+    pushSubscription,
+    JSON.stringify(payload),
+    SMA_PUSH_DELIVERY_OPTIONS
+  );
 }
 
 function shortId(id: string): string {

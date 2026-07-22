@@ -10,6 +10,7 @@ import {
   buildSmaPushPayload,
   shouldSeedInitialSmaPushNotification,
   shouldDeliverSmaPushNotification,
+  SMA_PUSH_DELIVERY_OPTIONS,
 } from "@/lib/push/server";
 import { pushSmaConfigSchema, pushSubscribePayloadSchema } from "@/lib/push/schema";
 import { applyCalibratedSmaDefaults, type SmaCalibrationResult } from "@/lib/sma-calibration";
@@ -232,4 +233,21 @@ test("applyCalibratedSmaDefaults overwrites only the period/buffer fields", () =
     smaNqPeriod: 90, smaNqUpperBuffer: 8, smaNqLowerBuffer: 8, smaNqEnabled: true,
     notifyEveryClose: true, useCalibratedDefaults: true,
   });
+});
+
+test("sends alerts with non-deferrable urgency", () => {
+  // `web-push` defaults to "normal", which APNs/FCM may delay or drop when the
+  // device is in Low Power Mode or briefly unreachable.
+  assert.equal(SMA_PUSH_DELIVERY_OPTIONS.urgency, "high");
+});
+
+test("expires an undelivered alert before the next close", () => {
+  // Consecutive weekday closes are 24h apart, so the TTL has to be under that:
+  // a late alert must never land alongside the signal that superseded it.
+  const HOURS_BETWEEN_CONSECUTIVE_CLOSES = 24 * 60 * 60;
+  assert.ok(
+    SMA_PUSH_DELIVERY_OPTIONS.TTL < HOURS_BETWEEN_CONSECUTIVE_CLOSES,
+    `TTL ${SMA_PUSH_DELIVERY_OPTIONS.TTL}s must be shorter than the ${HOURS_BETWEEN_CONSECUTIVE_CLOSES}s between closes`
+  );
+  assert.ok(SMA_PUSH_DELIVERY_OPTIONS.TTL > 0);
 });
