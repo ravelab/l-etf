@@ -68,6 +68,38 @@ All of these are off by default and the app runs fine without them. See [`.env.e
 | **Box Trades page** | `NEXT_PUBLIC_DISPLAY_BOX_TRADES=true` | Exposes `/box-trades` (SPX box-spread implied APY). Hidden by default; the page returns 404 when the flag is off. |
 | **Sitemap origin** | `NEXT_PUBLIC_SITE_URL` | Public URL used by `app/sitemap.ts`. Defaults to `http://localhost:3000`. |
 
+## AI agents (MCP server)
+
+The app exposes its analysis engine to AI agents through a [Model Context
+Protocol](https://modelcontextprotocol.io) server, served over Streamable HTTP
+at **`/mcp`** (e.g. `http://localhost:3000/mcp` in dev). Any MCP client — Claude
+Desktop/Code, Cursor, or the [MCP Inspector](https://github.com/modelcontextprotocol/inspector)
+(`npx @modelcontextprotocol/inspector`) — can add it and run backtests
+conversationally. Results are computed by the real simulation engine, not
+guessed by the model.
+
+Tools:
+
+| Tool | What it does |
+|---|---|
+| `list_presets` | Available ETF presets, risk-off assets, and default SMA settings. |
+| `get_market_data` | Raw index prices, borrowing rates, or CPI over a date range. |
+| `get_sma_signals` | Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100. |
+| `get_sma_calibration` | Precomputed best SMA period/buffer per index (cached snapshot). |
+| `run_backtest` | Single-strategy backtest → CAGR, max drawdown, Sharpe, trade log, 1x benchmark. |
+| `run_rolling_window_analysis` | One strategy across every historical rolling window → outcome distribution. |
+| `compare_strategies` | Rank variants (SMA on/off, risk-off assets, SMA periods) over rolling windows. |
+
+It also serves a `letf://methodology` resource, a `letf://data-coverage`
+resource (current data freshness), and an `analyze_strategy` prompt. Every tool
+carries the not-investment-advice disclaimer.
+
+The endpoint is unauthenticated compute, so it is rate-limited per client IP
+(a global budget plus a stricter one for the sweep tools). Limits are enforced
+via Upstash Redis when `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`
+are set (shared across instances); without them a per-instance in-memory
+fallback applies. For a public deployment, also consider Vercel Firewall.
+
 ## Hosting
 
 ### Local / self-host (no Vercel needed)

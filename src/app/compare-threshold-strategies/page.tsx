@@ -24,6 +24,7 @@ import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
 import { buildPresetBacktestUrl } from "@/lib/url-builders";
 import { runParallelSimulations } from "@/lib/simulation/parallel";
+import { buildSymmetricBufferSweepItems, makeAsymmetricSweepItem } from "@/lib/simulation/sweep-items";
 import {
   planCoarseGrid,
   planFineGrid,
@@ -383,49 +384,32 @@ export function CompareBufferStrategiesPageContent({
     cpiData?: Array<{ date: string; value: number }>,
     signal?: AbortSignal,
   ) => {
-    // Include baseline FIRST in the sweep items
-    const blConfig: EtfConfig = {
-      id: "baseline", name: `${presetDef.name} (No SMA)`,
-      leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: true,
-      smaEnabled: false, smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod, smaUpperBuffer: 0, smaLowerBuffer: 0,
-      smaIndex: presetDef.index, riskOffAsset,
-    };
-
-    const items: Array<{ paramValue: number; config: EtfConfig }> = [
-      { paramValue: 0, config: blConfig },  // Baseline first
-    ];
-
-    for (let buf = minBuffer; buf <= maxBuffer + 1e-9; buf += fineStep) {
-      const rt = Math.round(buf * 1000) / 1000;
-      items.push({
-        paramValue: rt,
-        config: {
-          id: `buffer-${rt}`, name: `${presetDef.name} SMA ${presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod} Buffer ${rt}%`,
-          leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: presetDef.simulated,
-          smaEnabled: true, smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod, smaUpperBuffer: rt, smaLowerBuffer: rt,
-          smaIndex: presetDef.index, riskOffAsset,
-        },
-      });
-    }
+    const period = presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod;
+    // Baseline first + symmetric buffer sweep (shared item builder).
+    const items = buildSymmetricBufferSweepItems({
+      preset: presetDef,
+      riskOffAsset,
+      smaPeriod: period,
+      minBuffer,
+      maxBuffer,
+      fineStep,
+    });
 
     // Append the coarse asymmetric (upper × lower) configs for this preset so the
     // worker pool sees symmetric + coarse asym as one batch. precomputeAllConfigDailyValues
     // runs once across the combined set instead of twice.
     const coarseAsymPoints = asymCoarsePointsByPresetRef.current.get(presetDef.name) ?? [];
-    const period = presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod;
     for (const p of coarseAsymPoints) {
-      const encoded = Math.round(p.upper * 100) * 10000 + Math.round(p.lower * 100);
-      items.push({
-        paramValue: encoded,
-        config: {
-          id: `asym-${encoded}`,
-          name: `${presetDef.name} SMA ${period} U${p.upper}/L${p.lower} (coarse)`,
-          leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: presetDef.simulated,
-          smaEnabled: true, smaPeriod: period,
-          smaUpperBuffer: p.upper, smaLowerBuffer: p.lower,
-          smaIndex: presetDef.index, riskOffAsset,
-        },
-      });
+      items.push(
+        makeAsymmetricSweepItem({
+          preset: presetDef,
+          riskOffAsset,
+          smaPeriod: period,
+          upper: p.upper,
+          lower: p.lower,
+          variant: "coarse",
+        }),
+      );
     }
 
     const allSweepRows = await runParallelSimulations({
@@ -538,23 +522,16 @@ export function CompareBufferStrategiesPageContent({
     if (finePoints.length === 0) return { rows: coarseRows, fineWindow };
 
     const period = presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod;
-    const fineItems = finePoints.map((p) => {
-      const encoded = Math.round(p.upper * 100) * 10000 + Math.round(p.lower * 100);
-      const config: EtfConfig = {
-        id: `asym-${encoded}`,
-        name: `${presetDef.name} SMA ${period} U${p.upper}/L${p.lower} (fine)`,
-        leverage: presetDef.leverage,
-        expenseRatio: presetDef.expenseRatio,
-        simulated: presetDef.simulated,
-        smaEnabled: true,
-        smaPeriod: period,
-        smaUpperBuffer: p.upper,
-        smaLowerBuffer: p.lower,
-        smaIndex: presetDef.index,
+    const fineItems = finePoints.map((p) =>
+      makeAsymmetricSweepItem({
+        preset: presetDef,
         riskOffAsset,
-      };
-      return { paramValue: encoded, config };
-    });
+        smaPeriod: period,
+        upper: p.upper,
+        lower: p.lower,
+        variant: "fine",
+      }),
+    );
     const fineConfigs: EtfConfig[] = fineItems.map((i) => i.config);
     const fineResult = (await runParallelSimulations({
       prices: ctx.prices,

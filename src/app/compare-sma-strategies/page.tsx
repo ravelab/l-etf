@@ -15,7 +15,7 @@ import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, getRiskOffFetchTickers 
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoints } from "@/lib/fetch-market-data";
 import { formatMultiple, formatPercent } from "@/lib/format";
 import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
-import { getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import { buildSmaPeriodSweepItems } from "@/lib/simulation/sweep-items";
 import {
   DEFAULT_COMBO_PRESET,
   ETF_PRESETS,
@@ -331,35 +331,16 @@ export function CompareSmaStrategiesPageContent({
     cpiData?: Array<{ date: string; value: number }>,
     signal?: AbortSignal,
   ) => {
-    // Include baseline in the sweep items
-    const blConfig: EtfConfig = {
-      id: "baseline", name: `${presetDef.name} (No SMA)`,
-      leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: true,
-      smaEnabled: false, smaPeriod: getDefaultSmaPeriod(presetDef.index), smaUpperBuffer: 0, smaLowerBuffer: 0,
-      smaIndex: presetDef.index, riskOffAsset,
-    };
-
-    const items: Array<{ paramValue: number; config: EtfConfig }> = [
-      { paramValue: 0, config: blConfig },  // Baseline first
-    ];
-
-    for (let sma = minSmaPeriod; sma <= maxSmaPeriod; sma += stepSize) {
-      items.push({
-        paramValue: sma,
-        config: {
-          id: `sma-${sma}`,
-          name: `${presetDef.name} SMA ${sma}`,
-          leverage: presetDef.leverage,
-          expenseRatio: presetDef.expenseRatio,
-          simulated: presetDef.simulated,
-          smaEnabled: true,
-          smaPeriod: sma,
-          smaUpperBuffer: presetDef.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer, smaLowerBuffer: presetDef.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
-          smaIndex: presetDef.index,
-          riskOffAsset,
-        },
-      });
-    }
+    // Baseline first, then one SMA config per period (shared item builder).
+    const items = buildSmaPeriodSweepItems({
+      preset: presetDef,
+      riskOffAsset,
+      minSmaPeriod,
+      maxSmaPeriod,
+      stepSize,
+      upperBuffer: presetDef.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer,
+      lowerBuffer: presetDef.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
+    });
     const allSweepRows = await runParallelSimulations({
       prices, rates,
       windowLength, startDate, endDate,

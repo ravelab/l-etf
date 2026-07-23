@@ -1,0 +1,33 @@
+{
+  "name": "l-etf",
+  "title": "Leveraged ETF Backtesting Lab",
+  "version": "1.0.0",
+  "description": "Backtest leveraged-ETF strategies (UPRO, TQQQ, SSO, QLD) over long market history with rolling-window analysis, SMA timing rules, and risk-off switching. Educational/research only — not investment advice.",
+  "documentation": "https://l-etf.com/llms.txt",
+  "endpoints": [
+    {
+      "url": "https://l-etf.com/mcp",
+      "transport": "streamable-http",
+      "authentication": "none"
+    }
+  ],
+  "capabilities": {
+    "tools": [
+      { "name": "list_presets", "description": "Available ETF presets, risk-off assets, and default SMA settings." },
+      { "name": "get_market_data", "description": "Index prices, borrowing rates, or CPI over a date range." },
+      { "name": "get_sma_signals", "description": "Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100." },
+      { "name": "get_sma_calibration", "description": "Precomputed best SMA period/buffer per index (cached snapshot)." },
+      { "name": "run_backtest", "description": "Single-strategy backtest: CAGR, max drawdown, Sharpe, trade log, 1x benchmark." },
+      { "name": "run_rolling_window_analysis", "description": "One strategy across every historical rolling window; returns the outcome distribution." },
+      { "name": "compare_strategies", "description": "Rank strategy variants (SMA on/off, risk-off assets, SMA periods) over rolling windows." }
+    ],
+    "resources": [
+      { "uri": "letf://methodology", "description": "Simulation methodology and assumptions." },
+      { "uri": "letf://data-coverage", "description": "Earliest/latest available data dates per index." }
+    ],
+    "prompts": [
+      { "name": "analyze_strategy", "description": "Guided end-to-end analysis of a leveraged-ETF strategy." }
+    ]
+  },
+  "disclaimer": "For educational and research use only. NOT investment advice. Figures are simulated backtests over historical data; past performance does not predict future returns. Leveraged ETFs are high-risk instruments."
+}

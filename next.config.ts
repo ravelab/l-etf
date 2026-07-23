@@ -26,6 +26,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/**/*": ["./data/**/*.csv", "./src/lib/tool-snapshots/**/*.json"],
+    // The MCP endpoint (app/[transport]/route.ts, served at /mcp) reads the same
+    // CSV data and calibration snapshot, so it needs them traced into its bundle.
+    "/[transport]": ["./data/**/*.csv", "./src/lib/tool-snapshots/**/*.json"],
   },
   async headers() {
     return [

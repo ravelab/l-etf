@@ -12,13 +12,13 @@ import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, RISK_OFF_ASSET_OPTIONS,
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoints } from "@/lib/fetch-market-data";
 import { formatMultiple, formatPercent } from "@/lib/format";
 import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
-import { getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import { buildRiskOffVariantConfigs } from "@/lib/simulation/sweep-items";
 import { ETF_PRESETS, PRESET_SELECT_OPTIONS, getComboEffectiveDateRange, getActivePreset, resolvePresetSelection } from "@/lib/simulation/presets";
 import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
 import { buildPresetBacktestUrl } from "@/lib/url-builders";
-import type { PricePoint, RatePoint, EtfConfig, SmaComparisonRow, IndexKey, RiskOffAsset } from "@/lib/simulation/types";
+import type { PricePoint, RatePoint, SmaComparisonRow, IndexKey, RiskOffAsset } from "@/lib/simulation/types";
 import { runParallelVariantSummaries } from "@/lib/simulation/parallel";
 import { runCompareSweep } from "@/lib/compare-sweep-runner";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
@@ -229,28 +229,16 @@ export function CompareRiskOffAssetsPageContent({
     pctSpan: number,
     cpiData?: Array<{ date: string; value: number }>,
   ) => {
-    const baselineConfig: EtfConfig = {
-      id: "baseline", name: `${presetDef.name} (No SMA)`,
-      leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: true,
-      smaEnabled: false, smaPeriod: getDefaultSmaPeriod(presetDef.index), smaUpperBuffer: 0, smaLowerBuffer: 0,
-      smaIndex: presetDef.index, riskOffAsset: riskOffAsset as RiskOffAsset,
-    };
-
-    const variants: Array<{ label: string; config: EtfConfig }> = [
-      ...RISK_OFF_ASSET_OPTIONS.map((opt) => {
-        const asset = opt.value as RiskOffAsset;
-        return {
-          label: asset,
-          config: {
-            id: `riskoff-${asset}`, name: `${presetDef.leverage}x SMA ${presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod} (${asset})`,
-            leverage: presetDef.leverage, expenseRatio: presetDef.expenseRatio, simulated: presetDef.simulated,
-            smaEnabled: true, smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod, smaUpperBuffer: presetDef.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer, smaLowerBuffer: presetDef.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
-            smaIndex: presetDef.index, riskOffAsset: asset,
-          },
-        };
-      }),
-      { label: "baseline", config: baselineConfig }
-    ];
+    // Variants across every candidate risk-off asset + a no-SMA baseline last
+    // (shared item builder).
+    const variants = buildRiskOffVariantConfigs({
+      preset: presetDef,
+      baselineRiskOffAsset: riskOffAsset as RiskOffAsset,
+      assets: RISK_OFF_ASSET_OPTIONS.map((opt) => opt.value as RiskOffAsset),
+      smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod,
+      upperBuffer: presetDef.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer,
+      lowerBuffer: presetDef.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
+    });
 
     const variantResults = await runParallelVariantSummaries({
       prices, rates,

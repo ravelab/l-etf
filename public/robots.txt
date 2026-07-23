@@ -1,6 +1,11 @@
 # l-etf.com — leveraged ETF backtesting & SMA signal tracker.
 # General crawlers are welcome; API JSON endpoints are excluded from search crawling
 # (they're not indexable content — use the pages themselves).
+#
+# For AI agents:
+#   - Guide:          https://l-etf.com/llms.txt
+#   - MCP server:     https://l-etf.com/mcp  (Model Context Protocol, Streamable HTTP)
+#   - MCP descriptor: https://l-etf.com/.well-known/mcp.json
 
 User-agent: *
 Allow: /

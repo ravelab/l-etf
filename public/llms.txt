@@ -19,6 +19,18 @@ This is **not investment advice**. It is an educational/research tool; past back
 - [Futures Tool](https://l-etf.com/futures-tool): SMA strategy simulation using index futures instead of ETFs, with margin scenarios (Normal/Stress/Crisis/Extreme) and futures-specific fees.
 - [FAQ](https://l-etf.com/faq): Methodology — what leveraged ETFs are, how the SMA rule works, how borrowing-cost calibration works, trading-cost assumptions, and the full daily-return formula used in the simulation.
 
+## MCP server (for AI agents)
+
+L-ETF exposes its simulation engine over the Model Context Protocol so agents can run real backtests instead of estimating figures. Add it to any MCP client (Claude Desktop/Code, Cursor) or inspect with `npx @modelcontextprotocol/inspector`.
+
+- Endpoint: https://l-etf.com/mcp (MCP over Streamable HTTP)
+- Machine-readable descriptor: https://l-etf.com/.well-known/mcp.json
+- Tools: `list_presets`, `get_market_data`, `get_sma_signals`, `get_sma_calibration`, `run_backtest`, `run_rolling_window_analysis`, `compare_strategies`
+- Resources: `letf://methodology`, `letf://data-coverage` (data freshness)
+- Prompt: `analyze_strategy`
+
+Every tool returns the not-investment-advice disclaimer — preserve it in any summary. The endpoint is rate-limited per client IP (stricter for the rolling-window sweep tools).
+
 ## Data & source
 
 - Underlying market data: S&P 500 and Nasdaq 100 total-return history, real leveraged-ETF prices (UPRO/TQQQ/SSO/QLD), interest-rate series, and inflation (CPI) data, refreshed on a schedule.

@@ -33,6 +33,48 @@ Both `worker.ts`'s `mode_type === 'backtest'` branch and `parallel.ts`'s
 spread-deduction bug pattern as the live paths; leave them alone unless you
 also verify they've become reachable.
 
+## MCP server (AI-agent API)
+
+The remote MCP endpoint lives at `src/app/[transport]/route.ts` (served at
+`/mcp` over stateless Streamable HTTP; SSE disabled, so no Redis needed) with
+all tools/resources/prompts under `src/lib/mcp/`. Wiring is centralized in
+`register.ts`; the in-memory-transport test (`unit-tests/mcp-server.test.ts`)
+is the fastest way to exercise the whole surface.
+
+Sharp edges:
+- MCP tools run inside a serverless function, so they load market data via the
+  server query layer (`@/lib/db/queries`), NOT `fetch-market-data.ts` — that
+  module fetches the app's own `/api/*` routes with relative URLs and only
+  works in the browser. `server-data.ts` is the server-side loader (price
+  coercion, borrow-rate mapping, risk-off source-key mapping mirrored from
+  `api/risk-off-prices/route.ts`).
+- `run_backtest` routes through `simulateWithWarmUp` (preserving the entry/exit
+  spread contract). `expandEtfConfigs` splits an SMA config into `<id>-base`
+  (no-SMA) and `<id>-sma` results — select by id, never `etfResults[0]`.
+- The heavy tools (`run_rolling_window_analysis`, `compare_strategies`) reuse
+  the engine via `sweep-core.ts` → `runParallelSimulations` (mode `sweep`,
+  `historyWrap:false`, single-threaded main-thread fallback server-side).
+  Breadth is bounded by `limits.ts`.
+- Sweep EtfConfig construction is centralized in
+  `src/lib/simulation/sweep-items.ts` (server-safe, pure) and shared by the three
+  `"use client"` compare pages (`compare-sma-strategies`,
+  `compare-riskoff-assets`, `compare-threshold-strategies`) AND the MCP
+  `compare-configs.ts`. Keep new sweep configs going through
+  `makeSweepEtfConfig` so the field set can't drift between browser and server.
+  These builders deliberately omit `smaExecutionMode` (the engine defaults an
+  undefined mode to `next-day-open`).
+- The endpoint is rate-limited in `rate-limit.ts` (Upstash-backed when the
+  `UPSTASH_REDIS_REST_*` env vars are set, per-instance in-memory otherwise);
+  a global per-IP budget plus a stricter one for `MCP_HEAVY_TOOLS`. The route
+  handler in `[transport]/route.ts` calls `enforceMcpRateLimit` before the MCP
+  handler.
+- Discovery for agents: `public/llms.txt`, `public/robots.txt`, and
+  `public/.well-known/mcp.json` advertise the `/mcp` endpoint. Keep the tool
+  list in `.well-known/mcp.json` in sync with `register.ts`.
+- `next.config.ts` `outputFileTracingIncludes` must include the `/[transport]`
+  route (alongside `/api/**/*`) so the CSV data and calibration snapshot are
+  bundled into the MCP function on Vercel.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.
