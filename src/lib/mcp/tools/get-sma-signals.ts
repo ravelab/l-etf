@@ -4,6 +4,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getPrices } from "@/lib/db/queries";
+import { applyCalibratedSmaDefaults, readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import { computeSmaSignalSnapshot, getDefaultSmaSignalConfig } from "@/lib/sma-status";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
 import { smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
@@ -17,7 +18,8 @@ export function registerGetSmaSignals(server: McpServer): void {
       title: "Get current SMA signals",
       description:
         "Compute the current SMA timing signal (buy/sell/hold) for the S&P 500 and Nasdaq-100 " +
-        "using the given SMA periods and buffers. Defaults to the app's calibrated settings when omitted.",
+        "using the given SMA periods and buffers. When omitted, defaults to the latest SMA " +
+        "calibration snapshot (falling back to hardcoded defaults if unavailable).",
       inputSchema: {
         smaSpPeriod: smaPeriodSchema.optional(),
         smaSpUpperBuffer: smaBufferSchema.optional(),
@@ -30,8 +32,12 @@ export function registerGetSmaSignals(server: McpServer): void {
     async (args) => {
       try {
         const defaults = getDefaultSmaSignalConfig();
+        const calibration = await readSmaCalibrationSnapshot();
+        const base = calibration
+          ? applyCalibratedSmaDefaults({ ...defaults, useCalibratedDefaults: true }, calibration)
+          : defaults;
         const config = {
-          ...defaults,
+          ...base,
           ...(args.smaSpPeriod != null ? { smaSpPeriod: args.smaSpPeriod } : {}),
           ...(args.smaSpUpperBuffer != null ? { smaSpUpperBuffer: args.smaSpUpperBuffer } : {}),
           ...(args.smaSpLowerBuffer != null ? { smaSpLowerBuffer: args.smaSpLowerBuffer } : {}),

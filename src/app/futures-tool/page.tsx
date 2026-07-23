@@ -213,7 +213,7 @@ export function FuturesPageContent({
     }
     const smaPsp = params.get("smaPsp");
     if (smaPsp != null && smaPsp !== "") {
-      handleFieldChange("smaSpPeriod", normalizeNumberValue(Number(smaPsp), 185, { integer: true, min: 1 }));
+      handleFieldChange("smaSpPeriod", normalizeNumberValue(Number(smaPsp), 186, { integer: true, min: 1 }));
     }
     const smaPnq = params.get("smaPnq");
     if (smaPnq != null && smaPnq !== "") {

@@ -61,7 +61,7 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
 
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
   letf: "UPRO+TQQQ",
-  smaPsp: "185",
+  smaPsp: "186",
   smaPnq: "150",
   smatsp: "3.6",
   smatnq: "11.9",
