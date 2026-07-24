@@ -18,8 +18,13 @@
       { "name": "get_sma_signals", "description": "Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100." },
       { "name": "get_sma_calibration", "description": "Precomputed best SMA period/buffer per index (cached snapshot)." },
       { "name": "run_backtest", "description": "Single-strategy backtest: CAGR, max drawdown, Sharpe, trade log, 1x benchmark." },
+      { "name": "compare_backtests", "description": "Backtest several presets (simulated and/or real ETFs, either index) over one shared range." },
       { "name": "run_rolling_window_analysis", "description": "One strategy across every historical rolling window; returns the outcome distribution." },
-      { "name": "compare_strategies", "description": "Rank strategy variants (SMA on/off, risk-off assets, SMA periods) over rolling windows." }
+      { "name": "run_holding_period_analysis", "description": "How a strategy's outcome distribution changes across several holding-period lengths." },
+      { "name": "compare_strategies", "description": "Rank strategy variants (SMA on/off, risk-off assets, SMA periods, SMA buffers) over rolling windows." },
+      { "name": "compare_letfs", "description": "Compare leveraged-ETF presets across rolling windows with p10/p50/p90 percentile distributions." },
+      { "name": "run_futures_backtest", "description": "Index-futures (ES/NQ) SMA strategy at a target leverage with margin, rolls, and fees." },
+      { "name": "get_box_spread_apy", "description": "Live SPX box-spread implied financing APYs from boxtrades.com." }
     ],
     "resources": [
       { "uri": "letf://methodology", "description": "Simulation methodology and assumptions." },

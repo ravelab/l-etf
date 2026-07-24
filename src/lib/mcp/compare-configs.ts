@@ -8,10 +8,11 @@ import { RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
 import {
   buildRiskOffVariantConfigs,
   buildSmaPeriodSweepItems,
+  buildSymmetricBufferSweepItems,
   makeSweepEtfConfig,
   type SweepPresetDef,
 } from "@/lib/simulation/sweep-items";
-import { MAX_SMA_PERIOD_STEPS } from "@/lib/mcp/limits";
+import { MAX_BUFFER_STEPS, MAX_SMA_PERIOD_STEPS } from "@/lib/mcp/limits";
 import { McpToolError } from "@/lib/mcp/tool-result";
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
@@ -91,5 +92,30 @@ export function buildSmaPeriodConfigs(
     stepSize: step,
     upperBuffer: base.smaUpperBuffer,
     lowerBuffer: base.smaLowerBuffer,
+  }).map((i) => i.config);
+}
+
+/** Sweep symmetric SMA buffers from min to max (inclusive) by step, plus baseline. */
+export function buildBufferConfigs(
+  base: EtfConfig,
+  minBuffer: number,
+  maxBuffer: number,
+  step: number,
+): EtfConfig[] {
+  if (step <= 0) throw new McpToolError("`bufferStep` must be positive.");
+  if (minBuffer > maxBuffer) throw new McpToolError("`minBuffer` must be ≤ `maxBuffer`.");
+  const count = Math.floor((maxBuffer - minBuffer) / step) + 1;
+  if (count > MAX_BUFFER_STEPS) {
+    throw new McpToolError(
+      `Buffer sweep of ${count} steps exceeds the limit of ${MAX_BUFFER_STEPS}. Widen \`bufferStep\` or narrow the range.`,
+    );
+  }
+  return buildSymmetricBufferSweepItems({
+    preset: presetDefFromBase(base),
+    riskOffAsset: base.riskOffAsset,
+    smaPeriod: base.smaPeriod,
+    minBuffer,
+    maxBuffer,
+    fineStep: step,
   }).map((i) => i.config);
 }

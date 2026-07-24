@@ -10,6 +10,12 @@ export const MAX_WINDOW_YEARS = 50;
 // Upper bound on the SMA-period sweep breadth (count = (max-min)/step + 1).
 export const MAX_SMA_PERIOD_STEPS = 24;
 
+// Upper bound on the symmetric-buffer sweep breadth.
+export const MAX_BUFFER_STEPS = 24;
+
+// Max number of distinct holding-period window lengths per call.
+export const MAX_HOLDING_PERIODS = 12;
+
 // Rate limiting (per client IP, fixed window). Global limit guards the whole
 // endpoint; the heavy limit throttles the compute-intensive sweep tools.
 export const MCP_RL_WINDOW_SEC = 60;

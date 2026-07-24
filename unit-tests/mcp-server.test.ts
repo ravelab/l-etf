@@ -19,12 +19,17 @@ test("registers all expected tools", async () => {
   const { tools } = await client.listTools();
   const names = tools.map((t) => t.name).sort();
   for (const expected of [
+    "compare_backtests",
+    "compare_letfs",
     "compare_strategies",
+    "get_box_spread_apy",
     "get_market_data",
     "get_sma_calibration",
     "get_sma_signals",
     "list_presets",
     "run_backtest",
+    "run_futures_backtest",
+    "run_holding_period_analysis",
     "run_rolling_window_analysis",
   ]) {
     assert.ok(names.includes(expected), `missing tool ${expected}`);
@@ -97,6 +102,31 @@ test("run_rolling_window_analysis returns a distribution", async () => {
   const data = res.structuredContent as { analysis: { avgReturnPct: number; avgMaxDrawdownPct: number } };
   assert.ok(Number.isFinite(data.analysis.avgReturnPct));
   assert.ok(Number.isFinite(data.analysis.avgMaxDrawdownPct));
+  await client.close();
+});
+
+test("compare_backtests runs simulated + real presets together", async () => {
+  const client = await connectClient();
+  const res = await client.callTool({
+    name: "compare_backtests",
+    arguments: { presets: ["UPRO", "UPRO-real"], startDate: "2010-01-04", endDate: "2020-01-02" },
+  });
+  assert.notEqual(res.isError, true);
+  const data = res.structuredContent as { backtests: Array<{ name: string; finalMultiple: number }> };
+  assert.equal(data.backtests.length, 2);
+  assert.match(data.backtests[0].name, /UPRO/);
+  await client.close();
+});
+
+test("run_futures_backtest returns futures metrics", async () => {
+  const client = await connectClient();
+  const res = await client.callTool({
+    name: "run_futures_backtest",
+    arguments: { index: "sp500", targetLeverage: 3, startDate: "2010-01-04", endDate: "2020-01-02" },
+  });
+  assert.notEqual(res.isError, true);
+  const data = res.structuredContent as { futures: { finalEquity: number; avgActualLeverageRiskOn: number } };
+  assert.ok(data.futures.finalEquity > 0);
   await client.close();
 });
 

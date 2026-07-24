@@ -87,8 +87,13 @@ Tools:
 | `get_sma_signals` | Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100. |
 | `get_sma_calibration` | Precomputed best SMA period/buffer per index (cached snapshot). |
 | `run_backtest` | Single-strategy backtest → CAGR, max drawdown, Sharpe, trade log, 1x benchmark. |
+| `compare_backtests` | Backtest several presets (simulated and/or real ETFs, either index) over one shared range. |
 | `run_rolling_window_analysis` | One strategy across every historical rolling window → outcome distribution. |
-| `compare_strategies` | Rank variants (SMA on/off, risk-off assets, SMA periods) over rolling windows. |
+| `run_holding_period_analysis` | How a strategy's outcome distribution changes across several holding-period lengths. |
+| `compare_strategies` | Rank variants (SMA on/off, risk-off assets, SMA periods, SMA buffers) over rolling windows. |
+| `compare_letfs` | Compare LETF presets across rolling windows with p10/p50/p90 percentile distributions. |
+| `run_futures_backtest` | Index-futures (ES/NQ) SMA strategy at a target leverage with margin, rolls, and fees. |
+| `get_box_spread_apy` | Live SPX box-spread implied financing APYs (a low-risk borrowing benchmark). |
 
 It also serves a `letf://methodology` resource, a `letf://data-coverage`
 resource (current data freshness), and an `analyze_strategy` prompt. Every tool

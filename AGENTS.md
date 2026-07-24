@@ -51,10 +51,19 @@ Sharp edges:
 - `run_backtest` routes through `simulateWithWarmUp` (preserving the entry/exit
   spread contract). `expandEtfConfigs` splits an SMA config into `<id>-base`
   (no-SMA) and `<id>-sma` results — select by id, never `etfResults[0]`.
-- The heavy tools (`run_rolling_window_analysis`, `compare_strategies`) reuse
-  the engine via `sweep-core.ts` → `runParallelSimulations` (mode `sweep`,
-  `historyWrap:false`, single-threaded main-thread fallback server-side).
-  Breadth is bounded by `limits.ts`.
+- The heavy tools reuse the engine server-side (single-threaded main-thread
+  fallback; breadth bounded by `limits.ts`): `sweep-core.ts` →
+  `runParallelSimulations` mode `sweep` (rolling-window / holding-period /
+  `compare_strategies`); `letf-compare-core.ts` → `runParallelVariants` mode
+  `variants` + `strategy-percentiles` (`compare_letfs`);
+  `backtest-compare-core.ts` → `runParallelBacktest` (multi-config / real-ETF /
+  multi-index `compare_backtests`, which aligns risk-off & real-ETF series
+  itself); and `run-futures-backtest.ts` → `simulateFuturesSmaStrategy`. All use
+  `historyWrap:false`.
+- Real-ETF overlays: `etfPricePointsByName` is keyed by base ticker
+  (`getHistoricalPriceSymbol` strips the `-real`/strategy suffix); load via
+  `getPrices('etf:<TICKER>')`. The futures engine runs SMA over the full
+  (warm-up-inclusive) series then trades the sliced range, so pass warm-up rows.
 - Sweep EtfConfig construction is centralized in
   `src/lib/simulation/sweep-items.ts` (server-safe, pure) and shared by the three
   `"use client"` compare pages (`compare-sma-strategies`,

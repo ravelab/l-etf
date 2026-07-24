@@ -8,7 +8,12 @@ import type { EtfConfig } from "@/lib/simulation/types";
 import { getDefaultWindowLength } from "@/lib/simulation/defaults";
 import { resolveBacktest } from "@/lib/mcp/backtest-config";
 import { runRollingSweep } from "@/lib/mcp/sweep-core";
-import { buildRiskOffConfigs, buildSmaOnOffConfigs, buildSmaPeriodConfigs } from "@/lib/mcp/compare-configs";
+import {
+  buildBufferConfigs,
+  buildRiskOffConfigs,
+  buildSmaOnOffConfigs,
+  buildSmaPeriodConfigs,
+} from "@/lib/mcp/compare-configs";
 import { formatSweepRow } from "@/lib/mcp/format";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
@@ -28,10 +33,16 @@ function buildConfigsForMode(mode: string, base: EtfConfig, args: {
   minPeriod?: number;
   maxPeriod?: number;
   step?: number;
+  minBuffer?: number;
+  maxBuffer?: number;
+  bufferStep?: number;
 }): EtfConfig[] {
   if (mode === "sma_on_off") return buildSmaOnOffConfigs(base);
   if (mode === "risk_off_assets") {
     return buildRiskOffConfigs(base, args.assets as RiskOffAsset[] | undefined);
+  }
+  if (mode === "sma_buffers") {
+    return buildBufferConfigs(base, args.minBuffer ?? 0, args.maxBuffer ?? 10, args.bufferStep ?? 1);
   }
   // sma_periods
   return buildSmaPeriodConfigs(base, args.minPeriod ?? 50, args.maxPeriod ?? 250, args.step ?? 25);
@@ -45,10 +56,11 @@ export function registerCompareStrategies(server: McpServer): void {
       description:
         "Rank variants of a leveraged-ETF strategy across historical rolling windows. Modes: " +
         "`sma_on_off` (SMA vs buy-and-hold), `risk_off_assets` (compare risk-off assets), " +
-        "`sma_periods` (sweep SMA periods). All variants use the preset's index. NOT investment advice.",
+        "`sma_periods` (sweep SMA periods), `sma_buffers` (sweep symmetric SMA buffers). " +
+        "All variants use the preset's index. NOT investment advice.",
       inputSchema: {
         preset: presetSchema,
-        mode: z.enum(["sma_on_off", "risk_off_assets", "sma_periods"]),
+        mode: z.enum(["sma_on_off", "risk_off_assets", "sma_periods", "sma_buffers"]),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
         windowLength: z.number().min(MIN_WINDOW_YEARS).max(MAX_WINDOW_YEARS).optional(),
@@ -60,6 +72,9 @@ export function registerCompareStrategies(server: McpServer): void {
         minPeriod: smaPeriodSchema.optional(),
         maxPeriod: smaPeriodSchema.optional(),
         step: z.number().int().min(1).max(200).optional(),
+        minBuffer: smaBufferSchema.optional(),
+        maxBuffer: smaBufferSchema.optional(),
+        bufferStep: z.number().min(0.1).max(30).optional(),
       },
     },
     async (args) => {

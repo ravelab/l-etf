@@ -25,7 +25,7 @@ L-ETF exposes its simulation engine over the Model Context Protocol so agents ca
 
 - Endpoint: https://l-etf.com/mcp (MCP over Streamable HTTP)
 - Machine-readable descriptor: https://l-etf.com/.well-known/mcp.json
-- Tools: `list_presets`, `get_market_data`, `get_sma_signals`, `get_sma_calibration`, `run_backtest`, `run_rolling_window_analysis`, `compare_strategies`
+- Tools: `list_presets`, `get_market_data`, `get_sma_signals`, `get_sma_calibration`, `run_backtest`, `compare_backtests` (simulated and/or real ETFs, either index), `run_rolling_window_analysis`, `run_holding_period_analysis`, `compare_strategies` (SMA on/off, risk-off assets, SMA periods, SMA buffers), `compare_letfs` (percentile distributions), `run_futures_backtest` (index futures), `get_box_spread_apy`
 - Resources: `letf://methodology`, `letf://data-coverage` (data freshness)
 - Prompt: `analyze_strategy`
 
