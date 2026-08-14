@@ -48,9 +48,9 @@ ChartJS.register(
 );
 
 const BIN_WIDTH_PCT = 2; // x-axis bin width: 2 percentage points of gap
-// Bins clipped to [-26%, +26%] so the edge buckets read "≤-24%" / "≥24%";
-// any values past ±26% fold into those edge buckets.
-const BIN_MIN_PCT = -26;
+// Bins clipped to [-20%, +26%] so the edge buckets read "≤-18%" / "≥24%";
+// any values past those cutoffs fold into the edge buckets.
+const BIN_MIN_PCT = -20;
 const BIN_MAX_PCT = 26;
 
 // Each series spans three datasets (raincloud + median line + n/total line)
