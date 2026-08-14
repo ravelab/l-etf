@@ -7,14 +7,107 @@ import { Select } from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { TodayIcon } from "@/components/ui/TodayIcon";
 import { CalendarShortcutIcon } from "@/components/ui/CalendarShortcutIcon";
-import { CONSTANT_NASDAQ100_SHORTCUT_DATE, CONSTANT_SP500_SHORTCUT_DATE, RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
+import {
+  CONSTANT_NASDAQ100_SHORTCUT_DATE,
+  CONSTANT_NASDAQ100_START_DATE,
+  CONSTANT_SP500_SHORTCUT_DATE,
+  CONSTANT_SP500_START_DATE,
+  RISK_OFF_ASSET_OPTIONS,
+} from "@/lib/constants";
 import { getIsoDate } from "@/lib/date";
 import { parseNumberOrKeep } from "@/lib/utils";
 import type { EtfConfig } from "@/lib/simulation/types";
 
 type PresetOption = { value: string; label: string };
+
+type DatePresetOption = {
+  value: string;
+  label: string;
+  title: string;
+};
+
+const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
+  {
+    value: CONSTANT_SP500_START_DATE,
+    label: "SP proxy",
+    title: "Earliest S&P proxy",
+  },
+  {
+    value: CONSTANT_SP500_SHORTCUT_DATE,
+    label: "SPX start",
+    title: "SPX start used by the app",
+  },
+  {
+    value: CONSTANT_NASDAQ100_START_DATE,
+    label: "NDX proxy",
+    title: "Earliest Nasdaq proxy",
+  },
+  {
+    value: CONSTANT_NASDAQ100_SHORTCUT_DATE,
+    label: "NDX start",
+    title: "Start of the app's actual Nasdaq-100 series",
+  },
+];
+
+function CompactDatePresetSelect({
+  ariaLabel,
+  currentDate,
+  dateRange,
+  options,
+  onSelect,
+}: {
+  ariaLabel: string;
+  currentDate: string;
+  dateRange: { min: string; max: string };
+  options: readonly DatePresetOption[];
+  onSelect: (value: string) => void;
+}) {
+  const selectedOption = options.find((option) => option.value === currentDate);
+  const selectedValue = selectedOption?.value ?? "__custom";
+
+  return (
+    <span
+      className="relative inline-flex h-5 w-[4.25rem] min-w-0 shrink-0 items-center rounded border border-card-border bg-input-bg text-muted transition-colors hover:border-accent/40 focus-within:border-accent/60"
+      title={selectedOption?.title ?? `Custom date (${currentDate.replace(/-/g, "/")})`}
+    >
+      <span className="pointer-events-none absolute left-0 inline-flex scale-[0.68] items-center">
+        <CalendarShortcutIcon />
+      </span>
+      <select
+        aria-label={ariaLabel}
+        value={selectedValue}
+        onChange={(event) => onSelect(event.currentTarget.value)}
+        className="h-full w-full cursor-pointer appearance-none bg-transparent pl-[13px] pr-[7px] text-[8.5px] font-medium leading-none text-foreground outline-none"
+      >
+        {!selectedOption && (
+          <option value="__custom" disabled>
+            Custom
+          </option>
+        )}
+        {options.map((option) => (
+          <option
+            key={option.value}
+            value={option.value}
+            disabled={option.value < dateRange.min || option.value > dateRange.max}
+          >
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 8 5"
+        className="pointer-events-none absolute right-0.5 h-1.5 w-1.5 text-muted/70"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.25"
+      >
+        <path d="m1 1 3 3 3-3" />
+      </svg>
+    </span>
+  );
+}
 
 export type SharedFieldValues = {
   letf?: string;
@@ -93,14 +186,16 @@ export function SharedToolInputs({
   };
 
   const defaultEndDateToday = () => setEndDate(getIsoDate(new Date()));
+  const today = getIsoDate(new Date());
+  const endDatePresets: readonly DatePresetOption[] = [
+    { value: today, label: "Today", title: `Today (${today.replace(/-/g, "/")})` },
+    ...HISTORICAL_DATE_PRESETS,
+  ];
   const getEndDateMinusYears = (years: number): string => {
     const endDate = new Date(values.endDate);
     endDate.setFullYear(endDate.getFullYear() - years);
     return clampDateToRange(endDate);
   };
-  const setSp500ShortcutDate = () => onChange("startDate", CONSTANT_SP500_SHORTCUT_DATE);
-  const setNasdaq100ShortcutDate = () => onChange("startDate", CONSTANT_NASDAQ100_SHORTCUT_DATE);
-
   const clampDateToRange = (date: Date): string => {
     const minDate = new Date(dateRange.min);
     const maxDate = new Date(dateRange.max);
@@ -156,6 +251,15 @@ export function SharedToolInputs({
         <Input
           data-testid="shared-tool-start-date"
           label="Start Date"
+          labelAccessory={
+            <CompactDatePresetSelect
+              ariaLabel="Start date preset"
+              currentDate={values.startDate}
+              dateRange={dateRange}
+              options={HISTORICAL_DATE_PRESETS}
+              onSelect={(value) => onChange("startDate", value)}
+            />
+          }
           type="date"
           value={values.startDate}
           min={dateRange.min}
@@ -163,28 +267,30 @@ export function SharedToolInputs({
           onChange={(e) => onChange("startDate", e.currentTarget.value)}
           labelActions={[
             {
-              icon: <CalendarShortcutIcon letter="S" />,
-              title: `Set to ${CONSTANT_SP500_SHORTCUT_DATE.replace(/-/g, "/")} (SPX)`,
-              onClick: setSp500ShortcutDate,
-              className: "ml-1",
-            },
-            {
-              icon: <CalendarShortcutIcon letter="N" />,
-              title: `Set to ${CONSTANT_NASDAQ100_SHORTCUT_DATE.replace(/-/g, "/")} (NDX)`,
-              onClick: setNasdaq100ShortcutDate,
-              className: "ml-1",
-            },
-            {
               icon: <span className="text-xs font-medium">-20Y</span>,
               title: "Set start date 20 years earlier; first click uses end date",
               onClick: () => onChange("startDate", getSteppedStartDateForYears(20)),
-              className: "ml-1",
             },
           ]}
         />
         <Input
           data-testid="shared-tool-end-date"
           label="End Date"
+          labelAccessory={
+            <CompactDatePresetSelect
+              ariaLabel="End date preset"
+              currentDate={values.endDate}
+              dateRange={dateRange}
+              options={endDatePresets}
+              onSelect={(value) => {
+                if (value === today) {
+                  (onEndDateToday ?? defaultEndDateToday)();
+                  return;
+                }
+                setEndDate(value);
+              }}
+            />
+          }
           type="date"
           value={values.endDate}
           min={dateRange.min}
@@ -196,16 +302,9 @@ export function SharedToolInputs({
           }
           labelActions={[
             {
-              icon: <TodayIcon />,
-              title: "Set to today",
-              onClick: onEndDateToday ?? defaultEndDateToday,
-              className: "ml-1",
-            },
-            {
               icon: <span className="text-xs font-medium">-20Y</span>,
               title: "Set end date 20 years earlier",
               onClick: () => setEndDate(getEndDateMinusYears(20)),
-              className: "ml-1",
             },
           ]}
         />

@@ -8,11 +8,21 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   suffix?: string;
   info?: ReactNode;
+  labelAccessory?: ReactNode;
   labelAction?: { icon: React.ReactNode; title: string; onClick: () => void; className?: string };
   labelActions?: Array<{ icon: React.ReactNode; title: string; onClick: () => void; className?: string }>;
 }
 
-export function Input({ label, suffix, info, labelAction, labelActions, className = "", ...props }: InputProps) {
+export function Input({
+  label,
+  suffix,
+  info,
+  labelAccessory,
+  labelAction,
+  labelActions,
+  className = "",
+  ...props
+}: InputProps) {
   const isNumeric = props.type === "number";
   const isDate = props.type === "date";
   const {
@@ -138,6 +148,7 @@ export function Input({ label, suffix, info, labelAction, labelActions, classNam
       {label && (
         <div className="text-xs text-muted font-medium flex items-center gap-1.5">
           <label htmlFor={inputId}>{label}</label>
+          {labelAccessory}
           {actions.length > 0 && (
             <span className="ml-1 inline-flex items-center gap-1" data-label-actions="true">
               {actions.map((action, idx) => (

@@ -372,7 +372,7 @@ const FAQ_DATA: FAQItem[] = [
         </p>
         <p className="mb-3">
           On the <strong className="text-accent">SMA Period</strong>, <strong className="text-accent">SMA Buffer</strong>,
-          <strong className="text-accent"> SMA Risk-Off Assets</strong>, and <strong className="text-accent">Holding Period</strong>
+          <strong className="text-accent"> SMA Risk-Off Assets</strong>, and <strong className="text-accent">Holding Period</strong>{" "}
           pages, the app can still include those recent starting months.
         </p>
         <p className="mb-3">
@@ -383,6 +383,94 @@ const FAQ_DATA: FAQItem[] = [
         <p>
           This is a modeling choice. It gives newer start dates a full-length test window, but the
           tail is historical stand-in data, not a prediction.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "index-start-dates",
+    question: "Why do the SPX and NDX start-date shortcuts use 1988 and 1985?",
+    answer: (
+      <>
+        <p className="mb-3">
+          The shortcut buttons choose practical starts for the modern index regimes. They are not
+          the earliest dates available in the app, and the S&amp;P 500 is not mechanically the 500
+          biggest U.S. companies—it is a committee-selected index of leading large-cap companies.
+        </p>
+        <ul className="ml-4 list-disc space-y-3">
+          <li>
+            <strong className="text-foreground">April 6, 1988 — SPX shortcut.</strong>{" "}On this date,
+            S&amp;P removed the fixed numerical limits for its four major industry groups. Companies
+            could then be added and removed across those categories, allowing the index to adapt
+            more quickly as the market&apos;s sector mix changed. L-ETF uses this as a clean start for
+            the more flexible, modern S&amp;P 500 composition regime.
+          </li>
+          <li>
+            <strong className="text-foreground">October 1, 1985 — NDX shortcut.</strong>{" "}The Nasdaq-100
+            officially launched on January 31, 1985, but October 1 is the first date for which
+            L-ETF&apos;s source feed has actual NDX daily open and close data. Starting here avoids the
+            earlier Nasdaq Composite proxy and keeps the strategy signal tied directly to NDX.
+          </li>
+          <li>
+            <strong className="text-foreground">February 5, 1971 — earliest Nasdaq proxy.</strong>{" "}This
+            is the launch and base date of the Nasdaq Composite. For 1971 through September 1985,
+            L-ETF uses Composite price moves scaled to meet NDX at the 1985 boundary, then adds
+            estimated dividends and QQQ&apos;s expense drag. It provides useful older market regimes,
+            but it is not actual Nasdaq-100 history.
+          </li>
+          <li>
+            <strong className="text-foreground">March 20, 1885 — earliest S&amp;P proxy row.</strong>{" "}This
+            is where L-ETF&apos;s stitched long-history U.S. equity series begins. The S&amp;P 500 itself
+            did not launch until March 4, 1957, so the older portion is a historical reconstruction,
+            not live S&amp;P 500 performance. It is useful for very long stress tests, but conclusions
+            should be treated more cautiously than results from the modern-index period.
+          </li>
+        </ul>
+        <p className="mt-3">
+          In short: use the <strong className="text-foreground">1988 SPX</strong> and
+          <strong className="text-foreground"> 1985 NDX</strong> shortcuts for cleaner index-specific
+          comparisons; use <strong className="text-foreground">1971</strong> or
+          <strong className="text-foreground"> 1885</strong> when the extra historical regimes are
+          worth accepting more proxy uncertainty.
+        </p>
+        <p className="mt-3 text-sm text-muted">
+          Historical references:{" "}
+          <a
+            href="https://www.spglobal.com/spdji/en/indices/equity/sp-500/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline hover:opacity-80"
+          >
+            S&amp;P 500 history
+          </a>
+          ,{" "}
+          <a
+            href="https://users.cla.umn.edu/~erm/data/qrf00/data/nuttall/sp500chg.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline hover:opacity-80"
+          >
+            1988 constituent-change note
+          </a>
+          ,{" "}
+          <a
+            href="https://www.nasdaq.com/newsroom/celebrating-40-year-rise-nasdaq-100-index"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline hover:opacity-80"
+          >
+            Nasdaq-100 history
+          </a>
+          , and{" "}
+          <a
+            href="https://www.nasdaq.com/articles/nasdaq-composite-indextm%3A-50th-anniversary-brings-new-records-and-further-optimism"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline hover:opacity-80"
+          >
+            Nasdaq Composite history
+          </a>
+          .
         </p>
       </>
     ),
@@ -501,10 +589,10 @@ const FAQ_DATA: FAQItem[] = [
               </tr>
             </thead>
             <tbody className="font-mono">
-              <tr><td className="pr-4">SSO</td>  <td className="pr-4">S&amp;P 500 / 2x</td>   <td className="pr-4">0.6893</td><td>0.248%</td></tr>
-              <tr><td className="pr-4">UPRO</td> <td className="pr-4">S&amp;P 500 / 3x</td>   <td className="pr-4">0.7310</td><td>0.364%</td></tr>
-              <tr><td className="pr-4">QLD</td>  <td className="pr-4">Nasdaq 100 / 2x</td>  <td className="pr-4">0.7099</td><td>0.073%</td></tr>
-              <tr><td className="pr-4">TQQQ</td> <td className="pr-4">Nasdaq 100 / 3x</td>  <td className="pr-4">0.8198</td><td>0.058%</td></tr>
+              <tr><td className="pr-4">SSO</td><td className="pr-4">S&amp;P 500 / 2x</td><td className="pr-4">0.6893</td><td>0.248%</td></tr>
+              <tr><td className="pr-4">UPRO</td><td className="pr-4">S&amp;P 500 / 3x</td><td className="pr-4">0.7310</td><td>0.364%</td></tr>
+              <tr><td className="pr-4">QLD</td><td className="pr-4">Nasdaq 100 / 2x</td><td className="pr-4">0.7099</td><td>0.073%</td></tr>
+              <tr><td className="pr-4">TQQQ</td><td className="pr-4">Nasdaq 100 / 3x</td><td className="pr-4">0.8198</td><td>0.058%</td></tr>
             </tbody>
           </table>
         </div>

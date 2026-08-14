@@ -57,7 +57,7 @@ const UPRO_ER_PCT = 0.91;
 const TQQQ_LEVERAGE = 3;
 const TQQQ_ER_PCT = 0.88;
 
-interface BoxStats {
+interface PercentileStats {
   count: number;
   min: number;
   q1: number;
@@ -74,14 +74,12 @@ function quantile(sortedAsc: number[], p: number): number {
   return sortedAsc[lo] + (sortedAsc[hi] - sortedAsc[lo]) * (idx - lo);
 }
 
-function summarize(values: number[]): BoxStats | null {
+function summarize(values: number[]): PercentileStats | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   return {
     count: sorted.length,
-    // "min" / "max" here are the 10th / 90th percentile whisker tips.
-    // Renaming would ripple through the plugin and tooltip; treating them
-    // as "lower whisker" / "upper whisker" is sufficient.
+    // "min" / "max" here are the visible P10 / P90 range endpoints.
     min: quantile(sorted, 0.1),
     q1: quantile(sorted, 0.25),
     median: quantile(sorted, 0.5),
@@ -234,13 +232,13 @@ interface ForwardReturnVsSmaGapChartProps {
   endDate: string;
 }
 
-// chart.js dataset with attached box stats for the whisker/median plugin.
-// Explicit `type: "bar"` because the ZoomableChart container is a line chart.
-type BoxDataset = {
+// Invisible bars provide grouped x-positions and tooltip hit regions; the
+// plugins render the raincloud and percentile marks themselves.
+type RaincloudDataset = {
   type: "bar";
   label: string;
   data: Array<[number, number] | null>;
-  boxStats: Array<BoxStats | null>;
+  percentileStats: Array<PercentileStats | null>;
   totalCount: number;
   backgroundColor: string;
   borderColor: string;
@@ -248,7 +246,7 @@ type BoxDataset = {
   borderSkipped: false;
   categoryPercentage: number;
   barPercentage: number;
-  whiskerColor: string;
+  percentileColor: string;
   cloudProfiles: Array<RaincloudDensityPoint[]>;
   rainValues: Array<number[]>;
   cloudColor: string;
@@ -257,8 +255,14 @@ type BoxDataset = {
 };
 
 type RaincloudDatasetFields = Pick<
-  BoxDataset,
-  "cloudProfiles" | "rainValues" | "cloudColor" | "rainColor" | "raincloudSide"
+  RaincloudDataset,
+  | "percentileStats"
+  | "percentileColor"
+  | "cloudProfiles"
+  | "rainValues"
+  | "cloudColor"
+  | "rainColor"
+  | "raincloudSide"
 >;
 
 const raincloudPlugin: Plugin<"bar"> = {
@@ -284,8 +288,8 @@ const raincloudPlugin: Plugin<"bar"> = {
         if (!profile || profile.length < 2) return;
         const bar = element as unknown as { x: number; width: number };
         const halfWidth = Math.max(2, bar.width / 2);
-        const baselineX = bar.x + fields.raincloudSide! * halfWidth * 0.85;
-        const cloudWidth = Math.max(3, halfWidth * 1.3);
+        const baselineX = bar.x;
+        const cloudWidth = Math.max(6, halfWidth * 2.1);
 
         ctx.beginPath();
         profile.forEach((point, pointIndex) => {
@@ -345,8 +349,8 @@ const raincloudPlugin: Plugin<"bar"> = {
   },
 };
 
-const whiskerPlugin: Plugin<"bar"> = {
-  id: "boxplotWhiskers",
+const percentileMarkersPlugin: Plugin<"bar"> = {
+  id: "raincloudPercentileMarkers",
   afterDatasetsDraw(chart) {
     const { ctx, scales } = chart;
     const yScale = scales.y;
@@ -355,55 +359,45 @@ const whiskerPlugin: Plugin<"bar"> = {
     chart.data.datasets.forEach((ds, datasetIndex) => {
       if (!chart.isDatasetVisible(datasetIndex)) return;
       const meta = chart.getDatasetMeta(datasetIndex);
-      const stats = (ds as unknown as { boxStats?: Array<BoxStats | null> }).boxStats;
-      const color = (ds as unknown as { whiskerColor?: string }).whiskerColor ?? "#888";
+      const stats = (ds as unknown as Partial<RaincloudDatasetFields>).percentileStats;
+      const color = (ds as unknown as Partial<RaincloudDatasetFields>).percentileColor ?? "#888";
       if (!stats) return;
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1.25;
       meta.data.forEach((bar, idx) => {
         const s = stats[idx];
         if (!s) return;
         const bx = bar.x;
-        const halfWidth = (bar as unknown as { width: number }).width / 2;
-        const yMin = yScale.getPixelForValue(s.min);
-        const yMax = yScale.getPixelForValue(s.max);
-        const yMedian = yScale.getPixelForValue(s.median);
-        const yQ1 = yScale.getPixelForValue(s.q1);
-        const yQ3 = yScale.getPixelForValue(s.q3);
-        // vertical whisker line through full extent
-        ctx.beginPath();
-        ctx.moveTo(bx, yMin);
-        ctx.lineTo(bx, yMax);
-        ctx.stroke();
-        // min cap
-        ctx.beginPath();
-        ctx.moveTo(bx - halfWidth * 0.55, yMin);
-        ctx.lineTo(bx + halfWidth * 0.55, yMin);
-        ctx.stroke();
-        // max cap
-        ctx.beginPath();
-        ctx.moveTo(bx - halfWidth * 0.55, yMax);
-        ctx.lineTo(bx + halfWidth * 0.55, yMax);
-        ctx.stroke();
-        // median tick (drawn slightly thicker so it reads as the line in the box)
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(bx - halfWidth, yMedian);
-        ctx.lineTo(bx + halfWidth, yMedian);
-        ctx.stroke();
+        const halfWidth = Math.max(3, (bar as unknown as { width: number }).width / 2);
+        const markers = [
+          { value: s.min, width: halfWidth * 0.45, lineWidth: 1.4 },
+          { value: s.q1, width: halfWidth * 0.72, lineWidth: 1.6 },
+          { value: s.median, width: halfWidth * 1.08, lineWidth: 2.6 },
+          { value: s.q3, width: halfWidth * 0.72, lineWidth: 1.6 },
+          { value: s.max, width: halfWidth * 0.45, lineWidth: 1.4 },
+        ];
+
+        // Slim spine spans P10–P90; tick length encodes percentile rank.
         ctx.lineWidth = 1.25;
-        // q1/q3 caps within the bar are already drawn by the bar itself, but
-        // re-stroke them so the box outline is crisp.
         ctx.beginPath();
-        ctx.rect(bx - halfWidth, Math.min(yQ1, yQ3), halfWidth * 2, Math.abs(yQ3 - yQ1));
+        ctx.moveTo(bx, yScale.getPixelForValue(s.min));
+        ctx.lineTo(bx, yScale.getPixelForValue(s.max));
         ctx.stroke();
+
+        markers.forEach((marker) => {
+          const y = yScale.getPixelForValue(marker.value);
+          ctx.lineWidth = marker.lineWidth;
+          ctx.beginPath();
+          ctx.moveTo(bx - marker.width, y);
+          ctx.lineTo(bx + marker.width, y);
+          ctx.stroke();
+        });
       });
     });
     ctx.restore();
   },
 };
 
-ChartJS.register(raincloudPlugin, whiskerPlugin);
+ChartJS.register(raincloudPlugin, percentileMarkersPlugin);
 
 export function ForwardReturnVsSmaGapChart({
   spxPrices,
@@ -464,9 +458,7 @@ export function ForwardReturnVsSmaGapChart({
   const uproStats = useMemo(() => uproBuckets.map((b) => summarize(b)), [uproBuckets]);
   const tqqqStats = useMemo(() => tqqqBuckets.map((b) => summarize(b)), [tqqqBuckets]);
 
-  // Y-axis bounds must include the whiskers (min/max), not just the box
-  // (Q1/Q3) that chart.js sees in its data. Without this, tall whiskers
-  // shoot off the top/bottom of the visible chart.
+  // Y-axis bounds must include the full visible P10–P90 percentile range.
   const yBounds = useMemo(() => {
     let lo = Infinity;
     let hi = -Infinity;
@@ -483,48 +475,48 @@ export function ForwardReturnVsSmaGapChart({
   const data = useMemo((): ChartData<"bar" | "line"> => {
     const uproTotal = uproStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
     const tqqqTotal = tqqqStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
-    const uproDataset: BoxDataset = {
+    const uproDataset: RaincloudDataset = {
       type: "bar",
       label: `UPRO — SMA(${smaPeriodSp})`,
-      data: uproStats.map((s) => (s ? ([s.q1, s.q3] as [number, number]) : null)),
-      boxStats: uproStats,
+      data: uproStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
+      percentileStats: uproStats,
       totalCount: uproTotal,
-      backgroundColor: "rgba(59, 130, 246, 0.35)",
-      borderColor: "rgba(59, 130, 246, 0.95)",
-      borderWidth: 1,
+      backgroundColor: "rgba(59, 130, 246, 0)",
+      borderColor: "rgba(59, 130, 246, 0)",
+      borderWidth: 0,
       borderSkipped: false,
       categoryPercentage: 0.85,
-      barPercentage: 0.9,
-      whiskerColor: "rgba(59, 130, 246, 0.95)",
+      barPercentage: 0.55,
+      percentileColor: "rgba(59, 130, 246, 0.95)",
       cloudProfiles: uproBuckets.map((bucket, index) => {
         const stats = uproStats[index];
         return stats ? buildLogRaincloudDensity(bucket, stats.min, stats.max) : [];
       }),
       rainValues: uproBuckets.map((bucket) => sampleRaincloudValues(bucket)),
-      cloudColor: "rgba(59, 130, 246, 0.18)",
-      rainColor: "rgba(59, 130, 246, 0.42)",
+      cloudColor: "rgba(59, 130, 246, 0.38)",
+      rainColor: "rgba(59, 130, 246, 0.7)",
       raincloudSide: -1,
     };
-    const tqqqDataset: BoxDataset = {
+    const tqqqDataset: RaincloudDataset = {
       type: "bar",
       label: `TQQQ — SMA(${smaPeriodNq})`,
-      data: tqqqStats.map((s) => (s ? ([s.q1, s.q3] as [number, number]) : null)),
-      boxStats: tqqqStats,
+      data: tqqqStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
+      percentileStats: tqqqStats,
       totalCount: tqqqTotal,
-      backgroundColor: "rgba(249, 115, 22, 0.35)",
-      borderColor: "rgba(249, 115, 22, 0.95)",
-      borderWidth: 1,
+      backgroundColor: "rgba(249, 115, 22, 0)",
+      borderColor: "rgba(249, 115, 22, 0)",
+      borderWidth: 0,
       borderSkipped: false,
       categoryPercentage: 0.85,
-      barPercentage: 0.9,
-      whiskerColor: "rgba(249, 115, 22, 0.95)",
+      barPercentage: 0.55,
+      percentileColor: "rgba(249, 115, 22, 0.95)",
       cloudProfiles: tqqqBuckets.map((bucket, index) => {
         const stats = tqqqStats[index];
         return stats ? buildLogRaincloudDensity(bucket, stats.min, stats.max) : [];
       }),
       rainValues: tqqqBuckets.map((bucket) => sampleRaincloudValues(bucket)),
-      cloudColor: "rgba(249, 115, 22, 0.18)",
-      rainColor: "rgba(249, 115, 22, 0.42)",
+      cloudColor: "rgba(249, 115, 22, 0.38)",
+      rainColor: "rgba(249, 115, 22, 0.7)",
       raincloudSide: 1,
     };
     const uproMedianLine = {
@@ -609,6 +601,19 @@ export function ForwardReturnVsSmaGapChart({
             padding: 16,
             usePointStyle: true,
             pointStyle: "rect",
+            generateLabels(chart) {
+              return ChartJS.defaults.plugins.legend.labels.generateLabels(chart).map((item) => {
+                if (item.datasetIndex == null) return item;
+                const dataset = chart.data.datasets[item.datasetIndex] as unknown as Partial<RaincloudDatasetFields>;
+                if (!dataset.cloudColor) return item;
+                return {
+                  ...item,
+                  fillStyle: dataset.cloudColor,
+                  strokeStyle: dataset.percentileColor ?? dataset.rainColor,
+                  lineWidth: 1.5,
+                };
+              });
+            },
           },
         },
         tooltip: {
@@ -618,27 +623,28 @@ export function ForwardReturnVsSmaGapChart({
           titleColor: colors.tooltipTitle,
           bodyColor: colors.tooltipBody,
           // Suppress tooltip entries for the median connector and n/total
-          // lines — the box entries already show the median and the bucket's
-          // share of total.
+          // lines — the raincloud entries already include those values.
           filter(item: TooltipItem<"bar">) {
-            const ds = item.dataset as unknown as { boxStats?: Array<BoxStats | null> };
-            return ds.boxStats !== undefined;
+            const ds = item.dataset as unknown as {
+              percentileStats?: Array<PercentileStats | null>;
+            };
+            return ds.percentileStats !== undefined;
           },
           callbacks: {
             label(item: TooltipItem<"bar">) {
               const ds = item.dataset as unknown as {
-                boxStats?: Array<BoxStats | null>;
+                percentileStats?: Array<PercentileStats | null>;
                 totalCount?: number;
                 label: string;
               };
-              const s = ds.boxStats?.[item.dataIndex];
+              const s = ds.percentileStats?.[item.dataIndex];
               if (!s) return `${ds.label}: no data`;
               const total = ds.totalCount ?? 0;
               const share = total > 0 ? ` (${((s.count / total) * 100).toFixed(1)}% of ${total})` : "";
               return [
                 `${ds.label}`,
                 `n=${s.count}${share}`,
-                `P10 ${factorToPctLabel(s.min)} / Q1 ${factorToPctLabel(s.q1)} / median ${factorToPctLabel(s.median)} / Q3 ${factorToPctLabel(s.q3)} / P90 ${factorToPctLabel(s.max)}`,
+                `P10 ${factorToPctLabel(s.min)} / P25 ${factorToPctLabel(s.q1)} / P50 ${factorToPctLabel(s.median)} / P75 ${factorToPctLabel(s.q3)} / P90 ${factorToPctLabel(s.max)}`,
               ];
             },
           },
@@ -736,7 +742,8 @@ export function ForwardReturnVsSmaGapChart({
             </div>
           </div>
           <p className="px-1 pt-1 text-[11px] leading-relaxed text-muted">
-            Cloud = return density • dots = sampled outcomes • box = middle 50% • whiskers = P10–P90
+            Cloud = return density • dots = sampled outcomes • ticks bottom→top = P10 / P25 / P50 / P75 / P90
+            (P50 is longest)
           </p>
         </div>
       )}
