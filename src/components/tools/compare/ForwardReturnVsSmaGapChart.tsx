@@ -161,6 +161,9 @@ type RaincloudDataset = {
   categoryPercentage: number;
   barPercentage: number;
   percentileColor: string;
+  // Painted behind the percentile value labels so they stay legible where they
+  // cross the cloud fill or the other series' marks.
+  percentileLabelHalo: string;
   cloudProfiles: Array<RaincloudDensityPoint[]>;
   rainPoints: Array<RainDotPoint[]>;
   cloudColor: string;
@@ -172,6 +175,7 @@ type RaincloudDatasetFields = Pick<
   RaincloudDataset,
   | "percentileStats"
   | "percentileColor"
+  | "percentileLabelHalo"
   | "cloudProfiles"
   | "rainPoints"
   | "cloudColor"
@@ -279,34 +283,82 @@ const raincloudPlugin: Plugin<"bar"> = {
   },
 };
 
+const PERCENTILE_LABEL_FONT = "9px system-ui, -apple-system, 'Segoe UI', sans-serif";
+const PERCENTILE_LABEL_HALO_WIDTH = 2.5;
+const PERCENTILE_LABEL_OFFSET_PX = 4;
+const PERCENTILE_LABEL_LINE_HEIGHT = 10;
+// Breathing room enforced between two labels' bounding boxes.
+const PERCENTILE_LABEL_PADDING_PX = 1.5;
+
+// Rank order deciding which labels win a collision: median first, then the
+// P10/P90 endpoints, then the quartiles. At narrow widths the survivors are
+// therefore the most informative marks rather than an arbitrary subset.
+const PERCENTILE_LABEL_PRIORITY = { median: 0, min: 1, max: 2, q1: 3, q3: 4 } as const;
+
+interface PercentileLabelBox {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+interface PercentileLabelCandidate {
+  text: string;
+  x: number;
+  y: number;
+  align: CanvasTextAlign;
+  color: string;
+  halo?: string;
+  priority: number;
+}
+
+function boxesOverlap(a: PercentileLabelBox, b: PercentileLabelBox): boolean {
+  const pad = PERCENTILE_LABEL_PADDING_PX;
+  return !(
+    a.right + pad < b.left ||
+    a.left - pad > b.right ||
+    a.bottom + pad < b.top ||
+    a.top - pad > b.bottom
+  );
+}
+
 const percentileMarkersPlugin: Plugin<"bar"> = {
   id: "raincloudPercentileMarkers",
   afterDatasetsDraw(chart) {
-    const { ctx, scales } = chart;
+    const { ctx, chartArea, scales } = chart;
     const yScale = scales.y;
     if (!yScale) return;
     ctx.save();
+
+    // Marks are drawn per dataset, but the value labels are collected first and
+    // placed in a single global pass — otherwise a label could land on top of a
+    // neighbouring bucket's label or the other series'.
+    const candidates: PercentileLabelCandidate[] = [];
+
     chart.data.datasets.forEach((ds, datasetIndex) => {
       if (!chart.isDatasetVisible(datasetIndex)) return;
       const meta = chart.getDatasetMeta(datasetIndex);
-      const stats = (ds as unknown as Partial<RaincloudDatasetFields>).percentileStats;
-      const color = (ds as unknown as Partial<RaincloudDatasetFields>).percentileColor ?? "#888";
+      const fields = ds as unknown as Partial<RaincloudDatasetFields>;
+      const stats = fields.percentileStats;
+      const color = fields.percentileColor ?? "#888";
+      const side = fields.raincloudSide ?? -1;
+      const haloColor = fields.percentileLabelHalo;
       if (!stats) return;
-      ctx.strokeStyle = color;
       meta.data.forEach((bar, idx) => {
         const s = stats[idx];
         if (!s) return;
         const bx = bar.x;
         const halfWidth = Math.max(3, (bar as unknown as { width: number }).width / 2);
         const markers = [
-          { value: s.min, width: halfWidth * 0.45, lineWidth: 1.4 },
-          { value: s.q1, width: halfWidth * 0.72, lineWidth: 1.6 },
-          { value: s.median, width: halfWidth * 1.08, lineWidth: 2.6 },
-          { value: s.q3, width: halfWidth * 0.72, lineWidth: 1.6 },
-          { value: s.max, width: halfWidth * 0.45, lineWidth: 1.4 },
+          { value: s.min, width: halfWidth * 0.45, lineWidth: 1.4, priority: PERCENTILE_LABEL_PRIORITY.min },
+          { value: s.q1, width: halfWidth * 0.72, lineWidth: 1.6, priority: PERCENTILE_LABEL_PRIORITY.q1 },
+          { value: s.median, width: halfWidth * 1.08, lineWidth: 2.6, priority: PERCENTILE_LABEL_PRIORITY.median },
+          { value: s.q3, width: halfWidth * 0.72, lineWidth: 1.6, priority: PERCENTILE_LABEL_PRIORITY.q3 },
+          { value: s.max, width: halfWidth * 0.45, lineWidth: 1.4, priority: PERCENTILE_LABEL_PRIORITY.max },
         ];
 
         // Slim spine spans P10–P90; tick length encodes percentile rank.
+        ctx.strokeStyle = color;
         ctx.lineWidth = 1.25;
         ctx.beginPath();
         ctx.moveTo(bx, yScale.getPixelForValue(s.min));
@@ -320,9 +372,54 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
           ctx.moveTo(bx - marker.width, y);
           ctx.lineTo(bx + marker.width, y);
           ctx.stroke();
+
+          // Labels sit outward on the series' own side, so the two series'
+          // numbers grow away from each other rather than into each other.
+          const text = factorToPctLabel(marker.value);
+          if (!text) return;
+          candidates.push({
+            text,
+            x: bx + side * (halfWidth * 1.08 + PERCENTILE_LABEL_OFFSET_PX),
+            y,
+            align: side === 1 ? "left" : "right",
+            color,
+            halo: haloColor,
+            priority: marker.priority,
+          });
         });
       });
     });
+
+    ctx.font = PERCENTILE_LABEL_FONT;
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    const placed: PercentileLabelBox[] = [];
+    const halfLine = PERCENTILE_LABEL_LINE_HEIGHT / 2;
+
+    for (const candidate of [...candidates].sort((a, b) => a.priority - b.priority)) {
+      ctx.textAlign = candidate.align;
+      const width = ctx.measureText(candidate.text).width;
+      const left = candidate.align === "left" ? candidate.x : candidate.x - width;
+      const box: PercentileLabelBox = {
+        left,
+        right: left + width,
+        top: candidate.y - halfLine,
+        bottom: candidate.y + halfLine,
+      };
+      // Never spill past the axes, and never cover a label already drawn.
+      if (box.left < chartArea.left || box.right > chartArea.right) continue;
+      if (box.top < chartArea.top || box.bottom > chartArea.bottom) continue;
+      if (placed.some((other) => boxesOverlap(box, other))) continue;
+      placed.push(box);
+      if (candidate.halo) {
+        ctx.lineWidth = PERCENTILE_LABEL_HALO_WIDTH;
+        ctx.strokeStyle = candidate.halo;
+        ctx.strokeText(candidate.text, candidate.x, candidate.y);
+      }
+      ctx.fillStyle = candidate.color;
+      ctx.fillText(candidate.text, candidate.x, candidate.y);
+    }
+
     ctx.restore();
   },
 };
@@ -583,6 +680,7 @@ export function ForwardReturnVsSmaGapChart({
       categoryPercentage: 0.85,
       barPercentage: 0.55,
       percentileColor: "rgba(59, 130, 246, 0.95)",
+      percentileLabelHalo: colors.tooltipBackground,
       cloudProfiles: uproBuckets.map((bucket, index) => {
         const stats = uproStats[index];
         return stats
@@ -617,6 +715,7 @@ export function ForwardReturnVsSmaGapChart({
       categoryPercentage: 0.85,
       barPercentage: 0.55,
       percentileColor: "rgba(249, 115, 22, 0.95)",
+      percentileLabelHalo: colors.tooltipBackground,
       cloudProfiles: tqqqBuckets.map((bucket, index) => {
         const stats = tqqqStats[index];
         return stats
@@ -698,7 +797,16 @@ export function ForwardReturnVsSmaGapChart({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       datasets: [uproDataset, tqqqDataset, uproMedianLine, tqqqMedianLine, uproFreqLine, tqqqFreqLine] as any,
     };
-  }, [labels, uproBuckets, uproStats, tqqqBuckets, tqqqStats, uproConfig.smaPeriod, tqqqConfig.smaPeriod]);
+  }, [
+    labels,
+    uproBuckets,
+    uproStats,
+    tqqqBuckets,
+    tqqqStats,
+    uproConfig.smaPeriod,
+    tqqqConfig.smaPeriod,
+    colors.tooltipBackground,
+  ]);
 
   const options = useMemo<ChartOptions<"bar">>(
     () => ({
@@ -829,7 +937,7 @@ export function ForwardReturnVsSmaGapChart({
           ...(yBounds ? { min: yBounds.min, max: yBounds.max } : {}),
           title: {
             display: true,
-            text: "Next-year real return (%)",
+            text: "One-year real return",
             color: colors.axisTitleText,
             font: { size: 11 },
           },
