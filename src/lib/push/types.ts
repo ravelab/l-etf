@@ -20,6 +20,8 @@ export type PushSubscriptionRecord = {
 };
 
 export type PushSendPayload = {
+  // WebKit's declarative Web Push marker lets the OS display the nested
+  // notification without depending on the service-worker push handler.
   web_push: 8030;
   notification: {
     title: string;

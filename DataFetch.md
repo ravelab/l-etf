@@ -47,6 +47,13 @@ a newer raw open/close than Tiingo has adjusted close, the script writes a
 provisional adjusted close by scaling the prior adjusted close by the Yahoo raw
 close return. A later Tiingo-backed run replaces that provisional row.
 
+Incremental index refreshes join Tiingo adjusted closes to Yahoo raw bars by
+date. A missing Yahoo date inside the overlap window does not abort the refresh:
+the Tiingo adjusted close is retained, any raw open/close already stored for
+that date is preserved, and later matched dates can still be appended. A row
+without stored or current Yahoo data is allowed only in the recent trailing
+partial-data window and is backfilled on a later run.
+
 ## CSV Families
 
 ### Index files
