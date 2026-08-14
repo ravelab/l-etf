@@ -21,10 +21,12 @@ import {
 import { Card } from "@/components/ui/Card";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { getChartThemeColors } from "@/lib/chart-options";
-import type { PricePoint, RatePoint } from "@/lib/simulation/types";
-import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
-import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
-import { computeSimulatedRiskOnReturn } from "@/lib/simulation/engine";
+import type { EtfConfig, PricePoint, RatePoint } from "@/lib/simulation/types";
+import { simulateWithWarmUp } from "@/lib/simulation/engine";
+import {
+  buildForwardSmaReturnPoints,
+  type ForwardSmaReturnPoint,
+} from "@/lib/simulation/forward-sma-returns";
 import {
   buildLogRaincloudDensity,
   sampleRaincloudItems,
@@ -44,18 +46,11 @@ ChartJS.register(
   Legend,
 );
 
-const TRADING_DAYS_PER_YEAR = 252;
 const BIN_WIDTH_PCT = 2; // x-axis bin width: 2 percentage points of gap
 // Bins clipped to [-26%, +26%] so the edge buckets read "≤-24%" / "≥24%";
 // any values past ±26% fold into those edge buckets.
 const BIN_MIN_PCT = -26;
 const BIN_MAX_PCT = 26;
-
-// Match ETF_PRESETS in src/lib/simulation/presets.ts.
-const UPRO_LEVERAGE = 3;
-const UPRO_ER_PCT = 0.91;
-const TQQQ_LEVERAGE = 3;
-const TQQQ_ER_PCT = 0.88;
 
 interface PercentileStats {
   count: number;
@@ -101,115 +96,9 @@ function binLabel(idx: number): string {
   return `${lo} to ${hi}%`;
 }
 
-/**
- * Mirrors computeSimulatedRiskOnReturn — daily-compounded simulated LETF
- * value series, index-aligned with `indexPrices`, starting at 1.
- */
-function buildSimulatedLetfValues(
-  indexPrices: PricePoint[],
-  smaIndex: "sp500" | "nasdaq100",
-  leverage: number,
-  erPct: number,
-  rateLookup: { getRate(date: string): number } | null,
-): number[] {
-  const erDaily = erPct / 100 / 252;
-  const values: number[] = new Array(indexPrices.length);
-  if (indexPrices.length === 0) return values;
-  values[0] = 1;
-  for (let i = 1; i < indexPrices.length; i++) {
-    const prev = indexPrices[i - 1].adj_close;
-    const curr = indexPrices[i].adj_close;
-    if (!Number.isFinite(prev) || !Number.isFinite(curr) || prev <= 0 || curr <= 0) {
-      values[i] = values[i - 1];
-      continue;
-    }
-    const indexReturn = curr / prev - 1;
-    let borrowDaily = 0;
-    if (rateLookup) {
-      try {
-        borrowDaily = rateLookup.getRate(indexPrices[i].date);
-      } catch {
-        borrowDaily = 0;
-      }
-    }
-    const dailyReturn = computeSimulatedRiskOnReturn(
-      indexReturn,
-      borrowDaily,
-      smaIndex,
-      leverage,
-      erDaily,
-    );
-    const factor = 1 + dailyReturn;
-    values[i] = values[i - 1] * (Number.isFinite(factor) && factor > 0 ? factor : 1);
-  }
-  return values;
-}
-
-interface SeriesConfig {
-  indexPrices: PricePoint[];
-  smaPeriod: number;
-  letfValues: number[];
-}
-
-interface ForwardReturnPoint {
-  date: string;
-  gap: number;
-  realReturnFactor: number;
-}
-
-function buildPoints(
-  cfg: SeriesConfig,
-  monthlyCpi: Array<{ date: string; value: number }>,
-  startDate: string,
-  endDate: string,
-): ForwardReturnPoint[] {
-  const { indexPrices, smaPeriod, letfValues } = cfg;
-  if (indexPrices.length === 0 || letfValues.length === 0 || smaPeriod < 2) return [];
-
-  const out: ForwardReturnPoint[] = [];
-  for (let i = smaPeriod - 1; i < indexPrices.length; i++) {
-    const day = indexPrices[i];
-    if (day.date < startDate || day.date > endDate) continue;
-
-    let sum = 0;
-    let valid = true;
-    for (let k = i - smaPeriod + 1; k <= i; k++) {
-      const c = indexPrices[k].close;
-      if (!Number.isFinite(c) || c <= 0) {
-        valid = false;
-        break;
-      }
-      sum += c;
-    }
-    if (!valid) continue;
-    const sma = sum / smaPeriod;
-    if (sma <= 0) continue;
-
-    const dayClose = day.close;
-    if (!Number.isFinite(dayClose) || dayClose <= 0) continue;
-    const gap = (dayClose / sma - 1) * 100;
-
-    const startEtf = letfValues[i];
-    const forwardIdx = i + TRADING_DAYS_PER_YEAR;
-    if (forwardIdx >= indexPrices.length) continue;
-    const endEtf = letfValues[forwardIdx];
-    if (!Number.isFinite(startEtf) || !Number.isFinite(endEtf) || startEtf <= 0 || endEtf <= 0) continue;
-
-    const forwardDate = indexPrices[forwardIdx].date;
-    const nominalReturn = endEtf / startEtf;
-    const cpiRatio = cpiIndexRatioEndOverStart(monthlyCpi, day.date, forwardDate);
-    if (!Number.isFinite(cpiRatio) || cpiRatio <= 0) continue;
-    const realReturn = nominalReturn / cpiRatio;
-    if (!Number.isFinite(realReturn) || realReturn <= 0) continue;
-
-    out.push({ date: day.date, gap, realReturnFactor: realReturn });
-  }
-  return out;
-}
-
-function bucketize(points: ForwardReturnPoint[]): ForwardReturnPoint[][] {
+function bucketize(points: ForwardSmaReturnPoint[]): ForwardSmaReturnPoint[][] {
   const binCount = Math.round((BIN_MAX_PCT - BIN_MIN_PCT) / BIN_WIDTH_PCT);
-  const buckets: ForwardReturnPoint[][] = Array.from({ length: binCount }, () => []);
+  const buckets: ForwardSmaReturnPoint[][] = Array.from({ length: binCount }, () => []);
   for (const p of points) {
     if (!Number.isFinite(p.realReturnFactor) || p.realReturnFactor <= 0) continue;
     buckets[binIndexForGap(p.gap)].push(p);
@@ -232,9 +121,14 @@ interface ForwardReturnVsSmaGapChartProps {
   ndxPrices: PricePoint[];
   rates: RatePoint[];
   monthlyCpi: Array<{ date: string; value: number }>;
-  smaPeriodSp: number;
-  smaPeriodNq: number;
-  startDate: string;
+  uproConfig: EtfConfig;
+  tqqqConfig: EtfConfig;
+  spxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  spxRiskOffOpenValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  ndxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  ndxRiskOffOpenValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  startDateSp: string;
+  startDateNq: string;
   endDate: string;
 }
 
@@ -561,46 +455,74 @@ export function ForwardReturnVsSmaGapChart({
   ndxPrices,
   rates,
   monthlyCpi,
-  smaPeriodSp,
-  smaPeriodNq,
-  startDate,
+  uproConfig,
+  tqqqConfig,
+  spxRiskOffValues,
+  spxRiskOffOpenValues,
+  ndxRiskOffValues,
+  ndxRiskOffOpenValues,
+  startDateSp,
+  startDateNq,
   endDate,
 }: ForwardReturnVsSmaGapChartProps) {
   const colors = getChartThemeColors();
 
-  const rateLookup = useMemo(
-    () => (rates.length > 0 ? buildRateLookup(rates) : null),
-    [rates],
+  const uproResult = useMemo(
+    () => simulateWithWarmUp(
+      spxPrices,
+      rates,
+      [uproConfig],
+      startDateSp,
+      1000,
+      {
+        riskOffValuesByAsset: spxRiskOffValues,
+        riskOffOpenValuesByAsset: spxRiskOffOpenValues,
+        endDate,
+      },
+    ).etfResults.find((result) => result.id === `${uproConfig.id}-sma`) ?? null,
+    [spxPrices, rates, uproConfig, startDateSp, spxRiskOffValues, spxRiskOffOpenValues, endDate],
   );
-
-  const uproValues = useMemo(
-    () => buildSimulatedLetfValues(spxPrices, "sp500", UPRO_LEVERAGE, UPRO_ER_PCT, rateLookup),
-    [spxPrices, rateLookup],
-  );
-  const tqqqValues = useMemo(
-    () => buildSimulatedLetfValues(ndxPrices, "nasdaq100", TQQQ_LEVERAGE, TQQQ_ER_PCT, rateLookup),
-    [ndxPrices, rateLookup],
+  const tqqqResult = useMemo(
+    () => ndxPrices.length >= 2
+      ? simulateWithWarmUp(
+          ndxPrices,
+          rates,
+          [tqqqConfig],
+          startDateNq,
+          1000,
+          {
+            riskOffValuesByAsset: ndxRiskOffValues,
+            riskOffOpenValuesByAsset: ndxRiskOffOpenValues,
+            endDate,
+          },
+        ).etfResults.find((result) => result.id === `${tqqqConfig.id}-sma`) ?? null
+      : null,
+    [ndxPrices, rates, tqqqConfig, startDateNq, ndxRiskOffValues, ndxRiskOffOpenValues, endDate],
   );
 
   const uproPoints = useMemo(
     () =>
-      buildPoints(
-        { indexPrices: spxPrices, smaPeriod: smaPeriodSp, letfValues: uproValues },
+      buildForwardSmaReturnPoints({
+        indexPrices: spxPrices,
+        strategyResult: uproResult,
+        config: uproConfig,
         monthlyCpi,
-        startDate,
+        startDate: startDateSp,
         endDate,
-      ),
-    [spxPrices, smaPeriodSp, uproValues, monthlyCpi, startDate, endDate],
+      }),
+    [spxPrices, uproResult, uproConfig, monthlyCpi, startDateSp, endDate],
   );
   const tqqqPoints = useMemo(
     () =>
-      buildPoints(
-        { indexPrices: ndxPrices, smaPeriod: smaPeriodNq, letfValues: tqqqValues },
+      buildForwardSmaReturnPoints({
+        indexPrices: ndxPrices,
+        strategyResult: tqqqResult,
+        config: tqqqConfig,
         monthlyCpi,
-        startDate,
+        startDate: startDateNq,
         endDate,
-      ),
-    [ndxPrices, smaPeriodNq, tqqqValues, monthlyCpi, startDate, endDate],
+      }),
+    [ndxPrices, tqqqResult, tqqqConfig, monthlyCpi, startDateNq, endDate],
   );
 
   const uproBuckets = useMemo(() => bucketize(uproPoints), [uproPoints]);
@@ -640,7 +562,7 @@ export function ForwardReturnVsSmaGapChart({
     const tqqqTotal = tqqqStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
     const uproDataset: RaincloudDataset = {
       type: "bar",
-      label: `UPRO — SMA(${smaPeriodSp})`,
+      label: `UPRO SMA — SMA(${uproConfig.smaPeriod})`,
       data: uproStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
       percentileStats: uproStats,
       totalCount: uproTotal,
@@ -673,7 +595,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const tqqqDataset: RaincloudDataset = {
       type: "bar",
-      label: `TQQQ — SMA(${smaPeriodNq})`,
+      label: `TQQQ SMA — SMA(${tqqqConfig.smaPeriod})`,
       data: tqqqStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
       percentileStats: tqqqStats,
       totalCount: tqqqTotal,
@@ -706,7 +628,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const uproMedianLine = {
       type: "line" as const,
-      label: "UPRO median",
+      label: "UPRO SMA median",
       data: uproStats.map((s) => (s ? s.median : null)),
       borderColor: "rgba(59, 130, 246, 1)",
       backgroundColor: "rgba(59, 130, 246, 1)",
@@ -718,7 +640,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const tqqqMedianLine = {
       type: "line" as const,
-      label: "TQQQ median",
+      label: "TQQQ SMA median",
       data: tqqqStats.map((s) => (s ? s.median : null)),
       borderColor: "rgba(249, 115, 22, 1)",
       backgroundColor: "rgba(249, 115, 22, 1)",
@@ -730,7 +652,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const uproFreqLine = {
       type: "line" as const,
-      label: "UPRO n/total",
+      label: "UPRO SMA n/total",
       data: uproStats.map((s) => (s && uproTotal > 0 ? (s.count / uproTotal) * 100 : null)),
       yAxisID: "yFreq",
       borderColor: "rgba(59, 130, 246, 0.55)",
@@ -744,7 +666,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const tqqqFreqLine = {
       type: "line" as const,
-      label: "TQQQ n/total",
+      label: "TQQQ SMA n/total",
       data: tqqqStats.map((s) => (s && tqqqTotal > 0 ? (s.count / tqqqTotal) * 100 : null)),
       yAxisID: "yFreq",
       borderColor: "rgba(249, 115, 22, 0.55)",
@@ -761,7 +683,7 @@ export function ForwardReturnVsSmaGapChart({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       datasets: [uproDataset, tqqqDataset, uproMedianLine, tqqqMedianLine, uproFreqLine, tqqqFreqLine] as any,
     };
-  }, [labels, uproBuckets, uproStats, tqqqBuckets, tqqqStats, smaPeriodSp, smaPeriodNq]);
+  }, [labels, uproBuckets, uproStats, tqqqBuckets, tqqqStats, uproConfig.smaPeriod, tqqqConfig.smaPeriod]);
 
   const options = useMemo<ChartOptions<"bar">>(
     () => ({
@@ -922,7 +844,7 @@ export function ForwardReturnVsSmaGapChart({
       <div className="mb-2 flex items-start justify-between gap-3 md:items-baseline">
         <h3 className="text-sm font-medium text-foreground">1-year forward real return by SMA gap</h3>
         <span className="shrink-0 text-xs text-muted tabular-nums">
-          {totalUpro} UPRO • {totalTqqq} TQQQ
+          {totalUpro} UPRO SMA • {totalTqqq} TQQQ SMA
         </span>
       </div>
       {totalUpro === 0 && totalTqqq === 0 ? (
@@ -952,8 +874,8 @@ export function ForwardReturnVsSmaGapChart({
             </div>
           </div>
           <p className="px-1 pt-1 text-[11px] leading-relaxed text-muted">
-            Cloud = return density • dots = sampled outcomes (hover for start date) • ticks bottom→top = P10 / P25 /
-            P50 / P75 / P90 (P50 is longest)
+            SMA strategy returns include risk-off periods • cloud = return density • dots = sampled outcomes (hover for
+            start date) • ticks bottom→top = P10 / P25 / P50 / P75 / P90 (P50 is longest)
           </p>
         </div>
       )}

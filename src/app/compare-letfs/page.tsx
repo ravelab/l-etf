@@ -445,6 +445,14 @@ export function CompareLETFsPageContent({
     ndxPrices: PricePoint[];
     rates: import("@/lib/simulation/types").RatePoint[];
     monthlyCpi: Array<{ date: string; value: number }>;
+    uproConfig: EtfConfig;
+    tqqqConfig: EtfConfig;
+    spxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+    spxRiskOffOpenValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+    ndxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+    ndxRiskOffOpenValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+    effectiveStartSp: string;
+    effectiveStartNq: string;
   } | null>(null);
   const [strategyResults, setStrategyResults] = useState<StrategyResult[]>(initial.strategyResults);
   const [snapshotSummary, setSnapshotSummary] = useState<SnapshotStrategySummary | null>(initial.snapshotSummary);
@@ -533,11 +541,60 @@ export function CompareLETFsPageContent({
           },
         );
         if (cancelled) return;
+
+        const spxPrices = md.pricesByIndex["sp500"] ?? [];
+        const ndxPrices = md.pricesByIndex["nasdaq100"] ?? [];
+        const [spxRiskOff, ndxRiskOff] = await Promise.all([
+          loadRiskOffPriceSeries(riskOffAsset, spxPrices, startDate, endDate, controller.signal),
+          ndxPrices.length >= 2
+            ? loadRiskOffPriceSeries(riskOffAsset, ndxPrices, startDate, endDate, controller.signal)
+            : Promise.resolve({
+                closeValuesByAsset: {} as Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
+                openValuesByAsset: {} as Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
+              }),
+        ]);
+        if (cancelled) return;
+
+        const { sp500Variants, nasdaqVariants } = buildStrategyVariants({
+          smaSpPeriod,
+          smaNqPeriod,
+          smaSpUpperBuffer,
+          smaSpLowerBuffer,
+          smaNqUpperBuffer,
+          smaNqLowerBuffer,
+          riskOffAsset,
+          tradeAfterHours,
+        });
+        const executionMode = tradeAfterHours ? "trigger-day-close" : "next-day-open";
+        const uproConfig = sp500Variants.find(
+          ({ config }) => config.name === "UPRO" && config.smaEnabled && config.smaExecutionMode === executionMode,
+        )?.config;
+        const tqqqConfig = nasdaqVariants.find(
+          ({ config }) => config.name === "TQQQ" && config.smaEnabled && config.smaExecutionMode === executionMode,
+        )?.config;
+        if (!uproConfig || !tqqqConfig) throw new Error("Missing SMA chart strategy configuration.");
+
         setForwardChartData({
-          spxPrices: md.pricesByIndex["sp500"] ?? [],
-          ndxPrices: md.pricesByIndex["nasdaq100"] ?? [],
+          spxPrices,
+          ndxPrices,
           rates: md.rates,
           monthlyCpi: md.monthlyCpi,
+          uproConfig,
+          tqqqConfig,
+          spxRiskOffValues: spxRiskOff.closeValuesByAsset,
+          spxRiskOffOpenValues: spxRiskOff.openValuesByAsset,
+          ndxRiskOffValues: ndxRiskOff.closeValuesByAsset,
+          ndxRiskOffOpenValues: ndxRiskOff.openValuesByAsset,
+          effectiveStartSp: effectiveStartDateFromAlignedSeries({
+            requestedStartDate: startDate,
+            dates: spxPrices.map((price) => price.date),
+            closeByTicker: spxRiskOff.closeValuesByAsset,
+          }),
+          effectiveStartNq: effectiveStartDateFromAlignedSeries({
+            requestedStartDate: startDate,
+            dates: ndxPrices.map((price) => price.date),
+            closeByTicker: ndxRiskOff.closeValuesByAsset,
+          }),
         });
       } catch {
         // Silent fallback — chart shows empty-state message.
@@ -547,7 +604,18 @@ export function CompareLETFsPageContent({
       cancelled = true;
       controller.abort();
     };
-  }, [startDate, endDate, smaSpPeriod, smaNqPeriod]);
+  }, [
+    startDate,
+    endDate,
+    smaSpPeriod,
+    smaNqPeriod,
+    smaSpUpperBuffer,
+    smaSpLowerBuffer,
+    smaNqUpperBuffer,
+    smaNqLowerBuffer,
+    riskOffAsset,
+    tradeAfterHours,
+  ]);
 
   useEffect(() => {
     if (!hasInvalidCachedResults) return;
@@ -1504,9 +1572,14 @@ export function CompareLETFsPageContent({
             ndxPrices={forwardChartData.ndxPrices}
             rates={forwardChartData.rates}
             monthlyCpi={forwardChartData.monthlyCpi}
-            smaPeriodSp={smaSpPeriod}
-            smaPeriodNq={smaNqPeriod}
-            startDate={startDate}
+            uproConfig={forwardChartData.uproConfig}
+            tqqqConfig={forwardChartData.tqqqConfig}
+            spxRiskOffValues={forwardChartData.spxRiskOffValues}
+            spxRiskOffOpenValues={forwardChartData.spxRiskOffOpenValues}
+            ndxRiskOffValues={forwardChartData.ndxRiskOffValues}
+            ndxRiskOffOpenValues={forwardChartData.ndxRiskOffOpenValues}
+            startDateSp={forwardChartData.effectiveStartSp}
+            startDateNq={forwardChartData.effectiveStartNq}
             endDate={endDate}
           />
         )}
