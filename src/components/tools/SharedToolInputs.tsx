@@ -30,7 +30,7 @@ type DatePresetOption = {
 const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
   {
     value: CONSTANT_SP500_START_DATE,
-    label: "SP proxy",
+    label: "SPX proxy",
     title: "Earliest S&P proxy",
   },
   {

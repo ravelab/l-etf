@@ -27,7 +27,7 @@ import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { computeSimulatedRiskOnReturn } from "@/lib/simulation/engine";
 import {
   buildLogRaincloudDensity,
-  sampleRaincloudValues,
+  sampleRaincloudItems,
   type RaincloudDensityPoint,
 } from "@/lib/raincloud";
 
@@ -151,16 +151,22 @@ interface SeriesConfig {
   letfValues: number[];
 }
 
+interface ForwardReturnPoint {
+  date: string;
+  gap: number;
+  realReturnFactor: number;
+}
+
 function buildPoints(
   cfg: SeriesConfig,
   monthlyCpi: Array<{ date: string; value: number }>,
   startDate: string,
   endDate: string,
-): Array<{ gap: number; realReturnFactor: number }> {
+): ForwardReturnPoint[] {
   const { indexPrices, smaPeriod, letfValues } = cfg;
   if (indexPrices.length === 0 || letfValues.length === 0 || smaPeriod < 2) return [];
 
-  const out: Array<{ gap: number; realReturnFactor: number }> = [];
+  const out: ForwardReturnPoint[] = [];
   for (let i = smaPeriod - 1; i < indexPrices.length; i++) {
     const day = indexPrices[i];
     if (day.date < startDate || day.date > endDate) continue;
@@ -196,17 +202,17 @@ function buildPoints(
     const realReturn = nominalReturn / cpiRatio;
     if (!Number.isFinite(realReturn) || realReturn <= 0) continue;
 
-    out.push({ gap, realReturnFactor: realReturn });
+    out.push({ date: day.date, gap, realReturnFactor: realReturn });
   }
   return out;
 }
 
-function bucketize(points: Array<{ gap: number; realReturnFactor: number }>): Array<number[]> {
+function bucketize(points: ForwardReturnPoint[]): ForwardReturnPoint[][] {
   const binCount = Math.round((BIN_MAX_PCT - BIN_MIN_PCT) / BIN_WIDTH_PCT);
-  const buckets: Array<number[]> = Array.from({ length: binCount }, () => []);
+  const buckets: ForwardReturnPoint[][] = Array.from({ length: binCount }, () => []);
   for (const p of points) {
     if (!Number.isFinite(p.realReturnFactor) || p.realReturnFactor <= 0) continue;
-    buckets[binIndexForGap(p.gap)].push(p.realReturnFactor);
+    buckets[binIndexForGap(p.gap)].push(p);
   }
   return buckets;
 }
@@ -234,6 +240,11 @@ interface ForwardReturnVsSmaGapChartProps {
 
 // Invisible bars provide grouped x-positions and tooltip hit regions; the
 // plugins render the raincloud and percentile marks themselves.
+interface RainDotPoint {
+  date: string;
+  value: number;
+}
+
 type RaincloudDataset = {
   type: "bar";
   label: string;
@@ -248,7 +259,7 @@ type RaincloudDataset = {
   barPercentage: number;
   percentileColor: string;
   cloudProfiles: Array<RaincloudDensityPoint[]>;
-  rainValues: Array<number[]>;
+  rainPoints: Array<RainDotPoint[]>;
   cloudColor: string;
   rainColor: string;
   raincloudSide: -1 | 1;
@@ -259,11 +270,25 @@ type RaincloudDatasetFields = Pick<
   | "percentileStats"
   | "percentileColor"
   | "cloudProfiles"
-  | "rainValues"
+  | "rainPoints"
   | "cloudColor"
   | "rainColor"
   | "raincloudSide"
 >;
+
+function getRainDotGeometry(
+  bar: { x: number; width: number },
+  raincloudSide: -1 | 1,
+  datasetIndex: number,
+  pointIndex: number,
+) {
+  const halfWidth = Math.max(2, bar.width / 2);
+  const jitter = (pointIndex * 0.61803398875 + datasetIndex * 0.271828) % 1;
+  return {
+    x: bar.x - raincloudSide * halfWidth * (0.72 + jitter * 0.72),
+    radius: Math.min(1.6, Math.max(1.05, halfWidth * 0.24)),
+  };
+}
 
 const raincloudPlugin: Plugin<"bar"> = {
   id: "raincloudDistributions",
@@ -320,25 +345,27 @@ const raincloudPlugin: Plugin<"bar"> = {
     chart.data.datasets.forEach((dataset, datasetIndex) => {
       if (!chart.isDatasetVisible(datasetIndex)) return;
       const fields = dataset as unknown as Partial<RaincloudDatasetFields>;
-      if (!fields.rainValues || !fields.raincloudSide || !fields.rainColor) return;
+      if (!fields.rainPoints || !fields.raincloudSide || !fields.rainColor) return;
       const meta = chart.getDatasetMeta(datasetIndex);
 
       meta.data.forEach((element, index) => {
-        const values = fields.rainValues?.[index] ?? [];
-        if (values.length === 0) return;
+        const points = fields.rainPoints?.[index] ?? [];
+        if (points.length === 0) return;
         const bar = element as unknown as { x: number; width: number };
-        const halfWidth = Math.max(2, bar.width / 2);
-        const pointRadius = Math.min(1.6, Math.max(1.05, halfWidth * 0.24));
 
-        values.forEach((value, pointIndex) => {
-          const y = yScale.getPixelForValue(value);
+        points.forEach((point, pointIndex) => {
+          const y = yScale.getPixelForValue(point.value);
           if (y < chartArea.top || y > chartArea.bottom) return;
           // Golden-ratio spacing gives stable, non-banding jitter without
           // random movement every time Chart.js redraws on hover.
-          const jitter = (pointIndex * 0.61803398875 + datasetIndex * 0.271828) % 1;
-          const x = bar.x - fields.raincloudSide! * halfWidth * (0.72 + jitter * 0.72);
+          const { x, radius } = getRainDotGeometry(
+            bar,
+            fields.raincloudSide!,
+            datasetIndex,
+            pointIndex,
+          );
           ctx.beginPath();
-          ctx.arc(x, y, pointRadius, 0, Math.PI * 2);
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
           ctx.fillStyle = fields.rainColor!;
           ctx.fill();
         });
@@ -397,7 +424,137 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
   },
 };
 
-ChartJS.register(raincloudPlugin, percentileMarkersPlugin);
+interface RainDotHover {
+  datasetIndex: number;
+  bucketIndex: number;
+  pointIndex: number;
+  point: RainDotPoint;
+  x: number;
+  y: number;
+  color: string;
+  label: string;
+}
+
+const rainDotHoverByChart = new WeakMap<object, RainDotHover>();
+
+function findRainDotAt(chart: ChartJS<"bar">, pointerX: number, pointerY: number): RainDotHover | null {
+  const yScale = chart.scales.y;
+  if (!yScale) return null;
+
+  const hitRadius = 7;
+  let nearest: (RainDotHover & { distanceSquared: number }) | null = null;
+
+  chart.data.datasets.forEach((dataset, datasetIndex) => {
+    if (!chart.isDatasetVisible(datasetIndex)) return;
+    const fields = dataset as unknown as Partial<RaincloudDatasetFields>;
+    if (!fields.rainPoints || !fields.raincloudSide || !fields.rainColor) return;
+    const meta = chart.getDatasetMeta(datasetIndex);
+
+    meta.data.forEach((element, bucketIndex) => {
+      const points = fields.rainPoints?.[bucketIndex] ?? [];
+      const bar = element as unknown as { x: number; width: number };
+      points.forEach((point, pointIndex) => {
+        const { x } = getRainDotGeometry(bar, fields.raincloudSide!, datasetIndex, pointIndex);
+        const y = yScale.getPixelForValue(point.value);
+        const distanceSquared = (pointerX - x) ** 2 + (pointerY - y) ** 2;
+        if (distanceSquared > hitRadius ** 2 || (nearest && distanceSquared >= nearest.distanceSquared)) return;
+        nearest = {
+          datasetIndex,
+          bucketIndex,
+          pointIndex,
+          point,
+          x,
+          y,
+          color: fields.rainColor!,
+          label: String(dataset.label ?? "").split(" — ")[0],
+          distanceSquared,
+        };
+      });
+    });
+  });
+
+  const hit = nearest as (RainDotHover & { distanceSquared: number }) | null;
+  if (!hit) return null;
+  return {
+    datasetIndex: hit.datasetIndex,
+    bucketIndex: hit.bucketIndex,
+    pointIndex: hit.pointIndex,
+    point: hit.point,
+    x: hit.x,
+    y: hit.y,
+    color: hit.color,
+    label: hit.label,
+  };
+}
+
+const rainDotTooltipPlugin: Plugin<"bar"> = {
+  id: "raincloudDotTooltip",
+  afterEvent(chart, args) {
+    const eventX = args.event.x;
+    const eventY = args.event.y;
+    const next =
+      args.event.type === "mouseout" || eventX == null || eventY == null
+        ? null
+        : findRainDotAt(chart, eventX, eventY);
+    const previous = rainDotHoverByChart.get(chart);
+    if (!next && !previous) return;
+
+    if (next) {
+      rainDotHoverByChart.set(chart, next);
+      chart.canvas.dataset.rainDotTooltip = `${next.label}|${next.point.date}|${factorToPctLabel(next.point.value)}`;
+      chart.canvas.style.cursor = "help";
+      const tooltip = chart.tooltip as unknown as {
+        setActiveElements?: (
+          elements: Array<{ datasetIndex: number; index: number }>,
+          position: { x: number; y: number },
+        ) => void;
+      };
+      const activateDotTooltip = () =>
+        tooltip?.setActiveElements?.(
+          [{ datasetIndex: next.datasetIndex, index: next.bucketIndex }],
+          { x: eventX!, y: eventY! },
+        );
+      activateDotTooltip();
+      // Chart.js's built-in tooltip plugin may process the same mousemove
+      // after this plugin and restore the bucket summary. Reassert the dot
+      // target once that event cycle finishes, then redraw without animation.
+      queueMicrotask(() => {
+        if (rainDotHoverByChart.get(chart) !== next || !chart.canvas.isConnected) return;
+        activateDotTooltip();
+        chart.draw();
+      });
+    } else {
+      rainDotHoverByChart.delete(chart);
+      delete chart.canvas.dataset.rainDotTooltip;
+      chart.canvas.style.cursor = "";
+      if (previous) {
+        const tooltip = chart.tooltip as unknown as {
+          setActiveElements?: (elements: never[], position: { x: number; y: number }) => void;
+        };
+        tooltip?.setActiveElements?.([], { x: eventX ?? 0, y: eventY ?? 0 });
+      }
+    }
+    args.changed = true;
+  },
+  afterDatasetsDraw(chart) {
+    const hover = rainDotHoverByChart.get(chart);
+    if (hover) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(hover.x, hover.y, 4.5, 0, Math.PI * 2);
+      ctx.strokeStyle = hover.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+  },
+  afterDestroy(chart) {
+    rainDotHoverByChart.delete(chart);
+  },
+};
+
+ChartJS.register(raincloudPlugin, percentileMarkersPlugin, rainDotTooltipPlugin);
 
 export function ForwardReturnVsSmaGapChart({
   spxPrices,
@@ -455,8 +612,14 @@ export function ForwardReturnVsSmaGapChart({
     [binCount],
   );
 
-  const uproStats = useMemo(() => uproBuckets.map((b) => summarize(b)), [uproBuckets]);
-  const tqqqStats = useMemo(() => tqqqBuckets.map((b) => summarize(b)), [tqqqBuckets]);
+  const uproStats = useMemo(
+    () => uproBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
+    [uproBuckets],
+  );
+  const tqqqStats = useMemo(
+    () => tqqqBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
+    [tqqqBuckets],
+  );
 
   // Y-axis bounds must include the full visible P10–P90 percentile range.
   const yBounds = useMemo(() => {
@@ -490,9 +653,20 @@ export function ForwardReturnVsSmaGapChart({
       percentileColor: "rgba(59, 130, 246, 0.95)",
       cloudProfiles: uproBuckets.map((bucket, index) => {
         const stats = uproStats[index];
-        return stats ? buildLogRaincloudDensity(bucket, stats.min, stats.max) : [];
+        return stats
+          ? buildLogRaincloudDensity(
+              bucket.map((point) => point.realReturnFactor),
+              stats.min,
+              stats.max,
+            )
+          : [];
       }),
-      rainValues: uproBuckets.map((bucket) => sampleRaincloudValues(bucket)),
+      rainPoints: uproBuckets.map((bucket) =>
+        sampleRaincloudItems(bucket, (point) => point.realReturnFactor).map((point) => ({
+          date: point.date,
+          value: point.realReturnFactor,
+        })),
+      ),
       cloudColor: "rgba(59, 130, 246, 0.38)",
       rainColor: "rgba(59, 130, 246, 0.7)",
       raincloudSide: -1,
@@ -512,9 +686,20 @@ export function ForwardReturnVsSmaGapChart({
       percentileColor: "rgba(249, 115, 22, 0.95)",
       cloudProfiles: tqqqBuckets.map((bucket, index) => {
         const stats = tqqqStats[index];
-        return stats ? buildLogRaincloudDensity(bucket, stats.min, stats.max) : [];
+        return stats
+          ? buildLogRaincloudDensity(
+              bucket.map((point) => point.realReturnFactor),
+              stats.min,
+              stats.max,
+            )
+          : [];
       }),
-      rainValues: tqqqBuckets.map((bucket) => sampleRaincloudValues(bucket)),
+      rainPoints: tqqqBuckets.map((bucket) =>
+        sampleRaincloudItems(bucket, (point) => point.realReturnFactor).map((point) => ({
+          date: point.date,
+          value: point.realReturnFactor,
+        })),
+      ),
       cloudColor: "rgba(249, 115, 22, 0.38)",
       rainColor: "rgba(249, 115, 22, 0.7)",
       raincloudSide: 1,
@@ -602,17 +787,23 @@ export function ForwardReturnVsSmaGapChart({
             usePointStyle: true,
             pointStyle: "rect",
             generateLabels(chart) {
-              return ChartJS.defaults.plugins.legend.labels.generateLabels(chart).map((item) => {
-                if (item.datasetIndex == null) return item;
-                const dataset = chart.data.datasets[item.datasetIndex] as unknown as Partial<RaincloudDatasetFields>;
-                if (!dataset.cloudColor) return item;
-                return {
-                  ...item,
-                  fillStyle: dataset.cloudColor,
-                  strokeStyle: dataset.percentileColor ?? dataset.rainColor,
-                  lineWidth: 1.5,
-                };
-              });
+              return ChartJS.defaults.plugins.legend.labels
+                .generateLabels(chart)
+                .filter((item) => {
+                  if (item.datasetIndex == null) return false;
+                  const dataset = chart.data.datasets[item.datasetIndex] as unknown as Partial<RaincloudDatasetFields>;
+                  return dataset.cloudColor !== undefined;
+                })
+                .map((item) => {
+                  const dataset = chart.data.datasets[item.datasetIndex!] as unknown as Partial<RaincloudDatasetFields>;
+                  return {
+                    ...item,
+                    text: item.text.split(" — ")[0],
+                    fillStyle: dataset.cloudColor,
+                    strokeStyle: dataset.percentileColor ?? dataset.rainColor,
+                    lineWidth: 1.5,
+                  };
+                });
             },
           },
         },
@@ -625,13 +816,32 @@ export function ForwardReturnVsSmaGapChart({
           // Suppress tooltip entries for the median connector and n/total
           // lines — the raincloud entries already include those values.
           filter(item: TooltipItem<"bar">) {
+            const hover = rainDotHoverByChart.get(item.chart);
+            if (hover) {
+              return item.datasetIndex === hover.datasetIndex && item.dataIndex === hover.bucketIndex;
+            }
             const ds = item.dataset as unknown as {
               percentileStats?: Array<PercentileStats | null>;
             };
             return ds.percentileStats !== undefined;
           },
           callbacks: {
+            title(items: TooltipItem<"bar">[]) {
+              return items.some((item) => rainDotHoverByChart.has(item.chart)) ? "" : items[0]?.label ?? "";
+            },
             label(item: TooltipItem<"bar">) {
+              const hover = rainDotHoverByChart.get(item.chart);
+              if (
+                hover &&
+                item.datasetIndex === hover.datasetIndex &&
+                item.dataIndex === hover.bucketIndex
+              ) {
+                return [
+                  hover.label,
+                  `Start: ${hover.point.date.replace(/-/g, "/")}`,
+                  `1-year real return: ${factorToPctLabel(hover.point.value)}`,
+                ];
+              }
               const ds = item.dataset as unknown as {
                 percentileStats?: Array<PercentileStats | null>;
                 totalCount?: number;
@@ -742,8 +952,8 @@ export function ForwardReturnVsSmaGapChart({
             </div>
           </div>
           <p className="px-1 pt-1 text-[11px] leading-relaxed text-muted">
-            Cloud = return density • dots = sampled outcomes • ticks bottom→top = P10 / P25 / P50 / P75 / P90
-            (P50 is longest)
+            Cloud = return density • dots = sampled outcomes (hover for start date) • ticks bottom→top = P10 / P25 /
+            P50 / P75 / P90 (P50 is longest)
           </p>
         </div>
       )}

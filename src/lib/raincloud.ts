@@ -66,10 +66,17 @@ export function buildLogRaincloudDensity(
  * Caps the number of rain marks without random redraw jitter. Evenly spaced
  * order statistics preserve tails and the overall distribution shape.
  */
-export function sampleRaincloudValues(values: number[], maxPoints = 40): number[] {
-  const sorted = values
-    .filter((value) => Number.isFinite(value) && value > 0)
-    .sort((a, b) => a - b);
+export function sampleRaincloudItems<T>(
+  items: T[],
+  getValue: (item: T) => number,
+  maxPoints = 40,
+): T[] {
+  const sorted = items
+    .filter((item) => {
+      const value = getValue(item);
+      return Number.isFinite(value) && value > 0;
+    })
+    .sort((a, b) => getValue(a) - getValue(b));
   const limit = Math.max(1, Math.floor(maxPoints));
   if (sorted.length <= limit) return sorted;
   if (limit === 1) return [sorted[Math.floor((sorted.length - 1) / 2)]];
@@ -78,4 +85,8 @@ export function sampleRaincloudValues(values: number[], maxPoints = 40): number[
     const sourceIndex = Math.round((index * (sorted.length - 1)) / (limit - 1));
     return sorted[sourceIndex];
   });
+}
+
+export function sampleRaincloudValues(values: number[], maxPoints = 40): number[] {
+  return sampleRaincloudItems(values, (value) => value, maxPoints);
 }

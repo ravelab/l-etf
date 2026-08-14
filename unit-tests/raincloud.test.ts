@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildLogRaincloudDensity, sampleRaincloudValues } from "@/lib/raincloud";
+import {
+  buildLogRaincloudDensity,
+  sampleRaincloudItems,
+  sampleRaincloudValues,
+} from "@/lib/raincloud";
 
 test("buildLogRaincloudDensity returns an ordered normalized profile", () => {
   const profile = buildLogRaincloudDensity(
@@ -32,6 +36,16 @@ test("sampleRaincloudValues is deterministic, capped, and preserves tails", () =
   assert.equal(sample[0], 0.1);
   assert.equal(sample.at(-1), 10.1);
   assert.deepEqual(sample, sampleRaincloudValues([...values].reverse(), 15));
+});
+
+test("sampleRaincloudItems preserves metadata for each sampled value", () => {
+  const items = Array.from({ length: 101 }, (_, index) => ({
+    date: `day-${index + 1}`,
+    value: (index + 1) / 10,
+  }));
+  const sample = sampleRaincloudItems(items, (item) => item.value, 3);
+
+  assert.deepEqual(sample, [items[0], items[50], items[100]]);
 });
 
 test("raincloud helpers discard invalid return factors", () => {
