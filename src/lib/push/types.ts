@@ -20,6 +20,20 @@ export type PushSubscriptionRecord = {
 };
 
 export type PushSendPayload = {
+  web_push: 8030;
+  notification: {
+    title: string;
+    body: string;
+    navigate: string;
+    tag: string;
+    renotify: boolean;
+    timestamp: number;
+    data: {
+      url: string;
+    };
+  };
+  // Retain the legacy top-level fields until previously installed service
+  // workers have updated to the declarative-aware handler.
   title: string;
   body: string;
   url: string;

@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { computeAdjustedRebaseRatio } from "../src/lib/data/adjusted-rebase";
+import { mergeAdjustedPricesWithRawIndexBars } from "../src/lib/data/index-provider-merge";
 import {
   fetchYahooDailyBarsByDate,
   type YahooDailyBar,
@@ -2340,22 +2341,20 @@ async function fetchIndexSpRecentRows(startDate: string): Promise<DailyPrice[]> 
   if (vooRows.length === 0) return [];
 
   const yahooRows = await fetchYahooIndexBars("^GSPC", { startDate });
-  const yahooByDate = new Map(yahooRows.map((row) => [row.date, row]));
-
-  return vooRows.map((row) => {
-    const yahoo = yahooByDate.get(row.date);
-    if (!yahoo) {
-      throw new Error(`index-sp: missing Yahoo ^GSPC open/close for ${row.date}`);
-    }
-    return {
-      date: row.date,
-      adj_close: row.adjClose,
-      close: yahoo.close,
-      open: yahoo.open,
-      name: "VOO",
-      source: "yahoo(open+close)+tiingo(adj_close)",
-    };
+  const merged = mergeAdjustedPricesWithRawIndexBars({
+    adjustedRows: vooRows,
+    rawBars: yahooRows,
+    name: "VOO",
+    source: "yahoo(open+close)+tiingo(adj_close)",
   });
+
+  if (merged.missingRawDates.length > 0) {
+    console.warn(
+      `  ! index-sp skipped ${merged.missingRawDates.length} Tiingo row(s) without matching Yahoo ^GSPC bars: ${merged.missingRawDates.join(", ")}`
+    );
+  }
+
+  return merged.rows;
 }
 
 async function fetchIndexNqRecentRows(startDate: string): Promise<DailyPrice[]> {
@@ -2363,22 +2362,20 @@ async function fetchIndexNqRecentRows(startDate: string): Promise<DailyPrice[]> 
   if (qqqRows.length === 0) return [];
 
   const yahooRows = await fetchYahooIndexBars("^NDX", { startDate });
-  const yahooByDate = new Map(yahooRows.map((row) => [row.date, row]));
-
-  return qqqRows.map((row) => {
-    const yahoo = yahooByDate.get(row.date);
-    if (!yahoo) {
-      throw new Error(`index-nq: missing Yahoo ^NDX open/close for ${row.date}`);
-    }
-    return {
-      date: row.date,
-      adj_close: row.adjClose,
-      close: yahoo.close,
-      open: yahoo.open,
-      name: "QQQ",
-      source: "yahoo(open+close)+tiingo(adj_close)",
-    };
+  const merged = mergeAdjustedPricesWithRawIndexBars({
+    adjustedRows: qqqRows,
+    rawBars: yahooRows,
+    name: "QQQ",
+    source: "yahoo(open+close)+tiingo(adj_close)",
   });
+
+  if (merged.missingRawDates.length > 0) {
+    console.warn(
+      `  ! index-nq skipped ${merged.missingRawDates.length} Tiingo row(s) without matching Yahoo ^NDX bars: ${merged.missingRawDates.join(", ")}`
+    );
+  }
+
+  return merged.rows;
 }
 
 // ============================================================================

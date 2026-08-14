@@ -68,8 +68,10 @@ test("does not include SMA parameters in the notification body", () => {
     useCalibratedDefaults: false,
   };
 
-  const body = buildSmaPushPayload(current, null, config).body;
+  const payload = buildSmaPushPayload(current, null, config);
+  const body = payload.notification.body;
   assert.equal(body, "SPX: Buy L-ETFs (+5.26%); NDX: Sell L-ETFs (-4.76%)");
+  assert.equal(payload.body, body, "legacy service workers receive the same body");
   assert.doesNotMatch(body, /Parameters:/);
   assert.doesNotMatch(body, /185 SMA|150 SMA|3\.6%|12%/);
 });
@@ -88,8 +90,25 @@ test("does not leak disabled SMA parameters into notification", () => {
   };
 
   const payload = buildSmaPushPayload(current, null, config);
-  assert.equal(payload.body, "SPX: Buy L-ETFs (+5.26%)");
-  assert.doesNotMatch(payload.body, /Parameters:|185 SMA|3\.6%|150 SMA|12%/);
+  assert.equal(payload.notification.body, "SPX: Buy L-ETFs (+5.26%)");
+  assert.doesNotMatch(payload.notification.body, /Parameters:|185 SMA|3\.6%|150 SMA|12%/);
+});
+
+test("uses a backwards-compatible declarative Web Push envelope", () => {
+  const current: SmaSignalSnapshot = {
+    sp500: { signal: "buy", indexValue: 100, indexDate: "2026-04-21", smaValue: 95, percentDiff: 5.26, signalLabel: "Buy", signalEmoji: "🟢" },
+    nasdaq100: { signal: "sell", indexValue: 100, indexDate: "2026-04-21", smaValue: 105, percentDiff: -4.76, signalLabel: "Sell", signalEmoji: "🔴" },
+    timestamp: "2026-04-22T00:00:00.000Z",
+  };
+
+  const payload = buildSmaPushPayload(current);
+
+  assert.equal(payload.web_push, 8030);
+  assert.equal(payload.notification.title, payload.title);
+  assert.equal(payload.notification.body, payload.body);
+  assert.equal(payload.notification.navigate, "https://l-etf.com/signals");
+  assert.equal(payload.notification.data.url, "/signals");
+  assert.equal(payload.notification.timestamp, Date.parse(current.timestamp));
 });
 
 test("subscribe payload preserves alert flags", () => {

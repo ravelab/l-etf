@@ -7,14 +7,15 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  const payload = readPushPayload(event);
-  const title = payload.title || "L-ETF SMA alert";
+  const envelope = readPushPayload(event);
+  const payload = readNotificationPayload(envelope);
+  const title = payload.title || envelope.title || "L-ETF SMA alert";
   const options = {
-    body: payload.body || "SMA status changed.",
-    tag: payload.tag || "l-etf-sma-status",
+    body: payload.body || envelope.body || "SMA status changed.",
+    tag: payload.tag || envelope.tag || "l-etf-sma-status",
     renotify: true,
     data: {
-      url: payload.url || "/signals",
+      url: payload.data?.url || payload.navigate || envelope.url || "/signals",
     },
     icon: "/icon.png",
     badge: "/icon.png",
@@ -22,6 +23,13 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
+
+function readNotificationPayload(envelope) {
+  if (envelope?.notification && typeof envelope.notification === "object") {
+    return envelope.notification;
+  }
+  return envelope || {};
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();

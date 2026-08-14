@@ -14,6 +14,7 @@ import {
   type SmaSignalSnapshot,
 } from "@/lib/sma-status";
 import { applyCalibratedSmaDefaults, readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
+import { SITE_URL } from "@/lib/seo";
 import type {
   PushSendPayload,
   PushSubscriptionKeys,
@@ -456,9 +457,24 @@ export function buildSmaPushPayload(
   previous?: SmaSignalSnapshot | null,
   config: SmaSignalConfig = getDefaultSmaSignalConfig()
 ): PushSendPayload {
+  const title = "L-ETF SMA alert";
+  const body = describeSmaSignalChange(current, previous, config);
+  const navigate = new URL(DEFAULT_PUSH_URL, SITE_URL).href;
+  const timestamp = Date.parse(current.timestamp);
+
   return {
-    title: "L-ETF SMA alert",
-    body: describeSmaSignalChange(current, previous, config),
+    web_push: 8030,
+    notification: {
+      title,
+      body,
+      navigate,
+      tag: DEFAULT_PUSH_TAG,
+      renotify: true,
+      timestamp,
+      data: { url: DEFAULT_PUSH_URL },
+    },
+    title,
+    body,
     url: DEFAULT_PUSH_URL,
     tag: DEFAULT_PUSH_TAG,
     timestamp: current.timestamp,
@@ -692,7 +708,7 @@ export async function sendSmaPushNotifications(
               ? "notifyEveryClose"
               : "force";
       const payload = buildSmaPushPayload(current, previous?.snapshot ?? null, subscription.smaConfig);
-      console.log(`${subTag} sending: reason=${reason} title="${payload.title}" body="${payload.body}"`);
+      console.log(`${subTag} sending: reason=${reason} title="${payload.notification.title}" body="${payload.notification.body}"`);
       await sendPushNotification(subscription, payload);
       await setStoredSmaPushState(subscription.id, subscription.smaConfig, current);
       console.log(`${subTag} sent OK`);
