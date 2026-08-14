@@ -21,6 +21,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { getChartThemeColors } from "@/lib/chart-options";
+import { linkedLegendDatasetIndices, type LinkedLegendDataset } from "@/lib/chart-legend";
 import type { EtfConfig, PricePoint, RatePoint } from "@/lib/simulation/types";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import {
@@ -51,6 +52,11 @@ const BIN_WIDTH_PCT = 2; // x-axis bin width: 2 percentage points of gap
 // any values past ±26% fold into those edge buckets.
 const BIN_MIN_PCT = -26;
 const BIN_MAX_PCT = 26;
+
+// Each series spans three datasets (raincloud + median line + n/total line)
+// that the legend toggles as a unit.
+const UPRO_SERIES_KEY = "upro";
+const TQQQ_SERIES_KEY = "tqqq";
 
 interface PercentileStats {
   count: number;
@@ -142,6 +148,9 @@ interface RainDotPoint {
 type RaincloudDataset = {
   type: "bar";
   label: string;
+  // Shared by this series' median and n/total lines so one legend click hides
+  // all three together.
+  seriesKey: string;
   data: Array<[number, number] | null>;
   percentileStats: Array<PercentileStats | null>;
   totalCount: number;
@@ -562,6 +571,7 @@ export function ForwardReturnVsSmaGapChart({
     const tqqqTotal = tqqqStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
     const uproDataset: RaincloudDataset = {
       type: "bar",
+      seriesKey: UPRO_SERIES_KEY,
       label: `UPRO SMA — SMA(${uproConfig.smaPeriod})`,
       data: uproStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
       percentileStats: uproStats,
@@ -595,6 +605,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const tqqqDataset: RaincloudDataset = {
       type: "bar",
+      seriesKey: TQQQ_SERIES_KEY,
       label: `TQQQ SMA — SMA(${tqqqConfig.smaPeriod})`,
       data: tqqqStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
       percentileStats: tqqqStats,
@@ -628,6 +639,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const uproMedianLine = {
       type: "line" as const,
+      seriesKey: UPRO_SERIES_KEY,
       label: "UPRO SMA median",
       data: uproStats.map((s) => (s ? s.median : null)),
       borderColor: "rgba(59, 130, 246, 1)",
@@ -640,6 +652,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const tqqqMedianLine = {
       type: "line" as const,
+      seriesKey: TQQQ_SERIES_KEY,
       label: "TQQQ SMA median",
       data: tqqqStats.map((s) => (s ? s.median : null)),
       borderColor: "rgba(249, 115, 22, 1)",
@@ -652,6 +665,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const uproFreqLine = {
       type: "line" as const,
+      seriesKey: UPRO_SERIES_KEY,
       label: "UPRO SMA n/total",
       data: uproStats.map((s) => (s && uproTotal > 0 ? (s.count / uproTotal) * 100 : null)),
       yAxisID: "yFreq",
@@ -666,6 +680,7 @@ export function ForwardReturnVsSmaGapChart({
     };
     const tqqqFreqLine = {
       type: "line" as const,
+      seriesKey: TQQQ_SERIES_KEY,
       label: "TQQQ SMA n/total",
       data: tqqqStats.map((s) => (s && tqqqTotal > 0 ? (s.count / tqqqTotal) * 100 : null)),
       yAxisID: "yFreq",
@@ -702,6 +717,21 @@ export function ForwardReturnVsSmaGapChart({
       plugins: {
         legend: {
           position: "top",
+          // The legend shows one entry per series, so a click has to hide that
+          // series' median and n/total lines along with its raincloud.
+          onClick(_event, item, legend) {
+            if (item.datasetIndex == null) return;
+            const chart = legend.chart;
+            const nextVisible = !chart.isDatasetVisible(item.datasetIndex);
+            const linked = linkedLegendDatasetIndices(
+              chart.data.datasets as unknown as LinkedLegendDataset[],
+              item.datasetIndex,
+            );
+            for (const datasetIndex of linked) {
+              chart.setDatasetVisibility(datasetIndex, nextVisible);
+            }
+            chart.update();
+          },
           labels: {
             color: colors.legendText,
             font: { size: 11 },
