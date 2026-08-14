@@ -512,7 +512,7 @@ export function CompareLETFsPageContent({
       !!(state as Partial<CompareLetfsSnapshotState>).yearlyGrowthSeries,
   });
 
-  // Load the data feeding the "Next-year real return vs SMA gap" scatter
+  // Load the data feeding the "1-year forward real return by SMA gap" raincloud chart
   // independently of the user clicking Run, so the chart is always populated
   // by the time the user scrolls to the bottom.
   useEffect(() => {
