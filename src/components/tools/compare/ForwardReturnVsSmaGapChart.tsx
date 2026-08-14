@@ -721,7 +721,7 @@ export function ForwardReturnVsSmaGapChart({
             <span aria-hidden="true">→</span>
           </div>
           <div
-            className="max-w-full touch-pan-x overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:overflow-visible md:pb-0"
+            className="max-w-full overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:overflow-visible md:pb-0"
             role="region"
             aria-label="Scrollable one-year forward real return chart"
             tabIndex={0}
