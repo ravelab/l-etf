@@ -7,7 +7,10 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { computeAdjustedRebaseRatio } from "../src/lib/data/adjusted-rebase";
-import { mergeAdjustedPricesWithRawIndexBars } from "../src/lib/data/index-provider-merge";
+import {
+  mergeAdjustedPricesWithRawIndexBars,
+  mergeIncrementalIndexRows,
+} from "../src/lib/data/index-provider-merge";
 import {
   fetchYahooDailyBarsByDate,
   type YahooDailyBar,
@@ -716,42 +719,13 @@ async function generateIncrementalIndexCsv(params: {
     );
   }
 
-  let changed = false;
-  const mergedRows = parsedRows.map((row) => {
-    const fresh = freshByDate.get(row.date);
-    if (!fresh) {
-      if (rebaseRatio == null || row.adj_close == null) return row;
-      changed = true;
-      return { ...row, adj_close: row.adj_close * rebaseRatio };
-    }
-
-    changed = true;
-    return {
-      ...row,
-      adj_close: fresh.adj_close,
-      open: fresh.open ?? row.open,
-      close: fresh.close ?? row.close,
-      name: fresh.name,
-      source: fresh.source,
-    };
+  const incrementalMerge = mergeIncrementalIndexRows({
+    storedRows: parsedRows,
+    freshRows,
+    rebaseRatio,
   });
-
-  const existingDates = new Set(mergedRows.map((row) => row.date));
-  const newerRows = freshRows
-    .filter((row) => !existingDates.has(row.date))
-    .map((row) => ({
-      date: row.date,
-      adj_close: row.adj_close,
-      open: row.open,
-      close: row.close,
-      name: row.name,
-      source: row.source,
-    }));
-
-  if (newerRows.length > 0) {
-    mergedRows.push(...newerRows);
-    changed = true;
-  }
+  const mergedRows = incrementalMerge.rows;
+  let changed = incrementalMerge.changed;
 
   if (params.yahooSymbol) {
     const modernName = params.modernName ?? (params.yahooSymbol === "^GSPC" ? "VOO" : "QQQ");
@@ -787,7 +761,7 @@ async function generateIncrementalIndexCsv(params: {
   mergedRows.sort((a, b) => a.date.localeCompare(b.date));
   validateIndexRowsAllowingRecentPartialTail(mergedRows, params.filename);
   await writeCsvRows(params.filename, "date,adj_close,open,close,name,source", mergedRows.map(serializeIndexCsvRow));
-  console.log(`  ✓ ${params.filename} updated (${partialTailRows.length} partial tail rows backfilled, ${newerRows.length} full rows appended)`);
+  console.log(`  ✓ ${params.filename} updated (${partialTailRows.length} partial tail rows backfilled, ${incrementalMerge.appendedCount} full rows appended)`);
 }
 
 /**
@@ -2346,11 +2320,12 @@ async function fetchIndexSpRecentRows(startDate: string): Promise<DailyPrice[]> 
     rawBars: yahooRows,
     name: "VOO",
     source: "yahoo(open+close)+tiingo(adj_close)",
+    adjustedOnlySource: "tiingo(adj_close)",
   });
 
   if (merged.missingRawDates.length > 0) {
     console.warn(
-      `  ! index-sp skipped ${merged.missingRawDates.length} Tiingo row(s) without matching Yahoo ^GSPC bars: ${merged.missingRawDates.join(", ")}`
+      `  ! index-sp retained ${merged.missingRawDates.length} Tiingo adjusted-only row(s) without matching Yahoo ^GSPC bars: ${merged.missingRawDates.join(", ")}`
     );
   }
 
@@ -2367,11 +2342,12 @@ async function fetchIndexNqRecentRows(startDate: string): Promise<DailyPrice[]> 
     rawBars: yahooRows,
     name: "QQQ",
     source: "yahoo(open+close)+tiingo(adj_close)",
+    adjustedOnlySource: "tiingo(adj_close)",
   });
 
   if (merged.missingRawDates.length > 0) {
     console.warn(
-      `  ! index-nq skipped ${merged.missingRawDates.length} Tiingo row(s) without matching Yahoo ^NDX bars: ${merged.missingRawDates.join(", ")}`
+      `  ! index-nq retained ${merged.missingRawDates.length} Tiingo adjusted-only row(s) without matching Yahoo ^NDX bars: ${merged.missingRawDates.join(", ")}`
     );
   }
 
