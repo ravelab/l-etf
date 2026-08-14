@@ -302,14 +302,21 @@ interface PercentileLabelBox {
   bottom: number;
 }
 
+interface PercentileLabelPlacement {
+  x: number;
+  align: CanvasTextAlign;
+}
+
 interface PercentileLabelCandidate {
   text: string;
-  x: number;
   y: number;
-  align: CanvasTextAlign;
   color: string;
   halo?: string;
   priority: number;
+  // Outward placement first, then its mirror. The edge buckets need the
+  // fallback: at ≤-18% the left-growing series and at ≥24% the right-growing
+  // one would otherwise overflow the plot area and be dropped entirely.
+  placements: PercentileLabelPlacement[];
 }
 
 function boxesOverlap(a: PercentileLabelBox, b: PercentileLabelBox): boolean {
@@ -377,14 +384,17 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
           // numbers grow away from each other rather than into each other.
           const text = factorToPctLabel(marker.value);
           if (!text) return;
+          const gap = halfWidth * 1.08 + PERCENTILE_LABEL_OFFSET_PX;
           candidates.push({
             text,
-            x: bx + side * (halfWidth * 1.08 + PERCENTILE_LABEL_OFFSET_PX),
             y,
-            align: side === 1 ? "left" : "right",
             color,
             halo: haloColor,
             priority: marker.priority,
+            placements: [
+              { x: bx + side * gap, align: side === 1 ? "left" : "right" },
+              { x: bx - side * gap, align: side === 1 ? "right" : "left" },
+            ],
           });
         });
       });
@@ -397,27 +407,35 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
     const halfLine = PERCENTILE_LABEL_LINE_HEIGHT / 2;
 
     for (const candidate of [...candidates].sort((a, b) => a.priority - b.priority)) {
-      ctx.textAlign = candidate.align;
       const width = ctx.measureText(candidate.text).width;
-      const left = candidate.align === "left" ? candidate.x : candidate.x - width;
-      const box: PercentileLabelBox = {
-        left,
-        right: left + width,
-        top: candidate.y - halfLine,
-        bottom: candidate.y + halfLine,
-      };
-      // Never spill past the axes, and never cover a label already drawn.
-      if (box.left < chartArea.left || box.right > chartArea.right) continue;
-      if (box.top < chartArea.top || box.bottom > chartArea.bottom) continue;
-      if (placed.some((other) => boxesOverlap(box, other))) continue;
-      placed.push(box);
+      // Take the first placement that stays inside the plot area and clears
+      // every label already drawn; the mirror is what rescues edge buckets.
+      const fit = candidate.placements
+        .map((placement) => {
+          const left = placement.align === "left" ? placement.x : placement.x - width;
+          const box: PercentileLabelBox = {
+            left,
+            right: left + width,
+            top: candidate.y - halfLine,
+            bottom: candidate.y + halfLine,
+          };
+          return { placement, box };
+        })
+        .find(({ box }) => {
+          if (box.left < chartArea.left || box.right > chartArea.right) return false;
+          if (box.top < chartArea.top || box.bottom > chartArea.bottom) return false;
+          return !placed.some((other) => boxesOverlap(box, other));
+        });
+      if (!fit) continue;
+      placed.push(fit.box);
+      ctx.textAlign = fit.placement.align;
       if (candidate.halo) {
         ctx.lineWidth = PERCENTILE_LABEL_HALO_WIDTH;
         ctx.strokeStyle = candidate.halo;
-        ctx.strokeText(candidate.text, candidate.x, candidate.y);
+        ctx.strokeText(candidate.text, fit.placement.x, candidate.y);
       }
       ctx.fillStyle = candidate.color;
-      ctx.fillText(candidate.text, candidate.x, candidate.y);
+      ctx.fillText(candidate.text, fit.placement.x, candidate.y);
     }
 
     ctx.restore();
