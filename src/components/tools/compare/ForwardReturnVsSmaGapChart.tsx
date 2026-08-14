@@ -25,6 +25,11 @@ import type { PricePoint, RatePoint } from "@/lib/simulation/types";
 import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { computeSimulatedRiskOnReturn } from "@/lib/simulation/engine";
+import {
+  buildLogRaincloudDensity,
+  sampleRaincloudValues,
+  type RaincloudDensityPoint,
+} from "@/lib/raincloud";
 
 ChartJS.register(
   BarController,
@@ -244,6 +249,100 @@ type BoxDataset = {
   categoryPercentage: number;
   barPercentage: number;
   whiskerColor: string;
+  cloudProfiles: Array<RaincloudDensityPoint[]>;
+  rainValues: Array<number[]>;
+  cloudColor: string;
+  rainColor: string;
+  raincloudSide: -1 | 1;
+};
+
+type RaincloudDatasetFields = Pick<
+  BoxDataset,
+  "cloudProfiles" | "rainValues" | "cloudColor" | "rainColor" | "raincloudSide"
+>;
+
+const raincloudPlugin: Plugin<"bar"> = {
+  id: "raincloudDistributions",
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    const yScale = scales.y;
+    if (!yScale) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+    ctx.clip();
+
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      if (!chart.isDatasetVisible(datasetIndex)) return;
+      const fields = dataset as unknown as Partial<RaincloudDatasetFields>;
+      if (!fields.cloudProfiles || !fields.raincloudSide || !fields.cloudColor) return;
+      const meta = chart.getDatasetMeta(datasetIndex);
+
+      meta.data.forEach((element, index) => {
+        const profile = fields.cloudProfiles?.[index];
+        if (!profile || profile.length < 2) return;
+        const bar = element as unknown as { x: number; width: number };
+        const halfWidth = Math.max(2, bar.width / 2);
+        const baselineX = bar.x + fields.raincloudSide! * halfWidth * 0.85;
+        const cloudWidth = Math.max(3, halfWidth * 1.3);
+
+        ctx.beginPath();
+        profile.forEach((point, pointIndex) => {
+          const x = baselineX + fields.raincloudSide! * cloudWidth * point.density;
+          const y = yScale.getPixelForValue(point.value);
+          if (pointIndex === 0) ctx.moveTo(baselineX, y);
+          ctx.lineTo(x, y);
+        });
+        ctx.lineTo(baselineX, yScale.getPixelForValue(profile.at(-1)!.value));
+        ctx.closePath();
+        ctx.fillStyle = fields.cloudColor!;
+        ctx.fill();
+      });
+    });
+
+    ctx.restore();
+  },
+  afterDatasetsDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    const yScale = scales.y;
+    if (!yScale) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+    ctx.clip();
+
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      if (!chart.isDatasetVisible(datasetIndex)) return;
+      const fields = dataset as unknown as Partial<RaincloudDatasetFields>;
+      if (!fields.rainValues || !fields.raincloudSide || !fields.rainColor) return;
+      const meta = chart.getDatasetMeta(datasetIndex);
+
+      meta.data.forEach((element, index) => {
+        const values = fields.rainValues?.[index] ?? [];
+        if (values.length === 0) return;
+        const bar = element as unknown as { x: number; width: number };
+        const halfWidth = Math.max(2, bar.width / 2);
+        const pointRadius = Math.min(1.6, Math.max(1.05, halfWidth * 0.24));
+
+        values.forEach((value, pointIndex) => {
+          const y = yScale.getPixelForValue(value);
+          if (y < chartArea.top || y > chartArea.bottom) return;
+          // Golden-ratio spacing gives stable, non-banding jitter without
+          // random movement every time Chart.js redraws on hover.
+          const jitter = (pointIndex * 0.61803398875 + datasetIndex * 0.271828) % 1;
+          const x = bar.x - fields.raincloudSide! * halfWidth * (0.72 + jitter * 0.72);
+          ctx.beginPath();
+          ctx.arc(x, y, pointRadius, 0, Math.PI * 2);
+          ctx.fillStyle = fields.rainColor!;
+          ctx.fill();
+        });
+      });
+    });
+
+    ctx.restore();
+  },
 };
 
 const whiskerPlugin: Plugin<"bar"> = {
@@ -304,7 +403,7 @@ const whiskerPlugin: Plugin<"bar"> = {
   },
 };
 
-ChartJS.register(whiskerPlugin);
+ChartJS.register(raincloudPlugin, whiskerPlugin);
 
 export function ForwardReturnVsSmaGapChart({
   spxPrices,
@@ -397,6 +496,14 @@ export function ForwardReturnVsSmaGapChart({
       categoryPercentage: 0.85,
       barPercentage: 0.9,
       whiskerColor: "rgba(59, 130, 246, 0.95)",
+      cloudProfiles: uproBuckets.map((bucket, index) => {
+        const stats = uproStats[index];
+        return stats ? buildLogRaincloudDensity(bucket, stats.min, stats.max) : [];
+      }),
+      rainValues: uproBuckets.map((bucket) => sampleRaincloudValues(bucket)),
+      cloudColor: "rgba(59, 130, 246, 0.18)",
+      rainColor: "rgba(59, 130, 246, 0.42)",
+      raincloudSide: -1,
     };
     const tqqqDataset: BoxDataset = {
       type: "bar",
@@ -411,6 +518,14 @@ export function ForwardReturnVsSmaGapChart({
       categoryPercentage: 0.85,
       barPercentage: 0.9,
       whiskerColor: "rgba(249, 115, 22, 0.95)",
+      cloudProfiles: tqqqBuckets.map((bucket, index) => {
+        const stats = tqqqStats[index];
+        return stats ? buildLogRaincloudDensity(bucket, stats.min, stats.max) : [];
+      }),
+      rainValues: tqqqBuckets.map((bucket) => sampleRaincloudValues(bucket)),
+      cloudColor: "rgba(249, 115, 22, 0.18)",
+      rainColor: "rgba(249, 115, 22, 0.42)",
+      raincloudSide: 1,
     };
     const uproMedianLine = {
       type: "line" as const,
@@ -469,7 +584,7 @@ export function ForwardReturnVsSmaGapChart({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       datasets: [uproDataset, tqqqDataset, uproMedianLine, tqqqMedianLine, uproFreqLine, tqqqFreqLine] as any,
     };
-  }, [labels, uproStats, tqqqStats, smaPeriodSp, smaPeriodNq]);
+  }, [labels, uproBuckets, uproStats, tqqqBuckets, tqqqStats, smaPeriodSp, smaPeriodNq]);
 
   const options = useMemo<ChartOptions<"bar">>(
     () => ({
@@ -588,9 +703,9 @@ export function ForwardReturnVsSmaGapChart({
 
   return (
     <Card className="!p-1 md:!p-5">
-      <div className="mb-2 flex items-baseline justify-between">
+      <div className="mb-2 flex items-start justify-between gap-3 md:items-baseline">
         <h3 className="text-sm font-medium text-foreground">1-year forward real return by SMA gap</h3>
-        <span className="text-xs text-muted">
+        <span className="shrink-0 text-xs text-muted tabular-nums">
           {totalUpro} UPRO • {totalTqqq} TQQQ
         </span>
       </div>
@@ -600,13 +715,29 @@ export function ForwardReturnVsSmaGapChart({
           date in the selected range.
         </div>
       ) : (
-        <div className="h-[460px]">
-          {/* ZoomableChart is typed for line charts; this mixed chart declares
-              its bar datasets explicitly, so the cast is safe at runtime. */}
-          <ZoomableChart
-            data={data as unknown as ChartData<"line">}
-            options={options as unknown as ChartOptions<"line">}
-          />
+        <div>
+          <div className="mb-1 flex items-center justify-between px-1 text-[11px] text-muted md:hidden">
+            <span>Swipe to explore</span>
+            <span aria-hidden="true">→</span>
+          </div>
+          <div
+            className="max-w-full touch-pan-x overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:overflow-visible md:pb-0"
+            role="region"
+            aria-label="Scrollable one-year forward real return chart"
+            tabIndex={0}
+          >
+            <div className="h-[460px] w-[200vw] md:w-full">
+              {/* ZoomableChart is typed for line charts; this mixed chart declares
+                  its bar datasets explicitly, so the cast is safe at runtime. */}
+              <ZoomableChart
+                data={data as unknown as ChartData<"line">}
+                options={options as unknown as ChartOptions<"line">}
+              />
+            </div>
+          </div>
+          <p className="px-1 pt-1 text-[11px] leading-relaxed text-muted">
+            Cloud = return density • dots = sampled outcomes • box = middle 50% • whiskers = P10–P90
+          </p>
         </div>
       )}
     </Card>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { isValidElement, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -537,12 +538,12 @@ NAV(t) = NAV(t-1) × (1 + R_LETF(t))      (floored at 0)`}
           latest calibration, the simulated cumulative returns for UPRO, TQQQ, SSO, and QLD match
           their real counterparts to within roughly a few basis points of final return over
           15-20 years. You can verify this yourself on the{" "}
-          <a
+          <Link
             href="/tools?tab=backtest&letf=UPRO%2BTQQQ&sd=2006-06-21&ed=2026-05-22&sma=0&e0_n=QLD&e1_n=SSO&e2_n=UPRO-real&e3_n=TQQQ-real&e4_n=QLD-real&e5_n=SSO-real"
             className="text-accent underline hover:opacity-80"
           >
             backtest with simulated and real ETFs side-by-side
-          </a>{" "}
+          </Link>{" "}
           — the simulated and <code>-real</code> lines should overlap.
         </p>
 
