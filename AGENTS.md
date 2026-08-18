@@ -48,6 +48,15 @@ SMA signals, fill prices, and notional — never the P&L path. This matters beca
 two disagree by up to 3% on ~50 days, which a price-driven P&L would compound at
 full leverage.
 
+The NDX segment starts 1985-10-01 because that is where continuous archival NDX
+data begins, not because of a gap we can fill. Stooq's `^ndx` export looks like it
+reaches back further (its file starts in 1938, 33 years before the Nasdaq
+Composite itself), but over 1985-01..09 it matches our existing Composite-derived
+rows to 0.0045% across all 188 trading days and contributes zero dates we lack —
+it is the same proxy, differently scaled (the two constructions drift apart going
+back: 0.59% by 1984, 13.4% by the 1970s). Do not move the NDX start date earlier
+on the strength of a vendor backfill; it would relabel Composite data as NDX.
+
 `NDQ-TR` in `data/index-nq.csv` is not a misspelling of NDX: it tags the
 1971-02-05..1985-09-30 rows, which are the Nasdaq *Composite* scaled to meet NDX
 at the seam (the Nasdaq-100 did not exist yet) and carry their own dividend-yield
