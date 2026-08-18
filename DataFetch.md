@@ -63,9 +63,13 @@ partial-data window and is backfilled on a later run.
 
 These are the most layered outputs.
 
+`index-ffhi30.csv` also lives in `data/` but is **not** produced by
+`fetch-data`; see "Out-of-band index files" below. It *is* an input to
+`index-sp.csv`, so regenerate it before a full S&P rebuild.
+
 #### `index-sp.csv`
 
-Builds the S&P 500 benchmark series.
+Builds the S&P 500 benchmark series, in three eras.
 
 Sources:
 
@@ -73,13 +77,45 @@ Sources:
 - Stooq `^spx` API open/close before Yahoo `^GSPC` starts
 - GitHub total-return seed data
 - Tiingo `VOO`
+- `data/index-ffhi30.csv` for the 1926-07-01..1988-04-05 segment
 - existing `data/index-sp.csv` fallback if a live rebuild cannot complete
+
+Eras:
+
+| Range | Series |
+| --- | --- |
+| `1885-03-20`..`1926-06-30` | Cowles-era S&P Composite reconstruction, rescaled onto the Fama-French level |
+| `1926-07-01`..`1988-04-05` | Fama-French value-weighted large-cap (`Hi 30`) total return |
+| `1988-04-06`..present | actual S&P 500 / `VOO` |
+
+**Why the middle era is not the S&P.** Before `1988-04-06` the S&P 500 was
+assembled under fixed industry-sector quotas (425 industrials / 25 rails /
+25 utilities / 50 financials), and before `1957-03` it was not a 500-stock index
+at all — it is backfilled from the 90-stock Composite, which compounds ~0.65%/yr
+*faster than the entire CRSP universe* over 1926-57, a data-quality signal rather
+than a real return. The Fama-French `Hi 30` cut is a purely rules-based
+cap-weighted alternative and a close structural match to the S&P 500: ~403 firms
+holding 80.7% of US market cap over 1957-88, against the S&P's 500 names and
+~80% of cap. Over 1957-88 its volatility matches the S&P's to within 0.13pp.
 
 What it contains:
 
-- `close`: actual SPX index level used for SMA signals
-- `open`: actual SPX index open used for open-execution logic
+- `close`: SPX index level used for SMA signals. In the Fama-French era this is
+  the spliced total return with the S&P's own cumulative dividend contribution
+  stripped back out, so signals still run on a price index. Before `1926-07-01`
+  it is the Cowles-era level rescaled by one constant.
+- `open`: SPX index open used for open-execution logic. In the spliced eras each
+  row's open is scaled by the same factor as its `close`, preserving the day's
+  open-to-close gap.
 - `adj_close`: stitched total-return series used for simulation
+
+Splice mechanics live in `src/lib/data/ff-large-cap-splice.ts` (pure, unit-tested
+in `unit-tests/ff-large-cap-splice.test.ts`). Only Fama-French *returns* are
+used; levels are re-anchored to the untouched `1988-04-06` S&P row, so the modern
+series stays the source of truth and both seams are exactly continuous. The
+splice holds `close / adj_close` invariant, which makes it idempotent — running
+it twice is a no-op, and `index-ffhi30.csv` can be regenerated afterward without
+drift.
 
 #### `index-nq.csv`
 
@@ -111,6 +147,72 @@ Boundaries:
   expense-ratio drag.
 - QQQ inception onward: raw open/close comes from Yahoo `^NDX`; `adj_close`
   comes from Tiingo `QQQ`.
+
+### Out-of-band index files
+
+#### `index-ffhi30.csv`
+
+A rules-based large-cap S&P 500 analogue back to `1926-07-01`. This is the
+series `index-sp.csv` uses for `1926-07-01`..`1988-04-05` (see above), and it is
+also readable on its own for comparing the proxy against the real S&P 500.
+
+This file is **not** touched by `npm run fetch-data`, but `fetch-data` *reads*
+it when rebuilding `index-sp.csv`. Regenerate it with:
+
+```bash
+python3 scripts/build-ff-index.py                 # Hi 30 (default)
+python3 scripts/build-ff-index.py --cut "Hi 20"   # -> data/index-ffhi20.csv
+```
+
+(needs pandas + numpy)
+
+Source: Ken French's Data Library, "Portfolios Formed on ME" (daily), the
+value-weighted `Hi 30` column — every CRSP firm above the NYSE 70th-percentile
+market-equity breakpoint, cap-weighted, dividends included. Free and purely
+rules-based. Ken French republishes roughly monthly, so the series ends a few
+weeks behind today.
+
+`Hi 30` is used rather than `Hi 20` because it is the closer structural match to
+a 500-stock index. Measured against the S&P's 500 names and ~80% of US market
+cap:
+
+| Cut | 1957-88 | 1989-2026 | CAGR vs S&P, pre-1988 |
+| --- | --- | --- | --- |
+| `Hi 30` | 403 firms, 80.7% of cap | 533 firms, 84.0% | −0.30%/yr |
+| `Hi 20` | 263 firms, 72.5% of cap | 344 firms, 76.9% | −0.45%/yr |
+
+They are statistically tied on daily tracking (correlation 0.9893 vs 0.9891,
+tracking error 2.97% vs 2.98%), so `Hi 30` wins on structure and level at no
+cost to path fidelity.
+
+What it contains:
+
+- `adj_close`: the `Hi 30` total-return series, rebased so its level equals
+  `index-sp.csv`'s `adj_close` on `1988-04-06` — the first row the splice leaves
+  untouched, which keeps this file independent of the splice it feeds.
+- `close`: price-only column, derived by stripping the S&P 500's own cumulative
+  dividend contribution (`adj_close * sp_close / sp_adj_close`) so SMA signals
+  run on a price index rather than a total-return one. Derived, not upstream.
+- `open`: intentionally blank — Ken French publishes daily returns only, no
+  opens. `src/lib/data/storage/local.ts` reads a blank `open` as "open == close".
+
+Sharp edges:
+
+- The NYSE traded Saturdays until `1952-05-31`. The builder compounds those
+  1,158 Saturday sessions into the following trading day, which preserves
+  cumulative return exactly and makes the calendar match `index-sp.csv` date for
+  date over the full span (0 mismatches either way). Do not "fix" this by
+  dropping Saturdays — that would silently discard about 4.4x of cumulative
+  growth over 1926-1952.
+- Fama-French daily returns are rounded to 1bp, so month-level compounding
+  differs from the monthly FF file by ~1.4bp on average. Cumulative growth still
+  round-trips exactly.
+- The series ends at Ken French's last published date, currently `2026-06-30`.
+  That is fine for `index-sp.csv`, which only consumes rows through
+  `1988-04-05`, but means this file alone is not current for modern comparisons.
+- The `Hi 30`/`Hi 20`/`Hi 10` cuts cannot be extended before `1926-07-01`: CRSP
+  itself starts end-1925, and no free stock-level database with market caps
+  exists earlier. `index-sp.csv`'s `1885`-`1926` rows remain Cowles-era data.
 
 ### Leveraged ETFs
 
@@ -241,6 +343,7 @@ date,value,name,source
 ## Practical Summary
 
 - `index-sp.csv` and `index-nq.csv` are benchmark files with real closes plus stitched total-return history.
+- `index-ffhi30.csv` is a Fama-French large-cap S&P 500 analogue built out of band by `scripts/build-ff-index.py`, not by `fetch-data` — but `fetch-data` reads it to build `index-sp.csv`'s 1926-1988 era, so regenerate it before a full S&P rebuild.
 - `etf-*.csv` files are direct Tiingo price histories.
 - `risk-*.csv` files mix real ETF rows with synthetic proxies for pre-inception dates.
 - `inflation.csv` and `rate-borrow.csv` are value series, not price series.

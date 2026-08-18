@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { computeAdjustedRebaseRatio } from "../src/lib/data/adjusted-rebase";
+import { spliceFfLargeCapHistory } from "../src/lib/data/ff-large-cap-splice";
 import {
   mergeAdjustedPricesWithRawIndexBars,
   mergeIncrementalIndexRows,
@@ -1577,6 +1578,42 @@ async function fetchSsoHistory(): Promise<DailyPrice[]> {
   }));
 }
 
+// index-sp.csv uses the Fama-French value-weighted large-cap total return for
+// 1926-07-01..1988-04-05 instead of the S&P Composite. Before 1988-04-06 the
+// S&P 500 ran under fixed industry-sector quotas, and before 1957-03 it was the
+// backfilled 90-stock Composite. See DataFetch.md and scripts/build-ff-index.py.
+const FF_LARGE_CAP_FILE = "index-ffhi30.csv";
+const FF_SPLICE_START = "1926-07-01";
+const FF_SPLICE_END_EXCLUSIVE = "1988-04-06";
+const FF_SPLICE_NAME = "FF-HI30-TR";
+// Both tags carry "scaled" so serializeIndexCsvRow rounds their derived `close`
+// to 6 significant figures instead of emitting raw float noise.
+const FF_SPLICE_SOURCE = "famafrench-vw(adj_close)+sp500-divyield-scaled(close)";
+const FF_RESCALED_SOURCE = "stooq-scaled(open+close)+github+er(adj_close)";
+
+async function readFfLargeCapRows(): Promise<Array<{ date: string; adj_close: number }>> {
+  const existing = await readExistingCsv(FF_LARGE_CAP_FILE);
+  if (!existing) {
+    throw new Error(
+      `index-sp: ${FF_LARGE_CAP_FILE} is missing - regenerate it with "python3 scripts/build-ff-index.py"`
+    );
+  }
+  const columns = existing.header.split(",");
+  const dateIdx = columns.indexOf("date");
+  const adjIdx = columns.indexOf("adj_close");
+  if (dateIdx < 0 || adjIdx < 0) {
+    throw new Error(`index-sp: ${FF_LARGE_CAP_FILE} lacks date/adj_close columns`);
+  }
+
+  const rows = existing.rows
+    .map((cols) => ({ date: cols[dateIdx], adj_close: Number(cols[adjIdx]) }))
+    .filter((row) => row.date && Number.isFinite(row.adj_close) && row.adj_close > 0);
+  if (rows.length === 0) {
+    throw new Error(`index-sp: ${FF_LARGE_CAP_FILE} has no usable rows`);
+  }
+  return rows;
+}
+
 async function fetchIndexSpHistory(): Promise<DailyPrice[]> {
   const vooRows = await fetchTiingoRows("VOO");
 
@@ -1634,7 +1671,21 @@ async function fetchIndexSpHistory(): Promise<DailyPrice[]> {
   });
 
   appendProvisionalYahooRows(result, yahooRows, "VOO");
-  return result;
+
+  const spliced = spliceFfLargeCapHistory({
+    rows: result,
+    ffRows: await readFfLargeCapRows(),
+    spliceStart: FF_SPLICE_START,
+    spliceEndExclusive: FF_SPLICE_END_EXCLUSIVE,
+    name: FF_SPLICE_NAME,
+    source: FF_SPLICE_SOURCE,
+    rescaledSource: FF_RESCALED_SOURCE,
+  });
+  console.log(
+    `  ✓ index-sp: spliced ${spliced.replacedCount} Fama-French large-cap rows ` +
+      `(${FF_SPLICE_START}..${FF_SPLICE_END_EXCLUSIVE}), rescaled ${spliced.rescaledCount} earlier rows`
+  );
+  return spliced.rows;
 }
 
 async function fetchIndexNqHistory(): Promise<DailyPrice[]> {

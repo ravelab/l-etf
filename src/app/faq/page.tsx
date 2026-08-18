@@ -422,8 +422,13 @@ const FAQ_DATA: FAQItem[] = [
             <strong className="text-foreground">March 20, 1885 — earliest S&amp;P proxy row.</strong>{" "}This
             is where L-ETF&apos;s stitched long-history U.S. equity series begins. The S&amp;P 500 itself
             did not launch until March 4, 1957, so the older portion is a historical reconstruction,
-            not live S&amp;P 500 performance. It is useful for very long stress tests, but conclusions
-            should be treated more cautiously than results from the modern-index period.
+            not live S&amp;P 500 performance. From July 1, 1926 to April 5, 1988 that reconstruction
+            is a rules-based cap-weighted large-cap index rather than the S&amp;P itself — see{" "}
+            <strong className="text-foreground">
+              &ldquo;What is the benchmark before 1988?&rdquo;
+            </strong>{" "}
+            below. It is useful for very long stress tests, but conclusions should be treated more
+            cautiously than results from the modern-index period.
           </li>
         </ul>
         <p className="mt-3">
@@ -471,6 +476,64 @@ const FAQ_DATA: FAQItem[] = [
             Nasdaq Composite history
           </a>
           .
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "pre-1988-benchmark",
+    question: "What is the benchmark before 1988?",
+    answer: (
+      <>
+        <p className="mb-3">
+          For <strong className="text-foreground">July 1, 1926 through April 5, 1988</strong>, L-ETF
+          does not use the S&amp;P 500. It uses a rules-based, cap-weighted large-cap index built
+          from Ken French&apos;s public data library — every U.S. stock above the NYSE 70th-percentile
+          size breakpoint, weighted by market value, dividends included. From April 6, 1988 onward the
+          benchmark is the actual S&amp;P 500.
+        </p>
+        <p className="mb-3">
+          The reason is that the older S&amp;P 500 is a weaker yardstick than it looks:
+        </p>
+        <ul className="ml-4 list-disc space-y-3">
+          <li>
+            <strong className="text-foreground">Before April 6, 1988</strong> the index ran under
+            fixed industry quotas — 425 industrials, 25 railroads, 25 utilities, 50 financials. Which
+            companies got in depended on filling those slots, not purely on size.
+          </li>
+          <li>
+            <strong className="text-foreground">Before March 1957</strong> there was no 500-stock
+            index at all. That era is backfilled from a 90-stock composite, and it compounds about
+            0.65% per year <em>faster than the entire U.S. stock market</em> over 1926–1957. A
+            large-cap index cannot really outrun the whole market it is drawn from, so that gap is a
+            sign of reconstruction bias rather than real return.
+          </li>
+        </ul>
+        <p className="mt-3">
+          The replacement is a close structural match: about 403 companies holding 80.7% of U.S.
+          market value over 1957–1988, against the S&amp;P&apos;s 500 names and roughly 80% of value.
+          Day-to-day the two move almost identically (daily correlation 0.989), and over 1957–1988
+          their volatility differs by only 0.13 percentage points — which matters most here, because
+          leveraged decay is driven by volatility. The main difference is level: the rules-based index
+          compounds about 0.30% per year slower than the old S&amp;P series.
+        </p>
+        <p className="mt-3">
+          Rows before July 1, 1926 are still the older Cowles-era reconstruction, rescaled to join the
+          series smoothly. That data cannot be rebuilt this way — the underlying stock-level records
+          simply do not exist before 1926 — so treat the pre-1926 stretch as the least reliable part
+          of the history.
+        </p>
+        <p className="mt-3 text-sm text-muted">
+          Source:{" "}
+          <a
+            href="https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline hover:opacity-80"
+          >
+            Kenneth R. French Data Library
+          </a>{" "}
+          — &ldquo;Portfolios Formed on ME&rdquo;, daily value-weighted returns.
         </p>
       </>
     ),
