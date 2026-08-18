@@ -238,11 +238,10 @@ test("applyCalibratedSmaDefaults overwrites only the period/buffer fields", () =
   };
   const calibration: SmaCalibrationResult = {
     generatedAt: "2026-07-06T00:00:00.000Z",
-    startDate: "2020-01-01",
     endDate: "2026-07-06",
     windowLength: 252,
-    sp500: { smaPeriod: 185, smaUpperBuffer: 3.6, smaLowerBuffer: 3.6, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
-    nasdaq100: { smaPeriod: 90, smaUpperBuffer: 8, smaLowerBuffer: 8, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
+    sp500: { startDate: "1988-04-06", smaPeriod: 185, smaUpperBuffer: 3.6, smaLowerBuffer: 3.6, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
+    nasdaq100: { startDate: "1985-10-01", smaPeriod: 90, smaUpperBuffer: 8, smaLowerBuffer: 8, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
   };
 
   const next = applyCalibratedSmaDefaults(config, calibration);

@@ -1,9 +1,9 @@
 {
   "generatedAt": "2026-08-03T20:15:35.447Z",
-  "startDate": "1985-10-01",
   "endDate": "2026-07-31",
   "windowLength": 10,
   "sp500": {
+    "startDate": "1988-04-06",
     "smaPeriod": 186,
     "smaUpperBuffer": 3,
     "smaLowerBuffer": 3.3,
@@ -14,6 +14,7 @@
     "avgTrades": 8.87363834422658
   },
   "nasdaq100": {
+    "startDate": "1985-10-01",
     "smaPeriod": 150,
     "smaUpperBuffer": 20.4,
     "smaLowerBuffer": 17.6,

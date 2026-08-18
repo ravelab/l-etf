@@ -239,6 +239,7 @@ async function calibrateIndex(
   console.log(`  [${indexKey}] best buffer at ${period}d = -${bestBufferRow.lowerBuffer}%/${bestBufferRow.upperBuffer}% (score ${score.toFixed(2)})`);
 
   return {
+    startDate,
     smaPeriod: period,
     smaUpperBuffer: bestBufferRow.upperBuffer,
     smaLowerBuffer: bestBufferRow.lowerBuffer,
@@ -267,9 +268,9 @@ async function main() {
   const nasdaq100 = await calibrateIndex("nasdaq100", nasdaq100StartDate, endDate, windowLength);
   console.log(`[calibrate-sma] NDX result: period=${nasdaq100.smaPeriod} buffer=-${nasdaq100.smaLowerBuffer}%/${nasdaq100.smaUpperBuffer}% score=${nasdaq100.score.toFixed(2)}`);
 
+  // Each index records its own startDate; there is no single global one.
   const payload: SmaCalibrationResult = {
     generatedAt: new Date().toISOString(),
-    startDate: nasdaq100StartDate,
     endDate,
     windowLength,
     sp500,

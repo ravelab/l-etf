@@ -10,6 +10,13 @@ import { z } from "zod";
 import type { SmaSignalConfig } from "@/lib/sma-status";
 
 export interface SmaCalibrationIndexResult {
+  /**
+   * First date this index was calibrated over. Per-index because SPX and NDX
+   * use different shortcut starts (see CONSTANT_SP500_SHORTCUT_DATE /
+   * CONSTANT_NASDAQ100_SHORTCUT_DATE) — a single top-level field recorded one
+   * index's start as if it applied to both.
+   */
+  startDate: string;
   smaPeriod: number;
   smaUpperBuffer: number;
   smaLowerBuffer: number;
@@ -22,7 +29,6 @@ export interface SmaCalibrationIndexResult {
 
 export interface SmaCalibrationResult {
   generatedAt: string;
-  startDate: string;
   endDate: string;
   windowLength: number;
   sp500: SmaCalibrationIndexResult;
@@ -30,6 +36,7 @@ export interface SmaCalibrationResult {
 }
 
 const smaCalibrationIndexResultSchema = z.object({
+  startDate: z.string(),
   smaPeriod: z.number(),
   smaUpperBuffer: z.number(),
   smaLowerBuffer: z.number(),
@@ -42,7 +49,6 @@ const smaCalibrationIndexResultSchema = z.object({
 
 const smaCalibrationResultSchema = z.object({
   generatedAt: z.string(),
-  startDate: z.string(),
   endDate: z.string(),
   windowLength: z.number(),
   sp500: smaCalibrationIndexResultSchema,
