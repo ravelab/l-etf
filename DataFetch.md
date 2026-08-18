@@ -150,6 +150,37 @@ Boundaries:
 
 ### Out-of-band index files
 
+#### `index-ndx-1985.csv`
+
+Real Nasdaq-100 daily closes for `1985-01-31`..`1985-12-31` — the index's launch
+through year end. It exists to cover the 168 sessions between the launch and
+`1985-10-01`, the first date Yahoo's `^NDX` carries; without it those sessions
+are backfilled from the Nasdaq *Composite*, a different basket that diverges from
+the real index by 0.28%/day at the median and 12.96% over the window.
+
+This file is **not** touched by `npm run fetch-data`. Regenerate it with:
+
+```bash
+npx tsx scripts/build-ndx-1985.ts
+```
+
+Source: the index owner's own Global Index Watch history endpoint — the one
+`indexes.nasdaqomx.com/Index/History/NDX` drives. Unauthenticated and free. The
+series starts exactly at the `1985-01-31` launch on its base of 125, and
+`unit-tests/ndx-1985-history.test.ts` asserts that plus session coverage and
+agreement with Yahoo `^NDX` over the overlap.
+
+Closes only: the endpoint's start-of-day series is just the prior close, so no
+genuine opening print exists for this era. That matches Yahoo's own early `^NDX`
+rows, whose opens are overwhelmingly the previous close.
+
+Treat third-party "NDX" history for this era with suspicion. Stooq's `^ndx`
+export appears to reach back to 1938 — decades before the Nasdaq Composite
+itself existed — and over 1985-01..09 it reproduces the Composite proxy to
+0.0045% across all 188 sessions. It is back-propagation, not archive. Any
+candidate source should have to match real `^NDX` returns over the Oct-Dec 1985
+overlap *and* differ materially from the Composite before it.
+
 #### `index-ffhi30.csv`
 
 A rules-based large-cap S&P 500 analogue back to `1926-07-01`. This is the
