@@ -1582,6 +1582,51 @@ async function fetchSsoHistory(): Promise<DailyPrice[]> {
 // 1926-07-01..1988-04-05 instead of the S&P Composite. Before 1988-04-06 the
 // S&P 500 ran under fixed industry-sector quotas, and before 1957-03 it was the
 // backfilled 90-stock Composite. See DataFetch.md and scripts/build-ff-index.py.
+// Yahoo's `^NDX` only reaches back to 1985-10-01, leaving the 168 sessions from
+// the Nasdaq-100's 1985-01-31 launch to be backfilled from the Composite — a
+// different basket, off by 0.28%/day at the median across that window. The index
+// owner publishes the real closes for free; see scripts/build-ndx-1985.ts and
+// DataFetch.md.
+const NDX_1985_FILE = "index-ndx-1985.csv";
+
+/**
+ * Real NDX closes ahead of Yahoo's coverage, as bars.
+ *
+ * The source is close-only: its start-of-day series is just the prior close, so
+ * no genuine opening print exists for this era. Carrying the prior close forward
+ * as the open matches both that and Yahoo's own early `^NDX` rows, whose opens
+ * are overwhelmingly the previous close.
+ */
+async function readNdx1985Bars(): Promise<Array<{ date: string; open: number; close: number; source: "yahoo" }>> {
+  const existing = await readExistingCsv(NDX_1985_FILE);
+  if (!existing) {
+    throw new Error(
+      `index-nq: ${NDX_1985_FILE} is missing - regenerate it with "npx tsx scripts/build-ndx-1985.ts"`
+    );
+  }
+  const columns = existing.header.split(",");
+  const dateIdx = columns.indexOf("date");
+  const closeIdx = columns.indexOf("close");
+  if (dateIdx < 0 || closeIdx < 0) {
+    throw new Error(`index-nq: ${NDX_1985_FILE} lacks date/close columns`);
+  }
+
+  const closes = existing.rows
+    .map((cols) => ({ date: cols[dateIdx], close: Number(cols[closeIdx]) }))
+    .filter((row) => row.date && Number.isFinite(row.close) && row.close > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (closes.length === 0) {
+    throw new Error(`index-nq: ${NDX_1985_FILE} has no usable rows`);
+  }
+
+  return closes.map((row, i) => ({
+    date: row.date,
+    open: i === 0 ? row.close : closes[i - 1].close,
+    close: row.close,
+    source: "yahoo" as const,
+  }));
+}
+
 const FF_LARGE_CAP_FILE = "index-ffhi30.csv";
 const FF_SPLICE_START = "1926-07-01";
 const FF_SPLICE_END_EXCLUSIVE = "1988-04-06";
@@ -1696,13 +1741,21 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
   }
 
   const ixicRows = await fetchYahooIndexBars("^IXIC", { fullHistory: true });
-  const ndxRows = await fetchYahooIndexBars("^NDX", { fullHistory: true });
+  const yahooNdxRows = await fetchYahooIndexBars("^NDX", { fullHistory: true });
   if (ixicRows.length === 0) {
     throw new Error("No Yahoo ^IXIC open/close data available");
   }
-  if (ndxRows.length === 0) {
+  if (yahooNdxRows.length === 0) {
     throw new Error("No Yahoo ^NDX open/close data available");
   }
+
+  // Front the vendor series with the index owner's own history. Both are on the
+  // same scale (they agree to a rounding cent over the Oct-Dec 1985 overlap), so
+  // this needs no re-anchoring — and because everything downstream keys off
+  // `ndxFirstDate`, moving that back to the launch is all the splice has to do.
+  const yahooNdxFirstDate = yahooNdxRows[0].date;
+  const ndxHistoricalRows = (await readNdx1985Bars()).filter((row) => row.date < yahooNdxFirstDate);
+  const ndxRows = [...ndxHistoricalRows, ...yahooNdxRows];
 
   const ixicByDate = new Map(ixicRows.map((row) => [row.date, row]));
   const ndxByDate = new Map(ndxRows.map((row) => [row.date, row]));
@@ -1774,7 +1827,9 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
       name: synthetic.name,
       source: synthetic.name === "NDQ-TR"
         ? "yahoo-ixic-scaled(open+close)+dividends+er(adj_close)"
-        : "yahoo-ndx(open+close)+dividends+er(adj_close)",
+        : synthetic.date < yahooNdxFirstDate
+          ? "nasdaq-giw(close)+carried(open)+dividends+er(adj_close)"
+          : "yahoo-ndx(open+close)+dividends+er(adj_close)",
     });
   }
 
@@ -1793,7 +1848,7 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
     });
   }
 
-  appendProvisionalYahooRows(result, ndxRows, "QQQ");
+  appendProvisionalYahooRows(result, yahooNdxRows, "QQQ");
   return result;
 }
 

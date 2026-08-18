@@ -425,15 +425,19 @@ const FAQ_DATA: FAQItem[] = [
             the more flexible, modern S&amp;P 500 composition regime.
           </li>
           <li>
-            <strong className="text-foreground">October 1, 1985 — NDX shortcut.</strong>{" "}The Nasdaq-100
-            officially launched on January 31, 1985, but October 1 is the first date for which
-            L-ETF&apos;s source feed has actual NDX daily open and close data. Starting here avoids the
-            earlier Nasdaq Composite proxy and keeps the strategy signal tied directly to NDX.
+            <strong className="text-foreground">January 31, 1985 — NDX shortcut.</strong>{" "}The
+            Nasdaq-100&apos;s launch date, and the first day of its own published history, at a base
+            of 125. L-ETF takes 1985-01-31 through 1985-09-30 from Nasdaq&apos;s Global Index Watch
+            feed, then Yahoo&apos;s <code>^NDX</code> from October 1 onward — so the whole shortcut
+            range is actual Nasdaq-100 history rather than the earlier Composite proxy. Nasdaq
+            publishes closes only for the early window (its start-of-day series is just the prior
+            close), so opens there are the previous close carried forward — as they largely are in
+            Yahoo&apos;s own early <code>^NDX</code> rows too.
           </li>
           <li>
             <strong className="text-foreground">February 5, 1971 — earliest Nasdaq proxy.</strong>{" "}This
-            is the launch and base date of the Nasdaq Composite. For 1971 through September 1985,
-            L-ETF uses Composite price moves scaled to meet NDX at the 1985 boundary, then adds
+            is the launch and base date of the Nasdaq Composite. For 1971 through January 30, 1985,
+            L-ETF uses Composite price moves scaled to meet NDX at its launch, then adds
             estimated dividends and QQQ&apos;s expense drag. It provides useful older market regimes,
             but it is not actual Nasdaq-100 history.
           </li>

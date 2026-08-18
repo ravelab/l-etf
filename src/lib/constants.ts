@@ -47,7 +47,7 @@ export const CONSTANT_NASDAQ100_START_DATE = "1971-02-05";
  *  1988-04-06 is when S&P stopped using sector quotas to choose constituents. */
 export const CONSTANT_SP500_SHORTCUT_DATE = "1988-04-06";
 /** Calendar icon shortcut: earliest meaningful start for Nasdaq 100 strategies */
-export const CONSTANT_NASDAQ100_SHORTCUT_DATE = "1985-10-01";
+export const CONSTANT_NASDAQ100_SHORTCUT_DATE = "1985-01-31";
 
 /** Unleveraged index total-return series (Strategies tab + Backtest charts/tables). */
 export const LABEL_INDEX_SP500_TR = "VOO";
