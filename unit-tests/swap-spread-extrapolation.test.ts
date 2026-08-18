@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getSwapSpreadDaily } from "@/lib/simulation/engine";
+import { getSwapSpreadDaily, getSwapSpreadModel } from "@/lib/simulation/engine";
+import { ETF_PRESETS } from "@/lib/simulation/presets";
 
 // The engine charges `annualRate / 360` on ~252 trading days a year, so the
 // borrow term alone delivers only this fraction of the annual rate; the swap
@@ -14,12 +15,15 @@ function financingPerUnitBorrowed(index: string, annualRate: number, leverage: n
 }
 
 const CALIBRATED_RATE_MAX = 0.06;
-const CASES = [
-  { index: "sp500", leverage: 3, rateSensitivity: 0.899306, baseSpread: 0.002997 },
-  { index: "nasdaq100", leverage: 3, rateSensitivity: 1.078049, baseSpread: -0.001198 },
-  { index: "sp500", leverage: 2, rateSensitivity: 0.718186, baseSpread: 0.004127 },
-  { index: "nasdaq100", leverage: 2, rateSensitivity: 0.899135, baseSpread: -0.000226 },
-];
+
+// Read the live model rather than transcribing it: `calibrate-etfs.ts` rewrites
+// these coefficients on a schedule, and a hardcoded copy would either go stale
+// (the way the FAQ table did) or fail the build every calibration.
+const CASES = (["SSO", "UPRO", "QLD", "TQQQ"] as const).map((etf) => {
+  const preset = ETF_PRESETS[etf];
+  const model = getSwapSpreadModel()[preset.index][preset.leverage];
+  return { index: preset.index, leverage: preset.leverage, ...model };
+});
 
 test("swap spread: unchanged at every rate the model is calibrated on", () => {
   // The real ETFs only exist from 2006/2009-10, where the benchmark tops out at
