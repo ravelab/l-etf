@@ -46,6 +46,7 @@ import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
 import { useRefreshEndDateOnInitialVisit } from "@/lib/hooks/use-refresh-end-date";
 import { buildBacktestChartSeries } from "@/lib/backtest-chart-series";
+import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import { buildToolsUrl, shouldQueueToolAutorun } from "@/lib/tools-route";
 import { recordSuccessfulToolRun } from "@/lib/tool-run-history";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
@@ -247,7 +248,9 @@ export function BacktestingPageContent({
       if (decoded.smaSpPeriod != null) setSmaSpPeriod(normalizeNumberValue(decoded.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }));
       if (decoded.smaNqPeriod != null) setSmaNqPeriod(normalizeNumberValue(decoded.smaNqPeriod, getDefaultSmaPeriod("nasdaq100"), { integer: true, min: 1 }));
       if (decoded.smaSpUpperBuffer != null) setSmaSpUpperBuffer(normalizeNumberValue(decoded.smaSpUpperBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }));
+      if (decoded.smaSpLowerBuffer != null) setSmaSpLowerBuffer(normalizeNumberValue(decoded.smaSpLowerBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }));
       if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }));
+      if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }));
       if (decoded.riskOffAsset) setRiskOffAsset(normalizeRiskOffAsset(decoded.riskOffAsset));
       const smaParam = params.get("sma");
       // Use Promise.resolve().then() to defer state updates and avoid cascading render warnings
@@ -539,8 +542,12 @@ export function BacktestingPageContent({
     // Always include SMA params so the URL is shareable
     urlParams.set("smaPsp", String(smaSpPeriod));
     urlParams.set("smaPnq", String(smaNqPeriod));
-    urlParams.set("smatsp", String(smaSpUpperBuffer));
-    urlParams.set("smatnq", String(smaNqUpperBuffer));
+    appendSmaBufferUrlParams(urlParams, {
+      smaSpUpperBuffer,
+      smaSpLowerBuffer,
+      smaNqUpperBuffer,
+      smaNqLowerBuffer,
+    });
     urlParams.set("ro", riskOffAsset);
     if (smaMode === 0) urlParams.set("sma", "0");
 
@@ -552,7 +559,7 @@ export function BacktestingPageContent({
 
     markNextSearchAsInternal();
     router.push(buildToolsUrl("backtest", urlParams));
-  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaNqUpperBuffer, riskOffAsset, etfConfigs, router, markNextSearchAsInternal]);
+  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, etfConfigs, router, markNextSearchAsInternal]);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -960,8 +967,12 @@ export function BacktestingPageContent({
         historyParams.set("ed", endDate);
         historyParams.set("smaPsp", String(smaSpPeriod));
         historyParams.set("smaPnq", String(smaNqPeriod));
-        historyParams.set("smatsp", String(smaSpUpperBuffer));
-        historyParams.set("smatnq", String(smaNqUpperBuffer));
+        appendSmaBufferUrlParams(historyParams, {
+          smaSpUpperBuffer,
+          smaSpLowerBuffer,
+          smaNqUpperBuffer,
+          smaNqLowerBuffer,
+        });
         historyParams.set("ro", riskOffAsset);
         if (smaMode === 0) historyParams.set("sma", "0");
         etfConfigs.forEach((cfg, i) => {

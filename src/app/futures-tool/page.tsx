@@ -7,6 +7,7 @@ import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
+import { appendSmaBufferUrlParams, parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import { buildToolsUrl, shouldQueueToolAutorun } from "@/lib/tools-route";
 import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
@@ -223,13 +224,30 @@ export function FuturesPageContent({
     if (smaPnq != null && smaPnq !== "") {
       handleFieldChange("smaNqPeriod", normalizeNumberValue(Number(smaPnq), 150, { integer: true, min: 1 }));
     }
-    const smatsp = params.get("smatsp");
-    if (smatsp != null && smatsp !== "") {
-      handleFieldChange("smaSpUpperBuffer", normalizeNumberValue(Number(smatsp), 3.6, { min: 0 }));
+    const smaBuffers = parseSmaBufferUrlParams(params);
+    if (smaBuffers.smaSpUpperBuffer != null) {
+      handleFieldChange(
+        "smaSpUpperBuffer",
+        normalizeNumberValue(smaBuffers.smaSpUpperBuffer, 3.6, { min: 0 })
+      );
     }
-    const smatnq = params.get("smatnq");
-    if (smatnq != null && smatnq !== "") {
-      handleFieldChange("smaNqUpperBuffer", normalizeNumberValue(Number(smatnq), 11.9, { min: 0 }));
+    if (smaBuffers.smaSpLowerBuffer != null) {
+      handleFieldChange(
+        "smaSpLowerBuffer",
+        normalizeNumberValue(smaBuffers.smaSpLowerBuffer, 3.6, { min: 0 })
+      );
+    }
+    if (smaBuffers.smaNqUpperBuffer != null) {
+      handleFieldChange(
+        "smaNqUpperBuffer",
+        normalizeNumberValue(smaBuffers.smaNqUpperBuffer, 11.9, { min: 0 })
+      );
+    }
+    if (smaBuffers.smaNqLowerBuffer != null) {
+      handleFieldChange(
+        "smaNqLowerBuffer",
+        normalizeNumberValue(smaBuffers.smaNqLowerBuffer, 11.9, { min: 0 })
+      );
     }
     const ro = params.get("ro");
     if (ro != null && ro !== "") {
@@ -285,8 +303,12 @@ export function FuturesPageContent({
     params.set("ed", endDate);
     params.set("smaPsp", String(smaSpPeriod));
     params.set("smaPnq", String(smaNqPeriod));
-    params.set("smatsp", String(smaSpUpperBuffer));
-    params.set("smatnq", String(smaNqUpperBuffer));
+    appendSmaBufferUrlParams(params, {
+      smaSpUpperBuffer,
+      smaSpLowerBuffer,
+      smaNqUpperBuffer,
+      smaNqLowerBuffer,
+    });
     params.set("ro", riskOffAsset);
     params.set("amt", String(amount));
     params.set("lt", String(leverageTolerancePct));
@@ -303,8 +325,10 @@ export function FuturesPageContent({
     router,
     showEmulations,
     smaNqUpperBuffer,
+    smaNqLowerBuffer,
     smaNqPeriod,
     smaSpUpperBuffer,
+    smaSpLowerBuffer,
     smaSpPeriod,
     startDate,
   ]);

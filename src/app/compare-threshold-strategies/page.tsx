@@ -458,8 +458,6 @@ export function CompareBufferStrategiesPageContent({
 
   const buildSmaBufferUrlParams = useCallback(() => {
     const params = getUrlParams();
-    params.delete("smatsp");
-    params.delete("smatnq");
     params.set("minT", String(minBuffer));
     params.set("maxT", String(maxBuffer));
     params.set("stepT", String(fineStep));

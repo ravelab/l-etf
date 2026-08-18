@@ -11,8 +11,10 @@ export async function run(ctx) {
   params.set("ed", "2016-12-30");
   params.set("smaPsp", "200");
   params.set("smaPnq", "200");
-  params.set("smatsp", "0");
-  params.set("smatnq", "0");
+  params.set("smatspU", "0");
+  params.set("smatspL", "0");
+  params.set("smatnqU", "0");
+  params.set("smatnqL", "0");
   params.set("ro", "SGOV");
   params.set("amt", "30000");
   params.set("autorun", "1");

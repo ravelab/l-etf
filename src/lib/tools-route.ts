@@ -1,3 +1,5 @@
+import { urlSmaBuffersMatchState } from "@/lib/sma-buffer-url-params";
+
 export const TOOL_TABS = [
   "strategies",
   "sma-period",
@@ -168,10 +170,12 @@ export function persistedToolStateMatchesUrl(state: Record<string, unknown>, par
 
   if (!urlNumMatchesState(params, "smaPsp", state.smaSpPeriod)) return false;
   if (!urlNumMatchesState(params, "smaPnq", state.smaNqPeriod)) return false;
-  if (!urlNumMatchesState(params, "smatspU", state.smaSpUpperBuffer)) return false;
-  if (!urlNumMatchesState(params, "smatspL", state.smaSpLowerBuffer)) return false;
-  if (!urlNumMatchesState(params, "smatnqU", state.smaNqUpperBuffer)) return false;
-  if (!urlNumMatchesState(params, "smatnqL", state.smaNqLowerBuffer)) return false;
+  if (!urlSmaBuffersMatchState(params, {
+    smaSpUpperBuffer: state.smaSpUpperBuffer as number | undefined,
+    smaSpLowerBuffer: state.smaSpLowerBuffer as number | undefined,
+    smaNqUpperBuffer: state.smaNqUpperBuffer as number | undefined,
+    smaNqLowerBuffer: state.smaNqLowerBuffer as number | undefined,
+  })) return false;
 
   const ro = params.get("ro");
   if (ro != null && ro !== "") {

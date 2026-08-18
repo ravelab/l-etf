@@ -19,6 +19,7 @@ import type { EtfConfig } from "@/lib/simulation/types";
 import { CONSTANT_SP500_SHORTCUT_DATE } from "../constants";
 import { DEFAULT_RISK_OFF_ASSET } from "../simulation/defaults";
 import { hasMeaningfulSearchParams } from "@/lib/tools-route";
+import { parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import {
   normalizeBooleanValue,
   normalizeDateString,
@@ -179,18 +180,11 @@ export function getSharedInputs(urlParams?: URLSearchParams): {
     if (p.has("smaPnq")) {
       merged.smaNqPeriod = Number(p.get("smaPnq")) || merged.smaNqPeriod;
     }
-    if (p.has("smatspU")) {
-      merged.smaSpUpperBuffer = Number(p.get("smatspU")) || merged.smaSpUpperBuffer;
-    }
-    if (p.has("smatspL")) {
-      merged.smaSpLowerBuffer = Number(p.get("smatspL")) || merged.smaSpLowerBuffer;
-    }
-    if (p.has("smatnqU")) {
-      merged.smaNqUpperBuffer = Number(p.get("smatnqU")) || merged.smaNqUpperBuffer;
-    }
-    if (p.has("smatnqL")) {
-      merged.smaNqLowerBuffer = Number(p.get("smatnqL")) || merged.smaNqLowerBuffer;
-    }
+    const smaBuffers = parseSmaBufferUrlParams(p);
+    if (smaBuffers.smaSpUpperBuffer != null) merged.smaSpUpperBuffer = smaBuffers.smaSpUpperBuffer;
+    if (smaBuffers.smaSpLowerBuffer != null) merged.smaSpLowerBuffer = smaBuffers.smaSpLowerBuffer;
+    if (smaBuffers.smaNqUpperBuffer != null) merged.smaNqUpperBuffer = smaBuffers.smaNqUpperBuffer;
+    if (smaBuffers.smaNqLowerBuffer != null) merged.smaNqLowerBuffer = smaBuffers.smaNqLowerBuffer;
     if (p.has("ro")) {
       merged.riskOffAsset = normalizeRiskOffAsset(p.get("ro"), merged.riskOffAsset);
     }

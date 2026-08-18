@@ -7,6 +7,20 @@ import { join } from "node:path";
 
 const SNAPSHOT_DIR = join(process.cwd(), "src", "lib", "tool-snapshots");
 
+/** Canonical asymmetric SMA buffer URL keys (matches src/lib/sma-buffer-url-params.ts). */
+export function smaBufferUrlEntries(source) {
+  const upperSp = source.smaSpUpperBuffer ?? source.smaSpBuffer;
+  const lowerSp = source.smaSpLowerBuffer ?? source.smaSpBuffer;
+  const upperNq = source.smaNqUpperBuffer ?? source.smaNqBuffer;
+  const lowerNq = source.smaNqLowerBuffer ?? source.smaNqBuffer;
+  const entries = {};
+  if (upperSp != null) entries.smatspU = upperSp;
+  if (lowerSp != null) entries.smatspL = lowerSp;
+  if (upperNq != null) entries.smatnqU = upperNq;
+  if (lowerNq != null) entries.smatnqL = lowerNq;
+  return entries;
+}
+
 function withCommonParams(entries, pageState) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(entries)) {
@@ -34,8 +48,7 @@ export function buildCompareLetfsParams(pageState) {
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
       smaPnq: pageState.smaNqPeriod,
-      smatsp: pageState.smaSpBuffer,
-      smatnq: pageState.smaNqBuffer,
+      ...smaBufferUrlEntries(pageState),
       ro: pageState.riskOffAsset,
       smaExec: pageState.smaExecutionMode,
     },
@@ -53,8 +66,7 @@ export function buildCompareRiskoffParams(pageState) {
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
       smaPnq: pageState.smaNqPeriod,
-      smatsp: pageState.smaSpBuffer,
-      smatnq: pageState.smaNqBuffer,
+      ...smaBufferUrlEntries(pageState),
       smaExec: pageState.smaExecutionMode,
     },
     pageState
@@ -72,8 +84,7 @@ export function buildCompareSmaParams(pageState) {
       minP: pageState.minSmaPeriod,
       maxP: pageState.maxSmaPeriod,
       step: pageState.stepSize,
-      smatsp: pageState.smaSpBuffer,
-      smatnq: pageState.smaNqBuffer,
+      ...smaBufferUrlEntries(pageState),
       ro: pageState.riskOffAsset,
       smaExec: pageState.smaExecutionMode,
     },
@@ -141,8 +152,7 @@ export function buildStatisticalAnalysisParams(pageState) {
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
       smaPnq: pageState.smaNqPeriod,
-      smatsp: pageState.smaSpBuffer,
-      smatnq: pageState.smaNqBuffer,
+      ...smaBufferUrlEntries(pageState),
       ro: pageState.riskOffAsset,
       smaExec: pageState.smaExecutionMode,
     },
@@ -158,8 +168,7 @@ export function buildBacktestParams(pageState) {
     ed: pageState.endDate,
     smaPsp: pageState.smaSpPeriod,
     smaPnq: pageState.smaNqPeriod,
-    smatsp: pageState.smaSpBuffer,
-    smatnq: pageState.smaNqBuffer,
+    ...smaBufferUrlEntries(pageState),
     ro: pageState.riskOffAsset,
   };
   if (pageState.smaMode === 0) {

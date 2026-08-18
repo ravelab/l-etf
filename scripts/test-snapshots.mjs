@@ -25,6 +25,19 @@ const RESULTS_WAIT_TIMEOUT_MS = Number(process.env.SNAPSHOT_TEST_TIMEOUT_MS ?? 1
 const STABILITY_TICKS = Number(process.env.SNAPSHOT_TEST_STABILITY_TICKS ?? 3);
 const STABILITY_TICK_MS = Number(process.env.SNAPSHOT_TEST_STABILITY_TICK_MS ?? 250);
 
+function smaBufferUrlEntries(source) {
+  const upperSp = source.smaSpUpperBuffer ?? source.smaSpBuffer;
+  const lowerSp = source.smaSpLowerBuffer ?? source.smaSpBuffer;
+  const upperNq = source.smaNqUpperBuffer ?? source.smaNqBuffer;
+  const lowerNq = source.smaNqLowerBuffer ?? source.smaNqBuffer;
+  const entries = {};
+  if (upperSp != null) entries.smatspU = upperSp;
+  if (lowerSp != null) entries.smatspL = lowerSp;
+  if (upperNq != null) entries.smatnqU = upperNq;
+  if (lowerNq != null) entries.smatnqL = lowerNq;
+  return entries;
+}
+
 const PAGE_CONFIGS = [
   {
     pageKey: "compare-letfs",
@@ -37,8 +50,7 @@ const PAGE_CONFIGS = [
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
           smaPnq: pageState.smaNqPeriod,
-          smatsp: pageState.smaSpBuffer,
-          smatnq: pageState.smaNqBuffer,
+          ...smaBufferUrlEntries(pageState),
           ro: pageState.riskOffAsset,
         },
         pageState
@@ -58,8 +70,7 @@ const PAGE_CONFIGS = [
           minP: pageState.minSmaPeriod,
           maxP: pageState.maxSmaPeriod,
           step: pageState.stepSize,
-          smatsp: pageState.smaSpBuffer,
-          smatnq: pageState.smaNqBuffer,
+          ...smaBufferUrlEntries(pageState),
           ro: pageState.riskOffAsset,
         },
         pageState
@@ -101,8 +112,7 @@ const PAGE_CONFIGS = [
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
           smaPnq: pageState.smaNqPeriod,
-          smatsp: pageState.smaSpBuffer,
-          smatnq: pageState.smaNqBuffer,
+          ...smaBufferUrlEntries(pageState),
         },
         pageState
       );
@@ -119,8 +129,7 @@ const PAGE_CONFIGS = [
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
           smaPnq: pageState.smaNqPeriod,
-          smatsp: pageState.smaSpBuffer,
-          smatnq: pageState.smaNqBuffer,
+          ...smaBufferUrlEntries(pageState),
           ro: pageState.riskOffAsset,
           letf: pageState.letf,
         },
@@ -139,8 +148,7 @@ const PAGE_CONFIGS = [
           ed: pageState.endDate,
           smaPsp: pageState.smaSpPeriod,
           smaPnq: pageState.smaNqPeriod,
-          smatsp: pageState.smaSpBuffer,
-          smatnq: pageState.smaNqBuffer,
+          ...smaBufferUrlEntries(pageState),
           ro: pageState.riskOffAsset,
         },
         pageState
@@ -170,8 +178,7 @@ const PAGE_CONFIGS = [
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
           smaPnq: pageState.smaNqPeriod,
-          smatsp: pageState.smaSpBuffer,
-          smatnq: pageState.smaNqBuffer,
+          ...smaBufferUrlEntries(pageState),
           ro: pageState.riskOffAsset,
           amt: pageState.amount,
           lt: pageState.leverageTolerancePct,
@@ -367,7 +374,10 @@ function describeDiff(snapshotState, liveState) {
 async function verifyOnce(browser, config) {
   const snapshot = readSnapshot(config.pageKey);
   const snapshotUrl = buildToolUrl(config.tab);
-  const liveUrl = buildToolUrl(config.tab, config.buildParams(snapshot.pageState));
+  const liveUrl = buildToolUrl(
+    config.tab,
+    config.buildParams({ ...snapshot.sharedInputs, ...snapshot.pageState })
+  );
 
   let snapshotState;
   let liveState;

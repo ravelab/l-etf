@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toValidRunSummary } from "@/lib/hooks/use-run-summary-inputs";
+import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import {
   buildToolsUrl,
   canonicalNormalizedToolsHrefKey,
@@ -63,8 +64,10 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
   letf: "UPRO+TQQQ",
   smaPsp: "186",
   smaPnq: "150",
-  smatsp: "3.6",
-  smatnq: "11.9",
+  smaSpUpperBuffer: 3.6,
+  smaSpLowerBuffer: 3.6,
+  smaNqUpperBuffer: 11.9,
+  smaNqLowerBuffer: 11.9,
   ro: "BRK.B+GLDM+VGSH",
 } as const;
 
@@ -90,8 +93,12 @@ function buildWorstTimeBacktestParams(startDate: string, endDate: string): URLSe
   params.set("ed", endDate);
   params.set("smaPsp", WORST_TIME_BACKTEST_BASE_PARAMS.smaPsp);
   params.set("smaPnq", WORST_TIME_BACKTEST_BASE_PARAMS.smaPnq);
-  params.set("smatsp", WORST_TIME_BACKTEST_BASE_PARAMS.smatsp);
-  params.set("smatnq", WORST_TIME_BACKTEST_BASE_PARAMS.smatnq);
+  appendSmaBufferUrlParams(params, {
+    smaSpUpperBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaSpUpperBuffer,
+    smaSpLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaSpLowerBuffer,
+    smaNqUpperBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqUpperBuffer,
+    smaNqLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqLowerBuffer,
+  });
   params.set("ro", WORST_TIME_BACKTEST_BASE_PARAMS.ro);
   return params;
 }

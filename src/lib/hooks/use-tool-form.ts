@@ -10,6 +10,7 @@ import {
 } from "@/lib/simulation/presets";
 import type { IndexKey, EtfConfig } from "@/lib/simulation/types";
 import type { SharedFieldValues } from "@/components/tools/SharedToolInputs";
+import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import {
   normalizeDateString,
   normalizeIndexKey,
@@ -135,10 +136,12 @@ export function useToolForm<T extends Record<string, unknown>>(
     urlParams.set("py", String(windowLength));
     urlParams.set("smaPsp", String(smaSpPeriod));
     urlParams.set("smaPnq", String(smaNqPeriod));
-    urlParams.set("smatspU", String(smaSpUpperBuffer));
-    urlParams.set("smatspL", String(smaSpLowerBuffer));
-    urlParams.set("smatnqU", String(smaNqUpperBuffer));
-    urlParams.set("smatnqL", String(smaNqLowerBuffer));
+    appendSmaBufferUrlParams(urlParams, {
+      smaSpUpperBuffer,
+      smaSpLowerBuffer,
+      smaNqUpperBuffer,
+      smaNqLowerBuffer,
+    });
     urlParams.set("ro", riskOffAsset);
     return urlParams;
   }, [

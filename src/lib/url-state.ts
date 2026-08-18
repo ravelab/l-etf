@@ -1,12 +1,7 @@
 import type { EtfConfig } from "./simulation/types";
 import { ETF_PRESETS } from "./simulation/presets";
 
-function parseNumParam(params: URLSearchParams, key: string): number | undefined {
-  const r = params.get(key);
-  if (!r) return undefined;
-  const v = Number(r);
-  return Number.isFinite(v) ? v : undefined;
-}
+import { parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 
 /**
  * Encode backtest parameters into URL search params for sharing.
@@ -58,16 +53,18 @@ export function decodeBacktestParams(search: string): {
     });
   }
 
+  const smaBuffers = parseSmaBufferUrlParams(params);
+
   return {
     index: params.get("idx") || undefined,
     startDate: params.get("sd") || undefined,
     endDate: params.get("ed") || undefined,
     smaSpPeriod: (() => { const r = params.get("smaPsp"); if (!r) return undefined; const v = Number(r); return Number.isFinite(v) ? v : undefined; })(),
     smaNqPeriod: (() => { const r = params.get("smaPnq"); if (!r) return undefined; const v = Number(r); return Number.isFinite(v) ? v : undefined; })(),
-    smaSpUpperBuffer: parseNumParam(params, "smatspU"),
-    smaSpLowerBuffer: parseNumParam(params, "smatspL"),
-    smaNqUpperBuffer: parseNumParam(params, "smatnqU"),
-    smaNqLowerBuffer: parseNumParam(params, "smatnqL"),
+    smaSpUpperBuffer: smaBuffers.smaSpUpperBuffer,
+    smaSpLowerBuffer: smaBuffers.smaSpLowerBuffer,
+    smaNqUpperBuffer: smaBuffers.smaNqUpperBuffer,
+    smaNqLowerBuffer: smaBuffers.smaNqLowerBuffer,
     riskOffAsset: params.get("ro") || undefined,
     etfConfigs: etfConfigs.length > 0 ? etfConfigs : undefined,
   };

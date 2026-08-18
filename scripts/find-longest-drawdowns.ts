@@ -41,7 +41,7 @@ const lines = content.split('\n');
 
 const drawdowns: { start: string; trough: string; days: number; pct: number }[] = [];
 
-const BASE_URL = 'http://localhost:3000/tools?tab=backtest&letf=UPRO%2BTQQQ&smaPsp=175&smaPnq=150&smatsp=3.5&smatnq=12&ro=BRK.B%2BGLDM%2BVGSH&autorun=1';
+const BASE_URL = 'http://localhost:3000/tools?tab=backtest&letf=UPRO%2BTQQQ&smaPsp=175&smaPnq=150&smatspU=3.5&smatspL=3.5&smatnqU=12&smatnqL=12&ro=BRK.B%2BGLDM%2BVGSH&autorun=1';
 
 function getBacktestUrl(start: string, end: string) {
     return `${BASE_URL}&sd=${start}&ed=${end}`;
