@@ -36,7 +36,10 @@ also verify they've become reachable.
 ## Futures engine: total-return invariant
 
 `src/lib/simulation/futures.ts` must keep a held position earning exactly
-`indexTotalReturn − rate × calendarDays`: `futuresCarryForHoldingPeriod` nets the
+`indexTotalReturn − (rate + fundingSpread) × calendarDays`, where the spread is
+the contract's roll richness over the risk-free rate
+(`DEFAULT_FUTURES_FUNDING_SPREAD_ANNUAL`, 0.35%/yr, charged on notional so it
+scales with the rung). `futuresCarryForHoldingPeriod` nets the
 row's *realized* dividend (`adj_close` return minus `close` return, already
 covering weekend gaps) against the rate. The raw `close`/`open` columns drive only
 SMA signals, fill prices, and notional — never the P&L path. This matters because
@@ -44,6 +47,11 @@ SMA signals, fill prices, and notional — never the P&L path. This matters beca
 `close` from the old S&P price path (`src/lib/data/ff-large-cap-splice.ts`); the
 two disagree by up to 3% on ~50 days, which a price-driven P&L would compound at
 full leverage.
+
+Margin is a requirement, not a payment: `maintMarginRate` governs capacity and
+excess liquidity, never the cash-sweep base. Netting it out of the interest base
+charges a phantom `maintMarginRate × leverage × rate` that scales with leverage
+and so tilts the ladder against its own higher rungs.
 
 Day 0 establishes the starting position at the first *close* in both regimes —
 the bar `dailyEquity[0]` marks, and what `simulateSingleEtf` books — so the

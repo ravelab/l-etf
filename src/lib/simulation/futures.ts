@@ -55,6 +55,12 @@ export type FuturesStrategyResult = {
 };
 
 const DEFAULT_CASH_INTEREST_SPREAD_ANNUAL = 0.005; // 0.50%/yr haircut vs SOFR-like series
+// ES/NQ do not roll at fair value: the roll's implied financing has run roughly
+// +25 to +50bp over 3M OIS post-2010 (balance-sheet costs), NQ at or above ES.
+// This is the futures analogue of the LETF swap spread — but a genuinely level
+// premium, not one proportional to the rate. Charged on notional, so unlike the
+// cash-sweep haircut (which only touches 1x collateral) it scales with leverage.
+const DEFAULT_FUTURES_FUNDING_SPREAD_ANNUAL = 0.0035; // 0.35%/yr over the risk-free rate
 const DEFAULT_CASH_INTEREST_FREE_CASH = 10_000;
 const DIVIDEND_EMA_LOOKBACK_DAYS = 63;
 const MAX_ABS_DIVIDEND_DAILY = 0.05 / 252; // clamp inferred q to +/-5% annualized
@@ -188,7 +194,7 @@ function futuresBasisFillPrice(params: {
  * covers the whole gap, so it must not be re-scaled by `calendarDays`.
  *
  * Using the realized dividend rather than a smoothed estimate is what makes a
- * held position earn exactly `indexTotalReturn − rate × days`: price return plus
+ * held position earn exactly `indexTotalReturn − (rate + fundingSpread) × days`: price return plus
  * the dividend it gives up equals the total return by construction. That keeps
  * the futures path on the same index the LETF engine compounds (`adj_close`)
  * instead of on the raw `close` column, which for spliced history is a
@@ -196,13 +202,18 @@ function futuresBasisFillPrice(params: {
  */
 export function futuresCarryForHoldingPeriod(params: {
   rateDaily: number;
+  /** Annual premium the contract's embedded financing carries over the risk-free rate. */
+  fundingSpreadAnnual?: number;
   /** Dividend paid over the whole holding period, as a fraction of the prior close. */
   dividendForPeriod: number;
   calendarDays: number;
 }): number {
   const days = Math.max(0, params.calendarDays);
   if (days <= 0) return 0;
-  const rateAnnual = Number.isFinite(params.rateDaily) ? params.rateDaily * 360 : 0;
+  const spreadAnnual = Number.isFinite(params.fundingSpreadAnnual)
+    ? (params.fundingSpreadAnnual as number)
+    : 0;
+  const rateAnnual = (Number.isFinite(params.rateDaily) ? params.rateDaily * 360 : 0) + spreadAnnual;
   const dividend = Number.isFinite(params.dividendForPeriod) ? params.dividendForPeriod : 0;
   const carry = ((rateAnnual * days) / 365.25) - dividend;
   return Number.isFinite(carry) ? carry : 0;
@@ -782,6 +793,12 @@ export type FuturesStrategyParams = {
   riskOffOpenByTicker?: Record<string, number[]>;
   cashInterestSpreadAnnual?: number;
   cashInterestFreeCash?: number;
+  /**
+   * Annual premium the contract's embedded financing carries over the risk-free
+   * rate, charged on notional. Set 0 to price rolls at fair value.
+   * @default {@link DEFAULT_FUTURES_FUNDING_SPREAD_ANNUAL}
+   */
+  futuresFundingSpreadAnnual?: number;
   maintenanceMarginRate?: number;
   /**
    * Quarterly ES/NQ: roll and **front-month symbol** both use the same snap: the latest trading day
@@ -908,6 +925,10 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
   const rateLookup = buildRateLookup(params.rates);
   const spreadAnnual = params.cashInterestSpreadAnnual ?? DEFAULT_CASH_INTEREST_SPREAD_ANNUAL;
   const freeCash = params.cashInterestFreeCash ?? DEFAULT_CASH_INTEREST_FREE_CASH;
+  const fundingSpreadAnnual = Math.max(
+    0,
+    params.futuresFundingSpreadAnnual ?? DEFAULT_FUTURES_FUNDING_SPREAD_ANNUAL
+  );
   const maintMarginRate = params.maintenanceMarginRate ?? DEFAULT_MAINT_MARGIN_RATE;
   const maxLeverage = params.maxLeverage ?? Number.POSITIVE_INFINITY;
   const leverageTolerancePct = Math.max(
@@ -1296,6 +1317,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       const carryDaysSincePrevClose = Math.max(1, gapCalendarDays);
       const futuresCarrySincePrevClose = futuresCarryForHoldingPeriod({
         rateDaily,
+        fundingSpreadAnnual,
         dividendForPeriod: realizedDividend,
         calendarDays: carryDaysSincePrevClose,
       });

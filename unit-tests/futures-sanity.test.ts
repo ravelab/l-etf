@@ -674,3 +674,61 @@ test("futures sanity: margin requirement constrains capacity but not sweep inter
     "higher maintenance rate must reduce reported excess liquidity"
   );
 });
+
+test("futures sanity: the funding spread costs leverage x spread per year", () => {
+  // ES/NQ roll rich, so financing embedded in the contract sits above the
+  // risk-free rate. It is charged on notional, so unlike the cash-sweep haircut
+  // (which touches 1x collateral) the cost scales with the leverage rung.
+  const spread = 0.0035;
+  const carryFair = futuresCarryForHoldingPeriod({
+    rateDaily: 0.04 / 360,
+    dividendForPeriod: 0,
+    calendarDays: 365.25,
+  });
+  const carryRich = futuresCarryForHoldingPeriod({
+    rateDaily: 0.04 / 360,
+    fundingSpreadAnnual: spread,
+    dividendForPeriod: 0,
+    calendarDays: 365.25,
+  });
+  assert.equal(Math.abs((carryRich - carryFair) - spread) < 1e-12, true);
+
+  // End to end on a flat index: the drag must land near leverage x spread x years.
+  const dates = weekdayDates("2024-01-02", 250);
+  const prices = dates.map((date) => ({ date, adj_close: 4000, close: 4000, open: 4000 }));
+  const rates = dates.map((date) => ({ date, rateType: "borrow", rateValue: 0.04 }));
+  const run = (futuresFundingSpreadAnnual: number) =>
+    simulateFuturesSmaStrategy({
+      index: "sp500",
+      prices,
+      rates,
+      startDate: dates[0],
+      endDate: dates[dates.length - 1],
+      initialEquity: 5_000_000,
+      targetLeverage: 3,
+      smaPeriod: 3,
+      smaUpperBuffer: 90,
+      smaLowerBuffer: 90,
+      riskOffAsset: "SGOV",
+      leverageTolerancePct: 1000,
+      feePerContract: 0,
+      futuresFundingSpreadAnnual,
+    });
+
+  const fair = run(0);
+  const rich = run(spread);
+  const years =
+    (new Date(`${dates[dates.length - 1]}T00:00:00Z`).getTime() -
+      new Date(`${dates[0]}T00:00:00Z`).getTime()) /
+    (365.25 * 86_400_000);
+  const drag = Math.log(fair.etfResult.finalValue / rich.etfResult.finalValue) / years;
+  // Whole contracts held against shrinking equity drift the realized rung above
+  // the 3x target, so compare against what was actually carried.
+  const realizedLeverage = fair.avgActualLeverageRiskOn;
+  assert.equal(realizedLeverage > 3, true, "flat index at a positive rate must drift leverage up");
+  assert.equal(
+    Math.abs(drag - realizedLeverage * spread) < 1e-3,
+    true,
+    `drag ${drag} should be near ${realizedLeverage * spread} (realized leverage x spread)`
+  );
+});
