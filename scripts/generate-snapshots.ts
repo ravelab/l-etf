@@ -78,6 +78,7 @@ import {
   type FuturesStrategyResult,
 } from "../src/lib/simulation/futures";
 import { buildRunSummary } from "../src/lib/run-summary";
+import { buildFuturesLadderPlan } from "../src/lib/simulation/futures-plan";
 import { validateSimulationReadyPrices } from "../src/lib/utils";
 import {
   precomputeAllConfigDailyValues,
@@ -482,34 +483,28 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   const spPriceAnchor = spPrices[spPrices.length - 1]?.close ?? spPrices[spPrices.length - 1]?.adj_close;
   const nqPriceAnchor = nqPrices[nqPrices.length - 1]?.close ?? nqPrices[nqPrices.length - 1]?.adj_close;
 
-  // Match the futures page's non-emulation plan selection (yearSpan-driven).
+  // Same builder the page uses, so the pre-rendered snapshot cannot describe a
+  // different strategy than a live run does.
   const yearSpan =
     (new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) /
     (1000 * 60 * 60 * 24 * 365.25);
-  const futuresPlan: Array<{
-    index: "sp500" | "nasdaq100";
-    leverage: number;
-    maxLeverage?: number;
-    displayName?: string;
-    period: number;
-    buffer: number;
-  }> =
-    yearSpan > 90
-      ? [
-          { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
-          { index: "sp500", leverage: 3, period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
-        ]
-      : [
-          { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
-          { index: "sp500", leverage: 5, period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
-          { index: "sp500", leverage: 3, period: shared.smaSpPeriod, buffer: shared.smaSpUpperBuffer },
-          ...(hasNqData
-            ? ([
-                { index: "nasdaq100" as const, leverage: 4, period: shared.smaNqPeriod, buffer: shared.smaNqUpperBuffer },
-                { index: "nasdaq100" as const, leverage: 3, period: shared.smaNqPeriod, buffer: shared.smaNqUpperBuffer },
-              ])
-            : []),
-        ];
+  const futuresPlan = buildFuturesLadderPlan({
+    showEmulations: false,
+    hasNasdaqData: hasNqData,
+    yearSpan,
+    bands: {
+      sp500: {
+        period: shared.smaSpPeriod,
+        upperBuffer: shared.smaSpUpperBuffer,
+        lowerBuffer: shared.smaSpLowerBuffer,
+      },
+      nasdaq100: {
+        period: shared.smaNqPeriod,
+        upperBuffer: shared.smaNqUpperBuffer,
+        lowerBuffer: shared.smaNqLowerBuffer,
+      },
+    },
+  });
 
   const futuresRuns: FuturesStrategyResult[] = futuresPlan
     .filter((step) => step.index !== "nasdaq100" || hasNqData)
@@ -524,8 +519,8 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
         targetLeverage: step.leverage,
         maxLeverage: step.maxLeverage,
         displayName: step.displayName,
-        smaPeriod: step.period,
-        smaUpperBuffer: step.buffer, smaLowerBuffer: step.buffer,
+        smaPeriod: step.sma.period,
+        smaUpperBuffer: step.sma.upperBuffer, smaLowerBuffer: step.sma.lowerBuffer,
         riskOffAsset: shared.riskOffAsset,
         riskOffCloseByTicker: step.index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
         riskOffOpenByTicker: step.index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,

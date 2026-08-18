@@ -33,6 +33,18 @@ Both `worker.ts`'s `mode_type === 'backtest'` branch and `parallel.ts`'s
 spread-deduction bug pattern as the live paths; leave them alone unless you
 also verify they've become reachable.
 
+## Futures ladder plans
+
+`src/lib/simulation/futures-plan.ts` builds both the futures ladder rungs and the
+LETF configs "Check Emulations" checks them against, from one `SmaBand` per
+index. Keep new rungs going through it. It exists because the two used to be
+separate literals in `futures-tool/page.tsx` (plus a third copy in
+`generate-snapshots.ts`) and drifted: the ladders carried a single buffer and
+used it for both sides of the band while the LETF twins took the calibrated
+asymmetric pair. Upper governs re-entry and lower governs the exit, so that moved
+the trapdoor rather than the band — the ladders rode 1973-74 down 91.5% where
+their twins stopped at 65.9%. Same failure mode `sweep-items.ts` prevents.
+
 ## Futures engine: total-return invariant
 
 `src/lib/simulation/futures.ts` must keep a held position earning exactly

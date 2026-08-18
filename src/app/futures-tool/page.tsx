@@ -14,7 +14,7 @@ import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
 import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES } from "@/lib/constants";
 import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT } from "@/lib/simulation/defaults";
-import type { BacktestResult, EtfConfig, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
+import type { BacktestResult, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
 import {
   fetchLatestIndexPriceAnchors,
   fetchMarketData,
@@ -22,7 +22,11 @@ import {
   loadAllRiskOffPricePoints,
 } from "@/lib/fetch-market-data";
 import { runParallelBacktest } from "@/lib/simulation/parallel";
-import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
+import {
+  buildEmulationEtfConfigs,
+  buildFuturesLadderPlan,
+  type SmaBandsByIndex,
+} from "@/lib/simulation/futures-plan";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
 import { ResultsTable } from "@/components/tools/backtest/ResultsTable";
 import { getRiskOffFetchTickers } from "@/lib/constants";
@@ -446,40 +450,18 @@ export function FuturesPageContent({
       // "Check Emulations" compares LETF SMAs to the nearest futures ladders only — skip 4.5×/4× SPX
       // and 4× NDX so we do not pay for extra sims; SPX futures line is 3× (not 4×).
       const yearSpan = (new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-      const futuresPlan: Array<{
-        index: "sp500" | "nasdaq100";
-        leverage: number;
-        maxLeverage?: number;
-        displayName?: string;
-        period: number;
-        upperBuffer: number;
-        lowerBuffer: number;
-      }> = showEmulations
-        ? [
-            { index: "sp500", leverage: 3, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
-            ...(hasNqData
-              ? ([
-                  { index: "nasdaq100", leverage: 3, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
-                  { index: "nasdaq100", leverage: 2, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
-                ] as const)
-              : []),
-          ]
-        : yearSpan > 90
-          ? [
-              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
-              { index: "sp500", leverage: 3, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
-            ]
-          : [
-              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
-              { index: "sp500", leverage: 5, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
-              { index: "sp500", leverage: 3, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
-              ...(hasNqData
-                ? ([
-                    { index: "nasdaq100", leverage: 4, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
-                    { index: "nasdaq100", leverage: 3, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
-                  ] as const)
-                : []),
-            ];
+      // One band per index feeds both the ladders and their LETF twins below, so
+      // the pair cannot disagree about its own SMA rule (see futures-plan.ts).
+      const smaBands: SmaBandsByIndex = {
+        sp500: { period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
+        nasdaq100: { period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
+      };
+      const futuresPlan = buildFuturesLadderPlan({
+        showEmulations,
+        hasNasdaqData: hasNqData,
+        yearSpan,
+        bands: smaBands,
+      });
       const futuresRuns = await runParallelFuturesStrategies({
         signal,
         plans: futuresPlan.map((step) => ({
@@ -492,8 +474,8 @@ export function FuturesPageContent({
           targetLeverage: step.leverage,
           maxLeverage: step.maxLeverage,
           displayName: step.displayName,
-          smaPeriod: step.period,
-          smaUpperBuffer: step.upperBuffer, smaLowerBuffer: step.lowerBuffer,
+          smaPeriod: step.sma.period,
+          smaUpperBuffer: step.sma.upperBuffer, smaLowerBuffer: step.sma.lowerBuffer,
           riskOffAsset,
           riskOffCloseByTicker: step.index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
           riskOffOpenByTicker: step.index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
@@ -521,30 +503,11 @@ export function FuturesPageContent({
         // We intentionally do NOT fetch `/api/etf-prices` here; the emulation should be
         // purely index-based (plus swap/ER model), consistent across pages.
 
-        const etfConfigs: EtfConfig[] = [
-          createPresetEtfConfig("upro", ETF_PRESETS.UPRO, {
-            smaEnabled: true,
-            smaPeriod: smaSpPeriod,
-            smaUpperBuffer: smaSpUpperBuffer, smaLowerBuffer: smaSpLowerBuffer,
-            riskOffAsset,
-          }),
-          ...(hasNqData
-            ? [
-                createPresetEtfConfig("tqqq", ETF_PRESETS.TQQQ, {
-                  smaEnabled: true,
-                  smaPeriod: smaNqPeriod,
-                  smaUpperBuffer: smaNqUpperBuffer, smaLowerBuffer: smaNqLowerBuffer,
-                  riskOffAsset,
-                }),
-                createPresetEtfConfig("qld", ETF_PRESETS.QLD, {
-                  smaEnabled: true,
-                  smaPeriod: smaNqPeriod,
-                  smaUpperBuffer: smaNqUpperBuffer, smaLowerBuffer: smaNqLowerBuffer,
-                  riskOffAsset,
-                }),
-              ]
-            : []),
-        ];
+        const etfConfigs = buildEmulationEtfConfigs({
+          hasNasdaqData: hasNqData,
+          bands: smaBands,
+          riskOffAsset,
+        });
 
         // Keep "Check Emulations" on the same canonical path as the backtest page
         // so UPRO/TQQQ/QLD SMA rules, warm-up, risk-off alignment, and actual ETF
