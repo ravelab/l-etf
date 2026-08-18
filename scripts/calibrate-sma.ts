@@ -278,7 +278,9 @@ async function main() {
   };
 
   mkdirSync(join(process.cwd(), "src", "lib", "tool-snapshots"), { recursive: true });
-  writeFileSync(OUTPUT_PATH, JSON.stringify(payload, null, 2));
+  // Trailing newline keeps the artifact POSIX-clean, so re-running does not show
+  // up as a one-line diff on top of the values that actually changed.
+  writeFileSync(OUTPUT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(`[calibrate-sma] Wrote ${OUTPUT_PATH}`);
 }
 

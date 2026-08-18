@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { isValidElement, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
+import { getSwapSpreadModel } from "@/lib/simulation/engine";
+import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata } from "@/lib/seo";
 
@@ -10,6 +12,23 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Answers on leveraged ETF mechanics, SMA timing strategies, drawdowns, risk-off assets, trading cost assumptions, and how this app simulates leveraged ETFs before they existed.",
   path: "/faq",
+});
+
+/**
+ * Rendered straight from the committed swap model rather than transcribed, so
+ * the published numbers cannot drift away from the ones the engine charges —
+ * they had, by up to 0.35 of rate-sensitivity, before this was wired up.
+ */
+const CALIBRATED_SWAP_ROWS = (["SSO", "UPRO", "QLD", "TQQQ"] as const).map((etf) => {
+  const preset = ETF_PRESETS[etf];
+  const model = getSwapSpreadModel()[preset.index]?.[preset.leverage];
+  return {
+    etf,
+    indexLabel: preset.index === "sp500" ? "S&P 500" : "Nasdaq 100",
+    leverage: preset.leverage,
+    rateSensitivity: model ? model.rateSensitivity.toFixed(4) : "—",
+    baseSpread: model ? `${(model.baseSpread * 100).toFixed(3)}%` : "—",
+  };
 });
 
 type FAQItem = {
@@ -635,7 +654,9 @@ const FAQ_DATA: FAQItem[] = [
           simulated NAV tracks the real ETF as closely as possible day by day, over the full
           15-20 year history. The fitter looks at four kinds of error at once (day-to-day
           tracking, long-term drift, average gap, worst gap) and picks the parameters that
-          minimize the combined score. This calibration re-runs automatically every Monday.
+          minimize the combined score. This calibration re-runs automatically on the first
+          Monday of each month, and the table below is read straight out of the model the
+          simulation uses.
         </p>
 
         <p className="mb-3">
@@ -652,10 +673,14 @@ const FAQ_DATA: FAQItem[] = [
               </tr>
             </thead>
             <tbody className="font-mono">
-              <tr><td className="pr-4">SSO</td><td className="pr-4">S&amp;P 500 / 2x</td><td className="pr-4">0.7182</td><td>0.413%</td></tr>
-              <tr><td className="pr-4">UPRO</td><td className="pr-4">S&amp;P 500 / 3x</td><td className="pr-4">0.8993</td><td>0.300%</td></tr>
-              <tr><td className="pr-4">QLD</td><td className="pr-4">Nasdaq 100 / 2x</td><td className="pr-4">0.8991</td><td>-0.023%</td></tr>
-              <tr><td className="pr-4">TQQQ</td><td className="pr-4">Nasdaq 100 / 3x</td><td className="pr-4">1.0780</td><td>-0.120%</td></tr>
+              {CALIBRATED_SWAP_ROWS.map((row) => (
+                <tr key={row.etf}>
+                  <td className="pr-4">{row.etf}</td>
+                  <td className="pr-4">{row.indexLabel} / {row.leverage}x</td>
+                  <td className="pr-4">{row.rateSensitivity}</td>
+                  <td>{row.baseSpread}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
