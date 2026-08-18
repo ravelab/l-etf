@@ -33,6 +33,29 @@ Both `worker.ts`'s `mode_type === 'backtest'` branch and `parallel.ts`'s
 spread-deduction bug pattern as the live paths; leave them alone unless you
 also verify they've become reachable.
 
+## Futures engine: total-return invariant
+
+`src/lib/simulation/futures.ts` must keep a held position earning exactly
+`indexTotalReturn − rate × calendarDays`: `futuresCarryForHoldingPeriod` nets the
+row's *realized* dividend (`adj_close` return minus `close` return, already
+covering weekend gaps) against the rate. The raw `close`/`open` columns drive only
+SMA signals, fill prices, and notional — never the P&L path. This matters because
+`index-sp.csv` before 1988-04-06 takes `adj_close` from Fama-French Hi 30 and
+`close` from the old S&P price path (`src/lib/data/ff-large-cap-splice.ts`); the
+two disagree by up to 3% on ~50 days, which a price-driven P&L would compound at
+full leverage.
+
+Day 0 establishes the starting position at the first *close* in both regimes —
+the bar `dailyEquity[0]` marks, and what `simulateSingleEtf` books — so the
+opening bar's intraday move can never leak into the result.
+
+The futures ladders and their LETF twins ("Check Emulations" on /futures-tool)
+model different instruments and are not expected to match: the LETF pays
+`(L−1)·(borrow + swapSpread)` per *trading* day, with the swap model calibrated on
+2006–2026 rates, so pre-1990 windows extrapolate it far past its fitted range.
+Residual annual drift is that model difference; daily tracking error is not, and
+is worth chasing.
+
 ## MCP server (AI-agent API)
 
 The remote MCP endpoint lives at `src/app/[transport]/route.ts` (served at

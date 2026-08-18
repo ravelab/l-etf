@@ -9,7 +9,7 @@ import {
   futuresFrontBackQtysFromLots,
   getFuturesHalfSpreadPerContract,
   buildInflationDollarCostScaleLookup,
-  futuresCarryForCalendarDays,
+  futuresCarryForHoldingPeriod,
 } from "@/lib/simulation/futures";
 import { riskOffCloseMarkPrice, riskOffOpenTradePrice } from "@/lib/simulation/risk-off";
 
@@ -141,13 +141,24 @@ test("futures sanity: fixed-dollar fees scale down in historical dollars", () =>
   assert.equal(scaleForDate("1980-05-01"), 80 / 260);
 });
 
-test("futures sanity: futures carry uses annualized rate/dividend over calendar days", () => {
-  const carry = futuresCarryForCalendarDays({
+test("futures sanity: carry accrues rate per calendar day and nets the realized dividend once", () => {
+  const carry = futuresCarryForHoldingPeriod({
     rateDaily: 0.036 / 360,
-    dividendDaily: 0.012 / 252,
+    dividendForPeriod: 0.0004,
     calendarDays: 3,
   });
-  assert.equal(Math.abs(carry - ((0.036 - 0.012) * 3 / 365.25)) < 1e-12, true);
+  assert.equal(Math.abs(carry - ((0.036 * 3) / 365.25 - 0.0004)) < 1e-12, true);
+
+  // A held position earns exactly the index total return minus financing:
+  // priceReturn - (rate - dividend) === totalReturn - rate.
+  const priceReturn = -0.031;
+  const totalReturn = -0.002;
+  const oneDay = futuresCarryForHoldingPeriod({
+    rateDaily: 0.036 / 360,
+    dividendForPeriod: totalReturn - priceReturn,
+    calendarDays: 1,
+  });
+  assert.equal(Math.abs((priceReturn - oneDay) - (totalReturn - 0.036 / 365.25)) < 1e-12, true);
 });
 
 test("risk-off shared pricing falls back across open, close, previous close, and last price", () => {
@@ -439,4 +450,177 @@ test("futures sanity: e-mini mode trades futures for accounts that can support o
 
   const hasFuturesTrade = result.transactions.some((row) => row.instrument === "futures");
   assert.equal(hasFuturesTrade, true, "e-mini mode should produce futures trades when one contract is within range");
+});
+
+/** Weekday ISO dates starting at `from`, skipping Sat/Sun. */
+function weekdayDates(from: string, count: number): string[] {
+  const out: string[] = [];
+  const d = new Date(`${from}T00:00:00Z`);
+  while (out.length < count) {
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+test("futures sanity: a held position tracks total return, not a disagreeing price column", () => {
+  // Spliced history (index-sp.csv before 1988) carries `adj_close` from one source
+  // and `close` from another, so on some days the two disagree by ~3%. The position
+  // must follow the total-return path both engines compound, not the price glitch.
+  const dates = weekdayDates("2024-01-02", 30);
+  const glitchIdx = 15;
+  const prices = dates.map((date, i) => {
+    const adjClose = 4000 * Math.pow(1.0003, i);
+    // `close` normally tracks adj_close; on one day it prints 3% low and recovers.
+    const priceRatio = i === glitchIdx ? 0.97 : 1;
+    return { date, adj_close: adjClose, close: adjClose * priceRatio, open: adjClose * priceRatio };
+  });
+  const rates = dates.map((date) => ({ date, rateType: "borrow", rateValue: 0 }));
+
+  const result = simulateFuturesSmaStrategy({
+    index: "sp500",
+    prices,
+    rates,
+    startDate: dates[0],
+    endDate: dates[dates.length - 1],
+    initialEquity: 5_000_000,
+    targetLeverage: 3,
+    smaPeriod: 3,
+    // Wide bands: this test is about carry, so the regime must never flip.
+    smaUpperBuffer: 90,
+    smaLowerBuffer: 90,
+    riskOffAsset: "SGOV",
+    leverageTolerancePct: 1000, // no rebalancing after the initial open
+    feePerContract: 0,
+  });
+
+  const values = result.etfResult.dailyValues;
+  assert.equal(result.etfResult.smaSignals.length, 0, "regime must stay risk-on");
+
+  const glitchReturn = values[glitchIdx] / values[glitchIdx - 1] - 1;
+  const totalReturn = prices[glitchIdx].adj_close / prices[glitchIdx - 1].adj_close - 1;
+  const priceReturn = prices[glitchIdx].close / prices[glitchIdx - 1].close - 1;
+  const leverage = result.avgActualLeverageRiskOn;
+
+  assert.equal(
+    Math.abs(glitchReturn - leverage * totalReturn) < 5e-4,
+    true,
+    `glitch-day return ${glitchReturn} should be ~${leverage * totalReturn} (leveraged total return)`
+  );
+  assert.equal(
+    Math.abs(glitchReturn - leverage * priceReturn) > 0.05,
+    true,
+    "glitch-day return must not follow the leveraged price-column move"
+  );
+});
+
+test("futures sanity: sweep interest accrues into equity daily instead of stepping at month start", () => {
+  // Interest posts to cash monthly, but the equity curve must not jump a month's
+  // worth of interest on the first session of each month.
+  const dates = weekdayDates("2024-01-02", 60);
+  const prices = dates.map((date) => ({ date, adj_close: 4000, close: 4000, open: 4000 }));
+  const rates = dates.map((date) => ({ date, rateType: "borrow", rateValue: 0.05 }));
+
+  const result = simulateFuturesSmaStrategy({
+    index: "sp500",
+    prices,
+    rates,
+    startDate: dates[0],
+    endDate: dates[dates.length - 1],
+    initialEquity: 5_000_000,
+    targetLeverage: 3,
+    smaPeriod: 3,
+    smaUpperBuffer: 90,
+    smaLowerBuffer: 90,
+    riskOffAsset: "SGOV",
+    leverageTolerancePct: 1000,
+    feePerContract: 0,
+  });
+
+  const values = result.etfResult.dailyValues;
+  const monthStarts = dates
+    .map((date, i) => ({ date, i }))
+    .filter(({ date, i }) => i > 0 && date.slice(0, 7) !== dates[i - 1].slice(0, 7));
+  assert.equal(monthStarts.length >= 2, true, "window must cross at least two month boundaries");
+
+  // Flat index at a positive rate: carry on 3x notional always outruns the sweep,
+  // so every session must lose ground. A posted-in-one-lump month of interest
+  // would show up as a single positive day.
+  for (let i = 1; i < values.length; i++) {
+    assert.equal(
+      values[i] < values[i - 1],
+      true,
+      `equity should drift down every session; ${dates[i]} rose from ${values[i - 1]} to ${values[i]}`
+    );
+  }
+});
+
+test("futures sanity: the first bar's open cannot move the result in either regime", () => {
+  // Day 0 is the initial investment, not a signal execution, so it establishes at
+  // the first close - the same bar `dailyEquity[0]` marks, and the convention
+  // `simulateSingleEtf` uses. Sizing off the open instead would either pocket the
+  // first bar's intraday move (risk-off start, which marked to close) or buy a
+  // stale quantity and drop it (risk-on start), depending on the opening regime.
+  const dates = weekdayDates("2024-01-02", 70);
+  const windowStartIdx = 40;
+
+  // `direction` sets the trend, which decides the regime the window opens in.
+  const run = (direction: 1 | -1, dayZeroOpenFactor: number) => {
+    const prices = dates.map((date, i) => {
+      const adjClose = 4000 * Math.pow(1 + direction * 0.004, i);
+      const isWindowStart = i === windowStartIdx;
+      return {
+        date,
+        adj_close: adjClose,
+        close: adjClose,
+        open: isWindowStart ? adjClose * dayZeroOpenFactor : adjClose,
+      };
+    });
+    const riskOffClose = prices.map((p) => p.adj_close / 100);
+    const riskOffOpen = prices.map((p, i) =>
+      i === windowStartIdx ? (p.adj_close / 100) * dayZeroOpenFactor : p.adj_close / 100
+    );
+    return simulateFuturesSmaStrategy({
+      index: "sp500",
+      prices,
+      rates: dates.map((date) => ({ date, rateType: "borrow", rateValue: 0.04 })),
+      startDate: dates[windowStartIdx],
+      endDate: dates[dates.length - 1],
+      initialEquity: 5_000_000,
+      targetLeverage: 3,
+      smaPeriod: 5,
+      smaUpperBuffer: 0,
+      smaLowerBuffer: 0,
+      riskOffAsset: "SGOV",
+      riskOffCloseByTicker: { SGOV: riskOffClose.slice(windowStartIdx) },
+      riskOffOpenByTicker: { SGOV: riskOffOpen.slice(windowStartIdx) },
+      feePerContract: 0,
+    });
+  };
+
+  const rising = run(1, 1);
+  const falling = run(-1, 1);
+  assert.equal(rising.riskOffSessionDayCount, 0, "rising series must open risk-on");
+  assert.equal(
+    falling.riskOffSessionDayCount,
+    falling.sessionDayCount,
+    "falling series must open risk-off and stay there"
+  );
+
+  // A first bar that opens 5% away from its close must not change anything.
+  for (const [label, direction] of [["risk-on start", 1], ["risk-off start", -1]] as const) {
+    const flat = run(direction, 1).etfResult;
+    const gapped = run(direction, 0.95).etfResult;
+    assert.equal(
+      Math.abs(gapped.dailyValues[0] / flat.dailyValues[0] - 1) < 1e-12,
+      true,
+      `${label}: day-0 value moved with the first open (${flat.dailyValues[0]} vs ${gapped.dailyValues[0]})`
+    );
+    assert.equal(
+      Math.abs(gapped.finalValue / flat.finalValue - 1) < 1e-12,
+      true,
+      `${label}: final value moved with the first open (${flat.finalValue} vs ${gapped.finalValue})`
+    );
+  }
 });

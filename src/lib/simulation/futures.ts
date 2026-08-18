@@ -178,16 +178,33 @@ function futuresBasisFillPrice(params: {
   return Number.isFinite(basisFactor) && basisFactor > 0 ? spot * basisFactor : spot;
 }
 
-export function futuresCarryForCalendarDays(params: {
+/**
+ * Financing charged to an open futures position between two index rows, as a
+ * fraction of the prior close.
+ *
+ * Rate accrues per calendar day (so weekends/holidays cost the same as the cash
+ * sweep credits them), but the dividend is the *realized* payout across that
+ * same span, taken straight from the total-return series — one row already
+ * covers the whole gap, so it must not be re-scaled by `calendarDays`.
+ *
+ * Using the realized dividend rather than a smoothed estimate is what makes a
+ * held position earn exactly `indexTotalReturn − rate × days`: price return plus
+ * the dividend it gives up equals the total return by construction. That keeps
+ * the futures path on the same index the LETF engine compounds (`adj_close`)
+ * instead of on the raw `close` column, which for spliced history is a
+ * different series and disagrees with it by up to 3% on some days.
+ */
+export function futuresCarryForHoldingPeriod(params: {
   rateDaily: number;
-  dividendDaily: number;
+  /** Dividend paid over the whole holding period, as a fraction of the prior close. */
+  dividendForPeriod: number;
   calendarDays: number;
 }): number {
   const days = Math.max(0, params.calendarDays);
   if (days <= 0) return 0;
   const rateAnnual = Number.isFinite(params.rateDaily) ? params.rateDaily * 360 : 0;
-  const dividendAnnual = Number.isFinite(params.dividendDaily) ? params.dividendDaily * 252 : 0;
-  const carry = (rateAnnual - dividendAnnual) * days / 365.25;
+  const dividend = Number.isFinite(params.dividendForPeriod) ? params.dividendForPeriod : 0;
+  const carry = ((rateAnnual * days) / 365.25) - dividend;
   return Number.isFinite(carry) ? carry : 0;
 }
 
@@ -898,6 +915,11 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     params.leverageTolerancePct ?? DEFAULT_LEVERAGE_TOLERANCE_PCT
   );
   const feeDollarScaleForDate = buildInflationDollarCostScaleLookup(params.monthlyCpi, params.endDate);
+  // The un-swept cash buffer is a present-day broker threshold, so it lives in the
+  // same dollars as the commission schedule and gets deflated the same way. Leaving
+  // it nominal would wipe out most of the interest base in early history (a $10k
+  // buffer against a 1962 account is a different animal than against a 2026 one).
+  const freeCashAt = (date: string) => freeCash * feeDollarScaleForDate(date);
   // Futures fees and bid/ask spreads scale with the contract's fill price so they
   // represent a constant fraction of notional. Anchor to a reference price (typically
   // today's market price or latest available) so that historical backtests have consistent
@@ -1000,15 +1022,18 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
   dailyEquity[0] = cash;
   const firstDate = dates[0];
   const firstSpot = smaInput[0];
-  const firstOpen =
-    Number.isFinite(indexOpenPx[0]) && indexOpenPx[0] > 0 ? indexOpenPx[0] : firstSpot;
+  // Day 0 establishes the starting position rather than executing a signal, so it
+  // fills at the first close — the same bar `dailyEquity[0]` marks, and the same
+  // convention `simulateSingleEtf` uses for its own day-0 value. Filling at the
+  // open instead would size off one price and mark at another, silently dropping
+  // (risk-on) or keeping (risk-off) that day's intraday move depending on regime.
   const startsRiskOn = Boolean(invested[0]);
-  if (startsRiskOn && Number.isFinite(firstOpen) && firstOpen > 0) {
+  if (startsRiskOn && Number.isFinite(firstSpot) && firstSpot > 0) {
     const initialTargetNotional = Math.max(0, params.targetLeverage * cash);
     const initialContract = chooseContract(params.index);
     const initialSymbol = newTradesContractLabel(initialContract, firstDate, rollDateByQuarter);
     const initialFillPrice = futuresBasisFillPrice({
-      spotPrice: firstOpen,
+      spotPrice: firstSpot,
       symbol: initialSymbol,
       tradeDate: firstDate,
       rateDaily: rateLookup.getRate(firstDate),
@@ -1101,21 +1126,18 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     }
     dailyEquity[0] = cash;
   } else if (riskOffTickers.length > 0) {
-    // Starts in risk-off: open the risk-off basket on the first day's open at i=0,
-    // then mark to first-day close so the equity curve reflects intraday risk-off
-    // performance from day one (matches LETF SMA which is fully invested in the
-    // risk-off basket from the first day when the SMA signal starts negative).
+    // Starts in risk-off: establish the basket at the first close (see above), so
+    // day 0 books it at cost and the curve starts flat exactly like the LETF engine.
     const investable = cash;
     const valuePer = investable / riskOffTickers.length;
     riskOffShares = new Array(riskOffTickers.length).fill(0);
     riskOffCash = new Array(riskOffTickers.length).fill(0);
     riskOffLastPrice = new Array(riskOffTickers.length).fill(NaN);
-    let day0RiskOffBookAtOpen = 0;
+    let day0RiskOffBookAtEntry = 0;
     for (let j = 0; j < riskOffTickers.length; j++) {
       const t = riskOffTickers[j];
-      const openArr = params.riskOffOpenByTicker?.[t];
       const closeArr = params.riskOffCloseByTicker?.[t];
-      const openPx = riskOffOpenTradePrice({ openValues: openArr, closeValues: closeArr, index: 0 });
+      const openPx = riskOffCloseMarkPrice({ closeValues: closeArr, index: 0 });
       if (Number.isFinite(openPx) && (openPx as number) > 0) {
         const grossShares = valuePer / (openPx as number);
         const spread = getTransactionSpreadCost({
@@ -1135,7 +1157,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
         riskOffLastPrice[j] = openPx as number;
         totalFees += fees;
         totalSpreadCosts += spread;
-        day0RiskOffBookAtOpen += shares * (openPx as number);
+        day0RiskOffBookAtEntry += shares * (openPx as number);
         transactions.push({
           date: firstDate,
           action: "buy",
@@ -1149,7 +1171,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
           cashInterestEarned: 0,
           excessLiquidity: 0,
           leverageDeltaPct: 0,
-          equity: day0RiskOffBookAtOpen,
+          equity: day0RiskOffBookAtEntry,
         });
       } else {
         riskOffCash[j] = valuePer;
@@ -1157,7 +1179,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     }
     cash = 0;
 
-    // Mark to first-day close so dailyEquity[0] reflects the close-of-day basket value.
+    // Mark at the first close (the entry bar): books the basket at cost.
     let day0Equity = 0;
     for (let j = 0; j < riskOffTickers.length; j++) {
       const t = riskOffTickers[j];
@@ -1220,7 +1242,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
             })
           : 0;
       const heldMaintenanceGap = heldNotionalGap * maintMarginRate;
-      const cashYieldGap = Math.max(0, cash - heldMaintenanceGap - freeCash);
+      const cashYieldGap = Math.max(0, cash - heldMaintenanceGap - freeCashAt(dates[i - 1] as string));
       let accrualMonth = (dates[i - 1] as string).slice(0, 7);
       for (let gapDay = 1; gapDay <= extraSweepDays; gapDay++) {
         const gapDate = addCalendarDaysIso(dates[i - 1] as string, gapDay);
@@ -1256,10 +1278,12 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       Number.isFinite(trPrev) && Number.isFinite(trNow) && trPrev > 0 && trNow > 0
         ? trNow / trPrev - 1
         : spotRet;
-    const rawDividendDaily = trRet - spotRet;
-    if (Number.isFinite(rawDividendDaily)) {
-      dividendEmaDaily = (dividendEmaDaily * (1 - divAlpha)) + (rawDividendDaily * divAlpha);
-    }
+    // Realized payout for this row (covers weekend/holiday gaps in one number).
+    // Drives the carry charged to held positions; the smoothed EMA below only
+    // estimates *future* dividends for the basis baked into fill prices.
+    const rawDividend = trRet - spotRet;
+    const realizedDividend = Number.isFinite(rawDividend) ? rawDividend : 0;
+    dividendEmaDaily = (dividendEmaDaily * (1 - divAlpha)) + (realizedDividend * divAlpha);
     const dividendDaily = Math.max(-MAX_ABS_DIVIDEND_DAILY, Math.min(MAX_ABS_DIVIDEND_DAILY, dividendEmaDaily));
     const rateDaily = rateLookup.getRate(date); // already /360
 
@@ -1282,16 +1306,18 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
 
     // Realize prior-close-to-current-open futures PnL before same-day open trades.
     // Charge futures carry to contracts held from the prior close, not contracts
-    // opened today. Scale by calendar gap so weekend/holiday carry matches cash
-    // sweep accrual. Fills/notional use estimated contract prices, but portfolio
-    // economics stay on raw index moves plus explicit carry so financing is not
-    // counted both in basis decay and collateral interest.
+    // opened today. Rate accrues per calendar day so weekend/holiday carry matches
+    // cash sweep accrual. Fills/notional use estimated contract prices, but
+    // portfolio economics stay on index moves plus explicit carry so financing is
+    // not counted both in basis decay and collateral interest; netting the
+    // realized dividend against the rate leaves a held position earning exactly
+    // the index total return minus financing.
     if (contract && sumLots(lots) > 0) {
       const mult = getContractMultiplier(contract);
       const carryDaysSincePrevClose = Math.max(1, gapCalendarDays);
-      const futuresCarrySincePrevClose = futuresCarryForCalendarDays({
+      const futuresCarrySincePrevClose = futuresCarryForHoldingPeriod({
         rateDaily,
-        dividendDaily,
+        dividendForPeriod: realizedDividend,
         calendarDays: carryDaysSincePrevClose,
       });
       for (const [, q] of lots) {
@@ -2104,7 +2130,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
           })
         : 0;
     const heldMaintenance = heldNotional * maintMarginRate;
-    const cashYieldBase = Math.max(0, cash - heldMaintenance - freeCash);
+    const cashYieldBase = Math.max(0, cash - heldMaintenance - freeCashAt(date));
     const spreadDaily = spreadAnnual / 360;
     const cashRateDaily = Math.max(0, rateDaily - spreadDaily);
     const interestEarned = cashYieldBase * cashRateDaily;
@@ -2197,7 +2223,11 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     }
 
     // If we are in risk-off, equity should reflect marked-to-close risk-off value too.
-    dailyEquity[i] = clampToFinite(endEquity, dailyEquity[i - 1]);
+    // Sweep interest posts to cash monthly, but it is the account's money from the
+    // day it accrues — carrying the unposted balance here keeps the equity curve
+    // smooth instead of stepping up ~1% of equity on every month's first session
+    // (at 1981 rates). Trading and margin still size off posted `cash` only.
+    dailyEquity[i] = clampToFinite(endEquity + pendingMonthlyCashInterest, dailyEquity[i - 1]);
 
     if (invested[i] && sumLots(lots) > 0 && contract !== null && endEquity > 0) {
       const lev = endNotional / endEquity;
@@ -2212,10 +2242,9 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
   // Book-close row for the transaction ledger (same idea as backtest SMA tables).
   const lastIdx = dates.length - 1;
   if (lastIdx >= 0) {
-    const creditedAtBookClose = creditPendingCashInterest();
-    if (creditedAtBookClose > 0) {
-      dailyEquity[lastIdx] = (dailyEquity[lastIdx] ?? 0) + creditedAtBookClose;
-    }
+    // Post the final month's sweep to cash for the ledger. No equity adjustment:
+    // `dailyEquity` already carries the accrued balance day by day.
+    creditPendingCashInterest();
   }
   const windowFinalEquity = dailyEquity[lastIdx] ?? 0;
   if (transactions.length > 0 && lastIdx >= 0 && windowFinalEquity > 0) {
