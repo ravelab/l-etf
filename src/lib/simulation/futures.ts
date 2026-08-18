@@ -836,7 +836,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     const leverageLabel = formatLeverageLabel(params.targetLeverage);
     const empty: EtfResult = buildEtfResult({
       id: `${params.targetLeverage}x-${params.index}-futures-sma`,
-      name: params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDQ"} SMA`,
+      name: params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDX"} SMA`,
       sourceIndex: params.index,
       dates: [],
       dailyValues: [],
@@ -2429,7 +2429,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
   const totalTradingCostPct = finalEquity > 0 ? ((totalFees + totalSpreadCosts) / finalEquity) * 100 : 0;
 
   const leverageLabel = formatLeverageLabel(params.targetLeverage);
-  const name = params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDQ"} SMA`;
+  const name = params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDX"} SMA`;
   const id = `${params.targetLeverage}x-${params.index}-futures-sma`;
   const etfResult = buildEtfResult({
     id,

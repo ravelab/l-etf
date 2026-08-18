@@ -444,7 +444,7 @@ export function FuturesPageContent({
       const nqRiskOffAligned = buildRiskOffAligned(nqInRange);
 
       // "Check Emulations" compares LETF SMAs to the nearest futures ladders only — skip 4.5×/4× SPX
-      // and 4× NDQ so we do not pay for extra sims; SPX futures line is 3× (not 4×).
+      // and 4× NDX so we do not pay for extra sims; SPX futures line is 3× (not 4×).
       const yearSpan = (new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
       const futuresPlan: Array<{
         index: "sp500" | "nasdaq100";

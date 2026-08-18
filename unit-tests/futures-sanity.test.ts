@@ -108,9 +108,9 @@ test("futures sanity: multipliers are plausible and non-degenerate", () => {
     ["SPX 2x", sp2],
     ["SPX 3x", sp3],
     ["SPX 4x", sp4],
-    ["NDQ 2x", nq2],
-    ["NDQ 3x", nq3],
-    ["NDQ 4x", nq4],
+    ["NDX 2x", nq2],
+    ["NDX 3x", nq3],
+    ["NDX 4x", nq4],
   ] as const) {
     assert.equal(Number.isFinite(mult), true, `${label} multiplier must be finite`);
     assert.equal(mult > 0.01, true, `${label} should not collapse to near-zero`);
@@ -120,8 +120,8 @@ test("futures sanity: multipliers are plausible and non-degenerate", () => {
   // Ensure leverage tiers are not accidentally identical due to sizing bugs.
   assert.equal(Math.abs(sp3 - sp2) > 0.01, true, "SPX 2x and 3x should differ");
   assert.equal(Math.abs(sp4 - sp3) > 0.01, true, "SPX 3x and 4x should differ");
-  assert.equal(Math.abs(nq3 - nq2) > 0.01, true, "NDQ 2x and 3x should differ");
-  assert.equal(Math.abs(nq4 - nq3) > 0.01, true, "NDQ 3x and 4x should differ");
+  assert.equal(Math.abs(nq3 - nq2) > 0.01, true, "NDX 2x and 3x should differ");
+  assert.equal(Math.abs(nq4 - nq3) > 0.01, true, "NDX 3x and 4x should differ");
 });
 
 test("futures sanity: per-contract spreads are half a tick per side", () => {

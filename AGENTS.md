@@ -48,6 +48,12 @@ SMA signals, fill prices, and notional — never the P&L path. This matters beca
 two disagree by up to 3% on ~50 days, which a price-driven P&L would compound at
 full leverage.
 
+`NDQ-TR` in `data/index-nq.csv` is not a misspelling of NDX: it tags the
+1971-02-05..1985-09-30 rows, which are the Nasdaq *Composite* scaled to meet NDX
+at the seam (the Nasdaq-100 did not exist yet) and carry their own dividend-yield
+table in `fetch-data.ts`. Display labels say NDX everywhere; only the data layer
+keeps the distinction.
+
 Margin is a requirement, not a payment: `maintMarginRate` governs capacity and
 excess liquidity, never the cash-sweep base. Netting it out of the interest base
 charges a phantom `maintMarginRate × leverage × rate` that scales with leverage
