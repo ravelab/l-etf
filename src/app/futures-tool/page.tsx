@@ -452,30 +452,31 @@ export function FuturesPageContent({
         maxLeverage?: number;
         displayName?: string;
         period: number;
-        buffer: number;
+        upperBuffer: number;
+        lowerBuffer: number;
       }> = showEmulations
         ? [
-            { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpUpperBuffer },
+            { index: "sp500", leverage: 3, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
             ...(hasNqData
               ? ([
-                  { index: "nasdaq100", leverage: 3, period: smaNqPeriod, buffer: smaNqUpperBuffer },
-                  { index: "nasdaq100", leverage: 2, period: smaNqPeriod, buffer: smaNqUpperBuffer },
+                  { index: "nasdaq100", leverage: 3, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
+                  { index: "nasdaq100", leverage: 2, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
                 ] as const)
               : []),
           ]
         : yearSpan > 90
           ? [
-              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, buffer: smaSpUpperBuffer },
-              { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpUpperBuffer },
+              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
+              { index: "sp500", leverage: 3, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
             ]
           : [
-              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, buffer: smaSpUpperBuffer },
-              { index: "sp500", leverage: 5, period: smaSpPeriod, buffer: smaSpUpperBuffer },
-              { index: "sp500", leverage: 3, period: smaSpPeriod, buffer: smaSpUpperBuffer },
+              { index: "sp500", leverage: 4.5, maxLeverage: 4.5, displayName: "Max 4.5x SPX SMA", period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
+              { index: "sp500", leverage: 5, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
+              { index: "sp500", leverage: 3, period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
               ...(hasNqData
                 ? ([
-                    { index: "nasdaq100", leverage: 4, period: smaNqPeriod, buffer: smaNqUpperBuffer },
-                    { index: "nasdaq100", leverage: 3, period: smaNqPeriod, buffer: smaNqUpperBuffer },
+                    { index: "nasdaq100", leverage: 4, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
+                    { index: "nasdaq100", leverage: 3, period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
                   ] as const)
                 : []),
             ];
@@ -492,7 +493,7 @@ export function FuturesPageContent({
           maxLeverage: step.maxLeverage,
           displayName: step.displayName,
           smaPeriod: step.period,
-          smaUpperBuffer: step.buffer, smaLowerBuffer: step.buffer,
+          smaUpperBuffer: step.upperBuffer, smaLowerBuffer: step.lowerBuffer,
           riskOffAsset,
           riskOffCloseByTicker: step.index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
           riskOffOpenByTicker: step.index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
