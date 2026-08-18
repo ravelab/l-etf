@@ -652,10 +652,10 @@ const FAQ_DATA: FAQItem[] = [
               </tr>
             </thead>
             <tbody className="font-mono">
-              <tr><td className="pr-4">SSO</td><td className="pr-4">S&amp;P 500 / 2x</td><td className="pr-4">0.6893</td><td>0.248%</td></tr>
-              <tr><td className="pr-4">UPRO</td><td className="pr-4">S&amp;P 500 / 3x</td><td className="pr-4">0.7310</td><td>0.364%</td></tr>
-              <tr><td className="pr-4">QLD</td><td className="pr-4">Nasdaq 100 / 2x</td><td className="pr-4">0.7099</td><td>0.073%</td></tr>
-              <tr><td className="pr-4">TQQQ</td><td className="pr-4">Nasdaq 100 / 3x</td><td className="pr-4">0.8198</td><td>0.058%</td></tr>
+              <tr><td className="pr-4">SSO</td><td className="pr-4">S&amp;P 500 / 2x</td><td className="pr-4">0.7182</td><td>0.413%</td></tr>
+              <tr><td className="pr-4">UPRO</td><td className="pr-4">S&amp;P 500 / 3x</td><td className="pr-4">0.8993</td><td>0.300%</td></tr>
+              <tr><td className="pr-4">QLD</td><td className="pr-4">Nasdaq 100 / 2x</td><td className="pr-4">0.8991</td><td>-0.023%</td></tr>
+              <tr><td className="pr-4">TQQQ</td><td className="pr-4">Nasdaq 100 / 3x</td><td className="pr-4">1.0780</td><td>-0.120%</td></tr>
             </tbody>
           </table>
         </div>
@@ -667,6 +667,19 @@ const FAQ_DATA: FAQItem[] = [
         </p>
 
         <p className="mb-3">
+          <strong className="text-foreground">Where the model stops extrapolating.</strong> Those
+          two numbers can only be fitted where the real ETFs exist — 2006 onward for SSO and QLD,
+          2009-10 for UPRO and TQQQ — and across that entire window the base rate never rose above
+          5.8%. Inside that range the slope is well supported: forcing it to zero throws UPRO&apos;s
+          simulated final return off by about 6%. Outside it there is no evidence at all, and a
+          straight line runs away quickly — at the ~15% rates of 1981 it would have banks charging
+          a 5-7%/yr premium <em>on top of</em> an already-15% rate, several times anything a
+          funding market has charged. So above 6% the premium holds flat at its end-of-range value
+          while the base rate keeps passing through in full. Every backtest that stays inside the
+          fitted range — anything from 2006 on — is completely unaffected.
+        </p>
+
+        <p className="mb-3">
           <strong className="text-foreground">If you want the math.</strong> The daily formula is:
         </p>
         <pre className="text-xs md:text-sm bg-muted/20 p-3 rounded mb-3 overflow-x-auto whitespace-pre-wrap">
@@ -674,9 +687,19 @@ const FAQ_DATA: FAQItem[] = [
             − ER_daily
             − (|L| − 1) × (R_borrow(t) + swapSpread_daily(t))
 
-swapSpread_daily(t) = (rateSensitivity × R_borrow_annual(t) + baseSpread) / 360
+swapSpread_daily(t) = (rateSensitivity × min(R_borrow_annual(t), 6%)
+                       + baseSpread
+                       + 0.4286 × max(0, R_borrow_annual(t) − 6%)) / 360
 NAV(t) = NAV(t-1) × (1 + R_LETF(t))      (floored at 0)`}
         </pre>
+        <p className="mb-3">
+          The third term in the spread is what keeps the cap honest above 6%. Because the borrow
+          rate is quoted on a 360-day year but charged only on the ~252 days the market is open,
+          the borrow term by itself delivers 252/360 of the annual rate; the extra 0.4286 slope
+          carries the remaining rate through. Without it, freezing the premium would make a 1981
+          backtest borrow more cheaply than the risk-free rate.
+        </p>
+
         <p className="mb-3">
           The <code>(|L| − 1)</code> factor is &quot;you only pay financing on the borrowed
           portion&quot; — a 3x fund borrows 2x its own capital, so it pays the borrow + spread on

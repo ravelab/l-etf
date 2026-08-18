@@ -173,6 +173,27 @@ let SWAP_SPREAD_MODEL: Record<string, Record<number, SwapSpreadModel>> = {
 const DEFAULT_SWAP_MODEL: SwapSpreadModel = { rateSensitivity: 0.7, baseSpread: 0.001 };
 
 /**
+ * Highest borrow rate the swap-spread model is actually fitted on.
+ * `calibrate-etfs.ts` can only see the window where the real ETFs exist —
+ * 2006-06-21 on for SSO/QLD, 2009/2010 on for UPRO/TQQQ — and the benchmark
+ * tops out at 5.82% across it. The slope is well identified inside that range
+ * (pinning it to zero blows UPRO's final tracking error out to 6%), but above
+ * it there is no evidence at all, and a straight line compounds fast: at the
+ * ~15% rates of 1981 it implies a 5–7%/yr credit spread over the risk-free
+ * rate, several times anything a funding market has charged.
+ */
+const SWAP_SPREAD_CALIBRATED_RATE_MAX = 0.06;
+
+/**
+ * Slope the spread keeps above {@link SWAP_SPREAD_CALIBRATED_RATE_MAX}, where the
+ * fitted credit spread holds flat but the risk-free rate must still pass through
+ * in full. The engine charges `annualRate / 360` on ~252 trading days a year, so
+ * the borrow term alone only delivers 252/360 of the rate; this covers the rest.
+ * Without it, capping would make leveraged financing *cheaper* than risk-free.
+ */
+const SWAP_SPREAD_RATE_PASSTHROUGH_SLOPE = 360 / 252 - 1;
+
+/**
  * Override the swap spread model (used by calibration script).
  * Returns the previous model so it can be restored.
  */
@@ -192,12 +213,23 @@ export function getSwapSpreadModel(): Record<string, Record<number, SwapSpreadMo
 /**
  * Compute the daily swap spread for a given index, leverage, and borrowing rate.
  * borrowRateDaily is already in daily units (annualRate / 100 / 360).
+ *
+ * Inside the fitted rate range this is the calibrated line, unchanged. Above
+ * {@link SWAP_SPREAD_CALIBRATED_RATE_MAX} the credit spread holds at its
+ * end-of-range value while the rate itself still passes through in full, so a
+ * 1970s–80s backtest pays a plausible premium over a high risk-free rate
+ * instead of a fitted line extrapolated three times past its evidence.
  */
 export function getSwapSpreadDaily(smaIndex: string, borrowRateDaily: number, leverage: number = 3): number {
   const indexModels = SWAP_SPREAD_MODEL[smaIndex];
   const model = indexModels?.[Math.abs(leverage)] ?? indexModels?.[3] ?? DEFAULT_SWAP_MODEL;
   const annualBorrowRate = borrowRateDaily * 360; // back to decimal (e.g. 0.05 for 5%)
-  const annualSpread = model.rateSensitivity * annualBorrowRate + model.baseSpread;
+  const fittedRate = Math.min(annualBorrowRate, SWAP_SPREAD_CALIBRATED_RATE_MAX);
+  const extrapolatedRate = Math.max(0, annualBorrowRate - SWAP_SPREAD_CALIBRATED_RATE_MAX);
+  const annualSpread =
+    model.rateSensitivity * fittedRate +
+    model.baseSpread +
+    SWAP_SPREAD_RATE_PASSTHROUGH_SLOPE * extrapolatedRate;
   // Floor at 0: in extremely low/negative rate environments, spread shouldn't go deeply negative
   return Math.max(annualSpread, 0) / 360;
 }

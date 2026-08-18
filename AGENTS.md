@@ -59,10 +59,24 @@ opening bar's intraday move can never leak into the result.
 
 The futures ladders and their LETF twins ("Check Emulations" on /futures-tool)
 model different instruments and are not expected to match: the LETF pays
-`(L−1)·(borrow + swapSpread)` per *trading* day, with the swap model calibrated on
-2006–2026 rates, so pre-1990 windows extrapolate it far past its fitted range.
-Residual annual drift is that model difference; daily tracking error is not, and
-is worth chasing.
+`(L−1)·(borrow + swapSpread)` per *trading* day, the futures pay carry on notional
+per *calendar* day plus a sweep on collateral. Residual annual drift is that model
+difference; daily tracking error is not, and is worth chasing.
+
+## Swap spread: fitted range and the cap above it
+
+`getSwapSpreadDaily` is a line in the rate level, fitted by `calibrate-etfs.ts`
+against the real ETFs — which only exist from 2006 (SSO/QLD) and 2009-10
+(UPRO/TQQQ), where the benchmark tops out at 5.82%. The slope is genuinely
+identified there (pinning it to zero costs UPRO ~6% of final tracking error), so
+do not flatten it. Above `SWAP_SPREAD_CALIBRATED_RATE_MAX` (6%) the fitted credit
+spread holds flat while the rate still passes through in full, via
+`SWAP_SPREAD_RATE_PASSTHROUGH_SLOPE` (`360/252 − 1`) — the engine charges
+`rate/360` on ~252 trading days, so a naive cap would make leveraged financing
+cheaper than risk-free. Everything at or below 6% is bit-identical to the raw
+fitted line, which is what keeps post-2006 results and the calibration itself
+untouched; `unit-tests/swap-spread-extrapolation.test.ts` guards all three
+properties.
 
 ## MCP server (AI-agent API)
 
