@@ -1215,34 +1215,13 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
 
     // Sweep interest on non-trading calendar days (Sat/Sun/holidays) between index rows: same daily rate × gap,
     // balance frozen at prior session close (before today's overnight futures cash). Uses prior session SOFR.
-    const dividendDailyPriorClose = Math.max(
-      -MAX_ABS_DIVIDEND_DAILY,
-      Math.min(MAX_ABS_DIVIDEND_DAILY, dividendEmaDaily)
-    );
     const gapCalendarDays = calendarDaysBetweenIso(dates[i - 1] as string, dates[i] as string);
     const extraSweepDays = Math.max(0, gapCalendarDays - 1);
     if (extraSweepDays > 0) {
       const ratePrev = rateLookup.getRate(dates[i - 1] as string);
       const spreadDailyGap = spreadAnnual / 360;
       const cashRateGap = Math.max(0, ratePrev - spreadDailyGap);
-      const markGapPrevClose = (sym: string) =>
-        futuresBasisFillPrice({
-          spotPrice: prevSpot,
-          symbol: sym,
-          tradeDate: dates[i - 1] as string,
-          rateDaily: ratePrev,
-          dividendDaily: dividendDailyPriorClose,
-        });
-      const heldNotionalGap =
-        contract != null && sumLots(lots) > 0
-          ? totalFuturesNotionalAtMark({
-              lots,
-              contract,
-              mark: markGapPrevClose,
-            })
-          : 0;
-      const heldMaintenanceGap = heldNotionalGap * maintMarginRate;
-      const cashYieldGap = Math.max(0, cash - heldMaintenanceGap - freeCashAt(dates[i - 1] as string));
+      const cashYieldGap = Math.max(0, cash - freeCashAt(dates[i - 1] as string));
       let accrualMonth = (dates[i - 1] as string).slice(0, 7);
       for (let gapDay = 1; gapDay <= extraSweepDays; gapDay++) {
         const gapDate = addCalendarDaysIso(dates[i - 1] as string, gapDay);
@@ -2119,18 +2098,15 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       }
     }
 
-    // Cash interest (sweep) on equity above the maintenance requirement, with
-    // a haircut for the broker spread and an additional unswept-cash buffer.
-    const heldNotional =
-      contract != null && sumLots(lots) > 0
-        ? totalFuturesNotionalAtMark({
-            lots,
-            contract,
-            mark: markFuturesClose,
-          })
-        : 0;
-    const heldMaintenance = heldNotional * maintMarginRate;
-    const cashYieldBase = Math.max(0, cash - heldMaintenance - freeCashAt(date));
+    // Cash interest (sweep) on the whole posted cash balance, less the broker's
+    // un-swept buffer. Margin is a *requirement*, not a payment: collateral held
+    // against an open futures position stays in the cash balance and keeps
+    // earning, so it must not be netted out here (`maintMarginRate` still governs
+    // capacity and excess liquidity below). Deducting it charged a phantom
+    // `maintMarginRate x leverage x rate` per year -- 1.7%/yr at 3x on 1970s
+    // rates -- and, being leverage-scaled, it tilted the ladder against the
+    // higher rungs it is meant to compare.
+    const cashYieldBase = Math.max(0, cash - freeCashAt(date));
     const spreadDaily = spreadAnnual / 360;
     const cashRateDaily = Math.max(0, rateDaily - spreadDaily);
     const interestEarned = cashYieldBase * cashRateDaily;

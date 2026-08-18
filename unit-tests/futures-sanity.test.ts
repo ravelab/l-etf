@@ -624,3 +624,53 @@ test("futures sanity: the first bar's open cannot move the result in either regi
     );
   }
 });
+
+test("futures sanity: margin requirement constrains capacity but not sweep interest", () => {
+  // Futures margin is a requirement, not a payment: collateral held against an
+  // open position stays in the cash balance and keeps earning. Raising the
+  // maintenance rate must move excess liquidity without moving interest.
+  const dates = weekdayDates("2024-01-02", 70);
+  const prices = dates.map((date) => ({ date, adj_close: 4000, close: 4000, open: 4000 }));
+  const rates = dates.map((date) => ({ date, rateType: "borrow", rateValue: 0.06 }));
+
+  const run = (maintenanceMarginRate: number) =>
+    simulateFuturesSmaStrategy({
+      index: "sp500",
+      prices,
+      rates,
+      startDate: dates[0],
+      endDate: dates[dates.length - 1],
+      initialEquity: 5_000_000,
+      targetLeverage: 2,
+      smaPeriod: 3,
+      smaUpperBuffer: 90,
+      smaLowerBuffer: 90,
+      riskOffAsset: "SGOV",
+      leverageTolerancePct: 1000,
+      feePerContract: 0,
+      maintenanceMarginRate,
+    });
+
+  const lowMargin = run(0.02);
+  const highMargin = run(0.1);
+  const interest = (r: ReturnType<typeof run>) =>
+    r.transactions.reduce((sum, t) => sum + t.cashInterestEarned, 0);
+
+  assert.equal(
+    lowMargin.transactions[0].qtyAfter,
+    highMargin.transactions[0].qtyAfter,
+    "neither margin rate should bind capacity at 2x"
+  );
+  assert.equal(interest(lowMargin) > 0, true, "sweep must actually earn something");
+  assert.equal(
+    Math.abs(interest(highMargin) / interest(lowMargin) - 1) < 1e-9,
+    true,
+    `margin rate changed interest earned (${interest(lowMargin)} vs ${interest(highMargin)})`
+  );
+  // The requirement itself must still show up where it belongs.
+  assert.equal(
+    highMargin.transactions[0].excessLiquidity < lowMargin.transactions[0].excessLiquidity,
+    true,
+    "higher maintenance rate must reduce reported excess liquidity"
+  );
+});
