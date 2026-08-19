@@ -36,14 +36,26 @@ const TOP_N = 10;
  * The windows the menu ships, as (strategy, year the local max falls in). Each entry
  * resolves to that year's longest underwater span, so the exact peak and break-even dates
  * follow the data instead of being hand-typed.
+ *
+ * `endDate` overrides where the span would otherwise end. The 1965 entry uses it: nominally
+ * the strategy breaks even in 1967, but the era's damage was inflation, and in real terms it
+ * spends the run to 1983 below its 1965 peak (last real close under it: 1982-10-07).
  */
-const ERAS = [
+interface EraWindow {
+  readonly letf: "UPRO" | "TQQQ";
+  /** Year the strategy's local max falls in. */
+  readonly peakYear: string;
+  /** Overrides where the span would otherwise end. */
+  readonly endDate?: string;
+}
+
+const ERAS: readonly EraWindow[] = [
+  { letf: "UPRO", peakYear: "1965", endDate: "1983-02-28" },
   { letf: "UPRO", peakYear: "2007" },
-  { letf: "UPRO", peakYear: "1965" },
   { letf: "UPRO", peakYear: "2020" },
   { letf: "TQQQ", peakYear: "2000" },
   { letf: "TQQQ", peakYear: "1987" },
-] as const satisfies ReadonlyArray<{ letf: "UPRO" | "TQQQ"; peakYear: string }>;
+];
 
 interface Underwater {
   readonly peakDate: string;
@@ -153,11 +165,31 @@ async function simulateStrategy(presetKey: "UPRO" | "TQQQ") {
   return { config, smaPeriod, smaBuffer, dates: result.dates, values: strategy.dailyValues };
 }
 
-function menuItem(letf: string, span: Underwater): string {
+/** Deepest peak-to-trough decline inside `[from, to]`, as a negative percentage. */
+function maxDrawdownInWindow(
+  dates: readonly string[],
+  values: readonly number[],
+  from: string,
+  to: string,
+): number {
+  let peak = -Infinity;
+  let worst = 0;
+  for (let i = 0; i < dates.length; i++) {
+    const date = dates[i]!;
+    if (date < from) continue;
+    if (date > to) break;
+    const value = values[i]!;
+    if (value > peak) peak = value;
+    const drawdown = ((value - peak) / peak) * 100;
+    if (drawdown < worst) worst = drawdown;
+  }
+  return worst;
+}
+
+function menuItem(letf: string, startDate: string, endDate: string, depthPct: number): string {
   return (
-    `  { letf: "${letf}" as const, startDate: "${span.peakDate}", ` +
-    `endDate: "${span.lastUnderwaterDate}", days: ${span.underwaterDays}, ` +
-    `drawdown: "${span.depthPct.toFixed(1)}%" },`
+    `  { letf: "${letf}" as const, startDate: "${startDate}", endDate: "${endDate}", ` +
+    `days: ${daysBetween(startDate, endDate)}, drawdown: "${depthPct.toFixed(1)}%" },`
   );
 }
 
@@ -174,14 +206,14 @@ function describe(span: Underwater): Record<string, string | number> {
 }
 
 async function main(): Promise<void> {
-  const spansByLetf = new Map<string, Underwater[]>();
+  const curves = new Map<string, { dates: string[]; values: number[]; spans: Underwater[] }>();
 
   for (const presetKey of ["UPRO", "TQQQ"] as const) {
     const { smaPeriod, smaBuffer, dates, values } = await simulateStrategy(presetKey);
     const spans = findUnderwaterSpans(dates, values).sort(
       (a, b) => b.underwaterDays - a.underwaterDays,
     );
-    spansByLetf.set(presetKey, spans);
+    curves.set(presetKey, { dates, values, spans });
 
     console.log(
       `\n${presetKey} SMA ${smaPeriod} (-${smaBuffer}%/+${smaBuffer}%) — ` +
@@ -193,14 +225,18 @@ async function main(): Promise<void> {
 
   console.log("\nWORST_TIME_TO_INVEST_ITEMS (paste into ToolRunHistoryMenu.tsx):\n");
   for (const era of ERAS) {
-    const match = spansByLetf
-      .get(era.letf)
-      ?.find((span) => span.peakDate.startsWith(era.peakYear));
-    if (!match) {
+    const curve = curves.get(era.letf);
+    const span = curve?.spans.find((s) => s.peakDate.startsWith(era.peakYear));
+    if (!curve || !span) {
       console.log(`  // no ${era.letf} underwater span peaking in ${era.peakYear}`);
       continue;
     }
-    console.log(menuItem(era.letf, match));
+    const endDate = era.endDate ?? span.lastUnderwaterDate;
+    const depthPct =
+      era.endDate == null
+        ? span.depthPct
+        : maxDrawdownInWindow(curve.dates, curve.values, span.peakDate, endDate);
+    console.log(menuItem(era.letf, span.peakDate, endDate, depthPct));
   }
 }
 
