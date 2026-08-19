@@ -71,22 +71,22 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 } as const;
 
 /**
- * Worst stretches of the **strategy** itself: the longest peak-to-trough declines of the
- * UPRO-SMA and TQQQ-SMA equity curves (three and two respectively), not of the underlying
- * index. Those are different lists — the SMA exits sidestep some famous index bears
- * (1973-74, 2000-02) and whipsaw through quieter stretches that never made an index
- * drawdown list at all (the 1890s, 1909-15). Each window runs peak → trough, so `days`
- * and `drawdown` are the length and the depth of that one decline.
+ * Famous "worst time to invest" anchors, measured on the **strategy** rather than on the
+ * index: the SMA exits sidestep some index bears and whipsaw through others, so UPRO-SMA
+ * and TQQQ-SMA peak and break even on their own dates. Each window runs from a local max
+ * to the last close still below it — the time underwater — and `drawdown` is the deepest
+ * point inside that span. The 1965 window is the strategy's share of the inflation era;
+ * buy-and-hold UPRO instead peaked in 1968 and stayed underwater until 1986.
  *
  * Regenerate with `node --import tsx scripts/find-longest-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1890-06-04", endDate: "1897-04-19", days: 2511, drawdown: "-76.2%" },
-  { letf: "UPRO" as const, startDate: "1909-08-17", endDate: "1915-05-14", days: 2096, drawdown: "-54.4%" },
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-04-21", days: 1326, drawdown: "-90.0%" },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-10-11", days: 1102, drawdown: "-79.9%" },
-  { letf: "TQQQ" as const, startDate: "1983-06-24", endDate: "1985-10-08", days: 837, drawdown: "-78.5%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-12-31", days: 896, drawdown: "-52.2%" },
+  { letf: "UPRO" as const, startDate: "1965-05-13", endDate: "1967-09-22", days: 862, drawdown: "-31.7%" },
+  { letf: "UPRO" as const, startDate: "2020-02-19", endDate: "2021-02-04", days: 351, drawdown: "-52.1%" },
+  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2010-04-13", days: 3669, drawdown: "-80.8%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1995-05-22", days: 2786, drawdown: "-79.9%" },
 ] as const;
 
 function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: string): URLSearchParams {
@@ -334,10 +334,10 @@ export function ToolRunHistoryMenu() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-foreground">
-                            {item.letf} SMA · {(item.days / 365.25).toFixed(2)}y decline
+                            {item.letf} SMA · {(item.days / 365.25).toFixed(2)}y underwater
                           </span>
                           <span className="block text-xs text-muted">
-                            {item.drawdown} peak to trough · {item.startDate} to {item.endDate}
+                            {item.drawdown} max decline · {item.startDate} to {item.endDate}
                           </span>
                         </span>
                       </button>

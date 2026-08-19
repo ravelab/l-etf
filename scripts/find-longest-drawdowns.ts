@@ -1,28 +1,20 @@
 /**
- * Longest declines of the **strategy** equity curve (UPRO-SMA / TQQQ-SMA), which is
- * what the "Worst time to invest" menu in `ToolRunHistoryMenu.tsx` links to.
+ * Underwater spans of the **strategy** equity curve (UPRO-SMA / TQQQ-SMA), which is what
+ * the "Worst time to invest" menu in `ToolRunHistoryMenu.tsx` links to.
  *
- * Ranking the raw index total-return path (what this script used to do) answers a
- * different question: the index's worst stretches are not the strategy's worst
- * stretches, because the SMA exits sidestep some of them and whipsaw through others.
- * The 1890s and 1909-15 windows below don't appear on any index-drawdown list, and
- * the index's famous 1973-74 / 2000-02 / 2007-09 bears don't make the strategy's top 3.
+ * Ranking the raw index total-return path (what this script used to do) answers a different
+ * question: the index's worst stretches are not the strategy's, because the SMA exits
+ * sidestep some of them and whipsaw through others. The strategy is what the menu backtests,
+ * so the windows are measured on it.
  *
- * Parameters come from the shipped defaults (`simulation/defaults.ts`), so this stays
- * in sync with the calibrated SMA periods/buffers and the default risk-off basket.
- * Windows run peak → trough (the decline itself), and `drawdown` is that depth.
+ * Each window runs from a local max to the last close still below it — the time underwater,
+ * ending the session before break-even. `drawdown` is the deepest point inside that span.
+ *
+ * Two outputs: the full ranking (for spotting stretches worth surfacing) and `ERAS`, the
+ * curated set the menu actually ships. The menu keeps recognizable episodes rather than the
+ * top of the ranking, which is dominated by pre-1900 whipsaw eras nobody has heard of.
  *
  * Run: node --import tsx scripts/find-longest-drawdowns.ts
- *
- * Current output (paste into WORST_TIME_TO_INVEST_ITEMS):
- *
- *   UPRO SMA 186 (-3.6%/+3.6%) — 1885-03-20 .. today
- *     1890-06-04 → 1897-04-19   6.87y   -76.2%
- *     1909-08-17 → 1915-05-14   5.74y   -54.4%
- *     1929-09-03 → 1933-04-21   3.63y   -90.0%
- *   TQQQ SMA 150 (-11.9%/+11.9%) — 1971-02-05 .. today
- *     1987-10-05 → 1990-10-11   3.02y   -79.9%
- *     1983-06-24 → 1985-10-08   2.29y   -78.5%
  */
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
@@ -37,15 +29,30 @@ import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { EtfConfig } from "@/lib/simulation/types";
 
-/** How many declines to list per strategy. */
-const TOP_N = 8;
+/** How many underwater spans to list per strategy in the full ranking. */
+const TOP_N = 10;
 
-interface Decline {
+/**
+ * The windows the menu ships, as (strategy, year the local max falls in). Each entry
+ * resolves to that year's longest underwater span, so the exact peak and break-even dates
+ * follow the data instead of being hand-typed.
+ */
+const ERAS = [
+  { letf: "UPRO", peakYear: "2007" },
+  { letf: "UPRO", peakYear: "1965" },
+  { letf: "UPRO", peakYear: "2020" },
+  { letf: "TQQQ", peakYear: "2000" },
+  { letf: "TQQQ", peakYear: "1987" },
+] as const satisfies ReadonlyArray<{ letf: "UPRO" | "TQQQ"; peakYear: string }>;
+
+interface Underwater {
   readonly peakDate: string;
   readonly troughDate: string;
+  /** Last close still below the peak; `endDate` of the menu window. */
+  readonly lastUnderwaterDate: string;
+  /** First close back at or above the peak, or null if still underwater today. */
   readonly recoveryDate: string | null;
   readonly depthPct: number;
-  readonly declineDays: number;
   readonly underwaterDays: number;
 }
 
@@ -54,46 +61,45 @@ function daysBetween(from: string, to: string): number {
 }
 
 /**
- * Split an equity curve into its peak-to-trough declines. Each decline runs from one
- * all-time high to the lowest close before the curve makes a new high, so the episodes
- * partition the series and never overlap.
+ * Split an equity curve into its underwater spans. Each span runs from one all-time high to
+ * the last close below it, so the spans partition the series and never overlap.
  */
-function findDeclines(dates: readonly string[], values: readonly number[]): Decline[] {
-  const declines: Decline[] = [];
+function findUnderwaterSpans(dates: readonly string[], values: readonly number[]): Underwater[] {
+  const spans: Underwater[] = [];
   let peak = values[0] ?? 0;
   let peakDate = dates[0] ?? "";
   let trough = peak;
   let troughDate = peakDate;
-  let inDecline = false;
+  let inSpan = false;
 
-  const close = (recoveryDate: string | null, lastDate: string): Decline => ({
+  const close = (lastUnderwaterDate: string, recoveryDate: string | null): Underwater => ({
     peakDate,
     troughDate,
+    lastUnderwaterDate,
     recoveryDate,
     depthPct: ((trough - peak) / peak) * 100,
-    declineDays: daysBetween(peakDate, troughDate),
-    underwaterDays: daysBetween(peakDate, recoveryDate ?? lastDate),
+    underwaterDays: daysBetween(peakDate, lastUnderwaterDate),
   });
 
   for (let i = 1; i < values.length; i++) {
     const value = values[i]!;
     if (value >= peak) {
-      if (inDecline) declines.push(close(dates[i]!, dates[i]!));
-      inDecline = false;
+      if (inSpan) spans.push(close(dates[i - 1]!, dates[i]!));
+      inSpan = false;
       peak = value;
       peakDate = dates[i]!;
       trough = value;
       troughDate = dates[i]!;
     } else {
-      inDecline = true;
+      inSpan = true;
       if (value < trough) {
         trough = value;
         troughDate = dates[i]!;
       }
     }
   }
-  if (inDecline) declines.push(close(null, dates[dates.length - 1]!));
-  return declines;
+  if (inSpan) spans.push(close(dates[dates.length - 1]!, null));
+  return spans;
 }
 
 /** Simulate one preset with its shipped SMA defaults over that index's full history. */
@@ -147,34 +153,55 @@ async function simulateStrategy(presetKey: "UPRO" | "TQQQ") {
   return { config, smaPeriod, smaBuffer, dates: result.dates, values: strategy.dailyValues };
 }
 
-async function report(presetKey: "UPRO" | "TQQQ"): Promise<void> {
-  const { smaPeriod, smaBuffer, dates, values } = await simulateStrategy(presetKey);
-  const declines = findDeclines(dates, values)
-    .sort((a, b) => b.declineDays - a.declineDays)
-    .slice(0, TOP_N);
-
-  console.log(
-    `\n${presetKey} SMA ${smaPeriod} (-${smaBuffer}%/+${smaBuffer}%) — ` +
-      `${dates[0]} .. ${dates[dates.length - 1]} (${dates.length} sessions)`,
-  );
-  console.log("Longest peak-to-trough declines:");
-  console.table(
-    declines.map((d) => ({
-      Peak: d.peakDate,
-      Trough: d.troughDate,
-      Years: (d.declineDays / 365.25).toFixed(2),
-      Days: d.declineDays,
-      Depth: `${d.depthPct.toFixed(1)}%`,
-      Recovered: d.recoveryDate ?? "(not yet)",
-      "Underwater y": (d.underwaterDays / 365.25).toFixed(2),
-      Item: `{ letf: "${presetKey}" as const, startDate: "${d.peakDate}", endDate: "${d.troughDate}", days: ${d.declineDays}, drawdown: "${d.depthPct.toFixed(1)}%" },`,
-    })),
+function menuItem(letf: string, span: Underwater): string {
+  return (
+    `  { letf: "${letf}" as const, startDate: "${span.peakDate}", ` +
+    `endDate: "${span.lastUnderwaterDate}", days: ${span.underwaterDays}, ` +
+    `drawdown: "${span.depthPct.toFixed(1)}%" },`
   );
 }
 
+function describe(span: Underwater): Record<string, string | number> {
+  return {
+    Peak: span.peakDate,
+    "Underwater until": span.lastUnderwaterDate,
+    Years: (span.underwaterDays / 365.25).toFixed(2),
+    Days: span.underwaterDays,
+    Depth: `${span.depthPct.toFixed(1)}%`,
+    Trough: span.troughDate,
+    "Broke even": span.recoveryDate ?? "(not yet)",
+  };
+}
+
 async function main(): Promise<void> {
-  await report("UPRO");
-  await report("TQQQ");
+  const spansByLetf = new Map<string, Underwater[]>();
+
+  for (const presetKey of ["UPRO", "TQQQ"] as const) {
+    const { smaPeriod, smaBuffer, dates, values } = await simulateStrategy(presetKey);
+    const spans = findUnderwaterSpans(dates, values).sort(
+      (a, b) => b.underwaterDays - a.underwaterDays,
+    );
+    spansByLetf.set(presetKey, spans);
+
+    console.log(
+      `\n${presetKey} SMA ${smaPeriod} (-${smaBuffer}%/+${smaBuffer}%) — ` +
+        `${dates[0]} .. ${dates[dates.length - 1]} (${dates.length} sessions)`,
+    );
+    console.log("Longest time underwater:");
+    console.table(spans.slice(0, TOP_N).map(describe));
+  }
+
+  console.log("\nWORST_TIME_TO_INVEST_ITEMS (paste into ToolRunHistoryMenu.tsx):\n");
+  for (const era of ERAS) {
+    const match = spansByLetf
+      .get(era.letf)
+      ?.find((span) => span.peakDate.startsWith(era.peakYear));
+    if (!match) {
+      console.log(`  // no ${era.letf} underwater span peaking in ${era.peakYear}`);
+      continue;
+    }
+    console.log(menuItem(era.letf, match));
+  }
 }
 
 main().catch((error) => {
