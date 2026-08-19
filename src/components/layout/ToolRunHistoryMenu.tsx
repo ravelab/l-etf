@@ -73,24 +73,28 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 /**
  * Famous "worst time to invest" anchors, measured on the **strategy** rather than on the
  * index: the SMA exits sidestep some index bears and whipsaw through others, so UPRO-SMA and
- * TQQQ-SMA peak on their own dates.
+ * TQQQ-SMA set their records on their own dates.
  *
- * Each window starts at an era's local max and ends at the last close still below that peak
- * **in real terms**, so every one of them ends with less purchasing power than it started
- * with and the tool reports a negative real CAGR — the point the menu is making. Nominal
- * break-even lands much earlier in the inflationary eras (1965 is back over its peak by
- * 1972-07-20 and finishes the window at 3.02x nominal), but that is the dollar shrinking
- * rather than the position growing. `drawdown` is the deepest nominal decline inside the span.
+ * Each window starts at a record high and ends at the last close still below that high **in
+ * real terms**, so every one ends with less purchasing power than it started with and the tool
+ * reports a negative real CAGR — the point the menu is making. Nominal break-even lands much
+ * earlier in the inflationary eras (1964 is back over its high long before 1982 and finishes
+ * at 3.15x nominal), but that is the dollar shrinking rather than the position growing.
+ *
+ * The start is the era's *longest-running* record high, not the day that bear market topped:
+ * 1964-04-03 stretches the inflation era a year further than the May 1965 peak does, and
+ * 1929-01-31 beats the September crash high. `drawdown` is the deepest nominal decline inside
+ * the span, so it still reports the crash itself.
  *
  * Regenerate with `node --import tsx scripts/find-longest-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1965-05-13", endDate: "1982-10-07", days: 6356, drawdown: "-46.5%" },
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1943-02-08", days: 4906, drawdown: "-90.0%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2012-11-15", days: 1946, drawdown: "-52.2%" },
-  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2012-01-17", days: 4313, drawdown: "-80.8%" },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1996-07-30", days: 3221, drawdown: "-79.9%" },
+  { letf: "UPRO" as const, startDate: "1964-04-03", endDate: "1982-08-16", days: 6709, drawdown: "-46.5%" },
+  { letf: "UPRO" as const, startDate: "1929-01-31", endDate: "1942-09-30", days: 4990, drawdown: "-90.0%" },
+  { letf: "UPRO" as const, startDate: "2006-12-14", endDate: "2012-06-04", days: 1999, drawdown: "-52.2%" },
+  { letf: "TQQQ" as const, startDate: "2000-03-09", endDate: "2012-01-13", days: 4327, drawdown: "-80.8%" },
+  { letf: "TQQQ" as const, startDate: "1987-08-11", endDate: "1996-07-29", days: 3275, drawdown: "-79.9%" },
 ] as const;
 
 function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: string): URLSearchParams {
