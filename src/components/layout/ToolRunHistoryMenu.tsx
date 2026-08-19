@@ -61,7 +61,6 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
 };
 
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
-  letf: "UPRO+TQQQ",
   smaPsp: "186",
   smaPnq: "150",
   smaSpUpperBuffer: 3.6,
@@ -72,23 +71,27 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 } as const;
 
 /**
- * Famous "worst time to invest" anchors from index TR: GFC, 1970s bear, Covid, dot-com, 1987.
- * Each window runs from that episode's **peak** through the **first close** where total return is
- * back at or above that peak (time underwater until break-even on TR), so backtests cover the full
- * grind including recovery — e.g. Nasdaq-100 from 2000-03-27 through 2015-02-19. Drawdown % is still
- * the peak→trough depth within the episode.
+ * Worst stretches of the **strategy** itself: the longest peak-to-trough declines of the
+ * UPRO-SMA and TQQQ-SMA equity curves (three and two respectively), not of the underlying
+ * index. Those are different lists — the SMA exits sidestep some famous index bears
+ * (1973-74, 2000-02) and whipsaw through quieter stretches that never made an index
+ * drawdown list at all (the 1890s, 1909-15). Each window runs peak → trough, so `days`
+ * and `drawdown` are the length and the depth of that one decline.
+ *
+ * Regenerate with `node --import tsx scripts/find-longest-drawdowns.ts` after any change to
+ * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { index: "S&P 500" as const, startDate: "2007-10-09", endDate: "2012-08-16", days: 1773, drawdown: "-55.2%" },
-  { index: "S&P 500" as const, startDate: "1973-01-11", endDate: "1976-07-09", days: 1275, drawdown: "-44.9%" },
-  { index: "S&P 500" as const, startDate: "2020-02-19", endDate: "2020-08-10", days: 173, drawdown: "-34.0%" },
-  { index: "Nasdaq 100" as const, startDate: "2000-03-27", endDate: "2015-02-19", days: 5442, drawdown: "-83.0%" },
-  { index: "Nasdaq 100" as const, startDate: "1987-10-02", endDate: "1989-05-19", days: 595, drawdown: "-39.9%" },
+  { letf: "UPRO" as const, startDate: "1890-06-04", endDate: "1897-04-19", days: 2511, drawdown: "-76.2%" },
+  { letf: "UPRO" as const, startDate: "1909-08-17", endDate: "1915-05-14", days: 2096, drawdown: "-54.4%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-04-21", days: 1326, drawdown: "-90.0%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-10-11", days: 1102, drawdown: "-79.9%" },
+  { letf: "TQQQ" as const, startDate: "1983-06-24", endDate: "1985-10-08", days: 837, drawdown: "-78.5%" },
 ] as const;
 
-function buildWorstTimeBacktestParams(startDate: string, endDate: string): URLSearchParams {
+function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: string): URLSearchParams {
   const params = new URLSearchParams();
-  params.set("letf", WORST_TIME_BACKTEST_BASE_PARAMS.letf);
+  params.set("letf", letf);
   params.set("sd", startDate);
   params.set("ed", endDate);
   params.set("smaPsp", WORST_TIME_BACKTEST_BASE_PARAMS.smaPsp);
@@ -208,8 +211,8 @@ export function ToolRunHistoryMenu() {
     refresh();
   };
 
-  const onWorstTimeToInvestClick = (startDate: string, endDate: string) => {
-    const href = buildToolsUrl("backtest", buildWorstTimeBacktestParams(startDate, endDate), { autorun: true });
+  const onWorstTimeToInvestClick = (letf: string, startDate: string, endDate: string) => {
+    const href = buildToolsUrl("backtest", buildWorstTimeBacktestParams(letf, startDate, endDate), { autorun: true });
     skipNextToolRunHistoryRecord(href);
     router.push(href);
     setOpen(false);
@@ -307,13 +310,13 @@ export function ToolRunHistoryMenu() {
               </div>
               <ul className="flex flex-col gap-1.5">
                 {WORST_TIME_TO_INVEST_ITEMS.map((item) => {
-                  const isNasdaq = item.index === "Nasdaq 100";
-                  const accent = isNasdaq ? "#a855f7" : "#60a5fa";
-                  const bg = isNasdaq ? "rgba(168, 85, 247, 0.09)" : "rgba(96, 165, 250, 0.09)";
-                  const hover = isNasdaq ? "rgba(168, 85, 247, 0.15)" : "rgba(96, 165, 250, 0.15)";
+                  const isTqqq = item.letf === "TQQQ";
+                  const accent = isTqqq ? "#a855f7" : "#60a5fa";
+                  const bg = isTqqq ? "rgba(168, 85, 247, 0.09)" : "rgba(96, 165, 250, 0.09)";
+                  const hover = isTqqq ? "rgba(168, 85, 247, 0.15)" : "rgba(96, 165, 250, 0.15)";
                   return (
                     <li
-                      key={`${item.index}-${item.startDate}-${item.endDate}`}
+                      key={`${item.letf}-${item.startDate}-${item.endDate}`}
                       style={{
                         "--history-accent": accent,
                         "--history-bg": bg,
@@ -322,7 +325,7 @@ export function ToolRunHistoryMenu() {
                     >
                       <button
                         type="button"
-                        onClick={() => onWorstTimeToInvestClick(item.startDate, item.endDate)}
+                        onClick={() => onWorstTimeToInvestClick(item.letf, item.startDate, item.endDate)}
                         className="flex w-full items-center gap-3 rounded-lg border border-card-border bg-[var(--history-bg)] px-3 py-2 text-left transition-colors hover:border-[var(--history-accent)] hover:bg-[var(--history-hover-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--history-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-card-bg"
                       >
                         <span
@@ -331,10 +334,10 @@ export function ToolRunHistoryMenu() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-foreground">
-                            {item.index} · {(item.days / 365.25).toFixed(2)}y window
+                            {item.letf} SMA · {(item.days / 365.25).toFixed(2)}y decline
                           </span>
                           <span className="block text-xs text-muted">
-                            {item.drawdown} max decline · {item.startDate} to {item.endDate}
+                            {item.drawdown} peak to trough · {item.startDate} to {item.endDate}
                           </span>
                         </span>
                       </button>
