@@ -1,24 +1,29 @@
 /**
- * Underwater spans of the **strategy** equity curve (UPRO-SMA / TQQQ-SMA), which is what
- * the "Worst time to invest" menu in `ToolRunHistoryMenu.tsx` links to.
+ * The "Worst time to invest" windows in `ToolRunHistoryMenu.tsx`, measured on the **strategy**
+ * equity curve (UPRO-SMA / TQQQ-SMA) rather than the index. The index's worst stretches are not
+ * the strategy's: the SMA exits sidestep some of them and whipsaw through others, and the menu
+ * backtests the strategy.
  *
- * Ranking the raw index total-return path (what this script used to do) answers a different
- * question: the index's worst stretches are not the strategy's, because the SMA exits
- * sidestep some of them and whipsaw through others. The strategy is what the menu backtests,
- * so the windows are measured on it.
+ * Each shipped window starts at an era's local max and ends at the last close still below that
+ * peak **in real terms** — so every one of them spans a stretch that ended with less purchasing
+ * power than it started with, and the tool reports a negative real CAGR. Nominal break-even
+ * arrives much earlier in inflationary eras; that is the dollar shrinking, not the position
+ * growing, which is exactly what these windows are meant to show.
  *
- * Each window runs from a local max to the last close still below it — the time underwater,
- * ending the session before break-even. `drawdown` is the deepest point inside that span.
- *
- * Two outputs: the full ranking (for spotting stretches worth surfacing) and `ERAS`, the
- * curated set the menu actually ships. The menu keeps recognizable episodes rather than the
- * top of the ranking, which is dominated by pre-1900 whipsaw eras nobody has heard of.
+ * Two outputs: the nominal underwater ranking (for spotting eras worth surfacing) and `ERAS`,
+ * the curated set the menu ships. The menu keeps recognizable episodes rather than the top of
+ * the ranking, which is dominated by pre-1900 whipsaw eras nobody has heard of.
  *
  * Run: node --import tsx scripts/find-longest-drawdowns.ts
  */
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
-import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "@/lib/mcp/server-data";
+import {
+  loadBorrowRates,
+  loadIndexPrices,
+  loadInflation,
+  loadRiskOffRawSeries,
+} from "@/lib/mcp/server-data";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import {
   DEFAULT_RISK_OFF_ASSET,
@@ -32,25 +37,15 @@ import type { EtfConfig } from "@/lib/simulation/types";
 /** How many underwater spans to list per strategy in the full ranking. */
 const TOP_N = 10;
 
-/**
- * The windows the menu ships, as (strategy, year the local max falls in). Each entry
- * resolves to that year's longest underwater span, so the exact peak and break-even dates
- * follow the data instead of being hand-typed.
- *
- * `endDate` overrides where the span would otherwise end. The 1965 entry uses it: nominally
- * the strategy breaks even in 1967, but the era's damage was inflation, so that window ends
- * at the last close still below the 1965 peak in *real* terms instead.
- */
+/** The windows the menu ships, as (strategy, year the era's local max falls in). */
 interface EraWindow {
   readonly letf: "UPRO" | "TQQQ";
-  /** Year the strategy's local max falls in. */
+  /** Year the strategy's local max falls in; the year's longest underwater span wins. */
   readonly peakYear: string;
-  /** Overrides where the span would otherwise end. */
-  readonly endDate?: string;
 }
 
 const ERAS: readonly EraWindow[] = [
-  { letf: "UPRO", peakYear: "1965", endDate: "1982-10-07" },
+  { letf: "UPRO", peakYear: "1965" },
   { letf: "UPRO", peakYear: "1929" },
   { letf: "UPRO", peakYear: "2007" },
   { letf: "TQQQ", peakYear: "2000" },
@@ -143,10 +138,11 @@ async function simulateStrategy(presetKey: "UPRO" | "TQQQ") {
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
   };
 
-  const [prices, rates, rawRiskOff] = await Promise.all([
+  const [prices, rates, rawRiskOff, cpi] = await Promise.all([
     loadIndexPrices(index, warmUpStart, endDate),
     loadBorrowRates(warmUpStart, endDate),
     loadRiskOffRawSeries(config.riskOffAsset, warmUpStart, endDate),
+    loadInflation(warmUpStart, endDate),
   ]);
   if (prices.length < 2) throw new Error(`Not enough ${index} price data.`);
   const riskOff = alignRiskOffPriceSeries(prices, rawRiskOff);
@@ -162,7 +158,50 @@ async function simulateStrategy(presetKey: "UPRO" | "TQQQ") {
   const strategy = result.etfResults.find((r) => r.id === `${config.id}-sma`);
   if (!strategy) throw new Error(`No SMA result for ${presetKey}.`);
 
-  return { config, smaPeriod, smaBuffer, dates: result.dates, values: strategy.dailyValues };
+  return {
+    smaPeriod,
+    smaBuffer,
+    dates: result.dates,
+    values: strategy.dailyValues,
+    realValues: deflate(result.dates, strategy.dailyValues, cpi),
+  };
+}
+
+/**
+ * Restate an equity curve in constant dollars. CPI is monthly, so each session carries its own
+ * month's level, holding the last known value over any month the table doesn't cover.
+ */
+function deflate(
+  dates: readonly string[],
+  values: readonly number[],
+  cpi: ReadonlyArray<{ date: string; value: number }>,
+): number[] {
+  const byMonth = new Map(cpi.map((row) => [row.date.slice(0, 7), row.value]));
+  let level = cpi[0]?.value ?? 1;
+  return dates.map((date, i) => {
+    level = byMonth.get(date.slice(0, 7)) ?? level;
+    return values[i]! / level;
+  });
+}
+
+/**
+ * Last close still below `peakDate`'s level in real terms — where a window ends. Note this is
+ * the *last* dip under the peak, not the first recovery: an inflationary era can carry the
+ * nominal curve back over the line years before purchasing power follows.
+ */
+function lastRealCloseBelowPeak(
+  dates: readonly string[],
+  realValues: readonly number[],
+  peakDate: string,
+): string | null {
+  const peakIndex = dates.indexOf(peakDate);
+  if (peakIndex < 0) return null;
+  const peakLevel = realValues[peakIndex]!;
+  let lastBelow = -1;
+  for (let i = peakIndex + 1; i < realValues.length; i++) {
+    if (realValues[i]! < peakLevel) lastBelow = i;
+  }
+  return lastBelow < 0 ? null : dates[lastBelow]!;
 }
 
 /** Deepest peak-to-trough decline inside `[from, to]`, as a negative percentage. */
@@ -186,17 +225,10 @@ function maxDrawdownInWindow(
   return worst;
 }
 
-function menuItem(
-  letf: string,
-  startDate: string,
-  endDate: string,
-  depthPct: number,
-  spanLabel: "underwater" | "window",
-): string {
+function menuItem(letf: string, startDate: string, endDate: string, depthPct: number): string {
   return (
     `  { letf: "${letf}" as const, startDate: "${startDate}", endDate: "${endDate}", ` +
-    `days: ${daysBetween(startDate, endDate)}, drawdown: "${depthPct.toFixed(1)}%", ` +
-    `spanLabel: "${spanLabel}" as const },`
+    `days: ${daysBetween(startDate, endDate)}, drawdown: "${depthPct.toFixed(1)}%" },`
   );
 }
 
@@ -213,14 +245,17 @@ function describe(span: Underwater): Record<string, string | number> {
 }
 
 async function main(): Promise<void> {
-  const curves = new Map<string, { dates: string[]; values: number[]; spans: Underwater[] }>();
+  const curves = new Map<
+    string,
+    { dates: string[]; values: number[]; realValues: number[]; spans: Underwater[] }
+  >();
 
   for (const presetKey of ["UPRO", "TQQQ"] as const) {
-    const { smaPeriod, smaBuffer, dates, values } = await simulateStrategy(presetKey);
+    const { smaPeriod, smaBuffer, dates, values, realValues } = await simulateStrategy(presetKey);
     const spans = findUnderwaterSpans(dates, values).sort(
       (a, b) => b.underwaterDays - a.underwaterDays,
     );
-    curves.set(presetKey, { dates, values, spans });
+    curves.set(presetKey, { dates, values, realValues, spans });
 
     console.log(
       `\n${presetKey} SMA ${smaPeriod} (-${smaBuffer}%/+${smaBuffer}%) — ` +
@@ -238,15 +273,39 @@ async function main(): Promise<void> {
       console.log(`  // no ${era.letf} underwater span peaking in ${era.peakYear}`);
       continue;
     }
-    const endDate = era.endDate ?? span.lastUnderwaterDate;
-    const depthPct =
-      era.endDate == null
-        ? span.depthPct
-        : maxDrawdownInWindow(curve.dates, curve.values, span.peakDate, endDate);
-    console.log(
-      menuItem(era.letf, span.peakDate, endDate, depthPct, era.endDate == null ? "underwater" : "window"),
-    );
+    const endDate = lastRealCloseBelowPeak(curve.dates, curve.realValues, span.peakDate);
+    if (!endDate) {
+      console.log(`  // ${era.letf} ${span.peakDate} never dips below its real peak again`);
+      continue;
+    }
+    const depthPct = maxDrawdownInWindow(curve.dates, curve.values, span.peakDate, endDate);
+    console.log(menuItem(era.letf, span.peakDate, endDate, depthPct));
   }
+
+  console.log("\nReal outcome over each shipped window:");
+  console.table(
+    ERAS.flatMap((era) => {
+      const curve = curves.get(era.letf);
+      const span = curve?.spans.find((s) => s.peakDate.startsWith(era.peakYear));
+      if (!curve || !span) return [];
+      const endDate = lastRealCloseBelowPeak(curve.dates, curve.realValues, span.peakDate);
+      if (!endDate) return [];
+      const from = curve.dates.indexOf(span.peakDate);
+      const to = curve.dates.indexOf(endDate);
+      const realMultiple = curve.realValues[to]! / curve.realValues[from]!;
+      const span_days = daysBetween(span.peakDate, endDate);
+      return [
+        {
+          Strategy: era.letf,
+          Window: `${span.peakDate} .. ${endDate}`,
+          Years: (span_days / 365.25).toFixed(2),
+          "Real multiple": realMultiple.toFixed(3),
+          "Real CAGR": `${((Math.pow(realMultiple, 365.25 / span_days) - 1) * 100).toFixed(2)}%`,
+          "Nominal multiple": (curve.values[to]! / curve.values[from]!).toFixed(2),
+        },
+      ];
+    }),
+  );
 }
 
 main().catch((error) => {

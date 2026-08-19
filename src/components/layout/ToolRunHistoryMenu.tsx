@@ -72,25 +72,25 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 
 /**
  * Famous "worst time to invest" anchors, measured on the **strategy** rather than on the
- * index: the SMA exits sidestep some index bears and whipsaw through others, so UPRO-SMA
- * and TQQQ-SMA peak and break even on their own dates. Each window starts at a local max and
- * ends at the last close still below it — its time underwater — with `drawdown` the deepest
- * point inside the span.
+ * index: the SMA exits sidestep some index bears and whipsaw through others, so UPRO-SMA and
+ * TQQQ-SMA peak on their own dates.
  *
- * The 1965 entry measures that span in *real* terms, because the era's damage was inflation:
- * nominally the strategy is back above its 1965 peak by 1972-07-20, but the dollar is what
- * moved, and the run stays under that peak in purchasing power until 1982-10-07. It carries
- * `spanLabel: "window"` so the menu doesn't claim a nominal underwater run it doesn't have.
+ * Each window starts at an era's local max and ends at the last close still below that peak
+ * **in real terms**, so every one of them ends with less purchasing power than it started
+ * with and the tool reports a negative real CAGR — the point the menu is making. Nominal
+ * break-even lands much earlier in the inflationary eras (1965 is back over its peak by
+ * 1972-07-20 and finishes the window at 3.02x nominal), but that is the dollar shrinking
+ * rather than the position growing. `drawdown` is the deepest nominal decline inside the span.
  *
  * Regenerate with `node --import tsx scripts/find-longest-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1965-05-13", endDate: "1982-10-07", days: 6356, drawdown: "-46.5%", spanLabel: "window" as const },
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1937-01-08", days: 2684, drawdown: "-90.0%", spanLabel: "underwater" as const },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-12-31", days: 896, drawdown: "-52.2%", spanLabel: "underwater" as const },
-  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2010-04-13", days: 3669, drawdown: "-80.8%", spanLabel: "underwater" as const },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1995-05-22", days: 2786, drawdown: "-79.9%", spanLabel: "underwater" as const },
+  { letf: "UPRO" as const, startDate: "1965-05-13", endDate: "1982-10-07", days: 6356, drawdown: "-46.5%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1943-02-08", days: 4906, drawdown: "-90.0%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2012-11-15", days: 1946, drawdown: "-52.2%" },
+  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2012-01-17", days: 4313, drawdown: "-80.8%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1996-07-30", days: 3221, drawdown: "-79.9%" },
 ] as const;
 
 function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: string): URLSearchParams {
@@ -338,7 +338,7 @@ export function ToolRunHistoryMenu() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-foreground">
-                            {item.letf} SMA · {(item.days / 365.25).toFixed(2)}y {item.spanLabel}
+                            {item.letf} SMA · {(item.days / 365.25).toFixed(2)}y negative real CAGR
                           </span>
                           <span className="block text-xs text-muted">
                             {item.drawdown} max decline · {item.startDate} to {item.endDate}
