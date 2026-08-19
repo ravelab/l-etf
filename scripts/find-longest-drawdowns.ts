@@ -51,8 +51,8 @@ interface EraWindow {
 
 const ERAS: readonly EraWindow[] = [
   { letf: "UPRO", peakYear: "1965", endDate: "1982-10-07" },
+  { letf: "UPRO", peakYear: "1929" },
   { letf: "UPRO", peakYear: "2007" },
-  { letf: "UPRO", peakYear: "2020" },
   { letf: "TQQQ", peakYear: "2000" },
   { letf: "TQQQ", peakYear: "1987" },
 ];

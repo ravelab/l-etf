@@ -87,8 +87,8 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
   { letf: "UPRO" as const, startDate: "1965-05-13", endDate: "1982-10-07", days: 6356, drawdown: "-46.5%", spanLabel: "window" as const },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1937-01-08", days: 2684, drawdown: "-90.0%", spanLabel: "underwater" as const },
   { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-12-31", days: 896, drawdown: "-52.2%", spanLabel: "underwater" as const },
-  { letf: "UPRO" as const, startDate: "2020-02-19", endDate: "2021-02-04", days: 351, drawdown: "-52.1%", spanLabel: "underwater" as const },
   { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2010-04-13", days: 3669, drawdown: "-80.8%", spanLabel: "underwater" as const },
   { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1995-05-22", days: 2786, drawdown: "-79.9%", spanLabel: "underwater" as const },
 ] as const;
