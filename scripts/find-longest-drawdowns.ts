@@ -38,8 +38,8 @@ const TOP_N = 10;
  * follow the data instead of being hand-typed.
  *
  * `endDate` overrides where the span would otherwise end. The 1965 entry uses it: nominally
- * the strategy breaks even in 1967, but the era's damage was inflation, and in real terms it
- * spends the run to 1983 below its 1965 peak (last real close under it: 1982-10-07).
+ * the strategy breaks even in 1967, but the era's damage was inflation, so that window ends
+ * at the last close still below the 1965 peak in *real* terms instead.
  */
 interface EraWindow {
   readonly letf: "UPRO" | "TQQQ";
@@ -50,7 +50,7 @@ interface EraWindow {
 }
 
 const ERAS: readonly EraWindow[] = [
-  { letf: "UPRO", peakYear: "1965", endDate: "1983-02-28" },
+  { letf: "UPRO", peakYear: "1965", endDate: "1982-10-07" },
   { letf: "UPRO", peakYear: "2007" },
   { letf: "UPRO", peakYear: "2020" },
   { letf: "TQQQ", peakYear: "2000" },
@@ -186,10 +186,17 @@ function maxDrawdownInWindow(
   return worst;
 }
 
-function menuItem(letf: string, startDate: string, endDate: string, depthPct: number): string {
+function menuItem(
+  letf: string,
+  startDate: string,
+  endDate: string,
+  depthPct: number,
+  spanLabel: "underwater" | "window",
+): string {
   return (
     `  { letf: "${letf}" as const, startDate: "${startDate}", endDate: "${endDate}", ` +
-    `days: ${daysBetween(startDate, endDate)}, drawdown: "${depthPct.toFixed(1)}%" },`
+    `days: ${daysBetween(startDate, endDate)}, drawdown: "${depthPct.toFixed(1)}%", ` +
+    `spanLabel: "${spanLabel}" as const },`
   );
 }
 
@@ -236,7 +243,9 @@ async function main(): Promise<void> {
       era.endDate == null
         ? span.depthPct
         : maxDrawdownInWindow(curve.dates, curve.values, span.peakDate, endDate);
-    console.log(menuItem(era.letf, span.peakDate, endDate, depthPct));
+    console.log(
+      menuItem(era.letf, span.peakDate, endDate, depthPct, era.endDate == null ? "underwater" : "window"),
+    );
   }
 }
 
