@@ -75,27 +75,32 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * index: the SMA exits sidestep some index bears and whipsaw through others, so UPRO-SMA and
  * TQQQ-SMA set their records on their own dates.
  *
- * Each window starts at a record high and ends at the last close still below that high **in
- * real terms**, so every one ends with less purchasing power than it started with and the tool
- * reports a negative real CAGR — the point the menu is making. Nominal break-even lands much
- * earlier in the inflationary eras (1964 is back over its high long before 1982 and finishes
- * at 3.15x nominal), but that is the dollar shrinking rather than the position growing.
+ * Each window runs peak to bottom — it opens at a record high and closes at the lowest close
+ * before the strategy takes that high back — so the backtest buys on the worst possible day
+ * and sells on the worst possible day, with none of the recovery to soften it. `drawdown` is
+ * that peak-to-bottom decline, so it is what the window itself returns.
  *
- * The start is the era's *longest-running* record high, not the day that bear market topped:
- * 1964-04-03 stretches the inflation era a year further than the May 1965 peak does, and
- * 1929-01-31 beats the September crash high. `drawdown` is the deepest nominal decline inside
- * the span, so it still reports the crash itself.
+ * The window is the decline, not the era around it: TQQQ-SMA gave up 80.8% in the eight weeks
+ * after the dot-com peak and then never traded below that low in the ten years it took to win
+ * the peak back, so that anchor is eight weeks long.
  *
- * Regenerate with `node --import tsx scripts/find-longest-drawdowns.ts` after any change to
+ * Regenerate with `node --import tsx scripts/find-worst-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1964-04-03", endDate: "1982-08-16", days: 6709, drawdown: "-46.5%" },
-  { letf: "UPRO" as const, startDate: "1929-01-31", endDate: "1942-09-30", days: 4990, drawdown: "-90.0%" },
-  { letf: "UPRO" as const, startDate: "2006-12-14", endDate: "2012-06-04", days: 1999, drawdown: "-52.2%" },
-  { letf: "TQQQ" as const, startDate: "2000-03-09", endDate: "2012-01-13", days: 4327, drawdown: "-80.8%" },
-  { letf: "TQQQ" as const, startDate: "1987-08-11", endDate: "1996-07-29", days: 3275, drawdown: "-79.9%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-04-21", days: 1326, drawdown: "-90.0%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-52.2%" },
+  { letf: "UPRO" as const, startDate: "1968-11-29", endDate: "1970-11-18", days: 719, drawdown: "-46.5%" },
+  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2000-05-23", days: 57, drawdown: "-80.8%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-10-11", days: 1102, drawdown: "-79.9%" },
 ] as const;
+
+/** Years once a window runs a year or longer, then months, then days — "0.16y" reads as a typo. */
+function formatWindowSpan(days: number): string {
+  if (days >= 365.25) return `${(days / 365.25).toFixed(1)} years`;
+  if (days >= 45) return `${Math.round(days / 30.44)} months`;
+  return `${days} days`;
+}
 
 function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: string): URLSearchParams {
   const params = new URLSearchParams();
@@ -342,10 +347,10 @@ export function ToolRunHistoryMenu() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-foreground">
-                            {item.letf} SMA · {(item.days / 365.25).toFixed(2)}y negative real CAGR
+                            {item.letf} SMA · {item.drawdown} peak to bottom
                           </span>
                           <span className="block text-xs text-muted">
-                            {item.drawdown} max decline · {item.startDate} to {item.endDate}
+                            {formatWindowSpan(item.days)} · {item.startDate} to {item.endDate}
                           </span>
                         </span>
                       </button>
