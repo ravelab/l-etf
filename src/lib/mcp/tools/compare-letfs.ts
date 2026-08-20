@@ -7,6 +7,7 @@ import { z } from "zod/v4";
 import { getDefaultWindowLength } from "@/lib/simulation/defaults";
 import { runLetfComparison } from "@/lib/mcp/letf-compare-core";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
+import { makeProgressReporter } from "@/lib/mcp/progress";
 import { toolError, toolSuccess, McpToolError } from "@/lib/mcp/tool-result";
 import { MAX_SWEEP_CONFIGS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
 import {
@@ -14,6 +15,7 @@ import {
   presetSchema,
   riskOffAssetSchema,
   smaBufferSchema,
+  smaExecutionModeSchema,
   smaPeriodSchema,
 } from "@/lib/mcp/schemas";
 
@@ -37,12 +39,14 @@ export function registerCompareLetfs(server: McpServer): void {
         smaUpperBuffer: smaBufferSchema.optional(),
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
+        smaExecutionMode: smaExecutionModeSchema.optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
       },
     },
-    async (args) => {
+    async (args, extra) => {
       try {
+        const onProgress = makeProgressReporter(extra);
         const presets = args.presets ?? DEFAULT_PRESETS;
         if (presets.length > MAX_SWEEP_CONFIGS) {
           throw new McpToolError(`Too many presets (${presets.length}); limit is ${MAX_SWEEP_CONFIGS}.`);
@@ -55,7 +59,10 @@ export function registerCompareLetfs(server: McpServer): void {
           smaUpperBuffer: args.smaUpperBuffer,
           smaLowerBuffer: args.smaLowerBuffer,
           riskOffAsset: args.riskOffAsset as never,
+          smaExecutionMode: args.smaExecutionMode,
           windowLength,
+          onGroupProgress: (completed, total) =>
+            onProgress?.(completed / total, `${completed}/${total} index groups`),
           startDate: args.startDate,
           endDate: args.endDate,
         });

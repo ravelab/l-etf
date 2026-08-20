@@ -6,15 +6,17 @@
 // `compare_strategies` tool. Centralizing the object construction keeps the
 // config field set from drifting between the browser and server code paths.
 //
-// `smaExecutionMode` is intentionally left unset: the engine defaults an
-// undefined mode to DEFAULT_SMA_EXECUTION_MODE ("next-day-open"), which is what
-// every one of these call sites intends.
+// `smaExecutionMode` is optional throughout: leaving it unset makes the engine
+// fall back to DEFAULT_SMA_EXECUTION_MODE ("next-day-open"), which is what the
+// compare pages intend. The MCP tools pass it explicitly so an agent can test
+// whether a result survives a different fill assumption.
 
 import type { EtfConfig } from "@/lib/simulation/types";
 import { getDefaultSmaPeriod } from "@/lib/simulation/defaults";
 
 type IndexKey = "sp500" | "nasdaq100";
 type RiskOffAsset = EtfConfig["riskOffAsset"];
+type SmaExecutionMode = NonNullable<EtfConfig["smaExecutionMode"]>;
 
 export interface SweepPresetDef {
   name: string;
@@ -47,6 +49,8 @@ export function makeSweepEtfConfig(
     riskOffAsset: RiskOffAsset;
     /** Baselines force simulated:true regardless of the preset. */
     simulated?: boolean;
+    /** Left undefined, the engine applies DEFAULT_SMA_EXECUTION_MODE. */
+    smaExecutionMode?: SmaExecutionMode;
   },
 ): EtfConfig {
   return {
@@ -61,11 +65,16 @@ export function makeSweepEtfConfig(
     smaLowerBuffer: opts.smaLowerBuffer,
     smaIndex: preset.index,
     riskOffAsset: opts.riskOffAsset,
+    ...(opts.smaExecutionMode ? { smaExecutionMode: opts.smaExecutionMode } : {}),
   };
 }
 
 /** No-SMA baseline whose period is the index default (SMA + risk-off pages). */
-function defaultPeriodBaseline(preset: SweepPresetDef, riskOffAsset: RiskOffAsset): EtfConfig {
+function defaultPeriodBaseline(
+  preset: SweepPresetDef,
+  riskOffAsset: RiskOffAsset,
+  smaExecutionMode?: SmaExecutionMode,
+): EtfConfig {
   return makeSweepEtfConfig(preset, {
     id: "baseline",
     name: `${preset.name} (No SMA)`,
@@ -75,6 +84,7 @@ function defaultPeriodBaseline(preset: SweepPresetDef, riskOffAsset: RiskOffAsse
     smaLowerBuffer: 0,
     riskOffAsset,
     simulated: true,
+    smaExecutionMode,
   });
 }
 
@@ -90,8 +100,11 @@ export function buildSmaPeriodSweepItems(p: {
   stepSize: number;
   upperBuffer: number;
   lowerBuffer: number;
+  smaExecutionMode?: SmaExecutionMode;
 }): SweepItem[] {
-  const items: SweepItem[] = [{ paramValue: 0, config: defaultPeriodBaseline(p.preset, p.riskOffAsset) }];
+  const items: SweepItem[] = [
+    { paramValue: 0, config: defaultPeriodBaseline(p.preset, p.riskOffAsset, p.smaExecutionMode) },
+  ];
   for (let sma = p.minSmaPeriod; sma <= p.maxSmaPeriod; sma += p.stepSize) {
     items.push({
       paramValue: sma,
@@ -103,6 +116,7 @@ export function buildSmaPeriodSweepItems(p: {
         smaUpperBuffer: p.upperBuffer,
         smaLowerBuffer: p.lowerBuffer,
         riskOffAsset: p.riskOffAsset,
+        smaExecutionMode: p.smaExecutionMode,
       }),
     });
   }
@@ -120,6 +134,7 @@ export function buildRiskOffVariantConfigs(p: {
   smaPeriod: number;
   upperBuffer: number;
   lowerBuffer: number;
+  smaExecutionMode?: SmaExecutionMode;
 }): LabeledSweepConfig[] {
   const variants: LabeledSweepConfig[] = p.assets.map((asset) => ({
     label: asset,
@@ -131,9 +146,16 @@ export function buildRiskOffVariantConfigs(p: {
       smaUpperBuffer: p.upperBuffer,
       smaLowerBuffer: p.lowerBuffer,
       riskOffAsset: asset,
+      smaExecutionMode: p.smaExecutionMode,
     }),
   }));
-  return [...variants, { label: "baseline", config: defaultPeriodBaseline(p.preset, p.baselineRiskOffAsset) }];
+  return [
+    ...variants,
+    {
+      label: "baseline",
+      config: defaultPeriodBaseline(p.preset, p.baselineRiskOffAsset, p.smaExecutionMode),
+    },
+  ];
 }
 
 /**
@@ -147,6 +169,7 @@ export function buildSymmetricBufferSweepItems(p: {
   minBuffer: number;
   maxBuffer: number;
   fineStep: number;
+  smaExecutionMode?: SmaExecutionMode;
 }): SweepItem[] {
   const items: SweepItem[] = [
     {
@@ -160,6 +183,7 @@ export function buildSymmetricBufferSweepItems(p: {
         smaLowerBuffer: 0,
         riskOffAsset: p.riskOffAsset,
         simulated: true,
+        smaExecutionMode: p.smaExecutionMode,
       }),
     },
   ];
@@ -175,6 +199,7 @@ export function buildSymmetricBufferSweepItems(p: {
         smaUpperBuffer: rt,
         smaLowerBuffer: rt,
         riskOffAsset: p.riskOffAsset,
+        smaExecutionMode: p.smaExecutionMode,
       }),
     });
   }
@@ -197,6 +222,7 @@ export function makeAsymmetricSweepItem(p: {
   upper: number;
   lower: number;
   variant: "coarse" | "fine";
+  smaExecutionMode?: SmaExecutionMode;
 }): SweepItem {
   const encoded = encodeAsymBuffer(p.upper, p.lower);
   return {
@@ -209,6 +235,7 @@ export function makeAsymmetricSweepItem(p: {
       smaUpperBuffer: p.upper,
       smaLowerBuffer: p.lower,
       riskOffAsset: p.riskOffAsset,
+      smaExecutionMode: p.smaExecutionMode,
     }),
   };
 }

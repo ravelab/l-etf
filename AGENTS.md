@@ -86,6 +86,16 @@ Day 0 establishes the starting position at the first *close* in both regimes —
 the bar `dailyEquity[0]` marks, and what `simulateSingleEtf` books — so the
 opening bar's intraday move can never leak into the result.
 
+Commissions and bid/ask spreads are deflated on *different* axes, deliberately.
+Spreads ride `futuresPriceScale` (fill price / anchor price) so half a tick stays a
+constant fraction of notional; commissions are a fixed dollar schedule
+(`IBKR_FEE_PER_CONTRACT`, all-in per side) deflated by CPI, because tying them to the
+index level had a 1988 fill paying ~4c a contract. The CPI anchor is the explicit
+`FEE_SCHEDULE_ANCHOR_DATE`/`_CPI` pair rather than the series' own tail: the engine is
+only ever handed CPI up to the simulation's end date, so a window ending in 1980 has no
+present-day row to anchor on and would otherwise charge today's schedule in 1980 dollars.
+Refresh the pair when the fee constants are requoted, not on every CPI print.
+
 The futures ladders and their LETF twins ("Check Emulations" on /futures-tool)
 model different instruments and are not expected to match: the LETF pays
 `(L−1)·(borrow + swapSpread)` per *trading* day, the futures pay carry on notional
@@ -144,8 +154,24 @@ Sharp edges:
   `compare-riskoff-assets`, `compare-threshold-strategies`) AND the MCP
   `compare-configs.ts`. Keep new sweep configs going through
   `makeSweepEtfConfig` so the field set can't drift between browser and server.
-  These builders deliberately omit `smaExecutionMode` (the engine defaults an
-  undefined mode to `next-day-open`).
+  `smaExecutionMode` is an optional passthrough there: the pages leave it unset
+  (engine default `next-day-open`), the MCP tools pass the caller's choice.
+- MCP progress (`progress.ts`) is opt-in — no `progressToken` on the request
+  means no reporter is built. Reports are fire-and-forget, monotonic, and
+  clamped to [0,1] with `total:1`; a failed notification must never fail a tool.
+  `runParallelVariants`' own `onProgress` is typed for the compare-letfs page's
+  `(done, total)` progress bar, NOT the engine's `(fraction, label)` — that is
+  why `sweep-core.ts`'s per-window pass calls `runParallelSimulations`
+  (mode `variants`) directly.
+- `get_precomputed_analysis` (`snapshot-core.ts`) serves
+  `src/lib/tool-snapshots/*.json`, which embed full daily series (backtesting
+  ~1.8MB, futures ~4MB) — always distil, never return `pageState` raw. Those
+  snapshots are generated with history wrap ENABLED while every MCP tool runs
+  `historyWrap:false`, so their best/worst window dates can sit in the future;
+  the tool attaches a caveat saying so and it must stay attached.
+- `unit-tests/mcp-discovery.test.ts` pins `public/.well-known/mcp.json` and
+  `public/llms.txt` to `register.ts`, so adding a tool fails the suite until
+  both discovery documents list it.
 - The endpoint is rate-limited in `rate-limit.ts` (Upstash-backed when the
   `UPSTASH_REDIS_REST_*` env vars are set, per-instance in-memory otherwise);
   a global per-IP budget plus a stricter one for `MCP_HEAVY_TOOLS`. The route

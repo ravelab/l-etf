@@ -24,7 +24,10 @@ export interface LetfCompareInput {
   smaUpperBuffer?: number;
   smaLowerBuffer?: number;
   riskOffAsset?: RiskOffAsset;
+  smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
   windowLength: number;
+  /** Called after each index group finishes; groups are the natural step here. */
+  onGroupProgress?: (completedGroups: number, totalGroups: number) => void;
   startDate?: string;
   endDate?: string;
 }
@@ -98,6 +101,7 @@ export async function runLetfComparison(input: LetfCompareInput): Promise<LetfCo
       smaUpperBuffer: input.smaUpperBuffer ?? getDefaultSmaBuffer(index),
       smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaBuffer(index),
       riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
+      smaExecutionMode: input.smaExecutionMode,
     });
     const bucket = byIndex.get(index) ?? [];
     bucket.push({ label: key, config });
@@ -105,6 +109,7 @@ export async function runLetfComparison(input: LetfCompareInput): Promise<LetfCo
   }
 
   const rows: LetfCompareRow[] = [];
+  let completedGroups = 0;
   for (const [index, variants] of byIndex) {
     const warmUpDays = input.smaEnabled ? Math.max(...variants.map((v) => v.config.smaPeriod)) : 0;
     const warmUpStart = getMarketDataWarmUpStartDate(startDate, warmUpDays);
@@ -140,6 +145,7 @@ export async function runLetfComparison(input: LetfCompareInput): Promise<LetfCo
       if (simulations.length === 0) continue;
       rows.push({ preset: label, index, ...pctStats(simulations) });
     }
+    input.onGroupProgress?.(++completedGroups, byIndex.size);
   }
 
   if (rows.length === 0) throw new McpToolError("No valid rolling windows for these presets and range.");

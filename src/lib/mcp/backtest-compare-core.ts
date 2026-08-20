@@ -25,6 +25,7 @@ export interface CompareBacktestsInput {
   smaUpperBuffer?: number;
   smaLowerBuffer?: number;
   riskOffAsset?: RiskOffAsset;
+  smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
   startDate?: string;
   endDate?: string;
 }
@@ -63,6 +64,7 @@ export async function runCompareBacktests(input: CompareBacktestsInput): Promise
           smaUpperBuffer: input.smaUpperBuffer ?? getDefaultSmaBuffer(index),
           smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaBuffer(index),
           riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
+          smaExecutionMode: input.smaExecutionMode,
         },
       ),
     );

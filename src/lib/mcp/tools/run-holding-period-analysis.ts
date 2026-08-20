@@ -5,7 +5,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v4";
 import { resolveBacktest, type BacktestInput } from "@/lib/mcp/backtest-config";
-import { runRollingSweep } from "@/lib/mcp/sweep-core";
+import { runRollingSweep, runRollingWindowPoints } from "@/lib/mcp/sweep-core";
+import { summarizeWindowPoints } from "@/lib/mcp/window-distribution";
+import { makeStepReporter } from "@/lib/mcp/progress";
 import { formatSweepRow } from "@/lib/mcp/format";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
@@ -16,6 +18,7 @@ import {
   presetSchema,
   riskOffAssetSchema,
   smaBufferSchema,
+  smaExecutionModeSchema,
   smaPeriodSchema,
 } from "@/lib/mcp/schemas";
 
@@ -29,7 +32,9 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
       description:
         "Show how a strategy's outcome distribution (avg return, win rate, drawdown) changes with the " +
         "holding period, by running the rolling-window analysis at several window lengths (years). " +
-        "NOT investment advice.",
+        "Set `includePercentiles` to attach each period's outcome distribution (p5..p95 plus a CAGR " +
+        "histogram); the raw per-window rows are available from run_rolling_window_analysis, one " +
+        "holding period at a time. NOT investment advice.",
       inputSchema: {
         preset: presetSchema.optional(),
         leverage: z.number().min(1).max(3).optional(),
@@ -46,21 +51,43 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
         smaUpperBuffer: smaBufferSchema.optional(),
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
+        smaExecutionMode: smaExecutionModeSchema.optional(),
+        includePercentiles: z.boolean().optional(),
       },
     },
-    async (args) => {
+    async (args, extra) => {
       try {
         const lengths = Array.from(new Set(args.windowLengths ?? DEFAULT_WINDOW_LENGTHS)).sort(
           (a, b) => a - b,
         );
         const { config, index, startDate, endDate } = resolveBacktest(args as BacktestInput);
 
+        // Each holding period is its own sweep, so progress advances a step at
+        // a time rather than tracking any single sweep's internal fraction.
+        const reportStep = makeStepReporter(extra, lengths.length);
+        let completed = 0;
+
         const byLength = await Promise.all(
           lengths.map(async (windowLength) => {
             const rows = await runRollingSweep({ index, configs: [config], windowLength, startDate, endDate });
-            return rows.length > 0
-              ? { windowLengthYears: windowLength, ...formatSweepRow(rows[0].id, config.name, rows[0].stats) }
-              : null;
+            if (rows.length === 0) return null;
+            const summary = {
+              windowLengthYears: windowLength,
+              ...formatSweepRow(rows[0].id, config.name, rows[0].stats),
+            };
+            if (args.includePercentiles !== true) {
+              reportStep?.(++completed, `${completed}/${lengths.length} holding periods`);
+              return summary;
+            }
+            const points = await runRollingWindowPoints({
+              index,
+              config,
+              windowLength,
+              startDate,
+              endDate,
+            });
+            reportStep?.(++completed, `${completed}/${lengths.length} holding periods`);
+            return { ...summary, distribution: summarizeWindowPoints(points, {}) };
           }),
         );
         const results = byLength.filter((r): r is NonNullable<typeof r> => r != null);

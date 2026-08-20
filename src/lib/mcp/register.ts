@@ -5,6 +5,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerListPresets } from "@/lib/mcp/tools/list-presets";
 import { registerGetMarketData } from "@/lib/mcp/tools/get-market-data";
 import { registerGetSmaSignals } from "@/lib/mcp/tools/get-sma-signals";
+import { registerGetSmaSignalHistory } from "@/lib/mcp/tools/get-sma-signal-history";
 import { registerGetSmaCalibration } from "@/lib/mcp/tools/get-sma-calibration";
 import { registerRunBacktest } from "@/lib/mcp/tools/run-backtest";
 import { registerCompareBacktests } from "@/lib/mcp/tools/compare-backtests";
@@ -13,6 +14,7 @@ import { registerRunHoldingPeriodAnalysis } from "@/lib/mcp/tools/run-holding-pe
 import { registerCompareStrategies } from "@/lib/mcp/tools/compare-strategies";
 import { registerCompareLetfs } from "@/lib/mcp/tools/compare-letfs";
 import { registerGetBoxSpreadApy } from "@/lib/mcp/tools/get-box-spread-apy";
+import { registerGetPrecomputedAnalysis } from "@/lib/mcp/tools/get-precomputed-analysis";
 import { registerRunFuturesBacktest } from "@/lib/mcp/tools/run-futures-backtest";
 import { registerResources } from "@/lib/mcp/resources";
 import { registerPrompts } from "@/lib/mcp/prompts";
@@ -21,6 +23,7 @@ export function registerAll(server: McpServer): void {
   registerListPresets(server);
   registerGetMarketData(server);
   registerGetSmaSignals(server);
+  registerGetSmaSignalHistory(server);
   registerGetSmaCalibration(server);
   registerRunBacktest(server);
   registerCompareBacktests(server);
@@ -29,6 +32,7 @@ export function registerAll(server: McpServer): void {
   registerCompareStrategies(server);
   registerCompareLetfs(server);
   registerGetBoxSpreadApy(server);
+  registerGetPrecomputedAnalysis(server);
   registerRunFuturesBacktest(server);
   registerResources(server);
   registerPrompts(server);

@@ -17,6 +17,7 @@ import {
   presetSchema,
   riskOffAssetSchema,
   smaBufferSchema,
+  smaExecutionModeSchema,
   smaPeriodSchema,
 } from "@/lib/mcp/schemas";
 import { z } from "zod/v4";
@@ -88,6 +89,7 @@ export function registerRunBacktest(server: McpServer): void {
         smaUpperBuffer: smaBufferSchema.optional(),
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
+        smaExecutionMode: smaExecutionModeSchema.optional(),
       },
     },
     async (args) => {

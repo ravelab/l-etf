@@ -2,7 +2,7 @@
   "name": "l-etf",
   "title": "Leveraged ETF Backtesting Lab",
   "version": "1.0.0",
-  "description": "Backtest leveraged-ETF strategies (UPRO, TQQQ, SSO, QLD) over long market history with rolling-window analysis, SMA timing rules, and risk-off switching. Educational/research only — not investment advice.",
+  "description": "Backtest leveraged-ETF strategies (UPRO, TQQQ, SSO, QLD) over long market history with rolling-window analysis, SMA timing rules, and risk-off switching. Educational/research only \u2014 not investment advice.",
   "documentation": "https://l-etf.com/llms.txt",
   "endpoints": [
     {
@@ -13,25 +13,78 @@
   ],
   "capabilities": {
     "tools": [
-      { "name": "list_presets", "description": "Available ETF presets, risk-off assets, and default SMA settings." },
-      { "name": "get_market_data", "description": "Index prices, borrowing rates, or CPI over a date range." },
-      { "name": "get_sma_signals", "description": "Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100." },
-      { "name": "get_sma_calibration", "description": "Precomputed best SMA period/buffer per index (cached snapshot)." },
-      { "name": "run_backtest", "description": "Single-strategy backtest: CAGR, max drawdown, Sharpe, trade log, 1x benchmark." },
-      { "name": "compare_backtests", "description": "Backtest several presets (simulated and/or real ETFs, either index) over one shared range." },
-      { "name": "run_rolling_window_analysis", "description": "One strategy across every historical rolling window; returns the outcome distribution." },
-      { "name": "run_holding_period_analysis", "description": "How a strategy's outcome distribution changes across several holding-period lengths." },
-      { "name": "compare_strategies", "description": "Rank strategy variants (SMA on/off, risk-off assets, SMA periods, SMA buffers) over rolling windows." },
-      { "name": "compare_letfs", "description": "Compare leveraged-ETF presets across rolling windows with p10/p50/p90 percentile distributions." },
-      { "name": "run_futures_backtest", "description": "Index-futures (ES/NQ) SMA strategy at a target leverage with margin, rolls, and fees." },
-      { "name": "get_box_spread_apy", "description": "Live SPX box-spread implied financing APYs from boxtrades.com." }
+      {
+        "name": "list_presets",
+        "description": "Available ETF presets, risk-off assets, and default SMA settings."
+      },
+      {
+        "name": "get_market_data",
+        "description": "Index prices, borrowing rates, or CPI over a date range."
+      },
+      {
+        "name": "get_sma_signals",
+        "description": "Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100."
+      },
+      {
+        "name": "get_sma_signal_history",
+        "description": "SMA regime log for an index: crossovers, current regime and its age, time in market, whipsaw stats."
+      },
+      {
+        "name": "get_sma_calibration",
+        "description": "Precomputed best SMA period/buffer per index (cached snapshot)."
+      },
+      {
+        "name": "run_backtest",
+        "description": "Single-strategy backtest: CAGR, max drawdown, Sharpe, trade log, 1x benchmark."
+      },
+      {
+        "name": "compare_backtests",
+        "description": "Backtest several presets (simulated and/or real ETFs, either index) over one shared range."
+      },
+      {
+        "name": "run_rolling_window_analysis",
+        "description": "One strategy across every historical rolling window; returns the outcome distribution, optionally with percentiles and the per-window rows."
+      },
+      {
+        "name": "run_holding_period_analysis",
+        "description": "How a strategy's outcome distribution changes across several holding-period lengths."
+      },
+      {
+        "name": "compare_strategies",
+        "description": "Rank strategy variants (SMA on/off, risk-off assets, SMA periods, symmetric SMA buffers, or a 2-D upper/lower buffer grid) over rolling windows."
+      },
+      {
+        "name": "compare_letfs",
+        "description": "Compare leveraged-ETF presets across rolling windows with p10/p50/p90 percentile distributions."
+      },
+      {
+        "name": "run_futures_backtest",
+        "description": "Index-futures (ES/NQ) SMA strategy at a target leverage with margin, rolls, and fees."
+      },
+      {
+        "name": "get_box_spread_apy",
+        "description": "Live SPX box-spread implied financing APYs from boxtrades.com."
+      },
+      {
+        "name": "get_precomputed_analysis",
+        "description": "The site's canonical precomputed runs per tool page \u2014 instant, and free of the heavy-tool rate limit."
+      }
     ],
     "resources": [
-      { "uri": "letf://methodology", "description": "Simulation methodology and assumptions." },
-      { "uri": "letf://data-coverage", "description": "Earliest/latest available data dates per index." }
+      {
+        "uri": "letf://methodology",
+        "description": "Simulation methodology and assumptions."
+      },
+      {
+        "uri": "letf://data-coverage",
+        "description": "Earliest/latest available data dates per index."
+      }
     ],
     "prompts": [
-      { "name": "analyze_strategy", "description": "Guided end-to-end analysis of a leveraged-ETF strategy." }
+      {
+        "name": "analyze_strategy",
+        "description": "Guided end-to-end analysis of a leveraged-ETF strategy."
+      }
     ]
   },
   "disclaimer": "For educational and research use only. NOT investment advice. Figures are simulated backtests over historical data; past performance does not predict future returns. Leveraged ETFs are high-risk instruments."

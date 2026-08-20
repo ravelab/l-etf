@@ -28,3 +28,13 @@ export const riskOffAssetSchema = z.enum(RISK_OFF_ASSET_VALUES);
 // SMA tuning ranges match the `/api/sma-signals` route contract.
 export const smaPeriodSchema = z.number().int().min(5).max(500);
 export const smaBufferSchema = z.number().min(0).max(30);
+
+/**
+ * When the strategy acts on a signal. Mirrors `EtfConfig["smaExecutionMode"]`;
+ * omitting it leaves the engine on its `next-day-open` default.
+ */
+export const smaExecutionModeSchema = z.enum([
+  "trigger-day-close",
+  "next-day-close",
+  "next-day-open",
+]);

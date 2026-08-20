@@ -24,6 +24,7 @@ export interface BacktestInput {
   smaUpperBuffer?: number;
   smaLowerBuffer?: number;
   riskOffAsset?: RiskOffAsset;
+  smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
 }
 
 export interface ResolvedBacktest {
@@ -97,7 +98,7 @@ export function resolveBacktest(input: BacktestInput): ResolvedBacktest {
     smaUpperBuffer,
     smaLowerBuffer,
     smaIndex: index,
-    smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
+    smaExecutionMode: input.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE,
     riskOffAsset,
   };
 
