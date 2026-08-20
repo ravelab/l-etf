@@ -60,13 +60,20 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
   },
 };
 
+/**
+ * The monthly Signals calibration (`src/lib/tool-snapshots/sma-calibration.json`), which is what
+ * the app means by "the default" band — not the compile-time fallbacks in `defaults.ts`. Copied
+ * rather than imported so it always matches the band the windows below were measured under: a
+ * recalibration that moved these without moving the windows would leave the menu advertising a
+ * decline the click no longer reproduces. Regenerate both together.
+ */
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
   smaPsp: "186",
   smaPnq: "150",
-  smaSpUpperBuffer: 3.6,
-  smaSpLowerBuffer: 3.6,
-  smaNqUpperBuffer: 11.9,
-  smaNqLowerBuffer: 11.9,
+  smaSpUpperBuffer: 3,
+  smaSpLowerBuffer: 3.3,
+  smaNqUpperBuffer: 20.4,
+  smaNqLowerBuffer: 17.6,
   ro: "BRK.B+GLDM+VGSH",
 } as const;
 
@@ -80,25 +87,26 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * and sells on the worst possible day, with none of the recovery to soften it. `drawdown` is
  * that peak-to-bottom decline, so it is what the window itself returns.
  *
- * The window is the decline, not the era around it: TQQQ-SMA gave up 80.8% in the eight weeks
- * after the dot-com peak and then never traded below that low in the ten years it took to win
- * the peak back, so that anchor is eight weeks long.
+ * The window is the decline, not the era around it. TQQQ-SMA gave up 84.4% in the six and a half
+ * months after the dot-com peak and then never traded below that low in the decade it took to
+ * win the peak back, so that anchor stops in 2000 rather than running to the 2002 bottom; 1987 is three
+ * weeks, because the crash is the whole decline and the band was out of the market after it.
  *
  * Regenerate with `node --import tsx scripts/find-worst-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-04-21", days: 1326, drawdown: "-90.0%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-52.2%" },
-  { letf: "UPRO" as const, startDate: "1968-11-29", endDate: "1970-11-18", days: 719, drawdown: "-46.5%" },
-  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2000-05-23", days: 57, drawdown: "-80.8%" },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-10-11", days: 1102, drawdown: "-79.9%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-04-21", days: 1326, drawdown: "-89.5%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-49.9%" },
+  { letf: "UPRO" as const, startDate: "1968-11-29", endDate: "1970-11-18", days: 719, drawdown: "-44.6%" },
+  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2000-10-11", days: 198, drawdown: "-84.4%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1987-10-27", days: 22, drawdown: "-68.4%" },
 ] as const;
 
 /** Years once a window runs a year or longer, then months, then days — "0.16y" reads as a typo. */
 function formatWindowSpan(days: number): string {
   if (days >= 365.25) return `${(days / 365.25).toFixed(1)} years`;
-  if (days >= 45) return `${Math.round(days / 30.44)} months`;
+  if (days >= 45) return `${(days / 30.44).toFixed(1)} months`;
   return `${days} days`;
 }
 

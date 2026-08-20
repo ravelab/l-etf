@@ -12,17 +12,19 @@
  * ships. The menu keeps recognizable episodes rather than the top of the ranking, which reaches
  * back to eras nobody has heard of.
  *
+ * The band comes from `sma-calibration.json` — the monthly Signals calibration, which is what
+ * the app means by "the default" — not the compile-time fallbacks in `defaults.ts`. It emits
+ * those parameters alongside the windows because the two have to be pasted together: a window
+ * is only the strategy's worst under the band it was measured with.
+ *
  * Run: node --import tsx scripts/find-worst-drawdowns.ts
  */
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "@/lib/mcp/server-data";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
-import {
-  DEFAULT_RISK_OFF_ASSET,
-  getDefaultSmaBuffer,
-  getDefaultSmaPeriod,
-} from "@/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { readSmaCalibrationSnapshot, type SmaCalibrationResult } from "@/lib/sma-calibration";
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { EtfConfig } from "@/lib/simulation/types";
@@ -104,16 +106,15 @@ function findDeclines(dates: readonly string[], values: readonly number[]): Decl
   return declines.sort((a, b) => a.declinePct - b.declinePct);
 }
 
-/** Simulate one preset with its shipped SMA defaults over that index's full history. */
-async function simulateStrategy(presetKey: PresetKey) {
+/** Simulate one preset with the monthly calibration's band over that index's full history. */
+async function simulateStrategy(presetKey: PresetKey, calibration: SmaCalibrationResult) {
   const preset = ETF_PRESETS[presetKey];
   if (!preset) throw new Error(`Unknown preset "${presetKey}".`);
   const index = preset.index;
   const range = INDEX_DATE_RANGES[index];
   if (!range) throw new Error(`No date range for index "${index}".`);
 
-  const smaPeriod = getDefaultSmaPeriod(index);
-  const smaBuffer = getDefaultSmaBuffer(index);
+  const { smaPeriod, smaUpperBuffer, smaLowerBuffer } = calibration[index];
   const startDate = range.min;
   const endDate = new Date().toISOString().slice(0, 10);
   const warmUpStart = getMarketDataWarmUpStartDate(startDate, smaPeriod);
@@ -126,8 +127,8 @@ async function simulateStrategy(presetKey: PresetKey) {
     simulated: true,
     smaEnabled: true,
     smaPeriod,
-    smaUpperBuffer: smaBuffer,
-    smaLowerBuffer: smaBuffer,
+    smaUpperBuffer,
+    smaLowerBuffer,
     smaIndex: index,
     smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
@@ -157,7 +158,7 @@ async function simulateStrategy(presetKey: PresetKey) {
     values: strategy.dailyValues,
     declines: findDeclines(result.dates, strategy.dailyValues),
   };
-  return { smaPeriod, smaBuffer, curve };
+  return { smaPeriod, smaUpperBuffer, smaLowerBuffer, curve };
 }
 
 /** Trading days the strategy needed to take the peak back, or null if it never has. */
@@ -183,18 +184,30 @@ function describe(curve: Curve, decline: Decline): Record<string, string | numbe
 }
 
 async function main(): Promise<void> {
+  const calibration = await readSmaCalibrationSnapshot();
+  if (!calibration) throw new Error("No SMA calibration snapshot — run `npm run calibrate-sma` first.");
+  console.log(`Calibration generated ${calibration.generatedAt} (through ${calibration.endDate}).`);
+
   const curves = new Map<PresetKey, Curve>();
 
   for (const presetKey of ["UPRO", "TQQQ"] as const) {
-    const { smaPeriod, smaBuffer, curve } = await simulateStrategy(presetKey);
+    const { smaPeriod, smaUpperBuffer, smaLowerBuffer, curve } = await simulateStrategy(presetKey, calibration);
     curves.set(presetKey, curve);
     console.log(
-      `\n${presetKey} SMA ${smaPeriod} (-${smaBuffer}%/+${smaBuffer}%) — ` +
+      `\n${presetKey} SMA ${smaPeriod} (-${smaLowerBuffer}%/+${smaUpperBuffer}%) — ` +
         `${curve.dates[0]} .. ${curve.dates[curve.dates.length - 1]} (${curve.dates.length} sessions)`,
     );
     console.log("Deepest peak-to-bottom declines:");
     console.table(curve.declines.slice(0, TOP_N).map((decline) => describe(curve, decline)));
   }
+
+  console.log("\nWORST_TIME_BACKTEST_BASE_PARAMS (paste into ToolRunHistoryMenu.tsx):\n");
+  console.log(`  smaPsp: "${calibration.sp500.smaPeriod}",`);
+  console.log(`  smaPnq: "${calibration.nasdaq100.smaPeriod}",`);
+  console.log(`  smaSpUpperBuffer: ${calibration.sp500.smaUpperBuffer},`);
+  console.log(`  smaSpLowerBuffer: ${calibration.sp500.smaLowerBuffer},`);
+  console.log(`  smaNqUpperBuffer: ${calibration.nasdaq100.smaUpperBuffer},`);
+  console.log(`  smaNqLowerBuffer: ${calibration.nasdaq100.smaLowerBuffer},`);
 
   console.log("\nWORST_TIME_TO_INVEST_ITEMS (paste into ToolRunHistoryMenu.tsx):\n");
   for (const era of ERAS) {
