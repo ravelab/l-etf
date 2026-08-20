@@ -31,8 +31,8 @@ import type { EtfConfig } from "@/lib/simulation/types";
 
 type PresetKey = "UPRO" | "TQQQ";
 
-/** How many declines to list per strategy in the ranking. */
-const TOP_N = 10;
+/** How many declines to list per strategy in the ranking. Override with a CLI argument. */
+const TOP_N = Number(process.argv[2]) || 10;
 
 /** The windows the menu ships, as (strategy, year the window's record high falls in). */
 interface EraWindow {
@@ -43,9 +43,9 @@ interface EraWindow {
 const ERAS: readonly EraWindow[] = [
   { letf: "UPRO", peakYear: "1929" },
   { letf: "UPRO", peakYear: "2007" },
-  { letf: "UPRO", peakYear: "1968" },
+  { letf: "UPRO", peakYear: "1976" },
   { letf: "TQQQ", peakYear: "2000" },
-  { letf: "TQQQ", peakYear: "1987" },
+  { letf: "TQQQ", peakYear: "2021" },
 ];
 
 interface Decline {

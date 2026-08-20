@@ -87,10 +87,10 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * and sells on the worst possible day, with none of the recovery to soften it. `drawdown` is
  * that peak-to-bottom decline, so it is what the window itself returns.
  *
- * The window is the decline, not the era around it. TQQQ-SMA gave up 84.4% in the six and a half
- * months after the dot-com peak and then never traded below that low in the decade it took to
- * win the peak back, so that anchor stops in 2000 rather than running to the 2002 bottom; 1987 is three
- * weeks, because the crash is the whole decline and the band was out of the market after it.
+ * The window is the decline, not the era around it, so an anchor can end long before the era it
+ * belongs to does: TQQQ-SMA gave up 84.4% in the six and a half months after the dot-com peak
+ * and never traded below that low in the decade it took to win the peak back, so that window
+ * stops in 2000 rather than running to the 2002 bottom.
  *
  * Regenerate with `node --import tsx scripts/find-worst-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
@@ -98,9 +98,9 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 const WORST_TIME_TO_INVEST_ITEMS = [
   { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-04-21", days: 1326, drawdown: "-89.5%" },
   { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-49.9%" },
-  { letf: "UPRO" as const, startDate: "1968-11-29", endDate: "1970-11-18", days: 719, drawdown: "-44.6%" },
+  { letf: "UPRO" as const, startDate: "1976-09-21", endDate: "1980-04-15", days: 1302, drawdown: "-44.6%" },
   { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2000-10-11", days: 198, drawdown: "-84.4%" },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1987-10-27", days: 22, drawdown: "-68.4%" },
+  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-10-26", days: 706, drawdown: "-69.9%" },
 ] as const;
 
 /** Years once a window runs a year or longer, then months, then days — "0.16y" reads as a typo. */
