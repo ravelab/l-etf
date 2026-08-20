@@ -69,8 +69,24 @@ const MAX_ABS_DIVIDEND_DAILY = 0.05 / 252; // clamp inferred q to +/-5% annualiz
 // a meaningful "Excess Liquidity" series without pretending to be an exact broker.
 const DEFAULT_MAINT_MARGIN_RATE = 0.08; // 8% of notional
 
-// Conservative all-in per-contract, per-side fee approximation (commission + exchange/reg).
-const DEFAULT_FEE_PER_CONTRACT = 1.25;
+/**
+ * IBKR's all-in cost to trade one contract, per side, quoted in FEE_SCHEDULE_ANCHOR
+ * dollars: $0.85 IBKR execution plus CME exchange/clearing/regulatory (~$1.39 on ES,
+ * ~$1.60 on NQ).
+ */
+const IBKR_FEE_PER_CONTRACT: Record<FuturesContractSymbol, number> = {
+  ES: 2.24,
+  NQ: 2.45,
+};
+/**
+ * The dollars every fixed-dollar broker constant here is quoted in: CPI-U at this date.
+ * Older trades pay the CPI-deflated equivalent, so a 1970 fill is charged a 1970-nominal
+ * commission rather than a 2026 one. The level is spelled out instead of read off the CPI
+ * series because that series is truncated at the simulation's end date — a window ending
+ * in 1980 carries no 2026 row to anchor on.
+ */
+const FEE_SCHEDULE_ANCHOR_DATE = "2026-07-01";
+const FEE_SCHEDULE_ANCHOR_CPI = 332.813;
 const DEFAULT_RISKOFF_COMMISSION_PER_SHARE = 0.005;
 const DEFAULT_RISKOFF_MIN_COMMISSION = 1.0;
 const DEFAULT_RISKOFF_MAX_COMMISSION_PCT_NOTIONAL = 0.01;
@@ -553,19 +569,30 @@ function getRiskOffCommission(params: {
 
 export function buildInflationDollarCostScaleLookup(
   monthlyCpi: Array<{ date: string; value: number }> | undefined,
-  anchorDate: string
+  anchorDate: string,
+  /**
+   * CPI level at `anchorDate`, used when the series stops short of it — the engine only
+   * ever sees CPI up to the simulation's end date. Without it a window ending in 1980
+   * would anchor on 1980 and charge a present-day fee schedule in 1980 dollars.
+   */
+  anchorCpiFallback?: number
 ): (date: string) => number {
   const rows = (monthlyCpi ?? [])
     .filter((row) => Number.isFinite(row.value) && row.value > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
   if (rows.length < 2) return () => 1;
 
+  const lastRow = rows[rows.length - 1]!;
   let anchorCpi = NaN;
-  for (const row of rows) {
-    if (row.date <= anchorDate) anchorCpi = row.value;
-    else break;
+  if (lastRow.date >= anchorDate) {
+    for (const row of rows) {
+      if (row.date <= anchorDate) anchorCpi = row.value;
+      else break;
+    }
+  } else if (Number.isFinite(anchorCpiFallback) && (anchorCpiFallback as number) > 0) {
+    anchorCpi = anchorCpiFallback as number;
   }
-  if (!Number.isFinite(anchorCpi) || anchorCpi <= 0) anchorCpi = rows[rows.length - 1]!.value;
+  if (!Number.isFinite(anchorCpi) || anchorCpi <= 0) anchorCpi = lastRow.value;
 
   const cpiAtOrBefore = (date: string) => {
     let lo = 0;
@@ -818,11 +845,15 @@ export type FuturesStrategyParams = {
    * That reduces buy/sell churn when target and cap are equal or close.
    */
   leverageTolerancePct?: number;
+  /**
+   * All-in cost per contract, per side, in FEE_SCHEDULE_ANCHOR_DATE dollars.
+   * Defaults to the IBKR schedule for the run's contract.
+   */
   feePerContract?: number;
   /** CPI series used to scale fixed-dollar commissions into historical dollars. */
   monthlyCpi?: Array<{ date: string; value: number }>;
   /**
-   * Reference price for scaling fees/spreads. When not provided, uses the latest price
+   * Reference price for scaling bid/ask spreads. When not provided, uses the latest price
    * in the supplied series. For historical backtests, you typically want to pass today's
    * price (or latest available) to keep fees consistent across different backtest periods.
    * @default latest price in params.prices
@@ -935,17 +966,24 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     0,
     params.leverageTolerancePct ?? DEFAULT_LEVERAGE_TOLERANCE_PCT
   );
-  const feeDollarScaleForDate = buildInflationDollarCostScaleLookup(params.monthlyCpi, params.endDate);
+  const feeDollarScaleForDate = buildInflationDollarCostScaleLookup(
+    params.monthlyCpi,
+    FEE_SCHEDULE_ANCHOR_DATE,
+    FEE_SCHEDULE_ANCHOR_CPI,
+  );
   // The un-swept cash buffer is a present-day broker threshold, so it lives in the
   // same dollars as the commission schedule and gets deflated the same way. Leaving
   // it nominal would wipe out most of the interest base in early history (a $10k
   // buffer against a 1962 account is a different animal than against a 2026 one).
   const freeCashAt = (date: string) => freeCash * feeDollarScaleForDate(date);
-  // Futures fees and bid/ask spreads scale with the contract's fill price so they
-  // represent a constant fraction of notional. Anchor to a reference price (typically
-  // today's market price or latest available) so that historical backtests have consistent
-  // fees regardless of the simulation date range. If not provided, falls back to the latest
-  // price in the series, but for long historical backtests, explicitly provide the anchor.
+  // Bid/ask spreads scale with the contract's fill price so half a tick stays a constant
+  // fraction of notional. Anchor to a reference price (typically today's market price or
+  // latest available) so that historical backtests have consistent spreads regardless of
+  // the simulation date range. If not provided, falls back to the latest price in the
+  // series, but for long historical backtests, explicitly provide the anchor.
+  // Commissions do NOT ride this scale: they are a fixed dollar schedule (IBKR's, quoted
+  // in FEE_SCHEDULE_ANCHOR_DATE dollars) and are deflated by CPI instead — tying them to
+  // the index level would have a 1988 fill pay ~4c a contract.
   const futuresPriceAnchor = (() => {
     if (Number.isFinite(params.futuresPriceAnchor) && (params.futuresPriceAnchor as number) > 0) {
       return params.futuresPriceAnchor as number;
@@ -961,8 +999,9 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     if (!Number.isFinite(fillPrice) || fillPrice <= 0) return 1;
     return fillPrice / futuresPriceAnchor;
   };
-  const feePerContractAt = (fillPrice: number) =>
-    (params.feePerContract ?? DEFAULT_FEE_PER_CONTRACT) * futuresPriceScale(fillPrice);
+  const feePerContractNominal =
+    params.feePerContract ?? IBKR_FEE_PER_CONTRACT[chooseContract(params.index)];
+  const feePerContractAt = (date: string) => feePerContractNominal * feeDollarScaleForDate(date);
 
   let sumActualLeverageRiskOn = 0;
   let riskOnLeverageDayCount = 0;
@@ -1025,7 +1064,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     const mult = getContractMultiplier(params.contract);
     const perContractMaint = mult * params.fillPrice * maintMarginRate;
     const perContractEntryCost =
-      feePerContractAt(params.fillPrice) +
+      feePerContractAt(params.tradeDate) +
       getFuturesHalfSpreadPerContract(params.symbol) * futuresPriceScale(params.fillPrice);
     const denom = perContractMaint + perContractEntryCost;
     if (!Number.isFinite(denom) || denom <= 0) return params.currentQty;
@@ -1094,7 +1133,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       tradeDate: firstDate,
     });
     if (initialQty > 0) {
-      const fees = Math.abs(initialQty) * feePerContractAt(initialFillPrice);
+      const fees = Math.abs(initialQty) * feePerContractAt(firstDate);
       const spread = getTransactionSpreadCost({
         instrument: "futures",
         symbol: initialSymbol,
@@ -1392,7 +1431,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
           if (qLeg <= 0) continue;
           const delta = -qLeg;
           const fillPrice = futuresFillAt(sym);
-          const fees = Math.abs(delta) * feePerContractAt(fillPrice);
+          const fees = Math.abs(delta) * feePerContractAt(date);
           const spread = getTransactionSpreadCost({
             instrument: "futures",
             symbol: sym,
@@ -1535,7 +1574,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
         if (q0 <= 0) break;
 
         const fillPrice = futuresFillAt(sym);
-        const feePerContract = feePerContractAt(fillPrice);
+        const feePerContract = feePerContractAt(date);
         const spreadPerContract = getTransactionSpreadCost({
           instrument: "futures",
           symbol: sym,
@@ -1671,8 +1710,8 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
 
         const sellFillPrice = futuresFillAt(sym);
         const buyFillPrice = futuresFillAt(nextSym);
-        const sellFees = Math.abs(rollQty) * feePerContractAt(sellFillPrice);
-        const buyFees = Math.abs(rollQty) * feePerContractAt(buyFillPrice);
+        const sellFees = Math.abs(rollQty) * feePerContractAt(date);
+        const buyFees = Math.abs(rollQty) * feePerContractAt(date);
         const sellSpread = getTransactionSpreadCost({
           instrument: "futures",
           symbol: sym,
@@ -1856,7 +1895,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       const tradeSymbol = newTradesContractLabel(nextContract, date, rollDateByQuarter);
       const probeFillPrice = futuresFillAt(tradeSymbol);
       const deltaProbe = desiredTargetQty - currentQtyAfterRolls;
-      const feesProbe = Math.abs(deltaProbe) * feePerContractAt(probeFillPrice);
+      const feesProbe = Math.abs(deltaProbe) * feePerContractAt(date);
       const spreadProbe = getTransactionSpreadCost({
         instrument: "futures",
         symbol: tradeSymbol,
@@ -1927,7 +1966,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
           if (qLeg <= 0) continue;
           const delta = -qLeg;
           const fillPrice = futuresFillAt(sym);
-          const fees = Math.abs(delta) * feePerContractAt(fillPrice);
+          const fees = Math.abs(delta) * feePerContractAt(date);
           const levBeforeClose = futuresPortfolioLeverageDeltaPctFromLots({
             lots,
             contract,
@@ -1986,7 +2025,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
           if (delta > 0) {
             const tradeSymbol = newTradesContractLabel(nextContract, date, rollDateByQuarter);
             const fillPrice = futuresFillAt(tradeSymbol);
-            const fees = Math.abs(delta) * feePerContractAt(fillPrice);
+            const fees = Math.abs(delta) * feePerContractAt(date);
             const levBefore = futuresPortfolioLeverageDeltaPctFromLots({
               lots,
               contract: afterCloseQty > 0 ? contract : null,
@@ -2045,7 +2084,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
               const take = Math.min(qLeg, toSell);
               const legDelta = -take;
               const fillPrice = futuresFillAt(sym);
-              const legFees = Math.abs(legDelta) * feePerContractAt(fillPrice);
+              const legFees = Math.abs(legDelta) * feePerContractAt(date);
               const levBefore = futuresPortfolioLeverageDeltaPctFromLots({
                 lots,
                 contract,
@@ -2287,7 +2326,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
         const qLeg = lots.get(sym) ?? 0;
         if (qLeg <= 0) continue;
         const fp = futuresFillAtFinal(sym);
-        totalFeesTerm += qLeg * feePerContractAt(fp);
+        totalFeesTerm += qLeg * feePerContractAt(finalDate);
         totalSpreadTerm += getTransactionSpreadCost({
           instrument: "futures",
           symbol: sym,
@@ -2314,7 +2353,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
         const qLeg = lots.get(sym) ?? 0;
         if (qLeg <= 0) continue;
         const fillPrice = futuresFillAtFinal(sym);
-        const fees = qLeg * feePerContractAt(fillPrice);
+        const fees = qLeg * feePerContractAt(finalDate);
         const spread = getTransactionSpreadCost({
           instrument: "futures",
           symbol: sym,

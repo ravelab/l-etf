@@ -13,7 +13,7 @@ import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
-import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES } from "@/lib/constants";
+import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, INDEX_DATE_RANGES } from "@/lib/constants";
 import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT } from "@/lib/simulation/defaults";
 import type { BacktestResult, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
 import {
@@ -51,15 +51,11 @@ const EMPTY_UNDERLYING_INDEX_SERIES: Array<{
   values: number[];
 }> = [];
 
-function getFuturesDefaultStartDate(endDate: string, minDate: string, maxDate: string): string {
-  const end = normalizeDateString(endDate, maxDate);
-  const d = new Date(`${end}T00:00:00Z`);
-  if (!Number.isFinite(d.getTime())) return minDate;
-  d.setUTCFullYear(d.getUTCFullYear() - 20);
-  const candidate = d.toISOString().slice(0, 10);
-  if (candidate < minDate) return minDate;
-  if (candidate > maxDate) return maxDate;
-  return candidate;
+/** Futures runs default to the app's SPX start, clamped to the loaded date range. */
+function getFuturesDefaultStartDate(minDate: string, maxDate: string): string {
+  if (CONSTANT_SP500_SHORTCUT_DATE < minDate) return minDate;
+  if (CONSTANT_SP500_SHORTCUT_DATE > maxDate) return maxDate;
+  return CONSTANT_SP500_SHORTCUT_DATE;
 }
 
 function scaleEtfResult(result: EtfResult, scale: number): EtfResult {
@@ -198,7 +194,6 @@ export function FuturesPageContent({
     lastHydratedSearchRef.current = searchStr;
     const params = new URLSearchParams(searchStr);
     const sd = params.get("sd");
-    let effectiveEndDate = endDate;
     if (sd != null && sd !== "") {
       const normalized = normalizeDateString(sd, dateRange.min);
       handleFieldChange("startDate", normalized < dateRange.min ? dateRange.min : normalized > dateRange.max ? dateRange.max : normalized);
@@ -206,15 +201,13 @@ export function FuturesPageContent({
     const ed = params.get("ed");
     if (ed != null && ed !== "") {
       const normalized = normalizeDateString(ed, dateRange.max);
-      effectiveEndDate =
-        normalized < dateRange.min ? dateRange.min : normalized > dateRange.max ? dateRange.max : normalized;
-      handleFieldChange("endDate", effectiveEndDate);
+      handleFieldChange(
+        "endDate",
+        normalized < dateRange.min ? dateRange.min : normalized > dateRange.max ? dateRange.max : normalized
+      );
     }
     if ((sd == null || sd === "") && !hasCachedResults && !restoredFromCache) {
-      handleFieldChange(
-        "startDate",
-        getFuturesDefaultStartDate(effectiveEndDate, dateRange.min, dateRange.max)
-      );
+      handleFieldChange("startDate", getFuturesDefaultStartDate(dateRange.min, dateRange.max));
     }
     const smaPsp = params.get("smaPsp");
     if (smaPsp != null && smaPsp !== "") {
@@ -288,7 +281,6 @@ export function FuturesPageContent({
     active,
     dateRange.max,
     dateRange.min,
-    endDate,
     handleFieldChange,
     hasCachedResults,
     pathname,
@@ -782,7 +774,13 @@ export function FuturesPageContent({
 
               {futuresDetails && futuresDetails.length > 0 && (
                 <div className="space-y-4">
-                  <h2 className="text-lg font-semibold">Transactions</h2>
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h2 className="text-lg font-semibold">Transactions</h2>
+                    <p className="text-xs text-muted">
+                      Fees are IBKR&rsquo;s 2026 all-in schedule — $2.24 an ES contract, $2.45 an NQ,
+                      per side — deflated by CPI for older trades.
+                    </p>
+                  </div>
                   {(() => {
                     const transactionStrategies = futuresDetails
                       .filter((strategy) =>

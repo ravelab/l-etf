@@ -424,7 +424,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
 }
 
 async function buildFuturesSnapshot(shared: SharedInputs) {
-  const startDate = getFuturesDefaultStartDate(shared.endDate);
+  const startDate = shared.startDate;
   const endDate = shared.endDate;
   const amount = DEFAULT_FUTURES_AMOUNT;
   const leverageTolerancePct = DEFAULT_LEVERAGE_TOLERANCE_PCT;
@@ -1565,14 +1565,6 @@ function downsampleBacktestResult(result: BacktestResult, target: number): Backt
     investedValues: idx.map((i) => result.investedValues[i]),
     etfResults: result.etfResults.map((etf) => downsampleEtfResult(etf, target)),
   };
-}
-
-function getFuturesDefaultStartDate(endDate: string): string {
-  const end = new Date(`${endDate}T00:00:00Z`);
-  if (!Number.isFinite(end.getTime())) return CONSTANT_SP500_SHORTCUT_DATE;
-  end.setUTCFullYear(end.getUTCFullYear() - 20);
-  const candidate = end.toISOString().slice(0, 10);
-  return candidate < CONSTANT_SP500_SHORTCUT_DATE ? CONSTANT_SP500_SHORTCUT_DATE : candidate;
 }
 
 main().catch((err) => {

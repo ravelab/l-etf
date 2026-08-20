@@ -141,6 +141,28 @@ test("futures sanity: fixed-dollar fees scale down in historical dollars", () =>
   assert.equal(scaleForDate("1980-05-01"), 80 / 260);
 });
 
+test("futures sanity: a window ending before the fee-schedule anchor still deflates from it", () => {
+  // The engine only ever receives CPI up to the simulation's end date, so a run ending in
+  // 1980 has no anchor-year row. Falling back to the series' own tail would charge the
+  // present-day commission schedule in 1980 dollars.
+  const rows = [
+    { date: "1970-01-01", value: 38 },
+    { date: "1980-01-01", value: 82 },
+  ];
+  const scaleForDate = buildInflationDollarCostScaleLookup(rows, "2026-07-01", 332.813);
+  assert.equal(scaleForDate("1980-05-01"), 82 / 332.813);
+  assert.equal(scaleForDate("1970-05-01"), 38 / 332.813);
+
+  // A series that does reach the anchor uses its own reading, not the fallback.
+  const reaching = buildInflationDollarCostScaleLookup(
+    [...rows, { date: "2026-07-01", value: 330 }],
+    "2026-07-01",
+    332.813
+  );
+  assert.equal(reaching("1980-05-01"), 82 / 330);
+  assert.equal(reaching("2026-08-01"), 1);
+});
+
 test("futures sanity: carry accrues rate per calendar day and nets the realized dividend once", () => {
   const carry = futuresCarryForHoldingPeriod({
     rateDaily: 0.036 / 360,
