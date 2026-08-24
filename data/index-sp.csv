@@ -35418,3 +35418,6 @@ date,adj_close,open,close,name,source
 2026-08-17,710.27,7790.68,7745.06,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-08-18,705.4,7700.04,7691.76,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-08-19,706.91,7716.74,7707.98,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-08-20,701.01,7690.49,7641.16,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-08-21,703.71,7665.68,7674.37,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-08-24,701.738,7663.38,7652.86,VOO,yahoo(open+close)+provisional(adj_close)
