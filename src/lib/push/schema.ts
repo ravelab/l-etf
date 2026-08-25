@@ -1,7 +1,8 @@
 import { z } from "zod/v4";
+import { isAllowedPushEndpoint, PUSH_ENDPOINT_ERROR } from "./endpoint";
 
 export const pushSubscriptionSchema = z.object({
-  endpoint: z.string().min(1),
+  endpoint: z.string().min(1).refine(isAllowedPushEndpoint, PUSH_ENDPOINT_ERROR),
   expirationTime: z.number().nullable().optional(),
   keys: z.object({
     p256dh: z.string().min(1),

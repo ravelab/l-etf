@@ -24,7 +24,7 @@ import {
 } from "../constants";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../input-normalization";
 import { adjustedOpenFromPricePoint } from "../utils";
-import { renormalizeSeriesFromIndex, resolveEdgeRiskOffStates, selectEdgeSpreads } from "./window-calculations";
+import { finalizeTradingCosts, renormalizeSeriesFromIndex, resolveEdgeRiskOffStates, selectEdgeSpreads } from "./window-calculations";
 
 /**
  * Pre-computed derived arrays from PricePoint[].
@@ -959,20 +959,44 @@ function sliceBacktestResultToWindow(
     // trimEtfResultToStartDate), so both paths agree on which spread applies.
     const config = configs.find((c) => c.id === etf.id || etf.id.startsWith(`${c.id}-`));
     const carriedInRiskOff = etf.smaStartInvested === false;
-    const { startInRiskOff } = resolveEdgeRiskOffStates(etf.smaSignals, firstDate, lastDate, carriedInRiskOff);
-    const entrySpread = config
+    const { startInRiskOff, endInRiskOff } = resolveEdgeRiskOffStates(etf.smaSignals, firstDate, lastDate, carriedInRiskOff);
+    const { entrySpread, exitSpread } = config
       ? selectEdgeSpreads(
           {
             riskOnSpreadRegular: getSymbolSpread(config.name, false),
             riskOffSpreadRegular: getRiskOffSpread(config.riskOffAsset, false),
           },
           startInRiskOff,
-          startInRiskOff
-        ).entrySpread
-      : 0;
+          endInRiskOff
+        )
+      : { entrySpread: 0, exitSpread: 0 };
 
     const dailyValues = renormalizeSeriesFromIndex(etf.dailyValues, displayStartIdx, entrySpread);
-    const finalValue = dailyValues[dailyValues.length - 1] ?? 0;
+    const rawFinalValue = dailyValues[dailyValues.length - 1] ?? 0;
+
+    // Trades that fired during warm-up are outside the reported window, so the
+    // incoming totalTradingCostPct cannot be carried over — recharge only the
+    // signals that land inside the slice, mirroring trimEtfResultToStartDate.
+    const perTransitionSpread = config?.smaEnabled
+      ? getTransitionSpreadCostForConfig(config, false)
+      : 0;
+    let inWindowDollarCost = 0;
+    if (perTransitionSpread > 0 && etf.smaSignals.length > 0) {
+      const dateToIdx = new Map<string, number>();
+      for (let i = 0; i < datesSlice.length; i++) dateToIdx.set(datesSlice[i], i);
+      for (const signal of etf.smaSignals) {
+        const idx = dateToIdx.get(signal.date);
+        if (idx === undefined) continue;
+        inWindowDollarCost += dailyValues[idx] * perTransitionSpread;
+      }
+    }
+
+    const { finalValue, totalTradingCostPct } = finalizeTradingCosts({
+      rawFinalValue,
+      entrySpread,
+      exitSpread,
+      internalDollarCost: inWindowDollarCost,
+    });
     const firstDateMs = new Date(`${firstDate}T00:00:00Z`).getTime();
     const lastDateMs = new Date(`${datesSlice[datesSlice.length - 1]}T00:00:00Z`).getTime();
 
@@ -996,6 +1020,7 @@ function sliceBacktestResultToWindow(
       dates: datesSlice,
       dailyValues,
       finalValue,
+      totalTradingCostPct,
       cagr,
       sharpeRatio,
       maxDrawdownPct: drawdown.pct,
@@ -1061,7 +1086,16 @@ export function simulateWithWarmUp(
   const simPrices = allPrices.slice(simStartIdx, simEndIdx + 1);
   const simStartDate = simPrices[0].date;
   const simEndDate = simPrices[simPrices.length - 1].date;
-  const simRates = rates.filter((r) => r.date >= simStartDate && r.date <= simEndDate);
+  // Keep the last rate at or before the window start: getRate carries the most
+  // recent prior rate forward, so a series that is monthly (tbill-1m,
+  // treasury-2y) or simply has no row on simStartDate would otherwise throw.
+  const inWindowRates = rates.filter((r) => r.date >= simStartDate && r.date <= simEndDate);
+  const carriedInRate = rates.reduce<RatePoint | undefined>(
+    (latest, r) =>
+      r.date < simStartDate && (latest === undefined || r.date > latest.date) ? r : latest,
+    undefined
+  );
+  const simRates = carriedInRate ? [carriedInRate, ...inWindowRates] : inWindowRates;
 
   // Slice riskOff arrays to match the simulation price range
   const slicedRiskOff = options?.riskOffValuesByAsset

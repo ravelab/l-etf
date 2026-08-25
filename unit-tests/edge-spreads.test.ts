@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { simulateBacktest } from "../src/lib/simulation/engine";
+import { simulateBacktest, simulateWithWarmUp } from "../src/lib/simulation/engine";
 import { runParallelBacktest } from "../src/lib/simulation/parallel";
 import { getRiskOffSpread, getSymbolSpread } from "../src/lib/constants";
 import type { EtfConfig, PricePoint, RatePoint } from "../src/lib/simulation/types";
@@ -134,5 +134,44 @@ test("per-config trim uses the carried-in risk-off regime for entry and exit spr
   assert.ok(
     Math.abs(sma!.finalValue - expectedFinal) < 1e-12,
     `finalValue should deduct the SGOV exit spread, got ${sma!.finalValue}, expected ${expectedFinal}`
+  );
+});
+
+test("warm-up slice path deducts the exit spread and scopes trade cost to the window", () => {
+  // Same series as the trigger-day-close case, extended with leading warm-up
+  // days so simulateWithWarmUp takes sliceBacktestResultToWindow (displayIdx>0).
+  const dates = [
+    "2019-12-26", "2019-12-27", "2019-12-30", "2019-12-31",
+    "2020-01-01", "2020-01-02", "2020-01-03", "2020-01-06", "2020-01-07",
+  ];
+  //  warm-up: 100→80 forces a sell during warm-up (a trade outside the window)
+  const prices = pricePoints([100, 100, 100, 80, 100, 101, 102, 103, 90], dates);
+
+  const warmUpRates: RatePoint[] = [
+    { date: "2019-12-01", rateValue: 0.05, rateType: "borrow" },
+  ];
+  const result = simulateWithWarmUp(prices, warmUpRates, [makeConfig()], "2020-01-01", 4);
+  const sma = result.etfResults.find((r) => r.id === "QLD-sma");
+  assert.notEqual(sma, undefined);
+  // The reported window must start at the display date, not the warm-up start.
+  assert.equal(sma!.dates[0], "2020-01-01");
+
+  const rawFinal = sma!.dailyValues[sma!.dailyValues.length - 1];
+  const endsInRiskOff = sma!.smaSignals[sma!.smaSignals.length - 1]?.type === "sell";
+  const exitSpread = endsInRiskOff ? SGOV_SPREAD : QLD_SPREAD;
+  const expectedFinal = rawFinal * (1 - exitSpread);
+  assert.ok(
+    Math.abs(sma!.finalValue - expectedFinal) < 1e-12,
+    `sliced finalValue should deduct the exit spread, got ${sma!.finalValue}, expected ${expectedFinal}`
+  );
+
+  // Trade cost must reflect only in-window trades, so it cannot exceed the cost
+  // of an entry + every in-window signal + the exit.
+  const inWindowSignals = sma!.smaSignals.filter((s) => s.date >= "2020-01-01").length;
+  const maxPlausiblePct =
+    ((QLD_SPREAD + exitSpread) * 100) + inWindowSignals * 1.0;
+  assert.ok(
+    sma!.totalTradingCostPct <= maxPlausiblePct,
+    `totalTradingCostPct ${sma!.totalTradingCostPct} should exclude warm-up trades (<= ${maxPlausiblePct})`
   );
 });

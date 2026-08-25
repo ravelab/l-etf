@@ -114,7 +114,7 @@ test("uses a backwards-compatible declarative Web Push envelope", () => {
 test("subscribe payload preserves alert flags", () => {
   const parsed = pushSubscribePayloadSchema.parse({
     subscription: {
-      endpoint: "https://push.example/subscription",
+      endpoint: "https://fcm.googleapis.com/fcm/send/subscription",
       expirationTime: null,
       keys: {
         p256dh: "p256dh",
@@ -268,4 +268,45 @@ test("expires an undelivered alert before the next close", () => {
     `TTL ${SMA_PUSH_DELIVERY_OPTIONS.TTL}s must be shorter than the ${HOURS_BETWEEN_CONSECUTIVE_CLOSES}s between closes`
   );
   assert.ok(SMA_PUSH_DELIVERY_OPTIONS.TTL > 0);
+});
+
+test("rejects push endpoints that are not HTTPS URLs on a known push service", () => {
+  const base = {
+    installId: "3f1a2b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+    smaConfig: {
+      smaSpPeriod: 185,
+      smaSpUpperBuffer: 3.6,
+      smaSpLowerBuffer: 3.6,
+      smaNqPeriod: 150,
+      smaNqUpperBuffer: 12,
+      smaNqLowerBuffer: 12,
+    },
+  };
+  const parseEndpoint = (endpoint: string) =>
+    pushSubscribePayloadSchema.safeParse({
+      ...base,
+      subscription: { endpoint, keys: { p256dh: "x", auth: "y" } },
+    }).success;
+
+  // SSRF vectors: internal metadata, loopback, private ranges, non-HTTPS.
+  assert.equal(parseEndpoint("http://169.254.169.254/latest/meta-data/"), false);
+  assert.equal(parseEndpoint("https://169.254.169.254/latest/meta-data/"), false);
+  assert.equal(parseEndpoint("http://localhost:3000/steal"), false);
+  assert.equal(parseEndpoint("https://10.0.0.1/internal"), false);
+  assert.equal(parseEndpoint("https://attacker.example.com/collect"), false);
+  assert.equal(parseEndpoint("file:///etc/passwd"), false);
+  assert.equal(parseEndpoint("not-a-url"), false);
+  // Credentials smuggling: authority reads as FCM but resolves to evil.com.
+  assert.equal(parseEndpoint("https://fcm.googleapis.com@evil.com/x"), false);
+  // Suffix smuggling: not actually a subdomain of a push service.
+  assert.equal(parseEndpoint("https://evil-fcm.googleapis.com.attacker.net/x"), false);
+
+  // Real endpoints from the browsers we support must still be accepted.
+  assert.equal(parseEndpoint("https://fcm.googleapis.com/fcm/send/abc123"), true);
+  assert.equal(
+    parseEndpoint("https://updates.push.services.mozilla.com/wpush/v2/abc123"),
+    true
+  );
+  assert.equal(parseEndpoint("https://web.push.apple.com/AbC123"), true);
+  assert.equal(parseEndpoint("https://par02p.notify.windows.com/w/?token=abc"), true);
 });
