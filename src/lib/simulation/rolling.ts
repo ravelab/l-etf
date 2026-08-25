@@ -400,7 +400,18 @@ export function buildRollingWindows({
     const minMonths = targetMonths - 1; // Allow 1 month tolerance for trading day constraints
 
     const expectedEndIso = syntheticEndIso;
-    const missingDays = usesSyntheticTail ? 0 : daySpanIso(prices[endIdx].date, expectedEndIso);
+    // Count the shortfall at BOTH ends. Measuring only the tail meant a window
+    // whose head was late — the cursor snapping forward across a long data gap,
+    // e.g. the 1914 NYSE closure — scored 0 missing days whenever its target end
+    // landed inside available data, so a ~9.6-year span was admitted and averaged
+    // in alongside true 10-year windows.
+    const headMissingDays = usesSyntheticTail
+      ? 0
+      : daySpanIso(startIso, prices[startIdx].date);
+    const tailMissingDays = usesSyntheticTail
+      ? 0
+      : daySpanIso(prices[endIdx].date, expectedEndIso);
+    const missingDays = headMissingDays + tailMissingDays;
     const maxMissingDays = 31;
 
     if (!usesSyntheticTail && actualMonths < minMonths && missingDays > maxMissingDays) {
