@@ -1,4 +1,5 @@
 import { buildYearlyCpiInflation, sampleYearlyRealGrowth } from "@/lib/inflation";
+import { findEtfResult } from "@/lib/simulation/engine";
 import { LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "@/lib/constants";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { BacktestResult, EtfConfig } from "@/lib/simulation/types";
@@ -182,7 +183,7 @@ export function buildStrategyYearlyGrowthSeries(params: {
     const backtest = variant.config.smaIndex === "nasdaq100" ? params.nasdaqBacktest : params.sp500Backtest;
     if (!backtest) continue;
     const targetId = variant.config.smaEnabled ? `${variant.config.id}-sma` : variant.config.id;
-    const etfResult = backtest.etfResults.find((result) => result.id === targetId);
+    const etfResult = findEtfResult(backtest, targetId);
     if (!etfResult) continue;
     const sampled = sampleYearlyRealGrowth(
       backtest.dates,

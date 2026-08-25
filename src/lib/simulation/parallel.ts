@@ -1549,6 +1549,9 @@ export async function runParallelBacktest({
   // Use all available data before startDate as warm-up so SMA state matches
   // the precomputed sweep path (which simulates from day 0).
   const allEtfResults: EtfResult[] = [];
+  // Each per-index group dedupes independently; ids are unique across groups, so
+  // their alias maps merge without collision.
+  const allEtfResultIdAliases: Record<string, string> = {};
   let resultDates: string[] = [];
   const groupEntries = Array.from(groups.entries());
   const totalUnits = groupEntries.reduce((sum, [smaIndex, groupConfigs]) => {
@@ -1740,6 +1743,7 @@ export async function runParallelBacktest({
       return trimEtfResultToStartDate(etfResult, effectiveSeriesStartDate, groupConfig);
     });
     allEtfResults.push(...normalizedEtfResults);
+    Object.assign(allEtfResultIdAliases, result.etfResultIdAliases);
     completedUnits += groupTotalUnits;
     onProgress?.(
       Math.min(totalUnits, completedUnits),
@@ -1763,5 +1767,6 @@ export async function runParallelBacktest({
     nonLeveragedValues,
     investedValues: new Array(nonLeveragedValues.length).fill(CONSTANT_INITIAL_INVESTMENT),
     etfResults: allEtfResults,
+    etfResultIdAliases: allEtfResultIdAliases,
   };
 }

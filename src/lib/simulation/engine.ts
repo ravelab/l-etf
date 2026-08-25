@@ -335,7 +335,8 @@ export function simulateBacktest(
 
   const expandedConfigs = expandEtfConfigs(etfConfigs);
 
-  const uniqueExpandedConfigs = dedupeExpandedConfigs(expandedConfigs);
+  const { unique: uniqueExpandedConfigs, aliases: etfResultIdAliases } =
+    dedupeExpandedConfigs(expandedConfigs);
   const stepsPerConfig = Math.max(1, dates.length - 1);
   const totalUnits = uniqueExpandedConfigs.length * stepsPerConfig;
   let completedUnits = 0;
@@ -375,6 +376,7 @@ export function simulateBacktest(
     nonLeveragedValues,
     investedValues,
     etfResults,
+    etfResultIdAliases,
   };
 }
 
@@ -397,16 +399,53 @@ function formatRiskOffAsset(asset: EtfConfig["riskOffAsset"]): string {
   return asset.replace(/BRK\.A/g, "BRK.B").replace(/\+/g, " + ");
 }
 
-function dedupeExpandedConfigs(configs: EtfConfig[]): EtfConfig[] {
-  const seen = new Set<string>();
+/**
+ * Collapse configs that are computationally identical to one simulation each,
+ * and record which requested ids each surviving config stands in for.
+ *
+ * The fingerprint deliberately excludes `id`: N SMA configs on one LETF expand
+ * to N identical no-SMA `-base` variants that only need simulating (and
+ * drawing) once. But the dropped ids were previously unrecoverable, so
+ * `etfResults.find(r => r.id === 'B-base')` — the selection pattern this
+ * codebase mandates — silently returned undefined. The aliases let callers
+ * resolve those ids without emitting duplicate series.
+ */
+function dedupeExpandedConfigs(configs: EtfConfig[]): {
+  unique: EtfConfig[];
+  aliases: Record<string, string>;
+} {
+  const canonicalByKey = new Map<string, EtfConfig>();
   const unique: EtfConfig[] = [];
+  const aliases: Record<string, string> = {};
+
   for (const config of configs) {
     const key = buildDedupeKey(config);
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const canonical = canonicalByKey.get(key);
+    if (canonical) {
+      if (canonical.id !== config.id) aliases[config.id] = canonical.id;
+      continue;
+    }
+    canonicalByKey.set(key, config);
     unique.push(config);
   }
-  return unique;
+
+  return { unique, aliases };
+}
+
+/**
+ * Look up a result by requested config id, resolving through the alias map for
+ * ids whose computation was shared with another config.
+ */
+export function findEtfResult(
+  result: Pick<BacktestResult, "etfResults" | "etfResultIdAliases">,
+  id: string
+): EtfResult | undefined {
+  const direct = result.etfResults.find((etf) => etf.id === id);
+  if (direct) return direct;
+
+  const canonicalId = result.etfResultIdAliases?.[id];
+  if (canonicalId === undefined) return undefined;
+  return result.etfResults.find((etf) => etf.id === canonicalId);
 }
 
 function buildDedupeKey(config: EtfConfig): string {
@@ -1083,6 +1122,8 @@ function sliceBacktestResultToWindow(
     nonLeveragedValues,
     investedValues,
     etfResults,
+    // Slicing preserves ids, so the alias map survives the window trim.
+    etfResultIdAliases: result.etfResultIdAliases,
   };
 }
 

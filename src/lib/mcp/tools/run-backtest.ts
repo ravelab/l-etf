@@ -4,7 +4,7 @@
 // spread contract in AGENTS.md is preserved (no hand-rolled renormalization).
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { simulateWithWarmUp } from "@/lib/simulation/engine";
+import { findEtfResult, simulateWithWarmUp } from "@/lib/simulation/engine";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
@@ -57,9 +57,9 @@ export async function runBacktestCore(input: BacktestInput): Promise<FormattedBa
   // a "-sma" result; a plain config keeps its original id. Select the intended
   // primary result and, for SMA runs, pass the baseline through as a comparison.
   const primaryId = config.smaEnabled ? `${config.id}-sma` : config.id;
-  const etf = result.etfResults.find((r) => r.id === primaryId) ?? result.etfResults[0];
+  const etf = findEtfResult(result, primaryId) ?? result.etfResults[0];
   const noSmaEtf = config.smaEnabled
-    ? result.etfResults.find((r) => r.id === `${config.id}-base`)
+    ? findEtfResult(result, `${config.id}-base`)
     : undefined;
   if (!etf || result.dates.length < 2) {
     throw new McpToolError("No backtest result produced for this configuration.");

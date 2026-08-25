@@ -5,6 +5,7 @@
 // internally — the exact path the /backtesting-tool page uses.
 
 import { runParallelBacktest } from "@/lib/simulation/parallel";
+import { findEtfResult } from "@/lib/simulation/engine";
 import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { getPrices } from "@/lib/db/queries";
 import type { EtfConfig, PricePoint } from "@/lib/simulation/types";
@@ -117,9 +118,9 @@ export async function runCompareBacktests(input: CompareBacktestsInput): Promise
   return input.presets
     .map((key) => {
       const primaryId = input.smaEnabled ? `${key}-sma` : key;
-      const etf = result.etfResults.find((r) => r.id === primaryId);
+      const etf = findEtfResult(result, primaryId);
       if (!etf) return null;
-      const noSma = input.smaEnabled ? result.etfResults.find((r) => r.id === `${key}-base`) : undefined;
+      const noSma = input.smaEnabled ? findEtfResult(result, `${key}-base`) : undefined;
       return formatBacktest(result, etf, noSma);
     })
     .filter((r): r is FormattedBacktest => r != null);

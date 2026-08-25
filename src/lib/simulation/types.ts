@@ -74,6 +74,15 @@ export interface BacktestResult {
   nonLeveragedValues: number[];
   investedValues: number[];
   etfResults: EtfResult[];
+  /**
+   * Requested config id -> the id of the result that actually carries its
+   * series. Configs that are computationally identical (most often the no-SMA
+   * `<id>-base` twins of several SMA configs on one LETF) are simulated once and
+   * emitted once, so `etfResults` holds no entry under the other requested ids.
+   * Resolve lookups with `findEtfResult` rather than a bare
+   * `etfResults.find(r => r.id === wanted)`, which would return undefined.
+   */
+  etfResultIdAliases?: Record<string, string>;
 }
 
 export interface SimulationSummary {

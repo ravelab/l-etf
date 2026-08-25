@@ -134,7 +134,13 @@ Sharp edges:
   `api/risk-off-prices/route.ts`).
 - `run_backtest` routes through `simulateWithWarmUp` (preserving the entry/exit
   spread contract). `expandEtfConfigs` splits an SMA config into `<id>-base`
-  (no-SMA) and `<id>-sma` results — select by id, never `etfResults[0]`.
+  (no-SMA) and `<id>-sma` results — select by id, never `etfResults[0]`, and
+  resolve with `findEtfResult(result, id)` rather than a bare
+  `etfResults.find(...)`. Configs that compute identically (most often the
+  `<id>-base` twins of several SMA configs on one LETF) are simulated and
+  emitted ONCE so charts draw no duplicate series; the other requested ids map
+  to the surviving one in `result.etfResultIdAliases`, which only
+  `findEtfResult` consults.
 - The heavy tools reuse the engine server-side (single-threaded main-thread
   fallback; breadth bounded by `limits.ts`): `sweep-core.ts` →
   `runParallelSimulations` mode `sweep` (rolling-window / holding-period /
