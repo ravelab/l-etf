@@ -30,7 +30,7 @@ test("futures plan: every emulation rung matches its LETF twin's SMA rule", () =
   });
 
   assert.equal(plan.length, configs.length, "each ladder rung needs exactly one LETF twin");
-  assert.equal(plan.length, 3);
+  assert.equal(plan.length, 4);
 
   for (const step of plan) {
     const twin = configs.find((c) => c.smaIndex === step.index && c.leverage === step.leverage);

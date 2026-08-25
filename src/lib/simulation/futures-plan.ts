@@ -43,6 +43,7 @@ export type SmaBandsByIndex = {
  */
 const EMULATION_PAIRS = [
   { index: "sp500", leverage: 3, configId: "upro", presetKey: "UPRO" },
+  { index: "sp500", leverage: 2, configId: "sso", presetKey: "SSO" },
   { index: "nasdaq100", leverage: 3, configId: "tqqq", presetKey: "TQQQ" },
   { index: "nasdaq100", leverage: 2, configId: "qld", presetKey: "QLD" },
 ] as const;

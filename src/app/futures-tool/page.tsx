@@ -507,6 +507,7 @@ export function FuturesPageContent({
         },
       });
       let uproSma = null as BacktestResult["etfResults"][number] | null;
+      let ssoSma = null as BacktestResult["etfResults"][number] | null;
       let tqqqSma = null as BacktestResult["etfResults"][number] | null;
       let qldSma = null as BacktestResult["etfResults"][number] | null;
       if (showEmulations) {
@@ -552,6 +553,7 @@ export function FuturesPageContent({
         const pickEtfSma = (symbol: string) =>
           etfSmaOnly.find((r) => r.name.toUpperCase().includes(symbol)) ?? null;
         uproSma = pickEtfSma("UPRO");
+        ssoSma = pickEtfSma("SSO");
         tqqqSma = pickEtfSma("TQQQ");
         qldSma = pickEtfSma("QLD");
       }
@@ -586,6 +588,7 @@ export function FuturesPageContent({
       const sp5 = pickFutures("sp500", 5);
       const sp4 = pickFutures("sp500", 4);
       const sp3 = pickFutures("sp500", 3);
+      const sp2 = pickFutures("sp500", 2);
       const nq4 = pickFutures("nasdaq100", 4);
       const nq3 = pickFutures("nasdaq100", 3);
       const nq2 = pickFutures("nasdaq100", 2);
@@ -599,6 +602,8 @@ export function FuturesPageContent({
               ...(sp4 ? [sp4] : []),
               ...(sp3 ? [sp3] : []),
               ...(uproSma ? [uproSma] : []),
+              ...(sp2 ? [sp2] : []),
+              ...(ssoSma ? [ssoSma] : []),
               ...(nq4 ? [nq4] : []),
               ...(nq3 ? [nq3] : []),
               ...(nq2 ? [nq2] : []),
