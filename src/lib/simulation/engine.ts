@@ -54,7 +54,10 @@ function hashPricePoints(prices: PricePoint[]): string {
   const len = prices.length;
   let hash = 2166136261;
   
-  // Sample up to 500 points for hashing
+  // Sample up to 500 points for hashing, always including the final row: with
+  // step = floor(len/500) the last sampled index falls short of the end (for
+  // len 35,000 it stops at 34,930), so two series differing only in a replaced
+  // or synthetic tail would collide and silently share cached derived arrays.
   const step = Math.max(1, Math.floor(len / 500));
   for (let i = 0; i < len; i += step) {
     const p = prices[i];
@@ -76,8 +79,37 @@ function hashPricePoints(prices: PricePoint[]): string {
       hash ^= smaCloseBytes[j];
       hash = Math.imul(hash, 16777619);
     }
+    // openPrices is part of the cached payload, so the open must participate
+    // or two series differing only in their opens share derived arrays.
+    hash = hashOpenFields(hash, p);
+  }
+
+  // Fold in the final row explicitly; the sampling stride can skip it.
+  if (len > 0) {
+    const last = prices[len - 1];
+    for (let j = 0; j < last.date.length; j++) {
+      hash ^= last.date.charCodeAt(j);
+      hash = Math.imul(hash, 16777619);
+    }
+    hash = hashNumber(hash, last.adj_close);
+    hash = hashNumber(hash, last.close);
+    hash = hashOpenFields(hash, last);
   }
   return `${len}:${hash >>> 0}`;
+}
+
+function hashNumber(hash: number, value: number): number {
+  const bytes = new Uint8Array(new Float64Array([value]).buffer);
+  let next = hash;
+  for (let j = 0; j < bytes.length; j++) {
+    next ^= bytes[j];
+    next = Math.imul(next, 16777619);
+  }
+  return next;
+}
+
+function hashOpenFields(hash: number, p: PricePoint): number {
+  return hashNumber(hashNumber(hash, p.open ?? Number.NaN), p.adj_open ?? Number.NaN);
 }
 
 /**
@@ -410,7 +442,15 @@ function computeNonLeveraged(indexValues: number[]): number[] {
   const values = new Array(indexValues.length);
   values[0] = CONSTANT_INITIAL_INVESTMENT;
   for (let i = 1; i < indexValues.length; i++) {
-    const dailyReturn = (indexValues[i] - indexValues[i - 1]) / indexValues[i - 1];
+    const prev = indexValues[i - 1];
+    const curr = indexValues[i];
+    // Same guard the leveraged indexReturns loop uses: one adj_close of 0 or a
+    // NaN from a splice seam would otherwise turn this value Infinity/NaN and
+    // poison every later one, while the LETF series stays finite and the
+    // downstream NaN check only inspects that series.
+    const dailyReturn = prev !== 0 && isFinite(prev) && isFinite(curr)
+      ? (curr - prev) / prev
+      : 0;
     values[i] = values[i - 1] * (1 + dailyReturn);
   }
 
