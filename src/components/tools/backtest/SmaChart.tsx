@@ -214,11 +214,14 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
     }, []);
   }, [etf, etfDates]);
 
-  const data = useMemo(() => {
-    if (labelTimes.length === 0) return fullData;
+  // Decimation compacts the series, so a point's index in `data` is NOT its
+  // index in closePrices/smaPrices. Keep the mapping so tooltips can resolve
+  // back to the source row instead of reading a wholly unrelated date.
+  const { data, sourceIndices } = useMemo(() => {
+    if (labelTimes.length === 0) return { data: fullData, sourceIndices: null };
     const { startIndex, endIndex } = getVisibleIndexBounds(labelTimes, visibleRange);
     const indices = selectSampledIndices(startIndex, endIndex, MAX_VISIBLE_POINTS, signalIndices);
-    return pickLineChartIndices(fullData, indices);
+    return { data: pickLineChartIndices(fullData, indices), sourceIndices: indices };
   }, [fullData, labelTimes, signalIndices, visibleRange]);
 
   const resetKey = useMemo(() => {
@@ -261,12 +264,13 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
 
               // For Price dataset, show difference from SMA percentage
               if (label === priceDatasetLabel) {
-                const priceClose = closePrices[context.dataIndex];
+                const srcIdx = sourceIndices ? sourceIndices[context.dataIndex] : context.dataIndex;
+                const priceClose = closePrices[srcIdx];
                 const priceValue =
                   Number.isFinite(priceClose) && syntheticPriceScale > 0
                     ? (priceClose / syntheticPriceScale) * closeNormalizationFactor
                     : priceClose;
-                const rawSma = etf?.smaPrices[context.dataIndex];
+                const rawSma = etf?.smaPrices[srcIdx];
                 const smaValue = rawSma == null ? undefined : rawSma * closeNormalizationFactor;
 
                 if (priceValue != null && smaValue != null && isFinite(smaValue) && smaValue !== 0) {
@@ -287,12 +291,13 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
 
               // For Price dataset, color based on SMA difference
               if (label === priceDatasetLabel && value != null && dataIndex != null) {
-                const priceClose = closePrices[dataIndex];
+                const srcIdx = sourceIndices ? sourceIndices[dataIndex] : dataIndex;
+                const priceClose = closePrices[srcIdx];
                 const priceValue =
                   Number.isFinite(priceClose) && syntheticPriceScale > 0
                     ? (priceClose / syntheticPriceScale) * closeNormalizationFactor
                     : priceClose;
-                const rawSma = etf?.smaPrices[dataIndex];
+                const rawSma = etf?.smaPrices[srcIdx];
                 const smaValue = rawSma == null ? undefined : rawSma * closeNormalizationFactor;
 
                 if (priceValue != null && smaValue != null && isFinite(smaValue) && smaValue !== 0) {
@@ -327,7 +332,7 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
         },
       },
     })},
-    [closeNormalizationFactor, closePrices, etf, priceDatasetLabel, smaDatasetLabel, syntheticPriceScale]
+    [closeNormalizationFactor, closePrices, etf, priceDatasetLabel, smaDatasetLabel, sourceIndices, syntheticPriceScale]
   );
 
   if (!etf || !etf.smaPrices.length) return null;
