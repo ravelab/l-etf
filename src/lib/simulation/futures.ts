@@ -159,27 +159,80 @@ function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function resolveTwoDigitYear(yy: number, tradeDate: string): number {
-  const tradeYear = Number(tradeDate.slice(0, 4));
+/** UTC-midnight epoch and calendar year of one `YYYY-MM-DD` trade date. */
+type TradeDayStamp = { readonly year: number; readonly epochMs: number };
+
+type ContractSymbolParts = { readonly quarterMonth: 3 | 6 | 9 | 12; readonly yy: number };
+
+/**
+ * Symbol parses, expiry dates and trade-date epochs are pure functions of their
+ * inputs, yet they are re-derived on *every* futures mark — a multi-decade run
+ * across several ladder rungs takes millions of marks — so all three are memoized.
+ * Keys are bounded by the distinct contract symbols and index calendar dates in the
+ * loaded data, so the maps stay small and their values can never go stale.
+ */
+const tradeDayStampCache = new Map<string, TradeDayStamp>();
+const contractSymbolPartsCache = new Map<string, ContractSymbolParts | null>();
+const contractExpiryEpochCache = new Map<number, number>();
+
+/** Per-day stamp hoisted out of the per-mark path: a lookup instead of a `Date` allocation. */
+function tradeDayStamp(tradeDate: string): TradeDayStamp {
+  const cached = tradeDayStampCache.get(tradeDate);
+  if (cached) return cached;
+  const stamp: TradeDayStamp = {
+    year: Number(tradeDate.slice(0, 4)),
+    epochMs: new Date(`${tradeDate}T00:00:00Z`).getTime(),
+  };
+  tradeDayStampCache.set(tradeDate, stamp);
+  return stamp;
+}
+
+function resolveTwoDigitYear(yy: number, tradeYear: number): number {
   let year = Math.floor(tradeYear / 100) * 100 + yy;
   if (year < tradeYear - 50) year += 100;
   if (year > tradeYear + 50) year -= 100;
   return year;
 }
 
-function getContractExpiryDate(symbol: string, tradeDate: string): Date | null {
+function parseContractSymbolParts(symbol: string): ContractSymbolParts | null {
+  const cached = contractSymbolPartsCache.get(symbol);
+  if (cached !== undefined) return cached;
   const match = symbol.match(/^(?:ES|NQ)([HMUZ])(\d{2})/);
-  if (!match) return null;
-  const month = quarterMonthFromMonthCode(match[1] as FuturesMonthCode);
-  const year = resolveTwoDigitYear(Number(match[2]), tradeDate);
-  return thirdFriday(year, month);
+  const parts: ContractSymbolParts | null = match
+    ? {
+        quarterMonth: quarterMonthFromMonthCode(match[1] as FuturesMonthCode),
+        yy: Number(match[2]),
+      }
+    : null;
+  contractSymbolPartsCache.set(symbol, parts);
+  return parts;
+}
+
+function thirdFridayEpochMs(year: number, quarterMonth: 3 | 6 | 9 | 12): number {
+  // Quarter months are 3/6/9/12, so `year * 12 + quarterMonth` cannot collide.
+  const key = year * 12 + quarterMonth;
+  const cached = contractExpiryEpochCache.get(key);
+  if (cached !== undefined) return cached;
+  const epochMs = thirdFriday(year, quarterMonth).getTime();
+  contractExpiryEpochCache.set(key, epochMs);
+  return epochMs;
+}
+
+/**
+ * Expiry epoch (ms) of a contract symbol, read through `tradeYear`'s century window.
+ * `null` only when the symbol is not a quarterly ES/NQ listing.
+ */
+function getContractExpiryEpochMs(symbol: string, tradeYear: number): number | null {
+  const parts = parseContractSymbolParts(symbol);
+  if (!parts) return null;
+  return thirdFridayEpochMs(resolveTwoDigitYear(parts.yy, tradeYear), parts.quarterMonth);
 }
 
 function daysToContractExpiry(symbol: string, tradeDate: string): number {
-  const expiry = getContractExpiryDate(symbol, tradeDate);
-  if (!expiry) return 0;
-  const trade = new Date(`${tradeDate}T00:00:00Z`);
-  const days = (expiry.getTime() - trade.getTime()) / (24 * 60 * 60 * 1000);
+  const stamp = tradeDayStamp(tradeDate);
+  const expiryMs = getContractExpiryEpochMs(symbol, stamp.year);
+  if (expiryMs == null) return 0;
+  const days = (expiryMs - stamp.epochMs) / (24 * 60 * 60 * 1000);
   return Number.isFinite(days) ? Math.max(0, days) : 0;
 }
 
@@ -306,7 +359,7 @@ function parseQuarterlyFutureSymbol(
   const family = match[1] as FuturesContractSymbol;
   const year2 = Number(match[3]);
   const monthCode = match[2] as FuturesMonthCode;
-  const expiryYear = resolveTwoDigitYear(year2, anchorTradeDate);
+  const expiryYear = resolveTwoDigitYear(year2, tradeDayStamp(anchorTradeDate).year);
   const quarterMonth = quarterMonthFromMonthCode(monthCode);
   return { family, expiryYear, quarterMonth };
 }
@@ -337,10 +390,10 @@ function rollSnapForSymbol(
   dates: string[],
   daysBeforeExpiry: number
 ): string | null {
-  const expiry = getContractExpiryDate(symbol, anchorTradeDate);
-  if (!expiry) return null;
+  const expiryMs = getContractExpiryEpochMs(symbol, tradeDayStamp(anchorTradeDate).year);
+  if (expiryMs == null) return null;
   const dateSet = new Set(dates);
-  const rollTarget = new Date(expiry.getTime() - daysBeforeExpiry * 24 * 60 * 60 * 1000);
+  const rollTarget = new Date(expiryMs - daysBeforeExpiry * 24 * 60 * 60 * 1000);
   let snap = iso(rollTarget);
   if (!dateSet.has(snap)) {
     let found: string | null = null;
@@ -401,11 +454,12 @@ function reconcileLots(lots: Map<string, number>): void {
  * inventory you are exiting anyway.
  */
 function contractSymbolsSortedForReduction(lots: Map<string, number>, anchorDate: string): string[] {
+  const anchorYear = tradeDayStamp(anchorDate).year;
   return [...lots.entries()]
     .filter(([, q]) => q > 0)
     .sort((a, b) => {
-      const expA = getContractExpiryDate(a[0], anchorDate)?.getTime() ?? 0;
-      const expB = getContractExpiryDate(b[0], anchorDate)?.getTime() ?? 0;
+      const expA = getContractExpiryEpochMs(a[0], anchorYear) ?? 0;
+      const expB = getContractExpiryEpochMs(b[0], anchorYear) ?? 0;
       return expA - expB;
     })
     .map(([sym]) => sym);
@@ -647,7 +701,7 @@ export function futuresFrontBackQtysFromLots(params: {
     if (q <= 0) continue;
     const parsed = parseQuarterlyFutureSymbol(sym, tradeDate);
     if (!parsed) continue;
-    const expMs = getContractExpiryDate(sym, tradeDate)?.getTime() ?? 0;
+    const expMs = getContractExpiryEpochMs(sym, tradeDayStamp(tradeDate).year) ?? 0;
     entries.push({ q, exp: expMs });
   }
   if (entries.length === 0) return { frontQty: 0, backQty: 0 };
@@ -1367,7 +1421,11 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     }
 
     // Next-day-open: exit risk-off basket before enter-risk-off (mutually exclusive flags per day).
-    if (pendingExitRiskOff && (riskOffShares || riskOffCash)) {
+    // The flag is consumed unconditionally: with no basket held there is nothing to sell,
+    // and leaving it set would latch and fire against an unrelated basket on a later day.
+    const exitingRiskOff = pendingExitRiskOff && (riskOffShares != null || riskOffCash != null);
+    pendingExitRiskOff = false;
+    if (exitingRiskOff) {
       for (let j = 0; j < riskOffTickers.length; j++) {
         const t = riskOffTickers[j];
         const shares = riskOffShares?.[j] ?? 0;
@@ -1417,7 +1475,6 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       riskOffShares = null;
       riskOffCash = null;
       riskOffLastPrice = null;
-      pendingExitRiskOff = false;
     }
 
     if (pendingEnterRiskOff) {
@@ -1484,11 +1541,19 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
         accruedInterestSinceLastTx = 0;
       }
 
+      // With no risk-off components configured there is nothing to allocate into, so stay
+      // in cash — exactly what the day-0 risk-off path does. Booking an empty basket and
+      // zeroing `cash` below would mark the account at 0 and trip the bankruptcy branch
+      // for the rest of the run.
+      const canEnterRiskOff = riskOffTickers.length > 0;
       const investable = cash;
-      const valuePer = riskOffTickers.length > 0 ? investable / riskOffTickers.length : 0;
-      riskOffShares = new Array(riskOffTickers.length).fill(0);
-      riskOffCash = new Array(riskOffTickers.length).fill(0);
-      riskOffLastPrice = new Array(riskOffTickers.length).fill(NaN);
+      const valuePer = canEnterRiskOff ? investable / riskOffTickers.length : 0;
+      const enteredShares = new Array<number>(riskOffTickers.length).fill(0);
+      const enteredCash = new Array<number>(riskOffTickers.length).fill(0);
+      const enteredLastPrice = new Array<number>(riskOffTickers.length).fill(NaN);
+      riskOffShares = canEnterRiskOff ? enteredShares : null;
+      riskOffCash = canEnterRiskOff ? enteredCash : null;
+      riskOffLastPrice = canEnterRiskOff ? enteredLastPrice : null;
       let riskOffBookAtOpen = 0;
       for (let j = 0; j < riskOffTickers.length; j++) {
         const t = riskOffTickers[j];
@@ -1510,8 +1575,8 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
           });
           const netValue = Math.max(0, valuePer - spread - fees);
           const shares = netValue / (openPx as number);
-          riskOffShares[j] = shares;
-          riskOffLastPrice[j] = openPx as number;
+          enteredShares[j] = shares;
+          enteredLastPrice[j] = openPx as number;
           totalFees += fees;
           totalSpreadCosts += spread;
           riskOffBookAtOpen += shares * (openPx as number);
@@ -1532,13 +1597,13 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
           });
         } else {
           // If we can't price this component, keep it as cash.
-          riskOffCash[j] = valuePer;
+          enteredCash[j] = valuePer;
         }
       }
       // When we enter risk-off, the portfolio is fully allocated to the risk-off basket.
       // Any unpriceable components are held as riskOffCash; do NOT also keep them in `cash`
       // or we'd double-count equity (cash + riskOffCash).
-      cash = 0;
+      if (canEnterRiskOff) cash = 0;
       pendingEnterRiskOff = false;
     }
 
