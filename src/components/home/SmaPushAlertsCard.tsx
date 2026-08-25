@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Toggle } from "@/components/ui/Toggle";
+import { InstallGuide } from "./InstallGuide";
 import {
   clearStoredPushAlertConfig,
   fetchPushPublicKey,
@@ -288,16 +289,11 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefa
             <h2 className="text-xl md:text-2xl font-bold mt-1">Get notified when the signal changes</h2>
           </div>
           <p className="text-sm text-muted max-w-2xl">
-            Install the app on your phone or use a supported desktop browser, turn on
-            notifications, and we&apos;ll send you an alert when the SMA signal changes. No
-            account needed.
+            We&apos;ll send you an alert when the SMA signal changes. No account needed —
+            follow the one-time setup for your device, then turn on the alerts you want.
           </p>
 
-          <ul className="text-sm text-muted space-y-1 list-disc list-outside pl-5 md:max-w-[60%]">
-            <li>iPhone: open in Safari, tap Share, then Add to Home Screen. Then open the installed app and tap Enable alerts.</li>
-            <li>Android: open Chrome or another supported browser, then choose Install app or Add to Home screen. Then open the installed app and tap Enable alerts.</li>
-            <li>Desktop: use Chrome, Edge, or another supported browser and allow notifications.</li>
-          </ul>
+          <InstallGuide />
         </div>
 
         <div className="flex w-full flex-col gap-3 md:w-[320px] md:min-w-[320px]">

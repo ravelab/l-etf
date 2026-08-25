@@ -25,6 +25,24 @@ export function isIosDevice(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
+export function isAndroidDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
+}
+
+/**
+ * Which install walkthrough to show first. iOS is checked before Android
+ * because Chrome on iOS reports both tokens, and there the iOS path (Safari's
+ * Share sheet) is the one that actually works.
+ */
+export type InstallPlatform = "ios" | "android" | "desktop";
+
+export function detectInstallPlatform(): InstallPlatform {
+  if (isIosDevice()) return "ios";
+  if (isAndroidDevice()) return "android";
+  return "desktop";
+}
+
 export async function fetchPushPublicKey(): Promise<string | null> {
   const response = await fetch(PUSH_PUBLIC_KEY_URL, { cache: "no-store" });
   if (!response.ok) return null;
