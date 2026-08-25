@@ -33,14 +33,23 @@ export function toolSuccess(summary: string, data: Record<string, unknown>): Too
  */
 export class McpToolError extends Error {}
 
-/** Build an error tool result from any thrown value. */
+/**
+ * Build an error tool result from any thrown value.
+ *
+ * Only `McpToolError` messages are safe to hand back: anything else is an
+ * internal failure whose message can carry absolute server paths, bundle
+ * layout, or upstream detail (an ENOENT from a snapshot read reads out
+ * `/var/task/...`). Those are logged server-side and reported generically —
+ * the endpoint is unauthenticated.
+ */
 export function toolError(error: unknown): ToolResult {
-  const message =
-    error instanceof McpToolError
-      ? error.message
-      : error instanceof Error
-        ? error.message
-        : "Unexpected error running tool.";
+  let message: string;
+  if (error instanceof McpToolError) {
+    message = error.message;
+  } else {
+    message = "Unexpected error running tool.";
+    console.error("[mcp] unhandled tool error:", error);
+  }
   return {
     content: [{ type: "text", text: `Error: ${message}` }],
     isError: true,

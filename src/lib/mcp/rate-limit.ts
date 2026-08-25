@@ -32,10 +32,35 @@ export interface RateLimitResult {
   remaining: number;
 }
 
+/**
+ * Cap on distinct in-memory buckets. Expired entries are only reclaimed when
+ * their own key is seen again, so without a sweep an attacker rotating the
+ * client-IP header (or simply broad traffic) grows this map forever in a
+ * long-lived warm instance.
+ */
+const MEM_BUCKET_MAX = 10_000;
+
+function sweepMemBuckets(now: number): void {
+  for (const [key, bucket] of memBuckets) {
+    if (bucket.resetAt <= now) memBuckets.delete(key);
+  }
+  if (memBuckets.size <= MEM_BUCKET_MAX) return;
+  // Still over budget after dropping expired entries: evict oldest-first
+  // (Map preserves insertion order) so the map can never grow without bound.
+  const excess = memBuckets.size - MEM_BUCKET_MAX;
+  let removed = 0;
+  for (const key of memBuckets.keys()) {
+    if (removed >= excess) break;
+    memBuckets.delete(key);
+    removed += 1;
+  }
+}
+
 function memLimit(key: string, limit: number, windowSec: number): RateLimitResult {
   const now = Date.now();
   const bucket = memBuckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
+    if (memBuckets.size >= MEM_BUCKET_MAX) sweepMemBuckets(now);
     memBuckets.set(key, { count: 1, resetAt: now + windowSec * 1000 });
     return { ok: true, retryAfterSec: 0, limit, remaining: limit - 1 };
   }
@@ -71,11 +96,28 @@ export async function rateLimit(key: string, limit: number, windowSec: number): 
   return memLimit(key, limit, windowSec);
 }
 
-/** Best-effort client IP from proxy headers (Vercel sets x-forwarded-for). */
-function clientIp(request: Request): string {
+/**
+ * Best-effort client IP from proxy headers.
+ *
+ * The LEFTMOST x-forwarded-for entry is the client-controlled end of the chain:
+ * anything the caller sends is preserved there, so keying a per-IP budget on it
+ * lets a caller reset every limit by rotating one header value. Prefer the
+ * headers our own edge sets, and when falling back to XFF take the RIGHTMOST
+ * entry — the one appended by the closest trusted proxy.
+ */
+export function clientIp(request: Request): string {
+  const vercelForwarded = request.headers.get("x-vercel-forwarded-for")?.trim();
+  if (vercelForwarded) return vercelForwarded;
+
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+
   const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
+  if (fwd) {
+    const parts = fwd.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1]!;
+  }
+  return "unknown";
 }
 
 /**
