@@ -4,7 +4,29 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - Add durable project-specific notes here as they are discovered through real work.
 - `npm install` is required before `npm run typecheck` / `npm run lint` / `npm test` — `node_modules` is not pre-provisioned in fresh worktrees.
-- Rolling-window simulation buckets (`src/lib/simulation/parallel.ts`) drop windows independently per config when extraction returns null (e.g. a leveraged config wiped out, or a synthetic-tail resimulation that fails) — the same `windows` array can produce buckets of different lengths per config. Never zip two buckets by array index; join on `` `${startDate}|${endDate}` `` instead (see `joinByWindow` in `src/lib/simulation/win-rates.ts`, mirrored from the SGOV comparison in the same file).
+- **Never join engine output by array index.** The engine drops entries
+  independently per config, so a returned array is "requested order *minus the
+  drops*" and positional zipping shifts every later entry onto the wrong config.
+  This has bitten twice, in different shapes:
+  - Rolling-window buckets (`src/lib/simulation/parallel.ts`) drop windows
+    independently per config when extraction returns null (a leveraged config
+    wiped out, a synthetic-tail resimulation that failed) — the same `windows`
+    array can produce buckets of different lengths per config. Join on
+    `` `${startDate}|${endDate}` `` (see `joinByWindow` in
+    `src/lib/simulation/win-rates.ts`).
+  - Mode `sweep` drops a config whose bucket came back empty, so `rows` is not
+    1:1 with `configs`. Join on `row.parameterValue`, which `paramValues` stamps
+    with the owning config's index (see `joinSweepRowsToConfigs` in
+    `src/lib/mcp/sweep-core.ts`).
+  When adding a new engine output, decide what its join key is before writing
+  the consumer.
+- Web-push `endpoint`s are pinned to HTTPS on known push services by
+  `src/lib/push/endpoint.ts`. They arrive from unauthenticated callers and are
+  later POSTed to by `notify-sma-alerts` **from the deploy container**, which
+  holds `VAPID_PRIVATE_KEY`, `CRON_SECRET`, and the data-provider keys — an
+  unvalidated endpoint is a blind SSRF that also hands an attacker a signed VAPID
+  JWT. Extend the host lists for a new browser's push service; never relax them
+  to accept arbitrary hosts.
 
 ## Simulation engine: entry/exit spread contract
 
@@ -20,18 +42,60 @@ precomputed daily-value series must route through `computeRenormalizedPathMetric
 hand-rolling `factor = CONSTANT_INITIAL_INVESTMENT / firstValue` — that
 pattern silently discards the entry-spread cost.
 
+There are TWO paths that trim a simulated result down to a display window, and
+they must agree: `sliceBacktestResultToWindow` (engine.ts, the warm-up trim used
+by `simulateWithWarmUp`) and `trimEtfResultToStartDate` (parallel.ts). Both must
+(a) resolve `endInRiskOff` as well as `startInRiskOff` and deduct the exit
+spread, and (b) recompute `totalTradingCostPct` from the signals that land
+*inside* the window — the incoming value covers warm-up trades that happened
+before it. Route both through `finalizeTradingCosts` rather than reimplementing.
+The engine path silently did neither until 2026-08, so the same strategy
+reported a different final value depending only on whether warm-up data existed
+(the `displayStartIdx === 0` early return does deduct it).
+
 `src/lib/simulation/worker.ts` is a hand-maintained duplicate of
 `parallel.ts`'s windowed-extraction logic for the Web Worker bundle (it
 doesn't import from `parallel.ts`). When changing spread/cost logic in
 `extractRegularWindowSimulation` (parallel.ts), mirror the change in
 `buildWindowSimulation` (worker.ts) — `wrapped-worker.ts` doesn't have this
-problem since it imports `wrapped-window.ts` directly.
+problem since it imports `wrapped-window.ts` directly. Range max-drawdown is no
+longer part of that duplication: both now import `buildDrawdownRangeQuery` from
+`simulation/drawdown-range.ts`. Prefer moving shared logic there over mirroring
+it a third time.
+
+Window metrics split into an O(1) half and an O(window) half. `factor` and
+`finalValue` need only the endpoints (`computeRenormalizedEndpointMetrics`);
+only peak/drawdown needs the walk, and a prebuilt `DrawdownRangeQuery` answers
+that in O(log n). Any new code sweeping many windows over one series should
+build the tree once per config rather than walking per window — the main-thread
+path is not a rare fallback (`win-rates.ts` uses it for 32 holding-period
+lengths, and every MCP heavy tool is main-thread-only server-side).
 
 Both `worker.ts`'s `mode_type === 'backtest'` branch and `parallel.ts`'s
 `extractResultsMainThread`'s `mode === 'backtest'` branch are dead code as of
 2026-07 — no caller passes that literal mode. They contain the same
 spread-deduction bug pattern as the live paths; leave them alone unless you
 also verify they've become reachable.
+
+## Tool pages: cancellation and run races
+
+Every tool page runs a long simulation behind an `AbortController`, and the same
+two mistakes have been made on all of them:
+
+- Raise cancellation through `throwIfAborted(signal)` / `abortError(signal)` from
+  `src/lib/abort.ts`, never `throw new Error("Aborted")`. Catch blocks match on
+  `isAbortError`, which keys off `name`; a plain Error has name `"Error"`, so it
+  falls through to the failure branch, wipes the displayed results and raises an
+  error banner that then persists into the next successful run.
+- A superseded run must not publish. Guard the `finally` with
+  `abortControllerRef.current === controller` before clearing loading/progress
+  (otherwise the spinner clears while the replacement is still running and Cancel
+  is left with a null ref), and re-check `throwIfAborted(signal)` immediately
+  before writing state / storage / `router.push` — a long compute that ignores
+  its signal will otherwise finish late and overwrite the run that replaced it.
+
+Any long-running helper the pages call needs to take a `signal` and check it
+between chunks; `computeWinRatesByWindowLength` checks per holding-period year.
 
 ## Futures ladder plans
 
@@ -59,6 +123,21 @@ SMA signals, fill prices, and notional — never the P&L path. This matters beca
 `close` from the old S&P price path (`src/lib/data/ff-large-cap-splice.ts`); the
 two disagree by up to 3% on ~50 days, which a price-driven P&L would compound at
 full leverage.
+
+Contract expiry is **not** a pure function of the contract symbol, so never
+memoize it keyed on the symbol alone. `resolveTwoDigitYear` slides its century
+window off the *trade* year, so `ESZ25` is 1925 in a 1962 run and 2025 in a 2026
+run; a symbol-keyed cache silently corrupts long runs. Cache the symbol *parse*
+(`{quarterMonth, yy}`) and key the resolved expiry on `(year, month)` — that is
+what `contractSymbolPartsCache` / `contractExpiryEpochCache` do. Expiry feeds
+basis → fill price → notional → leverage, so a bad memo shows up as
+`avgActualLeverageRiskOn` drifting off the target rather than as an error.
+
+Cash-like exposure accrues per **calendar** day, not per trading row: the daily
+rate is `annual / 360`, so accruing once per session pays only ~252 of 360 days
+and understates the position by ~30% of the rate. The futures cash sweep walks
+`extraSweepDays` for this; the risk-off cash fallback uses
+`riskOffCashAccrualDays`. Any new cash-like accrual must do the same.
 
 Real NDX back to the 1985-01-31 launch lives in `data/index-ndx-1985.csv`, pulled
 from the index owner's Global Index Watch endpoint by `scripts/build-ndx-1985.ts`
@@ -183,7 +262,21 @@ Sharp edges:
   `UPSTASH_REDIS_REST_*` env vars are set, per-instance in-memory otherwise);
   a global per-IP budget plus a stricter one for `MCP_HEAVY_TOOLS`. The route
   handler in `[transport]/route.ts` calls `enforceMcpRateLimit` before the MCP
-  handler.
+  handler. Two things that are easy to get wrong: the in-memory fallback engages
+  on ANY Redis error (not just missing config) and so needs its expiry sweep and
+  size cap to stay bounded; and the client IP must never come from the *leftmost*
+  `x-forwarded-for` entry, which is caller-controlled and makes every per-IP
+  budget resettable — prefer `x-vercel-forwarded-for`, then `x-real-ip`, then the
+  rightmost XFF entry.
+- `toolError` (`tool-result.ts`) surfaces the message only for `McpToolError`;
+  everything else is logged server-side and reported generically. The endpoint is
+  unauthenticated, and a raw `Error.message` leaks absolute `/var/task/...` paths
+  and bundle layout. Throw `McpToolError` for anything a caller should read.
+- A tool that fans out to a third party needs a timeout AND an in-process cache,
+  and probably belongs in `MCP_HEAVY_TOOLS` even if it is not engine-heavy:
+  `get_box_spread_apy` issues one upstream request *per SPX expiry*, so on the
+  light budget it turned each inbound call into 10-30 outbound ones from our
+  egress IPs.
 - Discovery for agents: `public/llms.txt`, `public/robots.txt`, and
   `public/.well-known/mcp.json` advertise the `/mcp` endpoint. Keep the tool
   list in `.well-known/mcp.json` in sync with `register.ts`.
@@ -192,6 +285,9 @@ Sharp edges:
   bundled into the MCP function on Vercel.
 
 ## Maintaining this file
+
+`CLAUDE.md` is a symlink to this file — edit `AGENTS.md` directly; tools that
+refuse to write through symlinks will fail on the `CLAUDE.md` path.
 
 Keep this file for knowledge useful to almost every future agent session in this project.
 Do not repeat what the codebase already shows; point to the authoritative file or command instead.
