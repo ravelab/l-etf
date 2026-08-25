@@ -1370,6 +1370,8 @@ export async function runParallelVariants({
   variants,
   riskOffValuesByAsset,
   riskOffOpenValuesByAsset,
+  onProgress,
+  signal,
 }: {
   prices: PricePoint[];
   rates: RatePoint[];
@@ -1380,10 +1382,13 @@ export async function runParallelVariants({
   variants: Array<{ label: string; config: EtfConfig }>;
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  /** (done, total) for the compare-letfs progress bar — NOT the engine's (fraction, label). */
   onProgress?: (completed: number, total: number) => void;
+  signal?: AbortSignal;
 }): Promise<Array<{ label: string; simulations: RollingSimulationPoint[] }>> {
   const configs = variants.map((v: { label: string; config: EtfConfig }) => v.config);
   const labels = variants.map((v: { label: string; config: EtfConfig }) => v.label);
+  const total = variants.length;
   return runParallelSimulations({
     prices,
     rates,
@@ -1396,6 +1401,13 @@ export async function runParallelVariants({
     riskOffValuesByAsset,
     riskOffOpenValuesByAsset,
     mode: 'variants',
+    // The engine reports an overall completed fraction; callers here want a
+    // (done, total) count, so translate rather than drop the callback.
+    onProgress: onProgress
+      ? (completedFraction: number) =>
+          onProgress(Math.min(total, Math.round(completedFraction * total)), total)
+      : undefined,
+    signal,
   }) as Promise<Array<{ label: string; simulations: RollingSimulationPoint[] }>>;
 }
 

@@ -36,6 +36,7 @@ import { DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import type { PricePoint, RatePoint, IndexKey, RiskOffAsset } from "@/lib/simulation/types";
 import { decodeBacktestParams } from "@/lib/url-state";
 import { getIsoDate } from "@/lib/date";
+import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { annualizedInflationForRange } from "@/lib/inflation";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
@@ -831,7 +832,7 @@ export function BacktestingPageContent({
         },
       });
 
-      if (signal.aborted) throw new Error("Aborted");
+      throwIfAborted(signal);
       setRunProgress({ pct: 80, label: "Preparing results..." });
 
       if (!canonicalRun || canonicalRun.dates.length < 2) {
@@ -998,7 +999,7 @@ export function BacktestingPageContent({
       }
 
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
+      if (isAbortError(error)) {
         return;
       }
       console.error("Backtest failed:", error);

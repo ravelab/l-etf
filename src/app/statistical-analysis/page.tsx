@@ -17,6 +17,7 @@ import {
   LABEL_INDEX_SP500_TR,
 } from "@/lib/constants";
 import { formatPercent } from "@/lib/format";
+import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { getIsoDate } from "@/lib/date";
 import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
 import {
@@ -296,6 +297,7 @@ export function StatisticalAnalysisPageContent({
           endDate,
           riskOffValuesByAsset: riskSeries.closeValuesByAsset,
           riskOffOpenValuesByAsset: riskSeries.openValuesByAsset,
+          signal,
           sgovPoints,
           monthlyCpi: inflationData.monthlyCpi,
           onProgress: (year, total) => {
@@ -322,6 +324,11 @@ export function StatisticalAnalysisPageContent({
         letf,
         riskOffAsset,
       });
+      // A run that was cancelled or superseded must not publish its results over
+      // the run that replaced them — state, storage, and the URL are all written
+      // from here down.
+      throwIfAborted(signal);
+
       setRunSummary(nextRunSummary);
       setWinRatesByWindow(allWinRates.length > 0 ? allWinRates : null);
 
@@ -365,7 +372,7 @@ export function StatisticalAnalysisPageContent({
         });
       }
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
+      if (isAbortError(err)) {
         return;
       }
       const message = err instanceof Error ? err.message : "Unexpected error";

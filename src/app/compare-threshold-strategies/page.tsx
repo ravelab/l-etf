@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { TooltipItem } from "chart.js";
 import { Card } from "@/components/ui/Card";
@@ -613,7 +614,7 @@ export function CompareBufferStrategiesPageContent({
         runSweepForPreset: runBufferSweepForPreset,
         signal,
       });
-      if (signal.aborted) throw new Error("Aborted");
+      throwIfAborted(signal);
       const { rows: computedRows, baseline: computedBaseline, rows2: computedRows2, baseline2: computedBaseline2, inflationData, inflationWarning } = result;
       setAnnualizedInflation(inflationData.annualizedInflation);
       setMonthlyCpi(inflationData.monthlyCpi);
@@ -667,7 +668,7 @@ export function CompareBufferStrategiesPageContent({
         const span = 20 / Math.max(1, asymPresets.length); // fine claims 80→100
         const base = 80 + span * i;
         return runAsymmetricFineForPreset(sub, inflPctForAsym, signal, base, span).catch((asymErr) => {
-          if (!(asymErr instanceof Error && asymErr.name === "AbortError")) {
+          if (!(isAbortError(asymErr))) {
             console.error("Asymmetric fine sweep failed:", asymErr);
           }
           return { rows: asymCoarseRowsByPresetRef.current.get(sub.name) ?? [], fineWindow: null };
@@ -699,7 +700,7 @@ export function CompareBufferStrategiesPageContent({
         });
       }
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
+      if (isAbortError(err)) {
         return;
       }
       console.error("Buffer strategy comparison failed:", err);

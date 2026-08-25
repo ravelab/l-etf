@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isAbortError } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
@@ -645,14 +646,20 @@ export function FuturesPageContent({
 
       setRunProgress({ pct: 100, label: "Done" });
     } catch (e) {
-      if (e instanceof Error && e.name === "AbortError") return;
+      if (isAbortError(e)) return;
       setError(e instanceof Error ? e.message : "Run failed");
       setResult(null);
       setFuturesDetails(null);
     } finally {
-      setLoading(false);
-      setRunProgress(null);
-      abortControllerRef.current = null;
+      // Only the run that still owns the controller may clear the UI. A
+      // superseded run clearing it unconditionally hid the spinner while its
+      // replacement was still working and nulled the ref, so Cancel could no
+      // longer stop anything and further clicks stacked concurrent runs.
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+        setRunProgress(null);
+        abortControllerRef.current = null;
+      }
     }
   }, [
     amount,

@@ -1,4 +1,5 @@
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
+import { throwIfAborted } from "../abort";
 import { buildRollingWindows, type RollingSimulationPoint } from "./rolling";
 import { precomputeAllConfigDailyValues, buildSimulationBuckets } from "./parallel";
 import { buildSgovFinalValuesByWindow } from "../sgov-benchmark";
@@ -103,12 +104,14 @@ export async function computeWinRatesByWindowLength(opts: {
   riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   sgovPoints: PricePoint[];
   monthlyCpi?: Array<{ date: string; value: number }>;
+  /** Abort the run when it is superseded or cancelled. */
+  signal?: AbortSignal;
   onProgress?: (year: number, totalYears: number) => void;
 }): Promise<WinRatesByWindow> {
   const {
     label, prices, rates, smaConfig, noSmaConfig,
     startDate, endDate,
-    riskOffValuesByAsset, riskOffOpenValuesByAsset, sgovPoints, monthlyCpi, onProgress,
+    riskOffValuesByAsset, riskOffOpenValuesByAsset, sgovPoints, monthlyCpi, signal, onProgress,
   } = opts;
   const historyWrap = opts.historyWrap ?? CONSTANT_HISTORY_WRAP_ENABLED;
 
@@ -155,6 +158,9 @@ export async function computeWinRatesByWindowLength(opts: {
   ];
 
   for (const year of stepYears) {
+    // Stop as soon as the run is superseded: without this a cancelled run keeps
+    // burning CPU to completion and then overwrites the run that replaced it.
+    throwIfAborted(signal);
     onProgress?.(year, stepYears[stepYears.length - 1] ?? 30);
 
     // Yield to browser so UI stays responsive

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { TooltipItem } from "chart.js";
 import { Card } from "@/components/ui/Card";
@@ -424,7 +425,7 @@ export function CompareSmaStrategiesPageContent({
         runSweepForPreset: runSweepForPreset,
         signal,
       });
-      if (signal.aborted) throw new Error("Aborted");
+      throwIfAborted(signal);
 
       const { rows: computedRows, baseline: computedBaseline, rows2: computedRows2, baseline2: computedBaseline2, inflationData, inflationWarning } = result;
       setAnnualizedInflation(inflationData.annualizedInflation);
@@ -476,7 +477,7 @@ export function CompareSmaStrategiesPageContent({
         });
       }
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
+      if (isAbortError(err)) {
         return;
       }
       const message = err instanceof Error ? err.message : "Unexpected error";

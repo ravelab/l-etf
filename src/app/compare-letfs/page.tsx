@@ -53,6 +53,7 @@ import { buildStrategyVariants, buildStrategyYearlyGrowthSeries, normalizeStrate
 import { buildRealEndValuePercentileSeries } from "@/lib/strategy-percentiles";
 import { annualizedInflationForRange, displayedAnnualizedInflationPct, inflationPctForSweepSectionTitle } from "@/lib/inflation";
 import { formatPercent } from "@/lib/format";
+import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { buildSgovFinalValuesByWindow } from "@/lib/sgov-benchmark";
 // Note: summary computations for Real CAGR are derived directly from per-window `cagr` values.
 
@@ -802,6 +803,7 @@ export function CompareLETFsPageContent({
             label: `${LABEL_INDEX_SP500_TR} strategies (${done}/${total})...`,
           });
         },
+        signal,
       });
 
       const nasdaqResultsPromise = hasNasdaqPrices
@@ -820,11 +822,12 @@ export function CompareLETFsPageContent({
                 label: `${LABEL_INDEX_NASDAQ100_TR} strategies (${done}/${total})...`,
               });
             },
+            signal,
           })
         : Promise.resolve([] as Array<{ label: string; simulations: RollingSimulationPoint[] }>);
 
       const [sp500Results, nasdaqResults] = await Promise.all([sp500ResultsPromise, nasdaqResultsPromise]);
-      if (signal.aborted) throw new Error("Aborted");
+      throwIfAborted(signal);
 
       const allResults: StrategyResult[] = [
         ...sp500Results.map(({ label, simulations }) => ({ label, runs: simulations })),
@@ -921,7 +924,7 @@ export function CompareLETFsPageContent({
         });
       }
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
+      if (isAbortError(err)) {
         return;
       }
       const message = err instanceof Error ? err.message : "Unexpected error";
@@ -1255,7 +1258,7 @@ export function CompareLETFsPageContent({
     };
 
     load().catch((fetchError) => {
-      if (fetchError instanceof Error && fetchError.name === "AbortError") return;
+      if (isAbortError(fetchError)) return;
       console.error("Failed to load SGOV benchmark prices:", fetchError);
     });
 
