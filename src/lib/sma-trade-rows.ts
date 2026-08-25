@@ -196,11 +196,11 @@ export function formatSignedNumber(value: number, prefix = "", suffix = ""): str
 
   let formatted: string;
   if (abs >= 1) {
-    formatted = abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    formatted = abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } else if (abs >= 0.01) {
-    formatted = abs.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 4 });
+    formatted = abs.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 4 });
   } else {
-    formatted = abs.toLocaleString(undefined, { minimumSignificantDigits: 3, maximumSignificantDigits: 4 });
+    formatted = abs.toLocaleString("en-US", { minimumSignificantDigits: 3, maximumSignificantDigits: 4 });
   }
 
   if (prefix === "$") {

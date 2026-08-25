@@ -426,6 +426,10 @@ async function generateIncrementalSimplePriceCsv(params: {
       label: params.label,
       fetchFullRows: params.fetchFullRows,
       gapThreshold: params.gapThreshold,
+      // Must be carried through: omitting it rebuilds the file without its
+      // adj_open column, NaN-ing every next-day-open fill for that asset until
+      // a later run happens to rebuild again.
+      includeAdjOpen: params.includeAdjOpen,
     }));
     return;
   }
@@ -442,6 +446,10 @@ async function generateIncrementalSimplePriceCsv(params: {
       label: params.label,
       fetchFullRows: params.fetchFullRows,
       gapThreshold: params.gapThreshold,
+      // Must be carried through: omitting it rebuilds the file without its
+      // adj_open column, NaN-ing every next-day-open fill for that asset until
+      // a later run happens to rebuild again.
+      includeAdjOpen: params.includeAdjOpen,
     }));
     return;
   }

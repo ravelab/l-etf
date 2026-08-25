@@ -32,8 +32,11 @@ function alignValuesToDates(
       .filter((entry) => Number.isFinite(entry[1]))
   );
 
-  const sortedPoints = [...points].sort((a, b) => a.date.localeCompare(b.date));
-  let lastKnownValue = sortedPoints.length > 0 ? selector(sortedPoints[0]) : 0;
+  // Seed with the earliest point so dates before the series carry a sensible
+  // value forward. `points` is already date-ascending (parsed straight from the
+  // date-sorted CSVs), so the earliest is points[0] — sorting a ~35,000-row copy
+  // to read one element ran dozens of times per chart rebuild.
+  let lastKnownValue = points.length > 0 ? selector(points[0]) : 0;
 
   return dates.map((date) => {
     const value = valueByDate.get(date);

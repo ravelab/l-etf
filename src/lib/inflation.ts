@@ -1,3 +1,58 @@
+type CpiObservation = { date: string; value: number };
+
+/**
+ * Whether a CPI series is date-ascending, memoized per array instance.
+ *
+ * The three range lookups below all want "last observation at or before D".
+ * Scanning the whole series for that is O(observations) per call, and callers
+ * invoke them once per rolling window per strategy — ~1,690 observations x
+ * >20,000 windows x 8 strategies to draw 101 chart points. A sorted series
+ * answers the same question with a binary search, so the only thing worth
+ * caching is the sortedness check itself.
+ */
+const cpiSortedCache = new WeakMap<CpiObservation[], boolean>();
+
+function isCpiSorted(monthlyCpi: CpiObservation[]): boolean {
+  const cached = cpiSortedCache.get(monthlyCpi);
+  if (cached !== undefined) return cached;
+
+  let sorted = true;
+  for (let i = 1; i < monthlyCpi.length; i++) {
+    if (monthlyCpi[i - 1].date > monthlyCpi[i].date) {
+      sorted = false;
+      break;
+    }
+  }
+  cpiSortedCache.set(monthlyCpi, sorted);
+  return sorted;
+}
+
+/**
+ * Index of the last observation with `date <= target`, or -1 if none.
+ *
+ * On a sorted series this is a binary search for the upper bound. An unsorted
+ * series falls back to the original linear scan, which keeps the LAST matching
+ * entry in array order — the two agree on sorted input, including duplicates.
+ */
+function lastIndexAtOrBefore(monthlyCpi: CpiObservation[], target: string): number {
+  if (!isCpiSorted(monthlyCpi)) {
+    let found = -1;
+    for (let i = 0; i < monthlyCpi.length; i++) {
+      if (monthlyCpi[i].date <= target) found = i;
+    }
+    return found;
+  }
+
+  let lo = 0;
+  let hi = monthlyCpi.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (monthlyCpi[mid].date <= target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo - 1;
+}
+
 /**
  * Build a lookup from "YYYY" → year-over-year CPI inflation rate.
  * Uses the last CPI observation per year; rate for year Y is
@@ -43,15 +98,15 @@ export function annualizedInflationForRange(
   let endCpi = NaN;
   let endCpiDate = endDate;
 
-  for (const obs of monthlyCpi) {
-    if (obs.date <= startDate) {
-      startCpi = obs.value;
-      startCpiDate = obs.date;
-    }
-    if (obs.date <= endDate) {
-      endCpi = obs.value;
-      endCpiDate = obs.date;
-    }
+  const startIdx = lastIndexAtOrBefore(monthlyCpi, startDate);
+  if (startIdx >= 0) {
+    startCpi = monthlyCpi[startIdx].value;
+    startCpiDate = monthlyCpi[startIdx].date;
+  }
+  const endIdx = lastIndexAtOrBefore(monthlyCpi, endDate);
+  if (endIdx >= 0) {
+    endCpi = monthlyCpi[endIdx].value;
+    endCpiDate = monthlyCpi[endIdx].date;
   }
 
   // Fallback: use earliest available CPI when startDate predates CPI data
@@ -87,10 +142,10 @@ export function cpiIndexRatioEndOverStart(
   let startCpi = NaN;
   let endCpi = NaN;
 
-  for (const obs of monthlyCpi) {
-    if (obs.date <= startDate) startCpi = obs.value;
-    if (obs.date <= endDate) endCpi = obs.value;
-  }
+  const startIdx = lastIndexAtOrBefore(monthlyCpi, startDate);
+  if (startIdx >= 0) startCpi = monthlyCpi[startIdx].value;
+  const endIdx = lastIndexAtOrBefore(monthlyCpi, endDate);
+  if (endIdx >= 0) endCpi = monthlyCpi[endIdx].value;
 
   if (isNaN(startCpi) && monthlyCpi.length > 0) {
     startCpi = monthlyCpi[0].value;
@@ -146,10 +201,10 @@ function inflationForRange(
   let startCpi = NaN;
   let endCpi = NaN;
 
-  for (const obs of monthlyCpi) {
-    if (obs.date <= startDate) startCpi = obs.value;
-    if (obs.date <= endDate) endCpi = obs.value;
-  }
+  const startIdx = lastIndexAtOrBefore(monthlyCpi, startDate);
+  if (startIdx >= 0) startCpi = monthlyCpi[startIdx].value;
+  const endIdx = lastIndexAtOrBefore(monthlyCpi, endDate);
+  if (endIdx >= 0) endCpi = monthlyCpi[endIdx].value;
 
   if (isNaN(startCpi) && monthlyCpi.length > 0) {
     startCpi = monthlyCpi[0].value;

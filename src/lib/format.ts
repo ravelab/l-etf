@@ -95,7 +95,7 @@ export function formatPercentPointsSigFigs(value: number, sigFigs = 2): string {
   if (abs === 0) return "0";
   const exp = Math.floor(Math.log10(abs));
   const fractionDigits = Math.min(12, Math.max(0, sigFigs - 1 - exp));
-  return value.toLocaleString(undefined, {
+  return value.toLocaleString("en-US", {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   });
