@@ -101,6 +101,27 @@ export function computeRenormalizedPathMetrics(
   return { factor, finalValue, peak, maxDrawdownPct };
 }
 
+/**
+ * The O(1) half of {@link computeRenormalizedPathMetrics}: `factor` and
+ * `finalValue` need only the window's endpoints. Use with a
+ * `DrawdownRangeQuery` when the caller has a prebuilt range-drawdown tree, so
+ * sweeping many windows does not walk each one end to end.
+ */
+export function computeRenormalizedEndpointMetrics(
+  values: number[],
+  startIdx: number,
+  endIdx: number,
+  entrySpread: number = 0
+): { factor: number; finalValue: number } | null {
+  if (endIdx - startIdx < 1) return null;
+
+  const firstValue = values[startIdx];
+  if (!isFinite(firstValue) || firstValue <= 0) return null;
+
+  const factor = computeEntryAdjustedFactor(firstValue, entrySpread);
+  return { factor, finalValue: values[endIdx] * factor };
+}
+
 export function computeOptionalNonLeveragedMetrics(
   values: number[] | undefined,
   startIdx: number,

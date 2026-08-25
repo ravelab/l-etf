@@ -20,6 +20,7 @@ import { getConfigDefaultStartDate } from "./presets";
 import {
   computeOptionalNonLeveragedMetrics,
   computeRenormalizedPathMetrics,
+  computeRenormalizedEndpointMetrics,
   finalizeTradingCosts,
   getRangeTradeCount,
   getRangeTradeValueSum,
@@ -27,6 +28,16 @@ import {
   resolveEdgeRiskOffStates,
   selectEdgeSpreads,
 } from "./window-calculations";
+import { buildDrawdownRangeQuery, type DrawdownRangeQuery } from "./drawdown-range";
+
+/**
+ * Prebuilt O(log n) range-drawdown queries for a config's value series, so a
+ * rolling sweep does not walk every window end to end.
+ */
+interface WindowDrawdownRanges {
+  dailyValues?: DrawdownRangeQuery;
+  nonLeveragedValues?: DrawdownRangeQuery;
+}
 
 function alignActualSeriesToDates(
   basePrices: PricePoint[],
@@ -253,7 +264,8 @@ function isRiskOffAt(precomputed: PrecomputedConfigDailyValues, index: number): 
 
 function extractRegularWindowSimulation(
   precomputed: PrecomputedConfigDailyValues,
-  window: RollingWindow
+  window: RollingWindow,
+  ranges?: WindowDrawdownRanges
 ): RollingSimulationPoint | null {
   const startIdx = window.startIdx;
   const endIdx = window.endIdx;
@@ -262,10 +274,32 @@ function extractRegularWindowSimulation(
     isRiskOffAt(precomputed, startIdx),
     isRiskOffAt(precomputed, endIdx)
   );
-  const metrics = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx, entrySpread);
+  // With a prebuilt range-drawdown tree the window's metrics are O(log n);
+  // without one, fall back to the full end-to-end walk.
+  const dailyRange = ranges?.dailyValues;
+  let metrics: { factor: number; finalValue: number } | null;
+  let maxDrawdownPct: number;
+  if (dailyRange) {
+    metrics = computeRenormalizedEndpointMetrics(precomputed.dailyValues, startIdx, endIdx, entrySpread);
+    maxDrawdownPct = dailyRange(startIdx, endIdx).pct;
+  } else {
+    const walked = computeRenormalizedPathMetrics(precomputed.dailyValues, startIdx, endIdx, entrySpread);
+    metrics = walked;
+    maxDrawdownPct = (walked?.maxDrawdownPct ?? 0) * 100;
+  }
   if (!metrics || !isFinite(metrics.finalValue)) return null;
 
-  const nonLeveragedMetrics = computeOptionalNonLeveragedMetrics(precomputed.nonLeveragedValues, startIdx, endIdx);
+  const nonLeveragedRange = ranges?.nonLeveragedValues;
+  const nonLeveragedEndpoint = nonLeveragedRange && precomputed.nonLeveragedValues
+    ? computeRenormalizedEndpointMetrics(precomputed.nonLeveragedValues, startIdx, endIdx)
+    : null;
+  const nonLeveragedWalk = nonLeveragedEndpoint
+    ? null
+    : computeOptionalNonLeveragedMetrics(precomputed.nonLeveragedValues, startIdx, endIdx);
+  const nonLeveragedMetrics = nonLeveragedEndpoint ?? nonLeveragedWalk!;
+  const nonLeveragedMaxDrawdownPct = nonLeveragedRange
+    ? nonLeveragedRange(startIdx, endIdx).pct
+    : (nonLeveragedWalk?.maxDrawdownPct ?? 0) * 100;
   const spreadFrac = precomputed.perTransitionSpreadFraction ?? 0;
   const internalDollarCost = spreadFrac > 0
     ? metrics.factor * spreadFrac * getRangeTradeValueSum(precomputed, startIdx, endIdx)
@@ -290,8 +324,8 @@ function extractRegularWindowSimulation(
     endDate: window.endDate,
     finalValue: tradingCosts.finalValue,
     nonLeveragedFinalValue: nonLeveragedMetrics.finalValue,
-    maxDrawdownPct: metrics.maxDrawdownPct * 100,
-    nonLeveragedMaxDrawdownPct: nonLeveragedMetrics.maxDrawdownPct * 100,
+    maxDrawdownPct,
+    nonLeveragedMaxDrawdownPct,
     cagr,
     totalReturnPct: ((tradingCosts.finalValue - CONSTANT_INITIAL_INVESTMENT) / CONSTANT_INITIAL_INVESTMENT) * 100,
     tradeCount: getRangeTradeCount(precomputed, startIdx, endIdx),
@@ -659,6 +693,15 @@ export function buildSimulationBuckets(
         )
       : null;
 
+    // One tree per config amortises max-drawdown across all its windows:
+    // O(n) to build, then O(log n) per window instead of an O(window) walk.
+    const drawdownRanges: WindowDrawdownRanges = {
+      dailyValues: buildDrawdownRangeQuery(precomputed.dailyValues),
+      nonLeveragedValues: precomputed.nonLeveragedValues
+        ? buildDrawdownRangeQuery(precomputed.nonLeveragedValues)
+        : undefined,
+    };
+
     for (let i = 0; i < windows.length; i++) {
       const window = windows[i];
       if (window.usesSyntheticTail && config && options?.rates) {
@@ -676,7 +719,7 @@ export function buildSimulationBuckets(
         if (simulation) simulations.push(simulation);
         continue;
       }
-      const simulation = extractRegularWindowSimulation(precomputed, window);
+      const simulation = extractRegularWindowSimulation(precomputed, window, drawdownRanges);
       if (simulation) simulations.push(simulation);
     }
 
@@ -725,6 +768,15 @@ async function buildSimulationBucketsAsync(
         )
       : null;
 
+    // One tree per config amortises max-drawdown across all its windows:
+    // O(n) to build, then O(log n) per window instead of an O(window) walk.
+    const drawdownRanges: WindowDrawdownRanges = {
+      dailyValues: buildDrawdownRangeQuery(precomputed.dailyValues),
+      nonLeveragedValues: precomputed.nonLeveragedValues
+        ? buildDrawdownRangeQuery(precomputed.nonLeveragedValues)
+        : undefined,
+    };
+
     for (let i = 0; i < windows.length; i++) {
       const window = windows[i];
       if (window.usesSyntheticTail && config && options?.rates) {
@@ -742,7 +794,7 @@ async function buildSimulationBucketsAsync(
         if (simulation) simulations.push(simulation);
         continue;
       }
-      const simulation = extractRegularWindowSimulation(precomputed, window);
+      const simulation = extractRegularWindowSimulation(precomputed, window, drawdownRanges);
       if (simulation) simulations.push(simulation);
     }
 
