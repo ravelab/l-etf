@@ -212,9 +212,14 @@ export class LocalStorage implements IStorage {
     }
   }
 
-  async getPrices(index: string, startDate: string, endDate: string): Promise<DailyPrice[]> {
+  /**
+   * Full parsed series for `index`, memoized by loadFile. Callers that only
+   * need endpoints must use this rather than a date-bounded getPrices call:
+   * the filter allocates a fresh ~35,000-element array every time.
+   */
+  private async loadAllPrices(index: string): Promise<DailyPrice[]> {
     const path = this.getFilePath(index);
-    const allPrices = await this.loadFile<DailyPrice>(path, (lines) => {
+    return this.loadFile<DailyPrice>(path, (lines) => {
       const parsed: DailyPrice[] = [];
       const headers = lines[0].split(",");
       const indexOf = (name: string) => headers.indexOf(name);
@@ -260,11 +265,26 @@ export class LocalStorage implements IStorage {
       }
       return parsed;
     });
+  }
+
+  async getPrices(index: string, startDate: string, endDate: string): Promise<DailyPrice[]> {
+    const allPrices = await this.loadAllPrices(index);
 
     const startNormalized = startDate.length === 7 ? `${startDate}-01` : startDate;
     const endNormalized = endDate.length === 7 ? `${endDate}-01` : endDate;
 
     return allPrices.filter(p => p.date >= startNormalized && p.date <= endNormalized);
+  }
+
+  async getPriceDateBounds(index: string): Promise<{ minDate: string; maxDate: string } | null> {
+    // Rows are parsed in file order and every data CSV is strictly ascending,
+    // so the bounds are the endpoints -- no full copy needed.
+    const prices = await this.loadAllPrices(index);
+    if (prices.length === 0) return null;
+    return {
+      minDate: prices[0].date,
+      maxDate: prices[prices.length - 1].date,
+    };
   }
 
   async getInflation(startDate: string, endDate: string): Promise<Array<{ date: string; value: number }>> {
@@ -286,15 +306,6 @@ export class LocalStorage implements IStorage {
     });
 
     return allInflation.filter(o => o.date >= startDate && o.date <= endDate);
-  }
-
-  async getPriceDateBounds(index: string): Promise<{ minDate: string; maxDate: string } | null> {
-    const prices = await this.getPrices(index, "1800-01-01", "2100-01-01");
-    if (prices.length === 0) return null;
-    return {
-      minDate: prices[0].date,
-      maxDate: prices[prices.length - 1].date
-    };
   }
 
   async getBorrowRate(startDate: string, endDate: string): Promise<Array<{ date: string; value: number }>> {

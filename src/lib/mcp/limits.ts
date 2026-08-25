@@ -45,4 +45,7 @@ export const MCP_HEAVY_TOOLS = new Set<string>([
   "run_rolling_window_analysis",
   "run_holding_period_analysis",
   "compare_strategies",
+  // Not engine-heavy, but each call fans out one upstream request per SPX
+  // expiry to a third party, so it belongs on the strict budget.
+  "get_box_spread_apy",
 ]);

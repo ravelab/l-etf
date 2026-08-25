@@ -499,10 +499,24 @@ export function buildSizeModel(observations: SizeObservation[]): BoxtradesSizeMo
   };
 }
 
+/** Upstream is a third party; never hold a request open indefinitely. */
+const BOXTRADES_FETCH_TIMEOUT_MS = 30_000;
+
+/**
+ * One assembled report is reused for this long. A single report costs one
+ * request per SPX expiry, so without a cache the public MCP tool fans every
+ * inbound call out into 10-30 outbound requests against boxtrades.com from our
+ * egress IPs. Matches the CDN cache on /api/boxtrades/spx-apy.
+ */
+const BOXTRADES_REPORT_TTL_MS = 10 * 60 * 1000;
+
+const reportCache = new Map<number, { expiresAt: number; report: Promise<BoxtradesApyReport> }>();
+
 async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: { "User-Agent": "l-etf/boxtrades-apy" },
     cache: "no-store",
+    signal: AbortSignal.timeout(BOXTRADES_FETCH_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`Boxtrades request failed for ${url}: ${response.status}`);
@@ -511,6 +525,21 @@ async function fetchText(url: string): Promise<string> {
 }
 
 export async function fetchSpxBoxtradesApyReport(
+  minDays: number,
+): Promise<BoxtradesApyReport> {
+  const now = Date.now();
+  const cached = reportCache.get(minDays);
+  if (cached && cached.expiresAt > now) return cached.report;
+
+  // Cache the in-flight promise so concurrent callers collapse into one fetch
+  // fan-out; drop it on failure so an error is never cached.
+  const report = buildSpxBoxtradesApyReport(minDays);
+  reportCache.set(minDays, { expiresAt: now + BOXTRADES_REPORT_TTL_MS, report });
+  report.catch(() => reportCache.delete(minDays));
+  return report;
+}
+
+async function buildSpxBoxtradesApyReport(
   minDays: number,
 ): Promise<BoxtradesApyReport> {
   const indexHtml = await fetchText(`${BOXTRADES_BASE_URL}/`);

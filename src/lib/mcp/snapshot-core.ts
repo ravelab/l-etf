@@ -10,7 +10,7 @@
 // `historyWrap:false` — hence the caveat attached to every payload. Do not
 // compare a snapshot figure against a live tool figure without accounting for it.
 
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { CONSTANT_INITIAL_INVESTMENT } from "@/lib/constants";
 import type { SmaComparisonRow } from "@/lib/simulation/types";
@@ -82,10 +82,24 @@ interface AsymRowLike extends SmaComparisonRow {
   stage: string;
 }
 
+/**
+ * Parsed snapshots, memoized by file mtime. These files total ~6.5MB (futures
+ * alone is ~4MB) and `listSnapshots` touches all seven just to read two fields
+ * each, so re-parsing per call is the dominant cost of an otherwise cheap tool.
+ * Keying on mtime keeps dev correct after `npm run snapshots:generate`.
+ */
+const snapshotCache = new Map<SnapshotAnalysis, { mtimeMs: number; snapshot: RawSnapshot }>();
+
 async function readSnapshot(analysis: SnapshotAnalysis): Promise<RawSnapshot> {
   const path = join(process.cwd(), "src", "lib", "tool-snapshots", SNAPSHOT_FILES[analysis]);
   try {
-    return JSON.parse(await readFile(path, "utf-8")) as RawSnapshot;
+    const mtimeMs = (await stat(path)).mtimeMs;
+    const cached = snapshotCache.get(analysis);
+    if (cached && cached.mtimeMs === mtimeMs) return cached.snapshot;
+
+    const snapshot = JSON.parse(await readFile(path, "utf-8")) as RawSnapshot;
+    snapshotCache.set(analysis, { mtimeMs, snapshot });
+    return snapshot;
   } catch {
     throw new McpToolError(`The precomputed "${analysis}" snapshot is unavailable.`);
   }
