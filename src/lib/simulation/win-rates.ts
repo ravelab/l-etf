@@ -94,6 +94,13 @@ export async function computeWinRatesByWindowLength(opts: {
   endDate: string;
   historyWrap?: boolean;
   riskOffValuesByAsset: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  /**
+   * Risk-off opens. Without these `riskOffOpenTradePrice` silently falls back to
+   * the same day's close, so a `next-day-open` config books its risk-off legs at
+   * a close it could not have traded — and reports different win rates than the
+   * identical config run through the compare pages.
+   */
+  riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   sgovPoints: PricePoint[];
   monthlyCpi?: Array<{ date: string; value: number }>;
   onProgress?: (year: number, totalYears: number) => void;
@@ -101,7 +108,7 @@ export async function computeWinRatesByWindowLength(opts: {
   const {
     label, prices, rates, smaConfig, noSmaConfig,
     startDate, endDate,
-    riskOffValuesByAsset, sgovPoints, monthlyCpi, onProgress,
+    riskOffValuesByAsset, riskOffOpenValuesByAsset, sgovPoints, monthlyCpi, onProgress,
   } = opts;
   const historyWrap = opts.historyWrap ?? CONSTANT_HISTORY_WRAP_ENABLED;
 
@@ -109,7 +116,7 @@ export async function computeWinRatesByWindowLength(opts: {
 
   // Precompute daily portfolio values once for both configs
   const precomputed = precomputeAllConfigDailyValues(
-    prices, rates, configs, riskOffValuesByAsset,
+    prices, rates, configs, riskOffValuesByAsset, riskOffOpenValuesByAsset,
   );
 
   const years: number[] = [];
@@ -173,6 +180,7 @@ export async function computeWinRatesByWindowLength(opts: {
       rates,
       configs,
       riskOffValuesByAsset,
+      riskOffOpenValuesByAsset,
     });
 
     // Find SMA and non-SMA buckets by config ID

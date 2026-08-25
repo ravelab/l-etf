@@ -97,11 +97,30 @@ export async function runRollingSweep(params: {
     onProgress,
   })) as SmaComparisonRow[];
 
-  // mode "sweep" returns one row per config in config order (the compare pages
-  // rely on the same ordering, e.g. baseline-first). Guard against a config
-  // whose row was dropped (wiped out).
+  return joinSweepRowsToConfigs(configs, rows);
+}
+
+/**
+ * Join per-config sweep rows back onto their configs.
+ *
+ * mode "sweep" drops any config whose bucket came back empty (e.g. a leveraged
+ * config wiped out before the first window), so `rows` is config order *minus
+ * the drops* and cannot be indexed positionally — doing so shifts every row
+ * after a drop onto the next config. `paramValues` stamps each row's
+ * `parameterValue` with its owning config's index, so join on that instead.
+ * Same rule the rolling-window buckets follow (see `joinByWindow`).
+ */
+export function joinSweepRowsToConfigs(
+  configs: EtfConfig[],
+  rows: SmaComparisonRow[]
+): RollingSweepRow[] {
+  const rowByConfigIdx = new Map<number, SmaComparisonRow>();
+  for (const row of rows) {
+    if (row != null) rowByConfigIdx.set(row.parameterValue, row);
+  }
+
   return configs
-    .map((c, i) => ({ id: c.id, label: c.name, stats: rows[i] }))
+    .map((c, i) => ({ id: c.id, label: c.name, stats: rowByConfigIdx.get(i) }))
     .filter((r): r is RollingSweepRow => r.stats != null);
 }
 

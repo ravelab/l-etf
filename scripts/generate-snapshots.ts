@@ -669,6 +669,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
       startDate: shared.startDate,
       endDate: shared.endDate,
       riskOffValuesByAsset: riskOffSeriesForSub.closeValuesByAsset,
+      riskOffOpenValuesByAsset: riskOffSeriesForSub.openValuesByAsset,
       sgovPoints,
       monthlyCpi: inflationData.monthlyCpi,
     });

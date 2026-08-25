@@ -295,6 +295,7 @@ export function StatisticalAnalysisPageContent({
           startDate,
           endDate,
           riskOffValuesByAsset: riskSeries.closeValuesByAsset,
+          riskOffOpenValuesByAsset: riskSeries.openValuesByAsset,
           sgovPoints,
           monthlyCpi: inflationData.monthlyCpi,
           onProgress: (year, total) => {

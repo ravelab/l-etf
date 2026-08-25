@@ -2175,6 +2175,10 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
 
     // Total equity includes any risk-off holdings marked to today's close.
     let riskOffValueAtClose = 0;
+    // Calendar days this row covers, so cash-like risk-off exposure accrues
+    // across weekends/holidays the same way the futures cash sweep does.
+    const riskOffCashAccrualDays =
+      i > 0 ? Math.max(1, calendarDaysBetweenIso(dates[i - 1] as string, date)) : 1;
     if (riskOffShares || riskOffCash) {
       for (let j = 0; j < riskOffTickers.length; j++) {
         const t = riskOffTickers[j];
@@ -2196,8 +2200,11 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
         }
         const cashPiece = riskOffCash?.[j] ?? 0;
         if (Number.isFinite(cashPiece) && cashPiece > 0) {
-          // Simple compounding fallback for cash-like exposure.
-          const fallbackReturn = rateDaily > 0 ? rateDaily : 0;
+          // Cash-like exposure earns the daily rate per *calendar* day, matching
+          // the futures cash sweep above. Accruing once per trading row instead
+          // would pay ~252 of the 360 days the `/360` daily rate is quoted on,
+          // understating every risk-off cash stretch by ~30% of the rate.
+          const fallbackReturn = rateDaily > 0 ? rateDaily * riskOffCashAccrualDays : 0;
           if (riskOffCash) riskOffCash[j] = cashPiece * (1 + fallbackReturn);
           riskOffValueAtClose += (riskOffCash ? riskOffCash[j] : cashPiece);
         }
