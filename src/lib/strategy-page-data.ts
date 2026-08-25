@@ -1,5 +1,5 @@
 import { buildYearlyCpiInflation, sampleYearlyRealGrowth } from "@/lib/inflation";
-import { findEtfResult } from "@/lib/simulation/engine";
+import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "@/lib/constants";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { BacktestResult, EtfConfig } from "@/lib/simulation/types";

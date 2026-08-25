@@ -432,22 +432,6 @@ function dedupeExpandedConfigs(configs: EtfConfig[]): {
   return { unique, aliases };
 }
 
-/**
- * Look up a result by requested config id, resolving through the alias map for
- * ids whose computation was shared with another config.
- */
-export function findEtfResult(
-  result: Pick<BacktestResult, "etfResults" | "etfResultIdAliases">,
-  id: string
-): EtfResult | undefined {
-  const direct = result.etfResults.find((etf) => etf.id === id);
-  if (direct) return direct;
-
-  const canonicalId = result.etfResultIdAliases?.[id];
-  if (canonicalId === undefined) return undefined;
-  return result.etfResults.find((etf) => etf.id === canonicalId);
-}
-
 function buildDedupeKey(config: EtfConfig): string {
   const base = {
     symbol: getHistoricalPriceSymbol(config.name),

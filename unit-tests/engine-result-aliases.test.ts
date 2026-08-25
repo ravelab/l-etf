@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findEtfResult, simulateBacktest } from "../src/lib/simulation/engine";
+import { simulateBacktest } from "../src/lib/simulation/engine";
+import { findEtfResult } from "../src/lib/simulation/result-lookup";
 import type { EtfConfig, PricePoint, RatePoint } from "../src/lib/simulation/types";
 
 const rates: RatePoint[] = [{ date: "1900-01-01", rateValue: 0.05, rateType: "borrow" }];

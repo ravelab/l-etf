@@ -5,7 +5,7 @@
 // internally — the exact path the /backtesting-tool page uses.
 
 import { runParallelBacktest } from "@/lib/simulation/parallel";
-import { findEtfResult } from "@/lib/simulation/engine";
+import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { getPrices } from "@/lib/db/queries";
 import type { EtfConfig, PricePoint } from "@/lib/simulation/types";

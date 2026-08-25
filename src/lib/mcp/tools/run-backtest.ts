@@ -4,7 +4,8 @@
 // spread contract in AGENTS.md is preserved (no hand-rolled renormalization).
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { findEtfResult, simulateWithWarmUp } from "@/lib/simulation/engine";
+import { simulateWithWarmUp } from "@/lib/simulation/engine";
+import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";

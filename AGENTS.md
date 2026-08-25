@@ -135,7 +135,8 @@ Sharp edges:
 - `run_backtest` routes through `simulateWithWarmUp` (preserving the entry/exit
   spread contract). `expandEtfConfigs` splits an SMA config into `<id>-base`
   (no-SMA) and `<id>-sma` results — select by id, never `etfResults[0]`, and
-  resolve with `findEtfResult(result, id)` rather than a bare
+  resolve with `findEtfResult(result, id)` (`simulation/result-lookup.ts`)
+  rather than a bare
   `etfResults.find(...)`. Configs that compute identically (most often the
   `<id>-base` twins of several SMA configs on one LETF) are simulated and
   emitted ONCE so charts draw no duplicate series; the other requested ids map
