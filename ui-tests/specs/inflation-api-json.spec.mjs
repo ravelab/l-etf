@@ -1,4 +1,4 @@
-import { vercelBypassHeaders } from "../config.mjs";
+import { fetchWithVercelBypass } from "../config.mjs";
 
 export const name = "inflation-api-json";
 
@@ -7,9 +7,9 @@ export const tags = ["smoke"];
 /** @param {{ baseUrl: string; page: import('puppeteer').Page }} ctx */
 export async function run(ctx) {
   const base = ctx.baseUrl.replace(/\/$/, "");
-  const r = await fetch(`${base}/api/inflation?startDate=2000-01-01&endDate=2020-01-01`, {
-    headers: vercelBypassHeaders(),
-  });
+  const r = await fetchWithVercelBypass(
+    `${base}/api/inflation?startDate=2000-01-01&endDate=2020-01-01`,
+  );
   if (!r.ok) {
     throw new Error(`Inflation API failed: ${r.status}`);
   }

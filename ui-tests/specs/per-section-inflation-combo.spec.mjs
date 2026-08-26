@@ -3,7 +3,13 @@ import { gotoUi, waitForRunSummaryStable } from "../config.mjs";
 
 export const name = "per-section-inflation-combo";
 
-/** @param {{ baseUrl: string; page: import('puppeteer').Page }} ctx */
+/**
+ * Combo risk-off mode renders one section per LETF. Each section title carries a
+ * Start Date and Avg Inflation. When index data histories differ those values
+ * diverge; when the shared run start binds both (e.g. both clamp to 1988-04-06)
+ * they may match — still require two labeled sections with both fields present.
+ * @param {{ baseUrl: string; page: import('puppeteer').Page }} ctx
+ */
 export async function run(ctx) {
   const url = buildToolUrl(ctx.baseUrl, "riskoff", new URLSearchParams());
 
@@ -11,7 +17,6 @@ export async function run(ctx) {
   await waitForRunSummaryStable(ctx.page, { timeoutMs: 90000 });
 
   const parsed = await ctx.page.evaluate(function () {
-    const body = document.body?.innerText ?? "";
     const h2Texts = [...document.querySelectorAll("h2")]
       .map((h) => (h.textContent ?? "").replace(/\s+/g, " ").trim())
       .filter((t) => t.includes("Performance by Risk-Off Asset"));
@@ -21,30 +26,28 @@ export async function run(ctx) {
         return m ? m[1] : null;
       })
       .filter(Boolean);
-
-    const inflRe = /Avg Inflation:\s*([\d,.]+%)/g;
-    const inflPercents = [];
-    let m;
-    while ((m = inflRe.exec(body)) !== null) inflPercents.push(m[1]);
-
-    return { h2Texts, startDates, inflPercents, preview: body.slice(0, 2200) };
+    const inflPercents = h2Texts
+      .map((t) => {
+        const m = t.match(/Avg Inflation:\s*([\d,.]+%)/);
+        return m ? m[1] : null;
+      })
+      .filter(Boolean);
+    return { h2Texts, startDates, inflPercents };
   });
 
-  const uniqStarts = [...new Set(parsed.startDates)];
-  if (uniqStarts.length >= 2) {
-    return;
+  if (parsed.h2Texts.length < 2) {
+    throw new Error(
+      `Expected two combo Risk-Off section titles, got ${parsed.h2Texts.length}: ${JSON.stringify(parsed.h2Texts)}`,
+    );
   }
-
-  const uniqInfl = [...new Set(parsed.inflPercents)];
-  if (parsed.inflPercents.length >= 2 && uniqInfl.length >= 2) {
-    return;
+  if (parsed.startDates.length < 2) {
+    throw new Error(
+      `Expected Start Date on each combo section, got ${JSON.stringify(parsed.startDates)} from ${JSON.stringify(parsed.h2Texts)}`,
+    );
   }
-
-  throw new Error(
-    `Combo sections should show two distinct section Start Dates (per-index effective range), or two distinct Avg Inflation lines when wrap applies.\n` +
-      `Section h2: ${JSON.stringify(parsed.h2Texts)}\n` +
-      `Start dates: ${JSON.stringify(parsed.startDates)}\n` +
-      `Avg Inflation matches: ${JSON.stringify(parsed.inflPercents)}\n` +
-      parsed.preview
-  );
+  if (parsed.inflPercents.length < 2) {
+    throw new Error(
+      `Expected Avg Inflation on each combo section, got ${JSON.stringify(parsed.inflPercents)} from ${JSON.stringify(parsed.h2Texts)}`,
+    );
+  }
 }

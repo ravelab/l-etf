@@ -34,3 +34,6 @@ jobs:
         run: npm ci
 
       - run: npm run test:unit
+
+      - name: Coverage floor
+        run: npm run test:coverage

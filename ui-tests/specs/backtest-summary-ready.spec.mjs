@@ -1,5 +1,5 @@
 import { readSnapshot, buildToolUrl } from "../snapshot-params.mjs";
-import { gotoUi } from "../config.mjs";
+import { gotoUi, fetchWithVercelBypass } from "../config.mjs";
 
 export const name = "backtest-summary-ready";
 
@@ -12,7 +12,7 @@ export async function run(ctx) {
   const snapshot = readSnapshot("backtesting");
   const apiUrl = `${ctx.baseUrl.replace(/\/$/, "")}/api/tool-snapshots?pageKey=backtesting`;
   console.log(`[FETCH] ${apiUrl}`);
-  const payload = await fetch(apiUrl).then((res) => {
+  const payload = await fetchWithVercelBypass(apiUrl).then((res) => {
     if (!res.ok) throw new Error(`Snapshot API returned ${res.status} ${res.statusText}`);
     return res.json();
   });

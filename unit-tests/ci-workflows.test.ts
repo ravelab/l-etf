@@ -91,12 +91,13 @@ describe("source test workflow", () => {
     assert.ok(triggers().pull_request !== undefined);
   });
 
-  it("runs only the unit suite — anything needing a deploy lives in ui-after-deploy", () => {
+  it("runs the unit suite and the coverage floor — anything needing a deploy lives in ui-after-deploy", () => {
     const workflow = parse(workflowSource()) as { jobs: Record<string, WorkflowJob> };
     const commands = Object.values(workflow.jobs).flatMap(
       (job) => job.steps?.map((step) => step.run ?? "") ?? [],
     );
     assert.ok(commands.some((run) => run.includes("test:unit")));
+    assert.ok(commands.some((run) => run.includes("test:coverage")));
     assert.ok(!commands.some((run) => run.includes("test:ui") || run.includes("ui-tests")));
   });
 

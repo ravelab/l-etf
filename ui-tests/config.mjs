@@ -21,6 +21,26 @@ export function vercelBypassHeaders() {
   };
 }
 
+/**
+ * fetch() that can reach Vercel SSO-protected preview URLs.
+ * Node's redirect handling drops the bypass cookie dance, so the secret is also
+ * stamped on the query string (supported by Vercel) whenever it is set.
+ */
+export function fetchWithVercelBypass(url, init = {}) {
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  let finalUrl = url;
+  if (bypass) {
+    const parsed = new URL(url);
+    parsed.searchParams.set("x-vercel-protection-bypass", bypass);
+    finalUrl = parsed.toString();
+  }
+  const headers = {
+    ...vercelBypassHeaders(),
+    ...(init.headers ?? {}),
+  };
+  return fetch(finalUrl, { ...init, headers });
+}
+
 /** @param {import('puppeteer').Page} page */
 export function applyDefaultTimeouts(page) {
   const timeoutMs = Number(process.env.UI_TEST_TIMEOUT_MS ?? 90000);

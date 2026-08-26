@@ -24,7 +24,7 @@
     "snapshots:test": "node --input-type=module -e \"import('./scripts/test-snapshots.mjs')\"",
     "test": "npm run --silent test:unit",
     "test:unit": "node --import tsx --test unit-tests/**/*.test.ts",
-    "test:coverage": "node --import tsx --experimental-test-coverage --test unit-tests/**/*.test.ts",
+    "test:coverage": "./scripts/unit-coverage.sh",
     "test:ui": "node ui-tests/run.mjs",
     "ui-tests": "npm run --silent test:ui",
     "precommit": "npm run --silent lint && npm run --silent typecheck && npm run --silent knip",
