@@ -5,8 +5,12 @@ import puppeteer from "puppeteer";
 import { getBaseUrl } from "./config.mjs";
 import { createReporter } from "./reporter.mjs";
 import { startProdServer } from "../scripts/lib/prod-server.mjs";
+import { collectPagesJsCoverage, startPageJsCoverage } from "../scripts/client-v8-coverage.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const browserCoverageDir = process.env.LETF_BROWSER_COVERAGE_DIR ?? "";
+/** @type {import("puppeteer").Page[]} */
+const coveragePages = [];
 
 if (!process.env.UI_TEST_TIMEOUT_MS) {
   process.env.UI_TEST_TIMEOUT_MS = "90000";
@@ -100,6 +104,12 @@ async function runSpecs(baseUrl) {
     args: inCi ? ["--no-sandbox", "--disable-setuid-sandbox"] : [],
   });
   const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
+  const bypassHeaders = bypass
+    ? {
+        "x-vercel-protection-bypass": bypass,
+        "x-vercel-set-bypass-cookie": "samesitenone",
+      }
+    : {};
   const specTimeoutMs = Number(process.env.UI_TEST_SPEC_TIMEOUT_MS);
   const progressMs = Number(process.env.UI_TEST_PROGRESS_MS);
   const failFast = process.env.UI_TEST_FAIL_FAST !== "0";
@@ -109,10 +119,11 @@ async function runSpecs(baseUrl) {
     for (const [index, spec] of specs.entries()) {
       const page = await browser.newPage();
       if (bypass) {
-        await page.setExtraHTTPHeaders({
-          "x-vercel-protection-bypass": bypass,
-          "x-vercel-set-bypass-cookie": "samesitenone",
-        });
+        await page.setExtraHTTPHeaders(bypassHeaders);
+      }
+      if (browserCoverageDir) {
+        coveragePages.push(page);
+        await startPageJsCoverage(page);
       }
       const started = Date.now();
       console.log(
@@ -140,10 +151,21 @@ async function runSpecs(baseUrl) {
         }
       } finally {
         clearInterval(progress);
-        await page.close().catch(() => {});
+        // Keep coverage pages open until the end so stopJSCoverage can run;
+        // only close immediately when we are not collecting.
+        if (!browserCoverageDir) {
+          await page.close().catch(() => {});
+        }
       }
     }
   } finally {
+    if (browserCoverageDir) {
+      await collectPagesJsCoverage(coveragePages, {
+        outDir: browserCoverageDir,
+        fetchHeaders: bypassHeaders,
+      }).catch((error) => console.error("browser coverage collection failed:", error));
+      await Promise.all(coveragePages.map((p) => p.close().catch(() => {})));
+    }
     await browser.close();
   }
 

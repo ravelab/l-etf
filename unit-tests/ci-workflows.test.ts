@@ -36,10 +36,12 @@ describe("deployment validation workflow", () => {
     const workflow = parse(workflowSource()) as { jobs: Record<string, WorkflowJob> };
     const preview = workflow.jobs["ui-preview"]!;
     const smoke = workflow.jobs["smoke-production"]!;
+    const coverage = workflow.jobs["coverage"]!;
 
     assert.deepEqual(dependencies(preview), ["target"]);
     assert.deepEqual(dependencies(smoke), ["target"]);
     assert.ok(!dependencies(smoke).includes("ui-preview"));
+    assert.ok(dependencies(coverage).includes("ui-preview"));
 
     assert.equal(
       preview.if,
@@ -54,6 +56,8 @@ describe("deployment validation workflow", () => {
     const smokeRun = smoke.steps?.find((step) => step.run?.includes("test:ui"));
     assert.equal(previewRun?.env?.UI_TEST_TAGS, undefined);
     assert.equal(smokeRun?.env?.UI_TEST_TAGS, "smoke");
+    assert.ok(previewRun?.env?.LETF_BROWSER_COVERAGE_DIR);
+    assert.match(workflowSource(), /merge-ci-coverage\.sh/);
   });
 
   it("points production at the public hostname when Vercel omits a deployment URL", () => {
@@ -98,8 +102,8 @@ describe("source test workflow", () => {
     );
     assert.ok(commands.some((run) => run.includes("test:unit")));
     assert.ok(!commands.some((run) => run.includes("test:ui") || run.includes("ui-tests")));
-    // Coverage is folded into test:unit (scripts/unit-test.sh), not a second step.
     assert.ok(workflowSource().includes("coverage floor"));
+    assert.ok(workflowSource().includes("coverage-unit"));
   });
 
   it("does not need repository secrets", () => {

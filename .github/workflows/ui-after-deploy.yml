@@ -5,7 +5,7 @@ name: Test the deployment
 #
 # A deployment gets exactly one of the two suites below, chosen by the environment it belongs to:
 #
-#   Preview     the full Puppeteer UI suite
+#   Preview     the full Puppeteer UI suite (+ browser coverage → combined with unit)
 #   Production  the @smoke subset only (page loads + cheap API checks)
 #
 # The split keeps production verification short: a promoted commit already ran the full suite
@@ -70,6 +70,7 @@ jobs:
           UI_TEST_BASE_URL: ${{ needs.target.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           UI_TEST_FAIL_FAST: '0'
+          LETF_BROWSER_COVERAGE_DIR: ${{ github.workspace }}/coverage/browser-v8
         run: npm run test:ui
 
       - name: Keep the evidence of a failure
@@ -81,6 +82,54 @@ jobs:
             ui-tests/report.html
             ui-tests/last-run.json
           retention-days: 7
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: coverage-browser
+          path: coverage/browser-v8/client-coverage.json
+          if-no-files-found: error
+
+  # Merge unit (from Test workflow) + browser UI into one report.
+  coverage:
+    needs: [target, ui-preview]
+    if: needs.target.outputs.url != '' && needs.target.outputs.environment != 'Production' && needs.ui-preview.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-browser
+          path: coverage/browser-v8
+
+      - name: Merge unit + browser coverage
+        env:
+          DEPLOY_SHA: ${{ github.event.deployment.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x scripts/merge-ci-coverage.sh
+          ./scripts/merge-ci-coverage.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-combined
+          path: coverage/combined
           if-no-files-found: warn
 
   smoke-production:

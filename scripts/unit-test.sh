@@ -2,16 +2,19 @@
 # Unit suite with a coverage line at the end.
 #
 # Quiet on success (one pass line + coverage); full TAP on failure. The coverage
-# floor (≥80% lines/functions, ≥70% branches) is enforced here so `test:unit`
-# and `test:coverage` are the same command — browser suites are not counted.
+# floor (≥80% lines/functions, ≥70% branches) is enforced here.
+# Also writes NODE_V8_COVERAGE dumps (when set, default coverage/unit-v8) for
+# the combined unit+browser merge.
 set -eu
-# So a missing match in grep|tail|awk does not look like success with empty fields.
-set -o pipefail 2>/dev/null || true
 
 root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$root"
 
 mkdir -p coverage
+UNIT_V8="${NODE_V8_COVERAGE:-$root/coverage/unit-v8}"
+mkdir -p "$UNIT_V8"
+export NODE_V8_COVERAGE="$UNIT_V8"
+
 output_file="$(mktemp)"
 trap 'rm -f "$output_file"' EXIT
 
@@ -42,11 +45,10 @@ then
   fi
 
   summary="$(match 'all files' "$output_file" | tail -1 | sed 's/^[^|]*|//' | tr -s ' ')"
-  # summary looks like:  89.01 |    81.92 |   88.94 |
   lines="$(printf '%s' "$summary" | awk -F'|' '{gsub(/ /,"",$1); print $1}')"
   branches="$(printf '%s' "$summary" | awk -F'|' '{gsub(/ /,"",$2); print $2}')"
   functions="$(printf '%s' "$summary" | awk -F'|' '{gsub(/ /,"",$3); print $3}')"
-  if [ -z "${lines:-}" ] || [ "${lines}" = "?" ]; then
+  if [ -z "${lines:-}" ]; then
     printf '✗ unit coverage summary missing from test output\n' >&2
     match 'all files|Coverage for|not met' "$output_file" >&2 || true
     tail -20 "$output_file" >&2

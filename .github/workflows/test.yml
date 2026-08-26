@@ -4,11 +4,9 @@ name: Test
 # that needs a deployed app is in ui-after-deploy.yml, which Vercel triggers once a deployment is
 # live.
 #
-# Unit coverage is collected here (not in a local hook). A fresh clone has no
-# hook until setup:hooks; only pre-commit (lint/typecheck/knip) is wired locally.
+# Unit coverage (floor + V8 dumps) is collected here. Browser UI coverage is collected on the
+# preview deploy and merged with these dumps into one report.
 on:
-  # main only ever advances by a fast-forward of an already-green dev (merge-dev-to-main.sh), so
-  # re-running the same commits there would burn a runner re-proving what the dev push just proved.
   push:
     branches: [dev]
   pull_request:
@@ -33,4 +31,14 @@ jobs:
         run: npm ci
 
       # Quiet pass + coverage floor (≥80% lines/functions, ≥70% branches).
+      # NODE_V8_COVERAGE dumps feed the post-deploy combined report.
       - run: npm run test:unit
+        env:
+          NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/unit-v8
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: coverage-unit
+          path: coverage/unit-v8
+          if-no-files-found: error

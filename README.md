@@ -145,7 +145,8 @@ The cron schedule lives in [`vercel.json`](./vercel.json); the build orchestrati
 | `npm run typecheck` | TypeScript check (no emit). |
 | `npm run knip` | Unused-export / dependency check. |
 | `npm test` / `npm run test:unit` | Unit tests + coverage line (≥80% lines/functions, ≥70% branches). |
-| `npm run test:coverage` | Same as `test:unit` (alias). |
+| `npm run test:coverage` | Combined unit + browser UI coverage (local). |
+| `npm run test:ui` | Puppeteer UI suite (set `LETF_BROWSER_COVERAGE_DIR` to record client V8). |
 | `npm run test:ui` | Puppeteer UI tests (alias: `ui-tests`). |
 | `npm run check` | Pre-ship gate: lint, typecheck, knip, build. |
 | `npm run setup:hooks` | Point `core.hooksPath` at `.githooks`. |
