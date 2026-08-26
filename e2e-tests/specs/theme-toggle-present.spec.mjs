@@ -14,6 +14,6 @@ export async function run(ctx) {
       );
       return Boolean(btn);
     },
-    { timeout: Number(process.env.UI_TEST_TIMEOUT_MS ?? 90000) }
+    { timeout: Number(process.env.E2E_TEST_TIMEOUT_MS ?? 90000) }
   );
 }

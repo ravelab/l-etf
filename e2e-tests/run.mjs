@@ -5,38 +5,38 @@ import puppeteer from "puppeteer";
 import { getBaseUrl } from "./config.mjs";
 import { createReporter } from "./reporter.mjs";
 import { startProdServer } from "../scripts/lib/prod-server.mjs";
-import { collectPagesJsCoverage, startPageJsCoverage } from "../scripts/client-v8-coverage.mjs";
+import { harvestPageJsCoverage, startPageJsCoverage, writeBrowserCoverage } from "../scripts/client-v8-coverage.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const browserCoverageDir = process.env.LETF_BROWSER_COVERAGE_DIR ?? "";
-/** @type {import("puppeteer").Page[]} */
-const coveragePages = [];
+/** @type {import("../scripts/client-v8-coverage.mjs").CoverageEntry[]} */
+const coverageEntries = [];
 
-if (!process.env.UI_TEST_TIMEOUT_MS) {
-  process.env.UI_TEST_TIMEOUT_MS = "90000";
+if (!process.env.E2E_TEST_TIMEOUT_MS) {
+  process.env.E2E_TEST_TIMEOUT_MS = "90000";
 }
-if (!process.env.UI_TEST_SPEC_TIMEOUT_MS) {
-  process.env.UI_TEST_SPEC_TIMEOUT_MS = "120000";
+if (!process.env.E2E_TEST_SPEC_TIMEOUT_MS) {
+  process.env.E2E_TEST_SPEC_TIMEOUT_MS = "120000";
 }
-if (!process.env.UI_TEST_PROGRESS_MS) {
-  process.env.UI_TEST_PROGRESS_MS = "10000";
+if (!process.env.E2E_TEST_PROGRESS_MS) {
+  process.env.E2E_TEST_PROGRESS_MS = "10000";
 }
-// Box-trades is feature-flagged off by default; UI tests exercise it, so opt
+// Box-trades is feature-flagged off by default; E2E tests exercise it, so opt
 // in for the build that the test server runs.
 if (!process.env.NEXT_PUBLIC_DISPLAY_BOX_TRADES) {
   process.env.NEXT_PUBLIC_DISPLAY_BOX_TRADES = "true";
 }
-// Disable lazy auto-refresh during UI tests — it kicks off a full fetch-data
+// Disable lazy auto-refresh during E2E tests — it kicks off a full fetch-data
 // run on /tools navigation which slows the suite and isn't what's under test.
 if (!process.env.AUTO_REFRESH_DATA) {
   process.env.AUTO_REFRESH_DATA = "false";
 }
 
-// UI tests run against a production build by default. Set UI_TEST_BASE_URL or
+// E2E tests run against a production build by default. Set E2E_TEST_BASE_URL or
 // SNAPSHOT_TEST_BASE_URL to point at an existing server and skip the managed
-// build/start lifecycle. UI_TEST_SKIP_BUILD=1 reuses the existing .next dir.
+// build/start lifecycle. E2E_TEST_SKIP_BUILD=1 reuses the existing .next dir.
 const EXTERNAL_BASE_URL =
-  process.env.UI_TEST_BASE_URL ?? process.env.SNAPSHOT_TEST_BASE_URL ?? null;
+  process.env.E2E_TEST_BASE_URL ?? process.env.SNAPSHOT_TEST_BASE_URL ?? null;
 
 function parseArgs(argv) {
   let grep = "";
@@ -71,7 +71,7 @@ async function loadSpecs() {
 }
 
 function selectedTags() {
-  const raw = process.env.UI_TEST_TAGS ?? "";
+  const raw = process.env.E2E_TEST_TAGS ?? "";
   return raw
     .split(/[,\s]+/)
     .map((t) => t.trim())
@@ -110,9 +110,9 @@ async function runSpecs(baseUrl) {
         "x-vercel-set-bypass-cookie": "samesitenone",
       }
     : {};
-  const specTimeoutMs = Number(process.env.UI_TEST_SPEC_TIMEOUT_MS);
-  const progressMs = Number(process.env.UI_TEST_PROGRESS_MS);
-  const failFast = process.env.UI_TEST_FAIL_FAST !== "0";
+  const specTimeoutMs = Number(process.env.E2E_TEST_SPEC_TIMEOUT_MS);
+  const progressMs = Number(process.env.E2E_TEST_PROGRESS_MS);
+  const failFast = process.env.E2E_TEST_FAIL_FAST !== "0";
   const t0 = Date.now();
 
   try {
@@ -122,7 +122,6 @@ async function runSpecs(baseUrl) {
         await page.setExtraHTTPHeaders(bypassHeaders);
       }
       if (browserCoverageDir) {
-        coveragePages.push(page);
         await startPageJsCoverage(page);
       }
       const started = Date.now();
@@ -145,26 +144,26 @@ async function runSpecs(baseUrl) {
         reporter.add(spec.name, false, Date.now() - started, message);
         if (failFast) {
           console.log(
-            `[STOP] ${spec.name} failed; stopping early. Set UI_TEST_FAIL_FAST=0 to run every spec.`,
+            `[STOP] ${spec.name} failed; stopping early. Set E2E_TEST_FAIL_FAST=0 to run every spec.`,
           );
           break;
         }
       } finally {
         clearInterval(progress);
-        // Keep coverage pages open until the end so stopJSCoverage can run;
-        // only close immediately when we are not collecting.
-        if (!browserCoverageDir) {
-          await page.close().catch(() => {});
+        if (browserCoverageDir) {
+          const harvested = await harvestPageJsCoverage(page, {
+            fetchHeaders: bypassHeaders,
+          }).catch(() => []);
+          coverageEntries.push(...harvested);
         }
+        await page.close().catch(() => {});
       }
     }
   } finally {
     if (browserCoverageDir) {
-      await collectPagesJsCoverage(coveragePages, {
-        outDir: browserCoverageDir,
-        fetchHeaders: bypassHeaders,
-      }).catch((error) => console.error("browser coverage collection failed:", error));
-      await Promise.all(coveragePages.map((p) => p.close().catch(() => {})));
+      await writeBrowserCoverage(coverageEntries, browserCoverageDir).catch((error) =>
+        console.error("browser coverage write failed:", error),
+      );
     }
     await browser.close();
   }

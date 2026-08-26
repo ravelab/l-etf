@@ -29,7 +29,7 @@ export async function run(ctx) {
       const text = document.querySelector("main")?.textContent ?? "";
       return text.includes("Run Backtest") && text.includes("LETF");
     },
-    { timeout: Number(process.env.UI_TEST_TIMEOUT_MS ?? 90000) }
+    { timeout: Number(process.env.E2E_TEST_TIMEOUT_MS ?? 90000) }
   );
 
   const preset = snapshot.pageState.preset;

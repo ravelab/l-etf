@@ -7,7 +7,7 @@ import { createServer } from "node:net";
  *
  * Env:
  *  - SNAPSHOT_TEST_SKIP_BUILD=1 → reuse existing .next directory
- *  - UI_TEST_SKIP_BUILD=1       → same
+ *  - E2E_TEST_SKIP_BUILD=1       → same
  */
 
 function findFreePort() {
@@ -55,14 +55,14 @@ async function waitForReady(baseUrl, deadlineMs) {
 export async function startProdServer(options = {}) {
   const skipBuild =
     options.skipBuild ??
-    Boolean(process.env.SNAPSHOT_TEST_SKIP_BUILD || process.env.UI_TEST_SKIP_BUILD);
+    Boolean(process.env.SNAPSHOT_TEST_SKIP_BUILD || process.env.E2E_TEST_SKIP_BUILD);
   const readyTimeoutMs = options.readyTimeoutMs ?? 60000;
 
   if (!skipBuild) {
-    console.log("Building production bundle (set UI_TEST_SKIP_BUILD=1 to skip)...");
+    console.log("Building production bundle (set E2E_TEST_SKIP_BUILD=1 to skip)...");
     await runChildToCompletion("npx", ["next", "build"], "next build");
   } else {
-    console.log("Skipping next build (UI_TEST_SKIP_BUILD=1 or SNAPSHOT_TEST_SKIP_BUILD=1)");
+    console.log("Skipping next build (E2E_TEST_SKIP_BUILD=1 or SNAPSHOT_TEST_SKIP_BUILD=1)");
   }
 
   const port = await findFreePort();

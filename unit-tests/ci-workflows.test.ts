@@ -15,8 +15,8 @@ function dependencies(job: WorkflowJob) {
   return Array.isArray(job.needs) ? job.needs : [job.needs];
 }
 
-function uiSpecTags(): Array<{ file: string; name: string; tags: string[] }> {
-  const directory = resolve(process.cwd(), "ui-tests/specs");
+function e2eSpecTags(): Array<{ file: string; name: string; tags: string[] }> {
+  const directory = resolve(process.cwd(), "e2e-tests/specs");
   return readdirSync(directory)
     .filter((name) => name.endsWith(".spec.mjs"))
     .map((file) => {
@@ -29,19 +29,19 @@ function uiSpecTags(): Array<{ file: string; name: string; tags: string[] }> {
 }
 
 describe("deployment validation workflow", () => {
-  const workflowPath = ".github/workflows/ui-after-deploy.yml";
+  const workflowPath = ".github/workflows/e2e-after-deploy.yml";
   const workflowSource = () => readFileSync(resolve(process.cwd(), workflowPath), "utf8");
 
-  it("sends the full UI suite to a preview and gives production only the smoke subset", () => {
+  it("sends the full E2E suite to a preview and gives production only the smoke subset", () => {
     const workflow = parse(workflowSource()) as { jobs: Record<string, WorkflowJob> };
-    const preview = workflow.jobs["ui-preview"]!;
+    const preview = workflow.jobs["e2e-preview"]!;
     const smoke = workflow.jobs["smoke-production"]!;
     const coverage = workflow.jobs["coverage"]!;
 
     assert.deepEqual(dependencies(preview), ["target"]);
     assert.deepEqual(dependencies(smoke), ["target"]);
-    assert.ok(!dependencies(smoke).includes("ui-preview"));
-    assert.ok(dependencies(coverage).includes("ui-preview"));
+    assert.ok(!dependencies(smoke).includes("e2e-preview"));
+    assert.ok(dependencies(coverage).includes("e2e-preview"));
 
     assert.equal(
       preview.if,
@@ -52,12 +52,24 @@ describe("deployment validation workflow", () => {
       "needs.target.outputs.url != '' && needs.target.outputs.environment == 'Production'",
     );
 
-    const previewRun = preview.steps?.find((step) => step.run?.includes("test:ui"));
-    const smokeRun = smoke.steps?.find((step) => step.run?.includes("test:ui"));
-    assert.equal(previewRun?.env?.UI_TEST_TAGS, undefined);
-    assert.equal(smokeRun?.env?.UI_TEST_TAGS, "smoke");
+    const previewRun = preview.steps?.find((step) => step.run?.includes("test:e2e"));
+    const smokeRun = smoke.steps?.find((step) => step.run?.includes("test:e2e"));
+    assert.equal(previewRun?.env?.E2E_TEST_TAGS, undefined);
+    assert.equal(smokeRun?.env?.E2E_TEST_TAGS, "smoke");
     assert.ok(previewRun?.env?.LETF_BROWSER_COVERAGE_DIR);
     assert.match(workflowSource(), /merge-ci-coverage\.sh/);
+    // Failed e2e runs still upload browser coverage and merge a combined report.
+    assert.match(workflowSource(), /needs\.e2e-preview\.result == 'failure'/);
+    const browserUpload = workflowSource().match(
+      /name:\s*coverage-browser[\s\S]*?(?=\n  [a-z]|\n[a-z]|$)/,
+    );
+    // Upload step itself must be `if: always()` (precedes the name: line).
+    const uploadBlock = workflowSource().slice(
+      Math.max(0, workflowSource().indexOf("name: coverage-browser") - 120),
+      workflowSource().indexOf("name: coverage-browser") + 80,
+    );
+    assert.match(uploadBlock, /if:\s*always\(\)/);
+    assert.ok(browserUpload);
   });
 
   it("points production at the public hostname when Vercel omits a deployment URL", () => {
@@ -67,8 +79,8 @@ describe("deployment validation workflow", () => {
 
   it("passes the Vercel bypass secret under its own name", () => {
     const workflow = parse(workflowSource()) as { jobs: Record<string, WorkflowJob> };
-    for (const name of ["ui-preview", "smoke-production"] as const) {
-      const step = workflow.jobs[name]!.steps?.find((candidate) => candidate.env?.UI_TEST_BASE_URL);
+    for (const name of ["e2e-preview", "smoke-production"] as const) {
+      const step = workflow.jobs[name]!.steps?.find((candidate) => candidate.env?.E2E_TEST_BASE_URL);
       assert.equal(
         step?.env?.VERCEL_AUTOMATION_BYPASS_SECRET,
         "${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}",
@@ -77,8 +89,8 @@ describe("deployment validation workflow", () => {
     }
   });
 
-  it("has at least one smoke-tagged UI spec for production", () => {
-    const smoke = uiSpecTags().filter((spec) => spec.tags.includes("smoke"));
+  it("has at least one smoke-tagged E2E spec for production", () => {
+    const smoke = e2eSpecTags().filter((spec) => spec.tags.includes("smoke"));
     assert.ok(smoke.length >= 5, `expected smoke specs, found ${smoke.length}`);
   });
 });
@@ -95,15 +107,16 @@ describe("source test workflow", () => {
     assert.ok(triggers().pull_request !== undefined);
   });
 
-  it("runs the unit suite (with coverage floor) — anything needing a deploy lives in ui-after-deploy", () => {
+  it("runs the unit suite (overall src coverage) — anything needing a deploy lives in e2e-after-deploy", () => {
     const workflow = parse(workflowSource()) as { jobs: Record<string, WorkflowJob> };
     const commands = Object.values(workflow.jobs).flatMap(
       (job) => job.steps?.map((step) => step.run ?? "") ?? [],
     );
     assert.ok(commands.some((run) => run.includes("test:unit")));
-    assert.ok(!commands.some((run) => run.includes("test:ui") || run.includes("ui-tests")));
-    assert.ok(workflowSource().includes("coverage floor"));
+    assert.ok(!commands.some((run) => run.includes("test:e2e") || run.includes("e2e-tests")));
+    assert.ok(workflowSource().includes("Vitest/jsdom"));
     assert.ok(workflowSource().includes("coverage-unit"));
+    assert.ok(workflowSource().includes("unit-jsdom"));
   });
 
   it("does not need repository secrets", () => {

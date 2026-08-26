@@ -1,11 +1,12 @@
 name: Test
 
 # The suites that need neither a running server nor a credential: the Node unit tests. Anything
-# that needs a deployed app is in ui-after-deploy.yml, which Vercel triggers once a deployment is
+# that needs a deployed app is in e2e-after-deploy.yml, which Vercel triggers once a deployment is
 # live.
 #
-# Unit coverage (floor + V8 dumps) is collected here. Browser UI coverage is collected on the
-# preview deploy and merged with these dumps into one report.
+# Unit coverage (overall all-src % from node:test + Vitest/jsdom + V8 dumps) is
+# collected here. Browser E2E coverage is collected on the preview deploy and
+# merged with these dumps into one report.
 on:
   push:
     branches: [dev]
@@ -30,8 +31,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Quiet pass + coverage floor (≥80% lines/functions, ≥70% branches).
-      # NODE_V8_COVERAGE dumps feed the post-deploy combined report.
+      # Quiet pass: node:test + Vitest/jsdom, then overall src/** coverage
+      # (unloaded files at 0%). NODE_V8_COVERAGE dumps feed post-deploy merge.
       - run: npm run test:unit
         env:
           NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/unit-v8
@@ -40,5 +41,7 @@ jobs:
         if: success()
         with:
           name: coverage-unit
-          path: coverage/unit-v8
+          path: |
+            coverage/unit-v8
+            coverage/unit-jsdom
           if-no-files-found: error

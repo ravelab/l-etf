@@ -28,6 +28,6 @@ export async function run(ctx) {
       const text = document.querySelector("main")?.textContent ?? "";
       return text.includes("Transactions");
     },
-    { timeout: Number(process.env.UI_TEST_TIMEOUT_MS ?? 90000) }
+    { timeout: Number(process.env.E2E_TEST_TIMEOUT_MS ?? 90000) }
   );
 }

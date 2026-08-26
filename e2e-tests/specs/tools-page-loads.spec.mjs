@@ -13,7 +13,7 @@ export async function run(ctx) {
       const t = document.querySelector("main")?.textContent ?? document.body?.innerText ?? "";
       return t.includes("Start Date") && t.includes("End Date");
     },
-    { timeout: Number(process.env.UI_TEST_TIMEOUT_MS ?? 90000) }
+    { timeout: Number(process.env.E2E_TEST_TIMEOUT_MS ?? 90000) }
   );
   const ok = await ctx.page.evaluate(function () {
     const t = document.querySelector("main")?.textContent ?? document.body?.innerText ?? "";

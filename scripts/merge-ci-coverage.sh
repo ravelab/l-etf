@@ -50,14 +50,35 @@ if [ "$conclusion" != "success" ]; then
 fi
 
 echo "→ Downloading unit coverage from Test run $run_id…"
-rm -rf coverage/unit-v8 coverage/unit-art coverage/browser-art
-mkdir -p coverage/unit-v8 coverage/browser-v8
+rm -rf coverage/unit-v8 coverage/unit-jsdom coverage/unit-art coverage/browser-art
+mkdir -p coverage/unit-v8 coverage/unit-jsdom coverage/browser-v8
 
 gh run download "$run_id" -n coverage-unit -D coverage/unit-art || {
   echo "✗ missing coverage-unit artifact" >&2
   exit 1
 }
-find coverage/unit-art -type f -name '*.json' -exec cp {} coverage/unit-v8/ \;
+
+# Artifact layout: unit-v8/ (NODE_V8 dumps) + unit-jsdom/ (Vitest Istanbul JSON).
+if [ -d coverage/unit-art/unit-v8 ]; then
+  find coverage/unit-art/unit-v8 -type f -name '*.json' -exec cp {} coverage/unit-v8/ \;
+elif [ -d coverage/unit-art/coverage/unit-v8 ]; then
+  find coverage/unit-art/coverage/unit-v8 -type f -name '*.json' -exec cp {} coverage/unit-v8/ \;
+else
+  # Flat fallback: V8 dumps are coverage-<pid>-*.json; never treat Istanbul finals as V8.
+  find coverage/unit-art -type f -name 'coverage-*.json' \
+    ! -name 'coverage-final.json' \
+    ! -name 'coverage-summary.json' \
+    -exec cp {} coverage/unit-v8/ \;
+fi
+
+if [ -f coverage/unit-art/unit-jsdom/coverage-final.json ]; then
+  cp coverage/unit-art/unit-jsdom/coverage-final.json coverage/unit-jsdom/
+elif [ -f coverage/unit-art/coverage/unit-jsdom/coverage-final.json ]; then
+  cp coverage/unit-art/coverage/unit-jsdom/coverage-final.json coverage/unit-jsdom/
+else
+  find coverage/unit-art -type f -name 'coverage-final.json' -exec cp {} coverage/unit-jsdom/ \; || true
+fi
+
 unit_count="$(find coverage/unit-v8 -type f -name '*.json' | wc -l | tr -d ' ')"
 if [ "$unit_count" = "0" ]; then
   echo "✗ no unit V8 coverage files after download" >&2
@@ -72,7 +93,14 @@ if [ ! -f coverage/browser-v8/client-coverage.json ]; then
   exit 1
 fi
 
-echo "→ Merging unit + browser UI…"
+echo "→ Merging unit + browser E2E…"
+if [ "${E2E_JOB_RESULT:-}" = "failure" ]; then
+  note="(e2e had failures — browser coverage is whatever finished before exit)"
+  echo "→ $note"
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    printf '%s\n' "$note" >> "$GITHUB_STEP_SUMMARY"
+  fi
+fi
 node scripts/coverage-combined.mjs --no-run
 
 if [ -f coverage/combined/coverage-summary.json ]; then

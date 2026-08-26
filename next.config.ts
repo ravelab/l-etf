@@ -24,6 +24,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Needed so Puppeteer V8 coverage can map `/_next/static` chunks back onto src/**
+  // for the combined unit+e2e coverage report.
+  productionBrowserSourceMaps: true,
   outputFileTracingIncludes: {
     "/api/**/*": ["./data/**/*.csv", "./src/lib/tool-snapshots/**/*.json"],
     // The MCP endpoint (app/[transport]/route.ts, served at /mcp) reads the same

@@ -14,7 +14,7 @@ export async function run(ctx) {
       const mainText = document.querySelector("main")?.textContent ?? "";
       return mainText.includes("Start Date") && mainText.includes("End Date");
     },
-    { timeout: Number(process.env.UI_TEST_TIMEOUT_MS ?? 90000) }
+    { timeout: Number(process.env.E2E_TEST_TIMEOUT_MS ?? 90000) }
   );
   const ok = await ctx.page.evaluate(function () {
     const h = document.querySelector("main h1, main h2, main h3, h1");

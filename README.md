@@ -144,13 +144,12 @@ The cron schedule lives in [`vercel.json`](./vercel.json); the build orchestrati
 | `npm run lint` | ESLint with zero-warnings policy. |
 | `npm run typecheck` | TypeScript check (no emit). |
 | `npm run knip` | Unused-export / dependency check. |
-| `npm test` / `npm run test:unit` | Unit tests + coverage line (≥80% lines/functions, ≥70% branches). |
-| `npm run test:coverage` | Combined unit + browser UI coverage (local). |
-| `npm run test:ui` | Puppeteer UI suite (set `LETF_BROWSER_COVERAGE_DIR` to record client V8). |
-| `npm run test:ui` | Puppeteer UI tests (alias: `ui-tests`). |
+| `npm test` / `npm run test:unit` | node:test logic + Vitest/jsdom components; overall coverage over all `src/**` (unloaded files count as 0%). |
+| `npm run test:coverage` | Combined unit + browser E2E coverage over all `src/**` (local). |
+| `npm run test:e2e` | Puppeteer E2E suite (alias: `e2e-tests`; set `LETF_BROWSER_COVERAGE_DIR` to record client V8). |
 | `npm run check` | Pre-ship gate: lint, typecheck, knip, build. |
 | `npm run setup:hooks` | Point `core.hooksPath` at `.githooks`. |
-| `npm run push:dev` | Push `dev` and wait for post-deploy UI CI. |
+| `npm run push:dev` | Push `dev` and wait for post-deploy E2E CI. |
 | `npm run ship -- "msg"` | Check, commit on `dev`, push, promote to `main`. |
 | `npm run promote` | Fast-forward `dev` → `main` and wait for production smoke. |
 | `npm run fetch-data` | Refresh local market-data CSVs in `./data/`. Accepts optional args (e.g. `npm run fetch-data index-sp`, `... borrow`, `... risk-off`, `... UPRO TQQQ`). |
@@ -165,8 +164,8 @@ The cron schedule lives in [`vercel.json`](./vercel.json); the build orchestrati
 | Gate | What runs |
 | --- | --- |
 | `.githooks/pre-commit` | lint, typecheck, knip |
-| `Test` (Actions) | unit tests + coverage floor on every push to `dev` and every PR |
-| `Test the deployment` (Actions) | full Puppeteer UI suite on preview deploys; `@smoke`-tagged specs on production |
+| `Test` (Actions) | unit tests + overall `src/**` coverage on every push to `dev` and every PR |
+| `Test the deployment` (Actions) | full Puppeteer E2E suite on preview deploys; `@smoke`-tagged specs on production |
 
 ```sh
 npm run setup:hooks          # once per clone
@@ -201,7 +200,7 @@ src/
 scripts/              fetch-data, calibration, snapshots, build orchestration
 data/                 generated CSVs (populated by `npm run fetch-data`)
 unit-tests/           Node test-runner unit tests
-ui-tests/             Puppeteer UI smoke tests
+e2e-tests/            Puppeteer E2E browser tests
 ```
 
 ## App structure

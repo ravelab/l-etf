@@ -5,7 +5,7 @@ name: Test the deployment
 #
 # A deployment gets exactly one of the two suites below, chosen by the environment it belongs to:
 #
-#   Preview     the full Puppeteer UI suite (+ browser coverage → combined with unit)
+#   Preview     the full Puppeteer E2E suite (+ browser coverage → combined with unit)
 #   Production  the @smoke subset only (page loads + cheap API checks)
 #
 # The split keeps production verification short: a promoted commit already ran the full suite
@@ -14,7 +14,7 @@ on:
   deployment_status:
 
 concurrency:
-  group: ui-${{ github.event.deployment.id }}
+  group: e2e-${{ github.event.deployment.id }}
   cancel-in-progress: true
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
             echo "url=" >> "$GITHUB_OUTPUT"
           fi
 
-  ui-preview:
+  e2e-preview:
     needs: target
     if: needs.target.outputs.url != '' && needs.target.outputs.environment != 'Production'
     runs-on: ubuntu-latest
@@ -65,36 +65,42 @@ jobs:
       - name: Install Chrome for Puppeteer
         run: npx puppeteer browsers install chrome
 
-      - name: Full UI suite against the preview
+      - name: Full E2E suite against the preview
         env:
-          UI_TEST_BASE_URL: ${{ needs.target.outputs.url }}
+          E2E_TEST_BASE_URL: ${{ needs.target.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          UI_TEST_FAIL_FAST: '0'
+          E2E_TEST_FAIL_FAST: '0'
           LETF_BROWSER_COVERAGE_DIR: ${{ github.workspace }}/coverage/browser-v8
-        run: npm run test:ui
+        run: npm run test:e2e
 
       - name: Keep the evidence of a failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-preview-evidence
+          name: e2e-preview-evidence
           path: |
-            ui-tests/report.html
-            ui-tests/last-run.json
+            e2e-tests/report.html
+            e2e-tests/last-run.json
           retention-days: 7
           if-no-files-found: warn
 
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: coverage-browser
           path: coverage/browser-v8/client-coverage.json
-          if-no-files-found: error
+          if-no-files-found: warn
 
-  # Merge unit (from Test workflow) + browser UI into one report.
+  # Merge unit (from Test workflow) + browser E2E even when e2e had failures —
+  # the suite still dumps coverage for finished pages (fail-fast=0 runs all specs).
   coverage:
-    needs: [target, ui-preview]
-    if: needs.target.outputs.url != '' && needs.target.outputs.environment != 'Production' && needs.ui-preview.result == 'success'
+    needs: [target, e2e-preview]
+    if: >-
+      always() &&
+      needs.target.result == 'success' &&
+      needs.target.outputs.url != '' &&
+      needs.target.outputs.environment != 'Production' &&
+      (needs.e2e-preview.result == 'success' || needs.e2e-preview.result == 'failure')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -113,17 +119,27 @@ jobs:
       - run: npm ci
 
       - uses: actions/download-artifact@v4
+        id: browser-coverage
+        continue-on-error: true
         with:
           name: coverage-browser
           path: coverage/browser-v8
 
       - name: Merge unit + browser coverage
+        if: hashFiles('coverage/browser-v8/client-coverage.json') != ''
         env:
           DEPLOY_SHA: ${{ github.event.deployment.sha }}
           GH_TOKEN: ${{ github.token }}
+          E2E_JOB_RESULT: ${{ needs.e2e-preview.result }}
         run: |
           chmod +x scripts/merge-ci-coverage.sh
           ./scripts/merge-ci-coverage.sh
+
+      - name: No browser coverage to merge
+        if: hashFiles('coverage/browser-v8/client-coverage.json') == ''
+        run: |
+          echo "✗ e2e finished without client-coverage.json — nothing to merge" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -155,19 +171,19 @@ jobs:
 
       - name: Read-only smoke against production
         env:
-          UI_TEST_BASE_URL: ${{ needs.target.outputs.url }}
+          E2E_TEST_BASE_URL: ${{ needs.target.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          UI_TEST_TAGS: smoke
-          UI_TEST_FAIL_FAST: '0'
-        run: npm run test:ui
+          E2E_TEST_TAGS: smoke
+          E2E_TEST_FAIL_FAST: '0'
+        run: npm run test:e2e
 
       - name: Keep the smoke evidence of a failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-smoke-evidence
+          name: e2e-smoke-evidence
           path: |
-            ui-tests/report.html
-            ui-tests/last-run.json
+            e2e-tests/report.html
+            e2e-tests/last-run.json
           retention-days: 7
           if-no-files-found: warn

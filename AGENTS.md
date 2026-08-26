@@ -34,11 +34,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 advances by fast-forward from an already-tested `dev` tip (`npm run promote` /
 `npm run ship`). Wire local hooks once with `npm run setup:hooks`
 (`.githooks`: pre-commit = lint/typecheck/knip). Unit tests + coverage and
-post-deploy UI run in GitHub Actions after push. Actions:
-`Test` runs unit on pushes to `dev` and PRs;
-`Test the deployment` runs the Puppeteer UI suite against preview deploys and
-the `@smoke`-tagged subset against production. Prefer `npm run push:dev` over a
-bare `git push` when you need the post-deploy wait.
+post-deploy E2E run in GitHub Actions after push. Actions:
+`Test` runs unit on pushes to `dev` and PRs (node:test logic + Vitest/jsdom
+components, overall `src/**` coverage);
+`Test the deployment` runs the Puppeteer E2E suite (`npm run test:e2e`) against
+preview deploys and the `@smoke`-tagged subset against production. Prefer
+`npm run push:dev` over a bare `git push` when you need the post-deploy wait.
 
 ## Simulation engine: entry/exit spread contract
 
