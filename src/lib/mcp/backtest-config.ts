@@ -27,7 +27,7 @@ export interface BacktestInput {
   smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
 }
 
-export interface ResolvedBacktest {
+interface ResolvedBacktest {
   config: EtfConfig;
   index: IndexKey;
   startDate: string;

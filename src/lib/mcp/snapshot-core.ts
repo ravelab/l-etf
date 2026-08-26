@@ -282,7 +282,7 @@ function distill(analysis: SnapshotAnalysis, state: Record<string, unknown>): un
   }
 }
 
-export interface SnapshotCatalogEntry {
+interface SnapshotCatalogEntry {
   analysis: SnapshotAnalysis;
   title: string;
   generatedAt: string;

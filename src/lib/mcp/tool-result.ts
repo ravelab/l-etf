@@ -6,7 +6,7 @@
 // clear message rather than thrown, so the client sees a tool error instead of
 // a transport failure.
 
-export interface ToolResult {
+interface ToolResult {
   // Index signature to match the SDK's CallToolResult (which allows passthrough
   // keys such as `_meta`); without it the shapes are structurally incompatible.
   [key: string]: unknown;

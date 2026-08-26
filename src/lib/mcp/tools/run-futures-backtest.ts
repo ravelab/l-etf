@@ -16,7 +16,7 @@ import { indexSchema, isoDate, riskOffAssetSchema, smaBufferSchema, smaPeriodSch
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
 
-export interface FuturesInput {
+interface FuturesInput {
   index: "sp500" | "nasdaq100";
   targetLeverage: number;
   maxLeverage?: number;

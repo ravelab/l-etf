@@ -24,7 +24,7 @@ export type SmaBand = {
   lowerBuffer: number;
 };
 
-export type FuturesLadderStep = {
+type FuturesLadderStep = {
   index: IndexKey;
   leverage: number;
   maxLeverage?: number;

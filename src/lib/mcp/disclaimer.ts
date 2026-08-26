@@ -9,10 +9,6 @@ export const DISCLAIMER =
   "future returns. Leveraged ETFs are high-risk instruments. Consult a licensed " +
   "financial advisor before making any investment decision.";
 
-// Short suffix appended to a tool `description` so the caveat is visible at
-// tool-discovery time, not just in the output.
-export const DISCLAIMER_TOOL_SUFFIX = ` ${DISCLAIMER}`;
-
 /**
  * Attach the disclaimer to any structured payload without mutating the input.
  */

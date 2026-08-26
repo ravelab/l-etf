@@ -25,7 +25,7 @@ function getRedis(): Redis | null {
 
 const memBuckets = new Map<string, { count: number; resetAt: number }>();
 
-export interface RateLimitResult {
+interface RateLimitResult {
   ok: boolean;
   retryAfterSec: number;
   limit: number;

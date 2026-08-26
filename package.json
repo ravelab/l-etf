@@ -63,14 +63,6 @@
     "ignore": [
       "public/sw.js",
       "ui-tests/**"
-    ],
-    "exclude": [
-      "exports",
-      "nsExports",
-      "types",
-      "nsTypes",
-      "enumMembers",
-      "duplicates"
     ]
   },
   "devDependencies": {

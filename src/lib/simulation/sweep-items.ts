@@ -26,12 +26,12 @@ export interface SweepPresetDef {
   index: IndexKey;
 }
 
-export interface SweepItem {
+interface SweepItem {
   paramValue: number;
   config: EtfConfig;
 }
 
-export interface LabeledSweepConfig {
+interface LabeledSweepConfig {
   label: string;
   config: EtfConfig;
 }

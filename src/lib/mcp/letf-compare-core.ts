@@ -17,7 +17,7 @@ import { McpToolError } from "@/lib/mcp/tool-result";
 type IndexKey = "sp500" | "nasdaq100";
 type RiskOffAsset = EtfConfig["riskOffAsset"];
 
-export interface LetfCompareInput {
+interface LetfCompareInput {
   presets: string[];
   smaEnabled: boolean;
   smaPeriod?: number;
@@ -32,7 +32,7 @@ export interface LetfCompareInput {
   endDate?: string;
 }
 
-export interface LetfCompareRow {
+interface LetfCompareRow {
   preset: string;
   index: IndexKey;
   windows: number;

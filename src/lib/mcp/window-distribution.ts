@@ -15,7 +15,7 @@ import { MAX_RETURNED_WINDOWS } from "@/lib/mcp/limits";
 
 const HISTOGRAM_BINS = 10;
 
-export interface PercentileBlock {
+interface PercentileBlock {
   p5: number;
   p10: number;
   p25: number;
@@ -25,7 +25,7 @@ export interface PercentileBlock {
   p95: number;
 }
 
-export interface WindowRow {
+interface WindowRow {
   startDate: string;
   endDate: string;
   cagrPct: number;
@@ -37,13 +37,13 @@ export interface WindowRow {
   trades: number;
 }
 
-export interface HistogramBin {
+interface HistogramBin {
   fromCagrPct: number;
   toCagrPct: number;
   count: number;
 }
 
-export interface WindowDistribution {
+interface WindowDistribution {
   windowCount: number;
   winRateVs1xPct: number;
   percentiles: {

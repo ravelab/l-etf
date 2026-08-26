@@ -10,7 +10,7 @@ import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/proto
 import type { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { SweepProgress } from "@/lib/mcp/sweep-core";
 
-export type McpRequestExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+type McpRequestExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
 /** Minimum advance, as a fraction of the whole job, worth a notification. */
 const MIN_FRACTION_DELTA = 0.02;

@@ -7,8 +7,8 @@ import { RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { MARKET_DATA_EARLIEST_START } from "@/lib/fetch-market-data";
 
-export const PRESET_KEYS = Object.keys(ETF_PRESETS) as [string, ...string[]];
-export const RISK_OFF_ASSET_VALUES = RISK_OFF_ASSET_OPTIONS.map((o) => o.value) as [
+const PRESET_KEYS = Object.keys(ETF_PRESETS) as [string, ...string[]];
+const RISK_OFF_ASSET_VALUES = RISK_OFF_ASSET_OPTIONS.map((o) => o.value) as [
   string,
   ...string[],
 ];

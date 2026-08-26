@@ -9,7 +9,7 @@
 import { generateSmaSignals } from "@/lib/simulation/sma";
 import type { PricePoint } from "@/lib/simulation/types";
 
-export interface SignalHistoryInput {
+interface SignalHistoryInput {
   /** Prices including SMA warm-up rows before `startDate`. */
   prices: PricePoint[];
   smaPeriod: number;
@@ -21,7 +21,7 @@ export interface SignalHistoryInput {
   maxSeriesRows: number;
 }
 
-export interface Crossover {
+interface Crossover {
   date: string;
   type: "buy" | "sell";
   price: number;
@@ -29,7 +29,7 @@ export interface Crossover {
   tradingDaysHeld: number;
 }
 
-export interface SignalHistory {
+interface SignalHistory {
   startDate: string;
   endDate: string;
   tradingDays: number;

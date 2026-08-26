@@ -135,12 +135,12 @@ export interface AsymmetricBufferGridSpec {
   gridStep: number;
 }
 
-export interface AsymmetricBufferCell {
+interface AsymmetricBufferCell {
   upperBuffer: number;
   lowerBuffer: number;
 }
 
-export interface AsymmetricBufferConfigs {
+interface AsymmetricBufferConfigs {
   /** Grid cells followed by the no-SMA baseline (last). */
   configs: EtfConfig[];
   /** Config id → the (upper, lower) pair it evaluates. Excludes the baseline. */

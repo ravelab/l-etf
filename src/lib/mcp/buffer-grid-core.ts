@@ -16,13 +16,13 @@ import { formatSweepRow, type FormattedSweepRow } from "@/lib/mcp/format";
 import { loadInflation } from "@/lib/mcp/server-data";
 import { McpToolError } from "@/lib/mcp/tool-result";
 
-export interface BufferGridRow extends FormattedSweepRow {
+interface BufferGridRow extends FormattedSweepRow {
   upperBuffer: number;
   lowerBuffer: number;
   score: number;
 }
 
-export interface BufferGridResult {
+interface BufferGridResult {
   objective: ObjectiveKey;
   inflationPct: number;
   cells: number;

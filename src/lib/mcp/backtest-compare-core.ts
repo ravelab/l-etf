@@ -19,7 +19,7 @@ import { McpToolError } from "@/lib/mcp/tool-result";
 type IndexKey = "sp500" | "nasdaq100";
 type RiskOffAsset = EtfConfig["riskOffAsset"];
 
-export interface CompareBacktestsInput {
+interface CompareBacktestsInput {
   presets: string[];
   smaEnabled: boolean;
   smaPeriod?: number;

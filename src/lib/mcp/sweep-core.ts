@@ -15,7 +15,7 @@ import type { RollingSimulationPoint } from "@/lib/simulation/rolling";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
 import { McpToolError } from "@/lib/mcp/tool-result";
 
-export interface RollingSweepRow {
+interface RollingSweepRow {
   id: string;
   label: string;
   stats: SmaComparisonRow;

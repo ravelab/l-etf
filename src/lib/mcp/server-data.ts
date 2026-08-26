@@ -7,7 +7,7 @@
 // avoiding a self-referential HTTP round-trip. The alignment / warm-up math is
 // reused from the shared pure helpers so results match the UI.
 
-import { getBorrowRate, getInflation, getPriceDateBounds, getPrices } from "@/lib/db/queries";
+import { getBorrowRate, getInflation, getPrices } from "@/lib/db/queries";
 import type { DailyPrice } from "@/lib/data/storage/types";
 import type { PricePoint, RatePoint, EtfConfig } from "@/lib/simulation/types";
 import { getRiskOffFetchTickers } from "@/lib/constants";
@@ -54,17 +54,11 @@ export async function loadInflation(
   return getInflation(startDate, endDate);
 }
 
-export async function loadIndexBounds(
-  index: "sp500" | "nasdaq100",
-): Promise<{ minDate: string; maxDate: string } | null> {
-  return getPriceDateBounds(index);
-}
-
 /**
  * Map a single risk-off ticker to the storage source key. Mirrors the mapping
  * in `src/app/api/risk-off-prices/route.ts` so MCP results match the UI.
  */
-export function riskOffSourceKey(ticker: string): string {
+function riskOffSourceKey(ticker: string): string {
   if (ticker === "VOO") return "sp500";
   if (ticker === "QQQ") return "nasdaq100";
   if (ticker === "BRK.B") return "risk:BRKA";

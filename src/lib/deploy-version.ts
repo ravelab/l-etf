@@ -17,7 +17,7 @@ export const DEPLOY_FIRST_CHECK_MS = 3000;
 /** How long the "Updating app" popup stays up before the reload fires. */
 export const DEPLOY_UPDATE_NOTICE_MS = 1500;
 
-export type DeployAction =
+type DeployAction =
   /** Nothing to do: unusable response, or the id we are already running. */
   | "ignore"
   /** First id this tab has seen — record it silently, no reload. */
