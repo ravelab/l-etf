@@ -22,6 +22,8 @@ function prices(n: number, start = 100): DailyPrice[] {
       open: px,
       close: px,
       adj_close: px,
+      name: "test",
+      source: "test",
     });
   }
   return out;
