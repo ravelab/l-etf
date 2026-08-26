@@ -49,7 +49,7 @@ function parseArgs(argv) {
 async function loadSpecs() {
   const dir = join(__dirname, "specs");
   const files = (await readdir(dir)).filter((f) => f.endsWith(".spec.mjs")).sort();
-  /** @type {Array<{ name: string; run: (ctx: unknown) => Promise<void> }>} */
+  /** @type {Array<{ name: string; tags: string[]; run: (ctx: unknown) => Promise<void> }>} */
   const specs = [];
   for (const file of files) {
     const mod = await import(join(dir, file));
@@ -58,14 +58,30 @@ async function loadSpecs() {
     if (typeof run !== "function") {
       throw new Error(`${file}: expected export async function run(ctx)`);
     }
-    specs.push({ name, run });
+    const tags = Array.isArray(mod.tags)
+      ? mod.tags.filter((t) => typeof t === "string")
+      : [];
+    specs.push({ name, tags, run });
   }
   return specs;
 }
 
+function selectedTags() {
+  const raw = process.env.UI_TEST_TAGS ?? "";
+  return raw
+    .split(/[,\s]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 async function runSpecs(baseUrl) {
   const { grep } = parseArgs(process.argv);
-  const specs = (await loadSpecs()).filter((s) => !grep || s.name.includes(grep));
+  const tags = selectedTags();
+  const specs = (await loadSpecs()).filter((s) => {
+    if (grep && !s.name.includes(grep)) return false;
+    if (tags.length === 0) return true;
+    return tags.every((tag) => s.tags.includes(tag));
+  });
   if (specs.length === 0) {
     console.error("No specs matched.");
     process.exitCode = 1;
@@ -76,6 +92,7 @@ async function runSpecs(baseUrl) {
   // Default CDP callback timeout is 180s; heavy tool sims can stall the main thread longer than that
   // while waitForFunction polls, causing Runtime.callFunctionOn to fail unless raised or disabled.
   const browser = await puppeteer.launch({ headless: true, protocolTimeout: 0 });
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
   const specTimeoutMs = Number(process.env.UI_TEST_SPEC_TIMEOUT_MS);
   const progressMs = Number(process.env.UI_TEST_PROGRESS_MS);
   const failFast = process.env.UI_TEST_FAIL_FAST !== "0";
@@ -84,6 +101,12 @@ async function runSpecs(baseUrl) {
   try {
     for (const [index, spec] of specs.entries()) {
       const page = await browser.newPage();
+      if (bypass) {
+        await page.setExtraHTTPHeaders({
+          "x-vercel-protection-bypass": bypass,
+          "x-vercel-set-bypass-cookie": "samesitenone",
+        });
+      }
       const started = Date.now();
       console.log(
         `[RUN] ${index + 1}/${specs.length} ${spec.name} (timeout ${specTimeoutMs}ms)...`,

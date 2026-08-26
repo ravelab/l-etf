@@ -143,13 +143,40 @@ The cron schedule lives in [`vercel.json`](./vercel.json); the build orchestrati
 | `npm start` | Run the production server (after `build`). |
 | `npm run lint` | ESLint with zero-warnings policy. |
 | `npm run typecheck` | TypeScript check (no emit). |
-| `npm test` | Unit tests (Node test runner). |
+| `npm run knip` | Unused-export / dependency check. |
+| `npm test` / `npm run test:unit` | Unit tests (Node test runner). |
 | `npm run test:coverage` | Unit tests with coverage report. |
+| `npm run test:ui` | Puppeteer UI tests (alias: `ui-tests`). |
+| `npm run check` | Pre-ship gate: lint, typecheck, knip, build. |
+| `npm run setup:hooks` | Point `core.hooksPath` at `.githooks`. |
+| `npm run push:dev` | Push `dev` and wait for post-deploy UI CI. |
+| `npm run ship -- "msg"` | Check, commit on `dev`, push, promote to `main`. |
+| `npm run promote` | Fast-forward `dev` → `main` and wait for production smoke. |
 | `npm run fetch-data` | Refresh local market-data CSVs in `./data/`. Accepts optional args (e.g. `npm run fetch-data index-sp`, `... borrow`, `... risk-off`, `... UPRO TQQQ`). |
 | `npm run calibrate` | Recalibrate simulated-LETF parameters against real ETF history. |
 | `npm run snapshots:generate` | Generate compact per-page tool snapshots used by the UI for fast first paint. |
 | `npm run notify:sma-alerts` | Compute the default SMA regime and send push alerts to subscribed Home Screen devices. Pass `--force` to send even when status has not changed. |
-| `npm run ui-tests` | Puppeteer-based UI smoke tests. |
+
+## Branches and CI
+
+`dev` is where day-to-day work happens; `main` is production — Vercel's production branch, so a push there deploys live. Both are connected to Vercel, so `dev` gets its own preview URL and post-deploy Actions run the same way `main` does.
+
+| Gate | What runs |
+| --- | --- |
+| `.githooks/pre-commit` | lint, typecheck, knip |
+| `.githooks/pre-push` | unit tests (skipped when pushing `main`) |
+| `Test` (Actions) | unit tests on every push to `dev` and every PR |
+| `Test the deployment` (Actions) | full Puppeteer UI suite on preview deploys; `@smoke`-tagged specs on production |
+
+```sh
+npm run setup:hooks          # once per clone
+npm run push:dev             # from dev: push + wait for preview UI CI
+npm run ship -- "message"    # check, commit, push:dev, promote to main
+npm run promote              # ship whatever is already on origin/dev
+```
+
+If preview deployments are Vercel-protected, add the project's automation bypass as the
+`VERCEL_AUTOMATION_BYPASS_SECRET` repository secret so Actions can reach them.
 
 ## Data sources & attribution
 

@@ -1,0 +1,124 @@
+name: Test the deployment
+
+# Vercel reports each deployment to GitHub, so the browser suite can run against what people will
+# actually open. A build passing says nothing about a page that renders blank once it is served.
+#
+# A deployment gets exactly one of the two suites below, chosen by the environment it belongs to:
+#
+#   Preview     the full Puppeteer UI suite
+#   Production  the @smoke subset only (page loads + cheap API checks)
+#
+# The split keeps production verification short: a promoted commit already ran the full suite
+# against the preview moments earlier (push:dev / ship).
+on:
+  deployment_status:
+
+concurrency:
+  group: ui-${{ github.event.deployment.id }}
+  cancel-in-progress: true
+
+jobs:
+  target:
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.target.outputs.url }}
+      environment: ${{ github.event.deployment_status.environment }}
+    steps:
+      - name: Work out what to test
+        id: target
+        env:
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url }}
+          ENVIRONMENT: ${{ github.event.deployment_status.environment }}
+        run: |
+          if [ -n "$DEPLOYMENT_URL" ]; then
+            echo "url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+            if [ -z "$BYPASS" ] && [ "$ENVIRONMENT" != "Production" ]; then
+              echo "::warning::If this preview is protected, add VERCEL_AUTOMATION_BYPASS_SECRET to GitHub Actions."
+            fi
+          elif [ "$ENVIRONMENT" = "Production" ]; then
+            echo "url=https://l-etf.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping: Vercel did not report a deployment URL." >> "$GITHUB_STEP_SUMMARY"
+            echo "url=" >> "$GITHUB_OUTPUT"
+          fi
+
+  ui-preview:
+    needs: target
+    if: needs.target.outputs.url != '' && needs.target.outputs.environment != 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chrome for Puppeteer
+        run: npx puppeteer browsers install chrome
+
+      - name: Full UI suite against the preview
+        env:
+          UI_TEST_BASE_URL: ${{ needs.target.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          UI_TEST_FAIL_FAST: '0'
+        run: npm run test:ui
+
+      - name: Keep the evidence of a failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-preview-evidence
+          path: |
+            ui-tests/report.html
+            ui-tests/last-run.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  smoke-production:
+    needs: target
+    if: needs.target.outputs.url != '' && needs.target.outputs.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chrome for Puppeteer
+        run: npx puppeteer browsers install chrome
+
+      - name: Read-only smoke against production
+        env:
+          UI_TEST_BASE_URL: ${{ needs.target.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          UI_TEST_TAGS: smoke
+          UI_TEST_FAIL_FAST: '0'
+        run: npm run test:ui
+
+      - name: Keep the smoke evidence of a failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-smoke-evidence
+          path: |
+            ui-tests/report.html
+            ui-tests/last-run.json
+          retention-days: 7
+          if-no-files-found: warn

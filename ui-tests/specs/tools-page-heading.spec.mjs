@@ -3,6 +3,8 @@ import { gotoUi } from "../config.mjs";
 
 export const name = "tools-page-heading";
 
+export const tags = ["smoke"];
+
 /** @param {{ baseUrl: string; page: import('puppeteer').Page }} ctx */
 export async function run(ctx) {
   const url = buildToolUrl(ctx.baseUrl, "strategies", new URLSearchParams());

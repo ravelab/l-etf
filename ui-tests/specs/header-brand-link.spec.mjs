@@ -2,6 +2,8 @@ import { gotoUi } from "../config.mjs";
 
 export const name = "header-brand-link";
 
+export const tags = ["smoke"];
+
 /** @param {{ baseUrl: string; page: import('puppeteer').Page }} ctx */
 export async function run(ctx) {
   await gotoUi(ctx.page, ctx.baseUrl);

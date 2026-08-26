@@ -6,17 +6,25 @@ Thanks for your interest in improving this project. Issues and pull requests are
 
 See [README.md](./README.md#installation) for environment setup and the API keys required to run the app.
 
+```bash
+npm install
+npm run setup:hooks   # once per clone — enables .githooks
+```
+
 ## Development workflow
 
-1. Fork the repo and create a feature branch off `main`.
+Day-to-day work happens on `dev`. `main` is production and only advances by a fast-forward of an already-tested `dev` tip (`npm run promote` / `npm run ship`).
+
+1. Fork the repo (or clone) and branch off `dev`.
 2. Make your changes. Keep PRs focused — one logical change per PR.
-3. Before pushing, run:
+3. Open a PR against `dev`. Locally, `.githooks/pre-commit` runs lint / typecheck / knip and `.githooks/pre-push` runs the unit suite; CI re-runs the unit suite on every PR and every push to `dev`.
+4. To ship what's on `dev` to production:
    ```bash
-   npm run lint
-   npm run typecheck
-   npm test
+   npm run push:dev             # push + wait for preview UI CI
+   npm run promote              # fast-forward main + wait for production smoke
+   # or one shot:
+   npm run ship -- "your message"
    ```
-4. Open a PR against `main` with a clear description of what changed and why.
 
 ## Reporting issues
 
@@ -32,6 +40,7 @@ Please include:
 - TypeScript strict mode; ESLint config in `eslint.config.mjs`.
 - Prefer small, focused files; keep components and helpers single-purpose.
 - Add unit tests for new logic in `unit-tests/`.
+- Tag cheap, read-only Puppeteer specs with `export const tags = ["smoke"]` so they run against production after promote.
 
 ## License
 

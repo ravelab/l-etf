@@ -2,6 +2,8 @@ import { gotoUi } from "../config.mjs";
 
 export const name = "signals-page-loads";
 
+export const tags = ["smoke"];
+
 /** @param {{ baseUrl: string; page: import('puppeteer').Page }} ctx */
 export async function run(ctx) {
   const url = `${ctx.baseUrl.replace(/\/$/, "")}/signals`;

@@ -11,6 +11,16 @@ export function getBaseUrl() {
   );
 }
 
+/** Headers for fetch() against a Vercel-protected preview. */
+export function vercelBypassHeaders() {
+  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (!bypass) return {};
+  return {
+    "x-vercel-protection-bypass": bypass,
+    "x-vercel-set-bypass-cookie": "samesitenone",
+  };
+}
+
 /** @param {import('puppeteer').Page} page */
 export function applyDefaultTimeouts(page) {
   const timeoutMs = Number(process.env.UI_TEST_TIMEOUT_MS ?? 90000);

@@ -28,6 +28,17 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   JWT. Extend the host lists for a new browser's push service; never relax them
   to accept arbitrary hosts.
 
+## Branches and CI
+
+`dev` is day-to-day; `main` is production (Vercel production branch) and only
+advances by fast-forward from an already-tested `dev` tip (`npm run promote` /
+`npm run ship`). Wire local hooks once with `npm run setup:hooks`
+(`.githooks`: pre-commit = lint/typecheck/knip; pre-push = unit tests, skipped
+for `main`). Actions: `Test` runs unit on pushes to `dev` and PRs;
+`Test the deployment` runs the Puppeteer UI suite against preview deploys and
+the `@smoke`-tagged subset against production. Prefer `npm run push:dev` over a
+bare `git push` when you need the post-deploy wait.
+
 ## Simulation engine: entry/exit spread contract
 
 `src/lib/simulation/window-calculations.ts` is the single source of truth for

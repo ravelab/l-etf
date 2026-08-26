@@ -1,9 +1,13 @@
+import { vercelBypassHeaders } from "../config.mjs";
+
 export const name = "boxtrades-spx-apy-api-json";
 
 /** @param {{ baseUrl: string }} ctx */
 export async function run(ctx) {
   const base = ctx.baseUrl.replace(/\/$/, "");
-  const r = await fetch(`${base}/api/boxtrades/spx-apy?minDays=365`);
+  const r = await fetch(`${base}/api/boxtrades/spx-apy?minDays=365`, {
+    headers: vercelBypassHeaders(),
+  });
   if (!r.ok) {
     throw new Error(`Boxtrades SPX APY API failed: ${r.status}`);
   }
