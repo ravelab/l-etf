@@ -1,18 +1,14 @@
 #!/bin/sh
-# The suites that take a minute run here, once per push, rather than in pre-commit.
+# Local push hook — intentionally empty of test suites.
 #
-# pre-commit fires on every commit — WIP commits, amends, the five-commit stack about to be
-# squashed — so a slow suite there is a tax paid many times over to prove exactly what the next
-# push proves anyway, and it is the copy `--no-verify` skips. Here it is paid once, and it buys
-# the CI round trip. CI still runs the unit suite, because this hook can be skipped and a fresh
-# clone does not have it at all until `npm run setup:hooks`.
+# Unit tests (and their coverage floor) run in GitHub Actions on the push
+# (.github/workflows/test.yml). Post-deploy UI coverage/artifacts come from
+# ui-after-deploy.yml. Keeping the suite here duplicated CI and delayed the
+# push that produces those artifacts.
 #
-# Skipped for main. main only ever advances by a fast-forward of an already-green dev
-# (scripts/merge-dev-to-main.sh), so a promotion would only re-prove what dev's CI already did.
+# Skipped messaging for main remains: main only ever advances by a fast-forward
+# of an already-green dev (scripts/merge-dev-to-main.sh).
 set -eu
-
-root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
-cd "$root"
 
 # git feeds one line per ref being pushed: <local ref> <local sha> <remote ref> <remote sha>.
 pushing_anything=no
@@ -30,8 +26,9 @@ if [ "$pushing_anything" = no ]; then
   exit 0
 fi
 if [ "$pushing_non_main" = no ]; then
-  echo '→ pre-push: main is a fast-forward of an already-tested dev; skipping the suites.'
+  echo '→ pre-push: main is a fast-forward of an already-tested dev; skipping.'
   exit 0
 fi
 
-npm run --silent prepush
+echo '→ pre-push: suites run in GitHub Actions after push (test.yml + ui-after-deploy).'
+exit 0

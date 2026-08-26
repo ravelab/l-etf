@@ -28,7 +28,6 @@
     "test:ui": "node ui-tests/run.mjs",
     "ui-tests": "npm run --silent test:ui",
     "precommit": "npm run --silent lint && npm run --silent typecheck && npm run --silent knip",
-    "prepush": "npm run --silent test:unit",
     "check": "npm run precommit && npm run build",
     "setup:hooks": "git config core.hooksPath .githooks",
     "push:dev": "./scripts/push-dev.sh",

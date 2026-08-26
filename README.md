@@ -164,7 +164,7 @@ The cron schedule lives in [`vercel.json`](./vercel.json); the build orchestrati
 | Gate | What runs |
 | --- | --- |
 | `.githooks/pre-commit` | lint, typecheck, knip |
-| `.githooks/pre-push` | unit tests (skipped when pushing `main`) |
+| `.githooks/pre-push` | no suites (CI owns unit + post-deploy UI; skipped when pushing `main`) |
 | `Test` (Actions) | unit tests + coverage floor on every push to `dev` and every PR |
 | `Test the deployment` (Actions) | full Puppeteer UI suite on preview deploys; `@smoke`-tagged specs on production |
 
