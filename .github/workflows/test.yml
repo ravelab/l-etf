@@ -33,7 +33,5 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Quiet pass + coverage floor (≥80% lines/functions, ≥70% branches).
       - run: npm run test:unit
-
-      - name: Coverage floor
-        run: npm run test:coverage

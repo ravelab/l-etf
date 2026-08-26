@@ -144,8 +144,8 @@ The cron schedule lives in [`vercel.json`](./vercel.json); the build orchestrati
 | `npm run lint` | ESLint with zero-warnings policy. |
 | `npm run typecheck` | TypeScript check (no emit). |
 | `npm run knip` | Unused-export / dependency check. |
-| `npm test` / `npm run test:unit` | Unit tests (Node test runner). |
-| `npm run test:coverage` | Unit coverage gate (≥80% lines/functions, ≥70% branches). |
+| `npm test` / `npm run test:unit` | Unit tests + coverage line (≥80% lines/functions, ≥70% branches). |
+| `npm run test:coverage` | Same as `test:unit` (alias). |
 | `npm run test:ui` | Puppeteer UI tests (alias: `ui-tests`). |
 | `npm run check` | Pre-ship gate: lint, typecheck, knip, build. |
 | `npm run setup:hooks` | Point `core.hooksPath` at `.githooks`. |

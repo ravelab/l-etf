@@ -23,8 +23,8 @@
     "snapshots:generate": "node --import tsx scripts/generate-snapshots.ts",
     "snapshots:test": "node --input-type=module -e \"import('./scripts/test-snapshots.mjs')\"",
     "test": "npm run --silent test:unit",
-    "test:unit": "node --import tsx --test unit-tests/**/*.test.ts",
-    "test:coverage": "./scripts/unit-coverage.sh",
+    "test:unit": "./scripts/unit-test.sh",
+    "test:coverage": "./scripts/unit-test.sh",
     "test:ui": "node ui-tests/run.mjs",
     "ui-tests": "npm run --silent test:ui",
     "precommit": "npm run --silent lint && npm run --silent typecheck && npm run --silent knip",
@@ -58,7 +58,8 @@
   },
   "knip": {
     "entry": [
-      "scripts/*.{ts,mjs,js}"
+      "scripts/*.{ts,mjs,js}",
+      "unit-tests/**/*.test.ts"
     ],
     "ignore": [
       "public/sw.js",
