@@ -91,7 +91,14 @@ async function runSpecs(baseUrl) {
   const reporter = createReporter();
   // Default CDP callback timeout is 180s; heavy tool sims can stall the main thread longer than that
   // while waitForFunction polls, causing Runtime.callFunctionOn to fail unless raised or disabled.
-  const browser = await puppeteer.launch({ headless: true, protocolTimeout: 0 });
+  // GitHub-hosted runners (Ubuntu 24+) disable unprivileged user namespaces, so Chromium's sandbox
+  // cannot start without --no-sandbox. Restrict that to CI so local runs keep the sandbox.
+  const inCi = Boolean(process.env.CI || process.env.GITHUB_ACTIONS);
+  const browser = await puppeteer.launch({
+    headless: true,
+    protocolTimeout: 0,
+    args: inCi ? ["--no-sandbox", "--disable-setuid-sandbox"] : [],
+  });
   const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
   const specTimeoutMs = Number(process.env.UI_TEST_SPEC_TIMEOUT_MS);
   const progressMs = Number(process.env.UI_TEST_PROGRESS_MS);
