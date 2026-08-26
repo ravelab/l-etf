@@ -110,3 +110,50 @@ test("computeSmaSignalSnapshot returns both index signals", () => {
   assert.ok(Number.isFinite(snapshot.sp500.percentDiff));
   assert.ok(Number.isFinite(snapshot.nasdaq100.percentDiff));
 });
+
+test("describeSmaSignalConfig returns None when both indexes are disabled", () => {
+  const config = {
+    ...getDefaultSmaSignalConfig(),
+    smaSpEnabled: false,
+    smaNqEnabled: false,
+  };
+  assert.equal(describeSmaSignalConfig(config), "None");
+});
+
+test("describeSmaSignalStatus returns No alerts enabled when both indexes are disabled", () => {
+  const config = {
+    ...getDefaultSmaSignalConfig(),
+    smaSpEnabled: false,
+    smaNqEnabled: false,
+  };
+  assert.equal(describeSmaSignalStatus(snap(), config), "No alerts enabled");
+});
+
+test("describeSmaSignalChange falls back to current status when regimes are unchanged", () => {
+  const current = snap();
+  const text = describeSmaSignalChange(current, current);
+  assert.equal(text, describeSmaSignalStatus(current));
+});
+
+test("describeSmaSignalChange without previous uses current status", () => {
+  const current = snap();
+  assert.equal(describeSmaSignalChange(current), describeSmaSignalStatus(current));
+});
+
+test("describeSmaSignalStatus maps Buy/Sell labels to L-ETF wording", () => {
+  const snapshot = snap({
+    sp500: {
+      ...snap().sp500,
+      signalLabel: "Buy",
+      percentDiff: 1,
+    },
+    nasdaq100: {
+      ...snap().nasdaq100,
+      signalLabel: "Sell",
+      percentDiff: -2,
+    },
+  });
+  const text = describeSmaSignalStatus(snapshot);
+  assert.match(text, /SPX: Buy L-ETFs \(\+1\.00%\)/);
+  assert.match(text, /NDX: Sell L-ETFs \(-2\.00%\)/);
+});

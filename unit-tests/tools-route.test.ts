@@ -128,6 +128,7 @@ test("persistedToolStateMatchesUrl requires every present URL field to agree", (
     smaNqUpperBuffer: 5,
     smaNqLowerBuffer: 5,
     riskOffAsset: "SGOV",
+    leverageTolerancePct: 2,
   };
   assert.equal(
     persistedToolStateMatchesUrl(state, new URLSearchParams("letf=UPRO&sd=2000-01-01&ed=2020-01-01&py=10&ro=SGOV")),
@@ -145,4 +146,59 @@ test("persistedToolStateMatchesUrl requires every present URL field to agree", (
     persistedToolStateMatchesUrl(state, new URLSearchParams("sd=2000-01-01&py=5")),
     false,
   );
+  assert.equal(
+    persistedToolStateMatchesUrl(state, new URLSearchParams("preset=UPRO&sd=2000-01-01")),
+    true,
+  );
+  assert.equal(
+    persistedToolStateMatchesUrl(state, new URLSearchParams("sd=2000-01-01&lt=2")),
+    true,
+  );
+  assert.equal(
+    persistedToolStateMatchesUrl(state, new URLSearchParams("sd=2000-01-01&lt=9")),
+    false,
+  );
+  assert.equal(
+    persistedToolStateMatchesUrl(state, new URLSearchParams("sd=1999-01-01")),
+    false,
+  );
+  assert.equal(
+    persistedToolStateMatchesUrl(state, new URLSearchParams("ed=2019-01-01")),
+    false,
+  );
+});
+
+test("shouldQueueToolAutorun respects suppressAutoRun and shouldAutoRunFromSearch", () => {
+  const params = new URLSearchParams("tab=strategies&sd=2020-01-01");
+  assert.equal(
+    shouldQueueToolAutorun(params, {
+      allowInitialSearchAutoRun: true,
+      suppressAutoRun: true,
+      shouldAutoRunFromSearch: () => true,
+      hasCachedResults: false,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldQueueToolAutorun(params, {
+      allowInitialSearchAutoRun: true,
+      suppressAutoRun: false,
+      shouldAutoRunFromSearch: () => false,
+      hasCachedResults: false,
+    }),
+    false,
+  );
+});
+
+test("canonicalNormalizedToolsHrefKey sorts params and strips autorun", () => {
+  const key = canonicalNormalizedToolsHrefKey(
+    "/tools",
+    new URLSearchParams("ed=2020-01-01&autorun=1&sd=2000-01-01&tab=backtest"),
+  );
+  assert.equal(key, "/tools?ed=2020-01-01&sd=2000-01-01&tab=backtest");
+});
+
+test("hasMeaningfulSearchParams accepts empty and nullish inputs", () => {
+  assert.equal(hasMeaningfulSearchParams(), false);
+  assert.equal(hasMeaningfulSearchParams({ sd: null, ed: undefined }), false);
 });

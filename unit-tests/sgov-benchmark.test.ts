@@ -38,3 +38,28 @@ test("buildSgovFinalValuesByWindow skips windows with no usable prices", () => {
   );
   assert.equal(byWindow.size, 0);
 });
+
+test("buildSgovFinalValuesByWindow skips non-positive prices", () => {
+  const byWindow = buildSgovFinalValuesByWindow(
+    [{ startDate: "2020-01-10", endDate: "2020-01-20" }],
+    [
+      { date: "2020-01-05", adj_close: 0, close: 0 },
+      { date: "2020-01-15", adj_close: 110, close: 110 },
+    ],
+    1_000,
+  );
+  assert.equal(byWindow.size, 0);
+});
+
+test("buildSgovFinalValuesByWindow accepts unsorted input points", () => {
+  const byWindow = buildSgovFinalValuesByWindow(
+    [{ startDate: "2020-01-10", endDate: "2020-01-20" }],
+    [
+      { date: "2020-01-25", adj_close: 120, close: 120 },
+      { date: "2020-01-05", adj_close: 100, close: 100 },
+      { date: "2020-01-15", adj_close: 110, close: 110 },
+    ],
+    2_000,
+  );
+  assert.equal(byWindow.get("2020-01-10|2020-01-20"), 2_000 * (110 / 100));
+});
