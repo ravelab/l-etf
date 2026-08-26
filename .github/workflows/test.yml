@@ -4,9 +4,8 @@ name: Test
 # that needs a deployed app is in ui-after-deploy.yml, which Vercel triggers once a deployment is
 # live.
 #
-# Unit coverage is collected here (not in a local pre-push). A hook is the wrong place for that
-# gate: it can be skipped with --no-verify, and a fresh clone has no hook until setup:hooks.
-# Local pre-commit still runs lint / typecheck / knip.
+# Unit coverage is collected here (not in a local hook). A fresh clone has no
+# hook until setup:hooks; only pre-commit (lint/typecheck/knip) is wired locally.
 on:
   # main only ever advances by a fast-forward of an already-green dev (merge-dev-to-main.sh), so
   # re-running the same commits there would burn a runner re-proving what the dev push just proved.

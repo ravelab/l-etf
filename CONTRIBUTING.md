@@ -17,7 +17,7 @@ Day-to-day work happens on `dev`. `main` is production and only advances by a fa
 
 1. Fork the repo (or clone) and branch off `dev`.
 2. Make your changes. Keep PRs focused — one logical change per PR.
-3. Open a PR against `dev`. Locally, `.githooks/pre-commit` runs lint / typecheck / knip; unit tests and post-deploy UI run in GitHub Actions after the push (pre-push no longer runs the suite).
+3. Open a PR against `dev`. Locally, `.githooks/pre-commit` runs lint / typecheck / knip; unit tests and post-deploy UI run in GitHub Actions after the push.
 4. To ship what's on `dev` to production:
    ```bash
    npm run push:dev             # push + wait for preview UI CI
