@@ -23,8 +23,10 @@ export function vercelBypassHeaders() {
 
 /**
  * fetch() that can reach Vercel SSO-protected preview URLs.
- * Node's redirect handling drops the bypass cookie dance, so the secret is also
- * stamped on the query string (supported by Vercel) whenever it is set.
+ *
+ * Do not also send `x-vercel-set-bypass-cookie` here: undici follows the 307 to
+ * `/` and loops. The query-string bypass is enough for one-shot API GETs.
+ * Puppeteer navigations still use the header form via setExtraHTTPHeaders.
  */
 export function fetchWithVercelBypass(url, init = {}) {
   const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -34,11 +36,7 @@ export function fetchWithVercelBypass(url, init = {}) {
     parsed.searchParams.set("x-vercel-protection-bypass", bypass);
     finalUrl = parsed.toString();
   }
-  const headers = {
-    ...vercelBypassHeaders(),
-    ...(init.headers ?? {}),
-  };
-  return fetch(finalUrl, { ...init, headers });
+  return fetch(finalUrl, init);
 }
 
 /** @param {import('puppeteer').Page} page */
