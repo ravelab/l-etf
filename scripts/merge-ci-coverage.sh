@@ -101,7 +101,17 @@ if [ "${E2E_JOB_RESULT:-}" = "failure" ]; then
     printf '%s\n' "$note" >> "$GITHUB_STEP_SUMMARY"
   fi
 fi
-node scripts/coverage-combined.mjs --no-run
+# A stage that lands on nothing makes the combined figure a partial figure in disguise, and the
+# merge says so with a non-zero exit. That is worth shouting about, but it is not a reason to fail
+# the deployment: promotion gates on this workflow's conclusion, and a coverage plumbing fault
+# must not hold back a release the tests themselves passed.
+if ! node scripts/coverage-combined.mjs --no-run; then
+  warning='⚠ coverage merge reported an incomplete stage — the combined figure is not the whole picture'
+  echo "$warning" >&2
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    printf '%s\n' "$warning" >> "$GITHUB_STEP_SUMMARY"
+  fi
+fi
 
 if [ -f coverage/combined/coverage-summary.json ]; then
   node -e "const c=require('./coverage/combined/coverage-summary.json').total; const line='✓ combined coverage · '+c.statements.pct+'% statements · '+c.branches.pct+'% branches · '+c.functions.pct+'% functions · '+c.lines.pct+'% lines'; console.log(line); if (process.env.GITHUB_STEP_SUMMARY) require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, line+'\n');"

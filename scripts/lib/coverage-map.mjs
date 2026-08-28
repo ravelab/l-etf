@@ -94,7 +94,7 @@ function flattenSourceMap(map) {
   };
 }
 
-function rewriteSourceMapPaths(map) {
+function rewriteSourceMapPaths(map, base = root) {
   if (!map) return map;
   const rewrite = (source) => {
     if (typeof source !== "string") return source;
@@ -102,7 +102,18 @@ function rewriteSourceMapPaths(map) {
     if (project) return path.join(root, project[1]);
     const webpack = source.match(/^webpack:\/\/\/?(?:\.[/\\])?(.*)$/);
     if (webpack) return path.join(root, webpack[1].replace(/^\/+/, ""));
-    return source;
+    if (source.startsWith("file://")) {
+      try {
+        return fileURLToPath(source);
+      } catch {
+        return source;
+      }
+    }
+    if (/^[a-z]+:\/\//i.test(source)) return source;
+    // A bundler that names its sources relative to the map means relative to the map, not to the
+    // repository: resolving those against the root climbs out of it, and the file is then thrown
+    // away for not being an app source.
+    return path.resolve(base, source);
   };
   if (Array.isArray(map.sources)) {
     return { ...map, sources: map.sources.map(rewrite) };
@@ -112,7 +123,7 @@ function rewriteSourceMapPaths(map) {
       ...map,
       sections: map.sections.map((section) =>
         section.map
-          ? { ...section, map: rewriteSourceMapPaths(section.map) }
+          ? { ...section, map: rewriteSourceMapPaths(section.map, base) }
           : section,
       ),
     };
@@ -123,10 +134,75 @@ function rewriteSourceMapPaths(map) {
 /**
  * @param {{ map: import("istanbul-lib-coverage").CoverageMap, url: string, code: string, functions?: unknown[], sourceMap?: unknown }} args
  */
-export async function addV8Script({ map, url, code, functions, sourceMap }) {
-  if (!code || !Array.isArray(functions)) return;
+/**
+ * Whether two readings of a file agree on where its statements are.
+ *
+ * Two stages that ran the same instrument produce the same statement map, and Istanbul's own
+ * merge — which adds counts key by key — is then exactly right. Two that did not produce
+ * different maps for the same file, and merging those by key appends one on the end of the
+ * other: the denominator grows and adding coverage makes the figure look worse.
+ */
+function sameStatementShape(fileCoverage, entry) {
+  const mine = (fileCoverage.data ?? fileCoverage).statementMap ?? {};
+  const theirs = entry.statementMap ?? {};
+  const keys = Object.keys(mine);
+  if (keys.length !== Object.keys(theirs).length) return false;
+  return keys.every((key) => {
+    const a = mine[key]?.start;
+    const b = theirs[key]?.start;
+    return a && b && a.line === b.line && a.column === b.column;
+  });
+}
+
+/** Every source line an Istanbul entry recorded as executed. */
+function executedLines(entry) {
+  const lines = new Set();
+  for (const [key, count] of Object.entries(entry.s ?? {})) {
+    if (!count) continue;
+    const loc = entry.statementMap?.[key];
+    if (!loc?.start) continue;
+    const last = loc.end?.line ?? loc.start.line;
+    for (let line = loc.start.line; line <= last; line += 1) lines.add(line);
+  }
+  return lines;
+}
+
+/** Add what another instrumentation ran to a file the map holds, by the lines both agree on. */
+function foldStatementsByLine(fileCoverage, entry) {
+  const covered = executedLines(entry);
+  const data = fileCoverage.data ?? fileCoverage;
+  if (covered.size) {
+    for (const [key, loc] of Object.entries(data.statementMap ?? {})) {
+      if (data.s[key] > 0 || !loc?.start) continue;
+      if (covered.has(loc.start.line)) data.s[key] = 1;
+    }
+  }
+  // A function is named by the line it is declared on in either reading, and the other half of
+  // this report says outright whether it ran — so that much carries over without guessing.
+  // Branches do not: a line having run says nothing about which way it went.
+  const ran = new Set();
+  for (const [key, count] of Object.entries(entry.f ?? {})) {
+    if (!count) continue;
+    const decl = entry.fnMap?.[key]?.decl?.start ?? entry.fnMap?.[key]?.loc?.start;
+    if (decl?.line) ran.add(decl.line);
+  }
+  if (!ran.size) return;
+  for (const [key, meta] of Object.entries(data.fnMap ?? {})) {
+    if (data.f[key] > 0) continue;
+    const decl = meta?.decl?.start ?? meta?.loc?.start;
+    if (decl?.line && ran.has(decl.line)) data.f[key] = 1;
+  }
+}
+
+/**
+ * Merge one script's V8 coverage into the map. Returns how many app sources it landed on, so a
+ * caller can tell a script that mapped onto nothing from one that was never read at all.
+ */
+export async function addV8Script({ map, url, code, functions, sourceMap, sourceBase }) {
+  if (!code || !Array.isArray(functions)) return 0;
+  let merged = 0;
   try {
-    const flat = rewriteSourceMapPaths(flattenSourceMap(sourceMap));
+    const flat = rewriteSourceMapPaths(flattenSourceMap(sourceMap), sourceBase ?? root);
     const fileUrl = url.startsWith("file://")
       ? url
       : pathToFileURL(
@@ -151,11 +227,15 @@ export async function addV8Script({ map, url, code, functions, sourceMap }) {
       const glued = resolved.match(/\[project\][\\/](.*)$/);
       if (glued) resolved = path.join(root, glued[1]);
       if (!isAppSource(resolved)) continue;
-      map.merge({ [resolved]: { ...entry, path: resolved } });
+      const existing = map.files().includes(resolved) ? map.fileCoverageFor(resolved) : null;
+      if (existing && !sameStatementShape(existing, entry)) foldStatementsByLine(existing, entry);
+      else map.merge({ [resolved]: { ...entry, path: resolved } });
+      merged += 1;
     }
   } catch {
     // Unmappable — skip.
   }
+  return merged;
 }
 
 export async function loadNodeV8Dir(map, dir) {
@@ -177,14 +257,14 @@ export async function loadNodeV8Dir(map, dir) {
             .then(JSON.parse)
             .catch(() => null)
         : null;
-      await addV8Script({
+      const merged = await addV8Script({
         map,
         url: pathToFileURL(file).href,
         code,
         functions: script.functions ?? [],
         ...(sourceMap ? { sourceMap } : {}),
       });
-      added += 1;
+      if (merged) added += 1;
     }
   }
   return added;

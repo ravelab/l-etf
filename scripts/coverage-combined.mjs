@@ -89,14 +89,23 @@ async function loadBrowserClient(map) {
         // ignore
       }
     }
-    await addV8Script({
+    // A chunk's map names its sources relative to where the map sits, so that is where those
+    // relative paths have to be resolved from.
+    let sourceBase = path.join(root, ".next");
+    try {
+      sourceBase = path.join(root, ".next", path.dirname(new URL(entry.url).pathname));
+    } catch {
+      // Not a URL with a directory in it; the build root will do.
+    }
+    const merged = await addV8Script({
       map,
       url: entry.url,
       code: entry.text,
       functions: entry.functions ?? [],
+      sourceBase,
       ...(sourceMap ? { sourceMap } : {}),
     });
-    added += 1;
+    if (merged) added += 1;
   }
   return added;
 }
@@ -148,8 +157,13 @@ async function main() {
   const filled = await fillUncoveredSrcFiles(map);
   console.log(`  filled  : ${filled} unloaded src files at 0%`);
 
+  // Scripts read is not the same as coverage landed: a stage whose source maps never resolve onto
+  // src/** merges silently into nothing, and the combined figure then quietly becomes the figure
+  // of the stages that did work. Both are failures worth stopping for.
   const empty = stages.filter(
-    (stage) => stage.name !== "jsdom" && stage.scripts === 0,
+    (stage) =>
+      stage.name !== "jsdom" &&
+      (stage.scripts === 0 || stage.newStatements === 0),
   );
   if (empty.length) {
     console.error(
