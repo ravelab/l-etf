@@ -27,6 +27,7 @@ import {
   loadNodeV8Dir,
   loadIstanbulJson,
   fillUncoveredSrcFiles,
+  mergeCoverageMap,
   summarize,
   pct,
   formatCoverageLine,
@@ -137,12 +138,21 @@ async function main() {
     ["jsdom", (m) => loadIstanbulJson(m, UNIT_JSDOM)],
     ["browser", loadBrowserClient],
   ]) {
-    const scripts = await load(map);
+    // Each suite is read into a map of its own first, so it can be reported the way the unit run
+    // reports itself — its own percentage over every src file — before it joins the others. What
+    // it adds to the total is a different question from what it covers.
+    const stageMap = libCoverage.createCoverageMap({});
+    const scripts = await load(stageMap);
+    const alone = libCoverage.createCoverageMap(JSON.parse(JSON.stringify(stageMap.data)));
+    await fillUncoveredSrcFiles(alone);
+    const own = summarize(alone);
+    mergeCoverageMap(map, stageMap);
     const totals = summarize(map);
     const current = { files: map.files().length, covered: totals.statements[0] };
     stages.push({
       name,
       scripts,
+      own,
       newFiles: current.files - previous.files,
       newStatements: current.covered - previous.covered,
     });
@@ -152,6 +162,7 @@ async function main() {
     console.log(
       `  ${stage.name.padEnd(8)}: ${String(stage.scripts).padStart(4)} scripts -> +${stage.newFiles} files, +${stage.newStatements} covered statements`,
     );
+    console.log(`            ${formatCoverageLine("on its own", stage.own).replace("✓ ", "")}`);
   }
 
   const filled = await fillUncoveredSrcFiles(map);

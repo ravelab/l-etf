@@ -238,6 +238,21 @@ export async function addV8Script({ map, url, code, functions, sourceMap, source
   return merged;
 }
 
+/**
+ * Fold one whole coverage map into another, file by file, by the same rule `addV8Script` uses:
+ * key by key where the two readings agree on the shape of a file, by line where they do not.
+ *
+ * Lets a stage be measured on its own before it joins the rest, without converting it twice.
+ */
+export function mergeCoverageMap(target, source) {
+  for (const file of source.files()) {
+    const entry = source.fileCoverageFor(file).data;
+    const existing = target.files().includes(file) ? target.fileCoverageFor(file) : null;
+    if (existing && !sameStatementShape(existing, entry)) foldStatementsByLine(existing, entry);
+    else target.merge({ [file]: { ...entry, path: file } });
+  }
+}
+
 export async function loadNodeV8Dir(map, dir) {
   if (!existsSync(dir)) return 0;
   let added = 0;
