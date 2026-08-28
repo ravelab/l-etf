@@ -129,15 +129,6 @@ while :; do
       case "$conclusion" in
         success)
           echo '✓ Post-deploy tests passed'
-          # The run that just went green is also the one that measured the code. Bring its
-          # numbers back rather than leaving them in a log somebody has to go and open.
-          coverage_dir="$(mktemp -d)"
-          if gh run download "$run_id" -n coverage-combined -D "$coverage_dir" >/dev/null 2>&1; then
-            node "$root/scripts/print-coverage.mjs" "$coverage_dir/stages.json" || true
-          else
-            echo '  (this run published no coverage to report)'
-          fi
-          rm -rf "$coverage_dir"
           exit 0
           ;;
         *)

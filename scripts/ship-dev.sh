@@ -18,6 +18,14 @@ if [ "$branch" != "dev" ]; then
   exit 1
 fi
 
+# Whatever becomes of this ship, it ends by saying what is covered. A number is worth as much
+# when a deploy fails as when it lands — more, since a failed ship is when somebody is deciding
+# what to do next — and leaving it inside an Actions log is no way to hand it to anybody.
+report_coverage() {
+  node "$root/scripts/print-coverage.mjs" --sha "$(git rev-parse HEAD 2>/dev/null || echo HEAD)" 2>/dev/null || true
+}
+trap report_coverage EXIT
+
 echo '→ Running pre-ship checks…'
 npm run --silent check
 echo
