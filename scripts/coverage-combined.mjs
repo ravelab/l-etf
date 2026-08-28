@@ -12,7 +12,7 @@
  *   node scripts/coverage-combined.mjs           # run unit + local browser, merge
  *   node scripts/coverage-combined.mjs --no-run  # merge artifacts already on disk
  */
-import { readFile, mkdir, rm } from "node:fs/promises";
+import { readFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -34,6 +34,8 @@ import {
 } from "./lib/coverage-map.mjs";
 
 const OUT = path.join(root, "coverage", "combined");
+/** What each stage is called when a person is reading, rather than what loads it. */
+const STAGE_LABELS = { unit: "unit", jsdom: "jsdom", browser: "e2e" };
 const UNIT_V8 = path.join(root, "coverage", "unit-v8");
 const UNIT_JSDOM = path.join(root, "coverage", "unit-jsdom", "coverage-final.json");
 const BROWSER_DIR = path.join(root, "coverage", "browser-v8");
@@ -196,6 +198,26 @@ async function main() {
   for (const [key, value] of Object.entries(totals)) {
     console.log(`  ${key.padEnd(11)} ${pct(value).padStart(6)}%  (${value[0]}/${value[1]})`);
   }
+  // A machine-readable copy of the same answers, so anything downstream — the ship script
+  // printing them back in a terminal, most of all — does not have to read them out of a log.
+  const asShares = (from) =>
+    Object.fromEntries(
+      Object.entries(from).map(([key, value]) => [
+        key,
+        { covered: value[0], total: value[1], pct: Number(pct(value)) },
+      ]),
+    );
+  await writeFile(
+    path.join(OUT, "stages.json"),
+    JSON.stringify(
+      {
+        stages: stages.map((stage) => ({ name: stage.name, label: STAGE_LABELS[stage.name] ?? stage.name, ...asShares(stage.own) })),
+        combined: asShares(summarize(map)),
+      },
+      null,
+      2,
+    ),
+  );
   const line = formatCoverageLine("combined coverage", totals);
   console.log(`\n${line}`);
   console.log(`  files measured: ${map.files().length}`);
