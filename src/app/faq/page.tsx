@@ -435,29 +435,38 @@ const FAQ_DATA: FAQItem[] = [
             Yahoo&apos;s own early <code>^NDX</code> rows too.
           </li>
           <li>
-            <strong className="text-foreground">February 5, 1971 — earliest Nasdaq proxy.</strong>{" "}This
+            <strong className="text-foreground">February 5, 1971 — NDX proto.</strong>{" "}This
             is the launch and base date of the Nasdaq Composite. For 1971 through January 30, 1985,
             L-ETF uses Composite price moves scaled to meet NDX at its launch, then adds
             estimated dividends and QQQ&apos;s expense drag. It provides useful older market regimes,
             but it is not actual Nasdaq-100 history.
           </li>
           <li>
-            <strong className="text-foreground">March 20, 1885 — earliest S&amp;P proxy row.</strong>{" "}This
-            is where L-ETF&apos;s stitched long-history U.S. equity series begins. The S&amp;P 500 itself
-            did not launch until March 4, 1957, so the older portion is a historical reconstruction,
-            not live S&amp;P 500 performance. From July 1, 1926 to April 5, 1988 that reconstruction
-            is a rules-based cap-weighted large-cap index rather than the S&amp;P itself — see{" "}
+            <strong className="text-foreground">July 1, 1926 — SPX proxy.</strong>{" "}This is
+            where the rules-based stand-in for the S&amp;P 500 begins, and it runs through April 5,
+            1988: Ken French&apos;s cap-weighted basket of every U.S. stock above the NYSE
+            70th-percentile size breakpoint — the market&apos;s biggest 30% by size, dividends
+            included. It is also the earliest date the underlying stock-level records support. See{" "}
             <strong className="text-foreground">
               &ldquo;What is the benchmark before 1988?&rdquo;
             </strong>{" "}
-            below. It is useful for very long stress tests, but conclusions should be treated more
-            cautiously than results from the modern-index period.
+            below.
+          </li>
+          <li>
+            <strong className="text-foreground">March 20, 1885 — SPX proto.</strong>{" "}This
+            is where L-ETF&apos;s stitched long-history U.S. equity series begins. The S&amp;P 500 itself
+            did not launch until March 4, 1957, so the older portion is a historical reconstruction,
+            not live S&amp;P 500 performance. Before July 1, 1926 it is the Cowles-era reconstruction,
+            rescaled to join the series smoothly — the least reliable stretch in the app. It is
+            useful for very long stress tests, but conclusions should be treated more cautiously
+            than results from the modern-index period.
           </li>
         </ul>
         <p className="mt-3">
           In short: use the <strong className="text-foreground">1988 SPX</strong> and
           <strong className="text-foreground"> 1985 NDX</strong> shortcuts for cleaner index-specific
-          comparisons; use <strong className="text-foreground">1971</strong> or
+          comparisons; use <strong className="text-foreground">1971</strong>,
+          <strong className="text-foreground"> 1926</strong> or
           <strong className="text-foreground"> 1885</strong> when the extra historical regimes are
           worth accepting more proxy uncertainty.
         </p>

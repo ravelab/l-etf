@@ -43,6 +43,12 @@ export const RISK_OFF_ASSET_OPTIONS = [
 
 export const CONSTANT_SP500_START_DATE = "1885-03-20";
 export const CONSTANT_NASDAQ100_START_DATE = "1971-02-05";
+/** Calendar icon shortcut: first day of the rules-based large-cap proxy. From
+ *  here to CONSTANT_SP500_SHORTCUT_DATE the S&P series is replaced by the
+ *  Fama-French cap-weighted basket of the market's biggest 30% by size
+ *  (FF_SPLICE_START in scripts/fetch-data.ts); everything earlier is the
+ *  Cowles-era reconstruction. */
+export const CONSTANT_SP500_PROXY_START_DATE = "1926-07-01";
 /** Calendar icon shortcut: earliest meaningful start for S&P 500 strategies.
  *  1988-04-06 is when S&P stopped using sector quotas to choose constituents. */
 export const CONSTANT_SP500_SHORTCUT_DATE = "1988-04-06";

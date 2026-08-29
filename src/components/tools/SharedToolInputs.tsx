@@ -11,6 +11,7 @@ import { CalendarShortcutIcon } from "@/components/ui/CalendarShortcutIcon";
 import {
   CONSTANT_NASDAQ100_SHORTCUT_DATE,
   CONSTANT_NASDAQ100_START_DATE,
+  CONSTANT_SP500_PROXY_START_DATE,
   CONSTANT_SP500_SHORTCUT_DATE,
   CONSTANT_SP500_START_DATE,
   RISK_OFF_ASSET_OPTIONS,
@@ -30,8 +31,13 @@ type DatePresetOption = {
 const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
   {
     value: CONSTANT_SP500_START_DATE,
+    label: "SPX proto",
+    title: "Earliest S&P row (Cowles-era reconstruction)",
+  },
+  {
+    value: CONSTANT_SP500_PROXY_START_DATE,
     label: "SPX proxy",
-    title: "Earliest S&P proxy",
+    title: "Start of the rules-based proxy: the market's biggest 30% by size",
   },
   {
     value: CONSTANT_SP500_SHORTCUT_DATE,
@@ -40,8 +46,8 @@ const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
   },
   {
     value: CONSTANT_NASDAQ100_START_DATE,
-    label: "NDX proxy",
-    title: "Earliest Nasdaq proxy",
+    label: "NDX proto",
+    title: "Earliest Nasdaq row (Composite scaled to meet NDX)",
   },
   {
     value: CONSTANT_NASDAQ100_SHORTCUT_DATE,

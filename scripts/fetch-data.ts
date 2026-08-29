@@ -6,6 +6,7 @@ import { writeFile, readFile, open, appendFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { CONSTANT_SP500_PROXY_START_DATE } from "../src/lib/constants";
 import { computeAdjustedRebaseRatio } from "../src/lib/data/adjusted-rebase";
 import { spliceFfLargeCapHistory } from "../src/lib/data/ff-large-cap-splice";
 import {
@@ -1636,7 +1637,7 @@ async function readNdx1985Bars(): Promise<Array<{ date: string; open: number; cl
 }
 
 const FF_LARGE_CAP_FILE = "index-ffhi30.csv";
-const FF_SPLICE_START = "1926-07-01";
+const FF_SPLICE_START = CONSTANT_SP500_PROXY_START_DATE;
 const FF_SPLICE_END_EXCLUSIVE = "1988-04-06";
 const FF_SPLICE_NAME = "FF-HI30-TR";
 // Both tags carry "scaled" so serializeIndexCsvRow rounds their derived `close`
