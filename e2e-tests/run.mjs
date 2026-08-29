@@ -104,12 +104,18 @@ async function runSpecs(baseUrl) {
     args: inCi ? ["--no-sandbox", "--disable-setuid-sandbox"] : [],
   });
   const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? "";
+  // Two header sets, deliberately. The browser wants the cookie so in-page
+  // navigations inherit the bypass; a one-shot fetch must not ask for it, because
+  // undici keeps no cookie jar and so loops on the 307 that sets it (the same
+  // trap withBypass avoids in config.mjs). Sharing one set is why every source-map
+  // fetch came back null and the e2e coverage stage reported 0%.
   const bypassHeaders = bypass
     ? {
         "x-vercel-protection-bypass": bypass,
         "x-vercel-set-bypass-cookie": "samesitenone",
       }
     : {};
+  const bypassFetchHeaders = bypass ? { "x-vercel-protection-bypass": bypass } : {};
   const specTimeoutMs = Number(process.env.E2E_TEST_SPEC_TIMEOUT_MS);
   const progressMs = Number(process.env.E2E_TEST_PROGRESS_MS);
   const failFast = process.env.E2E_TEST_FAIL_FAST !== "0";
@@ -152,7 +158,7 @@ async function runSpecs(baseUrl) {
         clearInterval(progress);
         if (browserCoverageDir) {
           const harvested = await harvestPageJsCoverage(page, {
-            fetchHeaders: bypassHeaders,
+            fetchHeaders: bypassFetchHeaders,
           }).catch(() => []);
           coverageEntries.push(...harvested);
         }

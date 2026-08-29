@@ -35,12 +35,20 @@ export async function harvestPageJsCoverage(page, { fetchHeaders = {} } = {}) {
       let sourceMap = null;
       const mapCandidates = [];
       if (marker) {
-        mapCandidates.push(new URL(marker[1].trim(), item.url).href);
+        // Turbopack names a chunk's map after neither the chunk nor anything
+        // predictable, so the footer is the only way to find it — which is why
+        // the `.map.json` fallback is built from the map's name, not the chunk's.
+        const mapUrl = new URL(marker[1].trim(), item.url).href;
+        // Vercel answers 403 to any request for a `*.map`, file present or not,
+        // so a preview build republishes the same bytes under a name that is
+        // served (scripts/publish-source-maps.mjs).
+        mapCandidates.push(mapUrl, `${mapUrl}.json`);
       }
       // Next production builds often omit the footer comment even when
       // productionBrowserSourceMaps emitted a sibling `.map`.
       if (item.url.includes("/_next/") && item.url.includes(".js")) {
-        mapCandidates.push(`${item.url.split("?")[0]}.map`);
+        const sibling = `${item.url.split("?")[0]}.map`;
+        mapCandidates.push(sibling, `${sibling}.json`);
       }
       for (const mapUrl of mapCandidates) {
         sourceMap = await fetch(mapUrl, { headers: fetchHeaders })

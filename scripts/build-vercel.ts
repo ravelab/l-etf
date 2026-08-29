@@ -180,6 +180,10 @@ async function main() {
 
   run("next build");
 
+  // Must follow `next build` and must not be an npm `postbuild` hook: this path
+  // invokes the bundler directly, so a lifecycle hook would silently never fire.
+  run("node scripts/publish-source-maps.mjs");
+
   await maybeNotifySmaAlerts(cronBuildMarker);
 
   // Clear the cron build marker only after `next build` succeeded and the notify
