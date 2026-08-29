@@ -73,8 +73,14 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   // Needed so Puppeteer V8 coverage can map `/_next/static` chunks back onto src/**
-  // for the combined unit+e2e coverage report.
-  productionBrowserSourceMaps: true,
+  // for the combined unit+e2e coverage report. Everywhere that report is produced
+  // emits them; the deployment people actually browse does not, because a served
+  // `.map` hands out the whole of src/** to anyone who asks.
+  //
+  // Not `=== "preview"`: the local suite runs against a production build of its own
+  // (see e2e-tests/run.mjs), so an unset VERCEL_ENV has to keep emitting maps or
+  // local coverage loses the same stage this was written to give back.
+  productionBrowserSourceMaps: process.env.VERCEL_ENV !== "production",
   outputFileTracingIncludes: {
     "/api/**/*": ["./data/**/*.csv", "./src/lib/tool-snapshots/**/*.json"],
     // The MCP endpoint (app/[transport]/route.ts, served at /mcp) reads the same
