@@ -88,7 +88,15 @@ export function mergeIncrementalIndexRows(params: {
 
   const storedDates = new Set(rows.map((row) => row.date));
   const appendedRows = params.freshRows
-    .filter((row) => !storedDates.has(row.date))
+    // A stored index row must carry a close: it drives the SMA signals and the
+    // fill prices, and the engine throws on any date whose close is not finite.
+    // Tiingo publishes the adjusted close hours before Yahoo has the raw bar, so
+    // a build landing in that window sees an adjusted-only tail row — appending
+    // it takes down every SMA path until the next build. Waiting for the bar
+    // costs nothing: the date arrives whole on the next run. Already-stored
+    // dates are untouched by this, so Tiingo's later adj_close revisions still
+    // land through the preservesStoredRaw branch above.
+    .filter((row) => !storedDates.has(row.date) && row.close != null)
     .map((row) => ({ ...row }));
 
   if (appendedRows.length > 0) {

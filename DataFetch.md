@@ -50,9 +50,16 @@ close return. A later Tiingo-backed run replaces that provisional row.
 Incremental index refreshes join Tiingo adjusted closes to Yahoo raw bars by
 date. A missing Yahoo date inside the overlap window does not abort the refresh:
 the Tiingo adjusted close is retained, any raw open/close already stored for
-that date is preserved, and later matched dates can still be appended. A row
-without stored or current Yahoo data is allowed only in the recent trailing
-partial-data window and is backfilled on a later run.
+that date is preserved, and later matched dates can still be appended.
+
+A *new* date is never appended without a close. The close drives the SMA signals
+and the fill prices, and the engine throws on any date whose close is not finite
+("Missing close price for sp500 on <date>"), which white-screens every tool page
+until the next build. Tiingo publishes the adjusted close hours before Yahoo has
+the raw bar, so a build landing in that window would otherwise write a close-less
+trailing row — that took production down on 2026-08-29. Waiting costs nothing:
+the date arrives whole on the next run. Already-stored dates are unaffected, so
+Tiingo's later adjusted-close revisions still land on them.
 
 ## CSV Families
 
