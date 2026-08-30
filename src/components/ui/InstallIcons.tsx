@@ -61,6 +61,46 @@ export function ChevronRightIcon({ className = "" }: IconProps) {
   );
 }
 
+/** iOS share sheet — the chevron that opens the rest of the actions ("View More"). */
+export function ChevronDownIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`${BASE} ${className}`}>
+      <path d="m5 9 7 7 7-7" />
+    </svg>
+  );
+}
+
+/** A browser window — "open this in Chrome or Edge". */
+export function BrowserWindowIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`${BASE} ${className}`}>
+      <rect x="2.5" y="4" width="19" height="16" rx="2.5" />
+      <path d="M2.5 9h19" />
+      <circle cx="6" cy="6.5" r=".9" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="6.5" r=".9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/**
+ * The tune/sliders control at the left of Chrome's address bar, where a site's
+ * notification permission is reset. This is the one step that matters to anyone
+ * who dismissed or blocked the prompt: the button below goes quiet afterwards
+ * and there is nothing on the page to say why.
+ */
+export function SlidersIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`${BASE} ${className}`}>
+      <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+      <circle cx="16" cy="7" r="2.2" />
+      <circle cx="10" cy="17" r="2.2" />
+    </svg>
+  );
+}
+
 export function BellIcon({ className = "" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}

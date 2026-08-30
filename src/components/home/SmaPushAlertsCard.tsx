@@ -131,7 +131,7 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefa
         status: browserState.installFirst ? "install-first" : "ready",
         message: browserState.installFirst
           ? "Install the app to your Home Screen on iPhone before enabling alerts."
-          : "Install the app on your phone or use a supported desktop browser, then enable alerts to get notified when the SMA signal changes.",
+          : "Add L-ETF to your Home Screen on iPhone or Android, or just use Chrome or Edge on desktop, then enable the alerts you want.",
       });
     }
 
@@ -262,7 +262,7 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefa
         status: browserState.installFirst ? "install-first" : "ready",
         message: browserState.installFirst
           ? "Install the app to your Home Screen on iPhone before enabling alerts."
-          : "Install the app on your phone or use a supported desktop browser, then enable alerts to get notified when the SMA signal changes.",
+          : "Add L-ETF to your Home Screen on iPhone or Android, or just use Chrome or Edge on desktop, then enable the alerts you want.",
       });
       toast.success("Push alerts disabled");
     } catch (error) {
@@ -289,8 +289,10 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefa
             <h2 className="text-xl md:text-2xl font-bold mt-1">Get notified when the signal changes</h2>
           </div>
           <p className="text-sm text-muted max-w-2xl">
-            We&apos;ll send you an alert when the SMA signal changes. No account needed —
-            follow the one-time setup for your device, then turn on the alerts you want.
+            We&apos;ll send you an alert when the SMA signal changes. No account needed. On
+            iPhone and Android, add L-ETF to your Home Screen first — neither phone delivers
+            these to a browser tab. On desktop Chrome or Edge, nothing to install: turn the
+            alerts on below.
           </p>
 
           <InstallGuide />

@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/Button";
 import {
   AddToHomeIcon,
   BellIcon,
+  BrowserWindowIcon,
   CheckIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   KebabMenuIcon,
   ShareIcon,
+  SlidersIcon,
 } from "@/components/ui/InstallIcons";
 import { detectInstallPlatform, isStandaloneApp, type InstallPlatform } from "@/lib/push/client";
 
@@ -26,22 +29,39 @@ const TABS: Array<{ id: InstallPlatform; label: string }> = [
 /**
  * The tap-path a person follows in Safari. Rendered as chips so the sequence
  * reads at a glance instead of as a sentence they have to parse mid-install.
+ *
+ * Both ends of this path are easy to get wrong and are why it is five chips
+ * rather than three (carpool-max's InstallGuide learned the same shape). Recent
+ * iOS collapses Safari's toolbar, so Share is reached through `•••` rather than
+ * sitting in the bar; and the share sheet shows a short row of actions first, so
+ * "Add to Home Screen" is usually below a "View More" that has to be opened.
+ * A path that starts at Share and ends at Add sends people looking for two
+ * buttons their phone is not currently showing them.
+ *
+ * `•••` carries no icon on purpose: it is the same three dots in every language,
+ * whereas Safari localizes every other label here.
  */
 const IOS_PATH: Array<{ icon: ReactNode; label: string }> = [
+  { icon: null, label: "•••" },
   { icon: <ShareIcon />, label: "Share" },
+  { icon: <ChevronDownIcon />, label: "View More" },
   { icon: <AddToHomeIcon />, label: "Add to Home Screen" },
   { icon: <CheckIcon />, label: "Add" },
 ];
 
 const ANDROID_STEPS: Array<{ icon: ReactNode; title: string; detail: string }> = [
-  { icon: <KebabMenuIcon />, title: "Open Chrome's menu", detail: "Tap the ⋮ button in the top-right corner." },
-  { icon: <AddToHomeIcon />, title: "Tap \"Install app\"", detail: "Some phones label it \"Add to Home screen\" instead." },
-  { icon: <BellIcon />, title: "Open it from your Home Screen", detail: "Then tap Enable alerts below and allow notifications." },
+  // The glyph itself is the icon beside this step; spelling it out in the detail
+  // as "⋮" renders as something close to a colon at 12px and reads as a typo.
+  { icon: <KebabMenuIcon />, title: "Open Chrome's menu", detail: "The three-dot button in the top-right corner." },
+  { icon: <AddToHomeIcon />, title: "Tap \"Install app\"", detail: "Some phones label it \"Add to Home screen\", and newer Chrome tucks both under \"Share and more\"." },
+  { icon: <CheckIcon />, title: "Confirm \"Install\"", detail: "Chrome asks once more, then drops the icon on your Home Screen." },
+  { icon: <BellIcon />, title: "Open it from the Home Screen", detail: "Tap Enable alerts below, then Allow. Alerts do not reach a Chrome tab." },
 ];
 
 const DESKTOP_STEPS: Array<{ icon: ReactNode; title: string; detail: string }> = [
-  { icon: <CheckIcon />, title: "Use Chrome or Edge", detail: "Safari on macOS does not deliver web push from a browser tab." },
-  { icon: <BellIcon />, title: "Enable alerts and allow notifications", detail: "Tap a button below, then accept the browser's permission prompt." },
+  { icon: <BrowserWindowIcon />, title: "Use Chrome or Edge", detail: "No install needed — a normal tab works. Safari on macOS does not deliver web push from a tab." },
+  { icon: <BellIcon />, title: "Click Enable alerts, then Allow", detail: "The browser asks once, at the top-left of the window. Alerts arrive while the browser is running." },
+  { icon: <SlidersIcon />, title: "Nothing happened? Reset the permission", detail: "Click the tune icon at the left of the address bar → Notifications → Allow, then try again." },
 ];
 
 function StepList({ steps }: { steps: Array<{ icon: ReactNode; title: string; detail: string }> }) {
@@ -154,7 +174,7 @@ export function InstallGuide() {
               {IOS_PATH.map((step, index) => (
                 <li key={step.label} className="flex items-center gap-1.5">
                   <span className="inline-flex items-center gap-1.5 rounded-lg border border-card-border bg-card-bg px-2.5 py-1.5 text-sm font-semibold text-foreground">
-                    <span className="text-accent">{step.icon}</span>
+                    {step.icon && <span className="text-accent">{step.icon}</span>}
                     {step.label}
                   </span>
                   {/* Trailing, so a wrap never starts a line with a lone chevron. */}
@@ -162,6 +182,10 @@ export function InstallGuide() {
                 </li>
               ))}
             </ol>
+            <p className="text-xs text-muted">
+              Scroll this guide to the top before you start — Safari&apos;s share sheet covers the
+              bottom of the screen, and the steps go with it.
+            </p>
             <p className="text-xs text-muted">
               Then open L-ETF from its new Home Screen icon and tap Enable alerts below.
               iPhone only delivers notifications to the installed app, not to a Safari tab.
