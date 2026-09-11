@@ -41,6 +41,16 @@ components, overall `src/**` coverage);
 preview deploys and the `@smoke`-tagged subset against production. Prefer
 `npm run push:dev` over a bare `git push` when you need the post-deploy wait.
 
+`npm run promote` refusing with "main could not be fast-forwarded to dev. Someone
+has committed to main directly" is routine, not a fault: the refresh-data cron
+commits `chore(data): refresh generated artifacts` straight to `main`, so `main`
+runs ahead every few days. Fix it by merging `origin/main` into `dev`, then
+re-running the gates — the merge brings new `data/*.csv` rows, and the futures and
+engine tests read those files — then push and promote. Never rebase `dev` and
+never force-push it; that rewrites commits already pushed and already green in CI,
+for no gain. If `main` is ahead with anything that is not a data-only cron commit,
+stop and ask: that is the case the refusal was written for, and it stays.
+
 ## Simulation engine: entry/exit spread contract
 
 `src/lib/simulation/window-calculations.ts` is the single source of truth for
