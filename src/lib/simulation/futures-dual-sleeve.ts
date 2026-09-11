@@ -61,6 +61,31 @@ function resetToHalves(sleeves: readonly FuturesSleeve[], cursor: readonly numbe
   }
 }
 
+/**
+ * Reads a sleeve's per-day series by date, carrying the last value forward for a
+ * date the sleeve did not trade — the two index families keep different calendars.
+ */
+function byDateWithCarryForward(dates: string[], values: readonly number[]): (date: string) => number {
+  const exact = new Map(dates.map((date, i) => [date, values[i] ?? 0]));
+  return (date: string) => {
+    const hit = exact.get(date);
+    if (hit !== undefined) return hit;
+    let lo = 0;
+    let hi = dates.length - 1;
+    let best = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (dates[mid] <= date) {
+        best = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return best >= 0 ? values[best] ?? 0 : 0;
+  };
+}
+
 /** Regime a sleeve is in on its own day `i`; an out-of-range day carries the last one. */
 function investedAt(sleeve: FuturesSleeve, i: number): boolean {
   if (sleeve.invested.length === 0) return false;
@@ -117,9 +142,32 @@ export function simulateDualSleeveFuturesStrategy(
     return sum + (result.etfResult.totalTradingCostPct / 100) * sleeveFinal;
   }, 0);
 
+  // The ledger belongs to the FUND, so Value and Excess Liquidity have to be the
+  // fund's. Each sleeve stamps its rows with its own equity — about half the fund —
+  // which the transaction table would otherwise divide by the fund's full starting
+  // amount and report as 0.50x from the first row. Add the other sleeve's
+  // end-of-day figures for that date. `Leverage Δ` stays the acting sleeve's: it is
+  // measured against that sleeve's own target, and the two targets differ.
+  const fundRows = (
+    own: FuturesStrategyResult,
+    other: FuturesStrategyResult,
+    otherSleeve: FuturesSleeve
+  ): FuturesTransactionRow[] => {
+    const otherEquity = byDateWithCarryForward(other.etfResult.dates, other.etfResult.dailyValues);
+    const otherExcess = byDateWithCarryForward(
+      otherSleeve.dates,
+      otherSleeve.dates.map((_, i) => otherSleeve.excessLiquidityAt(i))
+    );
+    return own.transactions.map((row) => ({
+      ...row,
+      equity: row.equity + otherEquity(row.date),
+      excessLiquidity: row.excessLiquidity + otherExcess(row.date),
+    }));
+  };
+
   const transactions: FuturesTransactionRow[] = [
-    ...primaryResult.transactions,
-    ...secondaryResult.transactions,
+    ...fundRows(primaryResult, secondaryResult, sleeves[1]),
+    ...fundRows(secondaryResult, primaryResult, sleeves[0]),
   ].sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
 
   // CAGR, drawdown and Sharpe must come from the FUND's curve, never the primary

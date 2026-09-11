@@ -160,6 +160,54 @@ test("dual sleeve: reports the fund's own curve, not the primary sleeve's", () =
   assert.ok(etfResult.totalTradingCostPct > 0, "both sleeves' costs must be carried");
 });
 
+test("dual sleeve: the merged ledger reports the fund, not one sleeve", () => {
+  // The ledger is the fund's, and the transaction table divides its Value column by
+  // the fund's starting amount. Rows stamped with a sleeve's own equity made every
+  // row read as half — 0.50x from the first line.
+  const fund = simulateDualSleeveFuturesStrategy({
+    displayName: "Max 4.5x SPX 3x NDX SMA",
+    initialEquity: 100_000,
+    primary: sleeve("sp500", 4.5, NORMAL_SP, 4.5),
+    secondary: sleeve("nasdaq100", 3, NORMAL_NQ),
+  });
+
+  const first = fund.transactions[0];
+  assert.ok(first, "expected a ledger");
+  assert.ok(
+    first.equity > 95_000,
+    `first row should open near the full 100,000, got ${first.equity}`
+  );
+
+  const closeByDate = new Map(
+    fund.etfResult.dates.map((date, i) => [date, fund.etfResult.dailyValues[i]])
+  );
+  const ratios = fund.transactions
+    .map((row) => {
+      const close = closeByDate.get(row.date);
+      return close && close > 0 ? row.equity / close : null;
+    })
+    .filter((r): r is number => r !== null)
+    .sort((a, b) => a - b);
+  const median = ratios[Math.floor(ratios.length / 2)];
+  assert.ok(
+    median > 0.9 && median < 1.1,
+    `ledger equity should track the fund's own curve, median ratio ${median}`
+  );
+
+  // Excess liquidity is summed across sleeves too, so it stays on the same scale as
+  // the Value beside it. The slack is the mark mismatch each column already carried
+  // before this fund existed: a row's equity is the acting sleeve's post-trade book
+  // value while its excess liquidity is stamped end-of-day, which a single sleeve
+  // also shows. Pairing a sleeve-only equity with a fund-level excess would land
+  // near 2.0 here, and forgetting to restate excess on a 50/50 reset reached 1.69.
+  for (const row of fund.transactions) {
+    assert.ok(
+      row.excessLiquidity <= row.equity * 1.05,
+      `${row.date}: excess liquidity ${row.excessLiquidity} is off the scale of equity ${row.equity}`
+    );
+  }
+});
+
 const BANDS: SmaBandsByIndex = {
   sp500: { period: 186, upperBuffer: 3, lowerBuffer: 3.3 },
   nasdaq100: { period: 150, upperBuffer: 20.4, lowerBuffer: 17.6 },

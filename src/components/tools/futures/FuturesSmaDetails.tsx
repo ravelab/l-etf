@@ -247,7 +247,11 @@ function FuturesSmaDetailsImpl({
               r.cashInterestTradingDays != null &&
               r.cashInterestAnnualRatePct != null
           );
-          const shortSymbol = group.map((r) => r.symbol.charAt(0).toUpperCase()).join("+");
+          // One initial per ticker. A two-sleeve fund buys the same basket for each
+          // sleeve on the same day, and listing every leg read as "B+G+V+B+G+V".
+          const shortSymbol = [
+            ...new Set(group.map((r) => r.symbol.charAt(0).toUpperCase())),
+          ].join("+");
           const lastLeg = group[group.length - 1];
           merged.push({
             ...current,

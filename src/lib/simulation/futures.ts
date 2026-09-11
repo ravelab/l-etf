@@ -80,6 +80,8 @@ export type FuturesSleeve = {
   readonly invested: boolean[];
   /** Equity at the close of day `i`; meaningful once that day has been stepped. */
   equityAt: (i: number) => number;
+  /** End-of-day excess liquidity at day `i`, for summing across a fund's sleeves. */
+  excessLiquidityAt: (i: number) => number;
   stepDay: (i: number) => void;
   readHoldings: () => SleeveHoldings;
   /** Replaces holdings and restates day `i`'s equity. Books no trade: see futures-dual-sleeve.ts. */
@@ -967,6 +969,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       dates: [],
       invested: [],
       equityAt: () => emptyEquity,
+      excessLiquidityAt: () => emptyEquity,
       stepDay: () => {},
       readHoldings: () => ({ cash: emptyEquity, riskOffShares: null, riskOffCash: null, pendingCashInterest: 0 }),
       writeHoldings: () => {},
@@ -1104,6 +1107,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   let maxAbsLeverageDeltaRiskOnPct = 0;
 
   const dailyEquity = new Array<number>(dates.length);
+  /** End-of-day excess liquidity, so a composite fund can add its sleeves' together. */
+  const dailyExcessLiquidity = new Array<number>(dates.length).fill(0);
   const transactions: FuturesTransactionRow[] = [];
 
   let cash = clampToFinite(params.initialEquity, 0);
@@ -1271,6 +1276,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         leverageDeltaPct,
         equity,
       });
+      dailyExcessLiquidity[0] = excessLiquidity;
       if (invested[0] && equity > 0) {
         const lev = notional / equity;
         if (Number.isFinite(lev)) {
@@ -1281,6 +1287,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       }
     }
     dailyEquity[0] = cash;
+    // No futures opened on day 0 leaves the whole balance free.
+    if (initialQty <= 0) dailyExcessLiquidity[0] = cash;
   } else if (riskOffTickers.length > 0) {
     // Starts in risk-off: establish the basket at the first close (see above), so
     // day 0 books it at cost and the curve starts flat exactly like the LETF engine.
@@ -1355,6 +1363,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       if (Number.isFinite(cashPiece) && cashPiece > 0) day0Equity += cashPiece;
     }
     dailyEquity[0] = day0Equity > 0 ? day0Equity : 0;
+    dailyExcessLiquidity[0] = dailyEquity[0];
   }
 
   /**
@@ -1374,6 +1383,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     if (!Number.isFinite(prevSpot) || !Number.isFinite(spot) || prevSpot <= 0 || spot <= 0) {
       // If data is bad, carry forward equity without changing positions.
       dailyEquity[i] = clampToFinite(dailyEquity[i - 1], cash);
+      dailyExcessLiquidity[i] = dailyExcessLiquidity[i - 1] ?? 0;
       return;
     }
 
@@ -2355,6 +2365,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     const endNotional = notional;
     const endLeverageDeltaPct = leverageDeltaPct;
     const endExcessLiquidity = excessLiquidity;
+    dailyExcessLiquidity[i] = endExcessLiquidity;
 
     // Fill EOD columns for all transactions on this date (if any). Do not overwrite `equity`:
     // each row carries post-trade book value for the ledger Value column; stamping it with
@@ -2629,6 +2640,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     dates,
     invested,
     equityAt: (i: number) => dailyEquity[i] ?? 0,
+    excessLiquidityAt: (i: number) => dailyExcessLiquidity[i] ?? 0,
     stepDay,
     readHoldings: () => ({
       cash,
@@ -2645,6 +2657,11 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       // never held needs the array to exist so marking can fall back to the close.
       if (riskOffShares && !riskOffLastPrice) riskOffLastPrice = riskOffShares.map(() => NaN);
       dailyEquity[i] = equity;
+      // Capital only ever moves between sleeves while both are risk-off, so there is
+      // no futures position and nothing is encumbered: excess liquidity is the whole
+      // balance. Leaving the old figure here would leave the day's ledger rows
+      // claiming more free cash than the restated equity behind them.
+      dailyExcessLiquidity[i] = equity;
     },
     finish,
   };
