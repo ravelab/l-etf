@@ -17,6 +17,19 @@ export const DEPLOY_FIRST_CHECK_MS = 3000;
 /** How long the "Updating app" popup stays up before the reload fires. */
 export const DEPLOY_UPDATE_NOTICE_MS = 1500;
 
+/**
+ * Notice shown when the update is found on the way back from a long stretch hidden.
+ * There is nothing on screen to explain away, so the reload fires straight off.
+ */
+export const DEPLOY_UPDATE_NOTICE_RESUME_MS = 0;
+
+/**
+ * Hidden at least this long and the return reads as a relaunch rather than a tab
+ * switch. Below it the user was mid-session and is owed the popup; above it the
+ * notice is pure delay in front of what iOS presents as launching the app.
+ */
+export const DEPLOY_RESUME_HIDDEN_MS = 60 * 1000;
+
 type DeployAction =
   /** Nothing to do: unusable response, or the id we are already running. */
   | "ignore"
@@ -43,6 +56,21 @@ export function decideDeployAction(stored: string | null, incoming: string | nul
   if (incoming === null) return "ignore";
   if (stored === null) return "adopt";
   return stored === incoming ? "ignore" : "update";
+}
+
+/**
+ * How long to hold the "Updating app" popup, given how long the page had been
+ * hidden when the check that found the update was triggered.
+ *
+ * `hiddenForMs` is null when the page never went hidden, so a plain in-session
+ * poll keeps the full notice. A negative span means the clock moved backwards
+ * and is treated the same way, never as a resume.
+ */
+export function deployUpdateNoticeMs(hiddenForMs: number | null): number {
+  if (hiddenForMs !== null && hiddenForMs >= DEPLOY_RESUME_HIDDEN_MS) {
+    return DEPLOY_UPDATE_NOTICE_RESUME_MS;
+  }
+  return DEPLOY_UPDATE_NOTICE_MS;
 }
 
 /**

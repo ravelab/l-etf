@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   DEPLOY_ID_STORAGE_KEY,
+  DEPLOY_RESUME_HIDDEN_MS,
+  DEPLOY_UPDATE_NOTICE_MS,
+  DEPLOY_UPDATE_NOTICE_RESUME_MS,
   decideDeployAction,
+  deployUpdateNoticeMs,
   isDeployStorageUpdate,
   parseDeployVersion,
 } from "@/lib/deploy-version";
@@ -55,4 +59,20 @@ test("isDeployStorageUpdate: ignores other keys, clears, and no-op writes", () =
     isDeployStorageUpdate(storageEvent(DEPLOY_ID_STORAGE_KEY, "dpl_abc123", "dpl_abc123")),
     false
   );
+});
+
+test("deployUpdateNoticeMs: a tab the user is looking at still gets the notice", () => {
+  assert.equal(deployUpdateNoticeMs(null), DEPLOY_UPDATE_NOTICE_MS);
+  assert.equal(deployUpdateNoticeMs(0), DEPLOY_UPDATE_NOTICE_MS);
+  assert.equal(deployUpdateNoticeMs(DEPLOY_RESUME_HIDDEN_MS - 1), DEPLOY_UPDATE_NOTICE_MS);
+});
+
+test("deployUpdateNoticeMs: a long stretch hidden is a relaunch, so no notice", () => {
+  assert.ok(DEPLOY_UPDATE_NOTICE_RESUME_MS < DEPLOY_UPDATE_NOTICE_MS);
+  assert.equal(deployUpdateNoticeMs(DEPLOY_RESUME_HIDDEN_MS), DEPLOY_UPDATE_NOTICE_RESUME_MS);
+  assert.equal(deployUpdateNoticeMs(60 * 60 * 1000), DEPLOY_UPDATE_NOTICE_RESUME_MS);
+});
+
+test("deployUpdateNoticeMs: a backwards clock is not read as a resume", () => {
+  assert.equal(deployUpdateNoticeMs(-5000), DEPLOY_UPDATE_NOTICE_MS);
 });
