@@ -30,21 +30,21 @@ export default function Home() {
               </div>
             </Link>
 
-            <Link href={buildToolsUrl("strategies")}>
-              <div className="border border-card-border rounded-lg p-6 hover:border-accent transition h-full flex flex-col">
-                <h2 className="text-2xl font-bold mb-2">Strategies</h2>
-                <p className="text-muted mb-4 flex-1">
-                  Compare leveraged ETF strategies across rolling historical windows
-                </p>
-                <Button className="w-full">Explore</Button>
-              </div>
-            </Link>
-
             <Link href={buildToolsUrl("backtest")}>
               <div className="border border-card-border rounded-lg p-6 hover:border-accent transition h-full flex flex-col">
                 <h2 className="text-2xl font-bold mb-2">Backtest</h2>
                 <p className="text-muted mb-4 flex-1">
                   Run a historical backtest with charts, trades, drawdowns, and real returns
+                </p>
+                <Button className="w-full">Explore</Button>
+              </div>
+            </Link>
+
+            <Link href={buildToolsUrl("strategies")}>
+              <div className="border border-card-border rounded-lg p-6 hover:border-accent transition h-full flex flex-col">
+                <h2 className="text-2xl font-bold mb-2">Strategies</h2>
+                <p className="text-muted mb-4 flex-1">
+                  Compare leveraged ETF strategies across rolling historical windows
                 </p>
                 <Button className="w-full">Explore</Button>
               </div>

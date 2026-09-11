@@ -8,8 +8,8 @@ import { ToolRunHistoryMenu } from "@/components/layout/ToolRunHistoryMenu";
 
 const NAV_ITEMS = [
   { href: "/signals", label: "Signals" },
-  { tab: "strategies" as ToolTab, label: "Strategies" },
   { tab: "backtest" as ToolTab, label: "Backtest" },
+  { tab: "strategies" as ToolTab, label: "Strategies" },
   { tab: "futures" as ToolTab, label: "Futures" },
   { tab: "statistics" as ToolTab, label: "Holding Period" },
   { tab: "sma-buffer" as ToolTab, label: "SMA Buffer" },
