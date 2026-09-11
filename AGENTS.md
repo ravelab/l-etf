@@ -194,6 +194,29 @@ model different instruments and are not expected to match: the LETF pays
 per *calendar* day plus a sweep on collateral. Residual annual drift is that model
 difference; daily tracking error is not, and is worth chasing.
 
+## Futures: sleeves and the two-sleeve fund
+
+`simulateFuturesSmaStrategy` is a thin driver over `createFuturesSleeve`, which
+returns a sleeve that can be stepped one day at a time (`stepDay`), read and
+rewritten (`readHoldings` / `writeHoldings`), then closed out (`finish`). The day
+loop became a `stepDay` closure holding all its state as closure variables rather
+than a threaded state object, so the body moved verbatim and every existing rung
+is bit-identical — keep it that way. Its old `continue` is a `return` and its old
+`break` is the `ruined` flag; a new early exit must set that flag, never just
+return, or later days will overwrite the zeroed tail.
+
+`futures-dual-sleeve.ts` runs one fund as two sleeves (one per index family),
+never rebalanced against each other except on a day when both were risk-off and
+one is about to go risk-on, when the fund resets to 50/50. That reset is
+deliberately free, and two things make it so: both sleeves hold the SAME risk-off
+basket, and it is applied BEFORE the day is stepped, while the re-entering sleeve
+still holds its basket instead of the futures it is about to buy. Giving each
+sleeve half of every combined holding leaves the fund's share count per ticker
+untouched, so nothing trades. Splitting the drifted weights any other way, or
+applying it a day later, books real trades and is wrong.
+`unit-tests/futures-dual-sleeve.test.ts` pins the exactness case: with a band that
+never exits, the fund must equal two independent half-size sleeves to the cent.
+
 ## Swap spread: fitted range and the cap above it
 
 `getSwapSpreadDaily` is a line in the rate level, fitted by `calibrate-etfs.ts`

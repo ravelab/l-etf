@@ -54,6 +54,39 @@ export type FuturesStrategyResult = {
   sessionDayCount: number;
 };
 
+/**
+ * What one sleeve owns outside its futures position. Sleeves of one fund hold the
+ * same risk-off tickers in the same order, so these are directly exchangeable.
+ */
+export type SleeveHoldings = {
+  cash: number;
+  riskOffShares: number[] | null;
+  riskOffCash: number[] | null;
+  /** Swept interest already earned but not yet posted to cash; equity counts it. */
+  pendingCashInterest: number;
+};
+
+/**
+ * A futures strategy that can be advanced one trading day at a time.
+ *
+ * `simulateFuturesSmaStrategy` runs it straight through. A composite fund steps
+ * several sleeves along their own calendars so it can move capital between them
+ * on the days its rebalance rule fires — which is only possible if no sleeve has
+ * already consumed its whole price history.
+ */
+export type FuturesSleeve = {
+  readonly dates: string[];
+  /** SMA regime per day, already shifted for execution; true = risk-on. */
+  readonly invested: boolean[];
+  /** Equity at the close of day `i`; meaningful once that day has been stepped. */
+  equityAt: (i: number) => number;
+  stepDay: (i: number) => void;
+  readHoldings: () => SleeveHoldings;
+  /** Replaces holdings and restates day `i`'s equity. Books no trade: see futures-dual-sleeve.ts. */
+  writeHoldings: (holdings: SleeveHoldings, i: number, equity: number) => void;
+  finish: () => FuturesStrategyResult;
+};
+
 const DEFAULT_CASH_INTEREST_SPREAD_ANNUAL = 0.005; // 0.50%/yr haircut vs SOFR-like series
 // ES/NQ do not roll at fair value: the roll's implied financing has run roughly
 // +25 to +50bp over 3M OIS post-2010 (balance-sheet costs), NQ at or above ES.
@@ -512,7 +545,7 @@ function clampToFinite(n: number, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function buildEtfResult(params: {
+export function buildEtfResult(params: {
   id: string;
   name: string;
   sourceIndex: IndexKey;
@@ -915,7 +948,7 @@ export type FuturesStrategyParams = {
   futuresPriceAnchor?: number;
 };
 
-export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): FuturesStrategyResult {
+export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleeve {
   const sliced = params.prices.filter((p) => p.date >= params.startDate && p.date <= params.endDate);
   if (sliced.length < 2) {
     const leverageLabel = formatLeverageLabel(params.targetLeverage);
@@ -929,16 +962,25 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       smaPrices: [],
       totalTradingCostPct: 0,
     });
+    const emptyEquity = clampToFinite(params.initialEquity, 0);
     return {
-      etfResult: empty,
-      targetLeverage: params.targetLeverage,
-      index: params.index,
-      transactions: [],
-      initialEquity: clampToFinite(params.initialEquity, 0),
-      avgActualLeverageRiskOn: NaN,
-      maxAbsLeverageDeltaRiskOnPct: NaN,
-      riskOffSessionDayCount: 0,
-      sessionDayCount: 0,
+      dates: [],
+      invested: [],
+      equityAt: () => emptyEquity,
+      stepDay: () => {},
+      readHoldings: () => ({ cash: emptyEquity, riskOffShares: null, riskOffCash: null, pendingCashInterest: 0 }),
+      writeHoldings: () => {},
+      finish: () => ({
+        etfResult: empty,
+        targetLeverage: params.targetLeverage,
+        index: params.index,
+        transactions: [],
+        initialEquity: emptyEquity,
+        avgActualLeverageRiskOn: NaN,
+        maxAbsLeverageDeltaRiskOnPct: NaN,
+        riskOffSessionDayCount: 0,
+        sessionDayCount: 0,
+      }),
     };
   }
 
@@ -1315,7 +1357,15 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     dailyEquity[0] = day0Equity > 0 ? day0Equity : 0;
   }
 
-  for (let i = 1; i < dates.length; i++) {
+  /**
+   * Wiped out: every remaining day is already zeroed, so no later day may run.
+   * Stands in for the `break` this was before it became a per-day step.
+   */
+  let ruined = false;
+
+  /** One trading day for this sleeve. Was the body of the day loop; `continue` is now `return`. */
+  const stepDay = (i: number): void => {
+    if (ruined) return;
     const date = dates[i];
     const prevSpot = smaInput[i - 1];
     const spot = smaInput[i];
@@ -1324,7 +1374,7 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     if (!Number.isFinite(prevSpot) || !Number.isFinite(spot) || prevSpot <= 0 || spot <= 0) {
       // If data is bad, carry forward equity without changing positions.
       dailyEquity[i] = clampToFinite(dailyEquity[i - 1], cash);
-      continue;
+      return;
     }
 
     // Sweep interest on non-trading calendar days (Sat/Sun/holidays) between index rows: same daily rate × gap,
@@ -2328,7 +2378,8 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       riskOffLastPrice = null;
       dailyEquity[i] = 0;
       for (let j = i + 1; j < dates.length; j++) dailyEquity[j] = 0;
-      break;
+      ruined = true;
+      return;
     }
 
     // If we are in risk-off, equity should reflect marked-to-close risk-off value too.
@@ -2346,7 +2397,8 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
       }
     }
 
-  }
+  };
+  const finish = (): FuturesStrategyResult => {
 
   // Book-close row for the transaction ledger (same idea as backtest SMA tables).
   const lastIdx = dates.length - 1;
@@ -2571,4 +2623,40 @@ export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): Futur
     riskOffSessionDayCount,
     sessionDayCount: invested.length,
   };
+  };
+
+  return {
+    dates,
+    invested,
+    equityAt: (i: number) => dailyEquity[i] ?? 0,
+    stepDay,
+    readHoldings: () => ({
+      cash,
+      riskOffShares: riskOffShares ? [...riskOffShares] : null,
+      riskOffCash: riskOffCash ? [...riskOffCash] : null,
+      pendingCashInterest: pendingMonthlyCashInterest,
+    }),
+    writeHoldings: (holdings: SleeveHoldings, i: number, equity: number) => {
+      cash = holdings.cash;
+      riskOffShares = holdings.riskOffShares ? [...holdings.riskOffShares] : null;
+      riskOffCash = holdings.riskOffCash ? [...holdings.riskOffCash] : null;
+      pendingMonthlyCashInterest = holdings.pendingCashInterest;
+      // Price memory is per sleeve, not a holding. A sleeve handed basket shares it
+      // never held needs the array to exist so marking can fall back to the close.
+      if (riskOffShares && !riskOffLastPrice) riskOffLastPrice = riskOffShares.map(() => NaN);
+      dailyEquity[i] = equity;
+    },
+    finish,
+  };
+}
+
+/**
+ * Drives one sleeve start to finish. The sleeve factory exists so a composite
+ * fund can step several sleeves through the same calendar and move capital
+ * between them; a lone strategy just runs the loop straight through.
+ */
+export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): FuturesStrategyResult {
+  const sleeve = createFuturesSleeve(params);
+  for (let i = 1; i < sleeve.dates.length; i++) sleeve.stepDay(i);
+  return sleeve.finish();
 }

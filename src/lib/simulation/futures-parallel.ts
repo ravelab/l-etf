@@ -1,8 +1,5 @@
-import {
-  simulateFuturesSmaStrategy,
-  type FuturesStrategyParams,
-  type FuturesStrategyResult,
-} from "./futures";
+import type { FuturesStrategyResult } from "./futures";
+import { runFuturesPlan, type FuturesRunPlan } from "./futures-run-plan";
 
 type ProgressHandler = (completed: number, total: number) => void;
 
@@ -21,7 +18,7 @@ function createFuturesWorker(): Worker {
 
 function runFuturesWorkerTask(
   id: number,
-  params: FuturesStrategyParams,
+  plan: FuturesRunPlan,
   signal?: AbortSignal
 ): Promise<FuturesStrategyResult> {
   return new Promise((resolve, reject) => {
@@ -50,7 +47,7 @@ function runFuturesWorkerTask(
       cleanup();
       reject(event);
     };
-    worker.postMessage({ id, params });
+    worker.postMessage({ id, plan });
   });
 }
 
@@ -59,7 +56,7 @@ export async function runParallelFuturesStrategies({
   onProgress,
   signal,
 }: {
-  plans: FuturesStrategyParams[];
+  plans: FuturesRunPlan[];
   onProgress?: ProgressHandler;
   signal?: AbortSignal;
 }): Promise<FuturesStrategyResult[]> {
@@ -70,7 +67,7 @@ export async function runParallelFuturesStrategies({
     const results: FuturesStrategyResult[] = [];
     for (let i = 0; i < plans.length; i++) {
       assertNotAborted(signal);
-      results.push(simulateFuturesSmaStrategy(plans[i]!));
+      results.push(runFuturesPlan(plans[i]!));
       onProgress?.(i + 1, plans.length);
     }
     return results;

@@ -30,6 +30,12 @@ type FuturesLadderStep = {
   maxLeverage?: number;
   displayName?: string;
   sma: SmaBand;
+  /**
+   * Present on a two-sleeve fund: this step runs `index` alongside `secondary`,
+   * each sleeve opening with half the equity and compounding unrebalanced. See
+   * `futures-dual-sleeve.ts` for the one exception that moves capital between them.
+   */
+  secondary?: { index: IndexKey; leverage: number; maxLeverage?: number; sma: SmaBand };
 };
 
 export type SmaBandsByIndex = {
@@ -79,12 +85,30 @@ export function buildFuturesLadderPlan(params: {
     sma: sp,
   };
 
+  /**
+   * One fund, two sleeves: SPX capped at 4.5x and NDX at 3x, never rebalanced
+   * against each other except when both sit in risk-off and one re-enters.
+   */
+  const maxSpxWithNdx: FuturesLadderStep = {
+    index: "sp500",
+    leverage: 4.5,
+    maxLeverage: 4.5,
+    displayName: "Max 4.5x SPX 3x NDX SMA",
+    sma: sp,
+    secondary: { index: "nasdaq100", leverage: 3, sma: nq },
+  };
+
   if (yearSpan > LONG_WINDOW_YEARS) {
-    return [maxSpx, { index: "sp500", leverage: 3, sma: sp }];
+    return [
+      maxSpx,
+      ...(hasNasdaqData ? [maxSpxWithNdx] : []),
+      { index: "sp500", leverage: 3, sma: sp },
+    ];
   }
 
   return [
     maxSpx,
+    ...(hasNasdaqData ? [maxSpxWithNdx] : []),
     { index: "sp500", leverage: 5, sma: sp },
     { index: "sp500", leverage: 3, sma: sp },
     ...(hasNasdaqData

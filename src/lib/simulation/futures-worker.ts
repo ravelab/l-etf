@@ -1,13 +1,13 @@
-import { simulateFuturesSmaStrategy, type FuturesStrategyParams } from "./futures";
+import { runFuturesPlan, type FuturesRunPlan } from "./futures-run-plan";
 
 type FuturesWorkerRequest = {
   id: number;
-  params: FuturesStrategyParams;
+  plan: FuturesRunPlan;
 };
 
 self.onmessage = (event: MessageEvent<FuturesWorkerRequest>) => {
   try {
-    const result = simulateFuturesSmaStrategy(event.data.params);
+    const result = runFuturesPlan(event.data.plan);
     self.postMessage({ id: event.data.id, type: "result", result });
   } catch (error) {
     self.postMessage({

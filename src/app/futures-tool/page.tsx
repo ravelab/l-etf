@@ -17,6 +17,7 @@ import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from
 import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, INDEX_DATE_RANGES } from "@/lib/constants";
 import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT } from "@/lib/simulation/defaults";
 import type { BacktestResult, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
+import type { FuturesRunPlan } from "@/lib/simulation/futures-run-plan";
 import {
   fetchLatestIndexPriceAnchors,
   fetchMarketData,
@@ -479,28 +480,59 @@ export function FuturesPageContent({
         yearSpan,
         bands: smaBands,
       });
+      /** Everything a sleeve needs that does not depend on which rung asked for it. */
+      const sleeveParams = (
+        index: IndexKey,
+        leverage: number,
+        maxLeverage: number | undefined,
+        sma: SmaBandsByIndex["sp500"]
+      ) => ({
+        index,
+        prices: index === "sp500" ? spPrices : nqPrices,
+        rates,
+        startDate,
+        endDate,
+        targetLeverage: leverage,
+        maxLeverage,
+        smaPeriod: sma.period,
+        smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
+        riskOffAsset,
+        riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
+        riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
+        leverageTolerancePct,
+        rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
+        monthlyCpi: market.monthlyCpi,
+        futuresPriceAnchor: index === "sp500" ? spPriceAnchor : nqPriceAnchor,
+      });
+
       const futuresRuns = await runParallelFuturesStrategies({
         signal,
-        plans: futuresPlan.map((step) => ({
-          index: step.index,
-          prices: step.index === "sp500" ? spPrices : nqPrices,
-          rates,
-          startDate,
-          endDate,
-          initialEquity: amount,
-          targetLeverage: step.leverage,
-          maxLeverage: step.maxLeverage,
-          displayName: step.displayName,
-          smaPeriod: step.sma.period,
-          smaUpperBuffer: step.sma.upperBuffer, smaLowerBuffer: step.sma.lowerBuffer,
-          riskOffAsset,
-          riskOffCloseByTicker: step.index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
-          riskOffOpenByTicker: step.index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
-          leverageTolerancePct,
-          rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
-          monthlyCpi: market.monthlyCpi,
-          futuresPriceAnchor: step.index === "sp500" ? spPriceAnchor : nqPriceAnchor,
-        })),
+        plans: futuresPlan.map((step): FuturesRunPlan => {
+          if (step.secondary) {
+            return {
+              kind: "dual",
+              dual: {
+                displayName: step.displayName ?? "Dual sleeve SMA",
+                initialEquity: amount,
+                primary: sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
+                secondary: sleeveParams(
+                  step.secondary.index,
+                  step.secondary.leverage,
+                  step.secondary.maxLeverage,
+                  step.secondary.sma
+                ),
+              },
+            };
+          }
+          return {
+            kind: "single",
+            single: {
+              ...sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
+              initialEquity: amount,
+              displayName: step.displayName,
+            },
+          };
+        }),
         onProgress: (completed, total) => {
           const fraction = total > 0 ? completed / total : 1;
           setRunProgress({ pct: 45 + fraction * 10, label: "Simulating futures strategies..." });
