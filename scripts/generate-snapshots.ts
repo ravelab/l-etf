@@ -780,38 +780,6 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     sgovPoints
   );
 
-  const sp500Backtest = simulateWithWarmUp(
-    sp500Prices,
-    rates,
-    sp500Variants.map((variant) => variant.config),
-    shared.startDate,
-    1000,
-    {
-      riskOffValuesByAsset: riskOffForSp500.closeValuesByAsset,
-      riskOffOpenValuesByAsset: riskOffForSp500.openValuesByAsset,
-      endDate: shared.endDate,
-    }
-  );
-  const nasdaqBacktest = simulateWithWarmUp(
-    nasdaqPrices,
-    rates,
-    nasdaqVariants.map((variant) => variant.config),
-    shared.startDate,
-    1000,
-    {
-      riskOffValuesByAsset: riskOffForNasdaq.closeValuesByAsset,
-      riskOffOpenValuesByAsset: riskOffForNasdaq.openValuesByAsset,
-      endDate: shared.endDate,
-    }
-  );
-  const yearlyGrowthSeries = buildStrategyYearlyGrowthSeries({
-    sp500Backtest,
-    nasdaqBacktest,
-    sp500Variants,
-    nasdaqVariants,
-    monthlyCpi: inflationData.monthlyCpi,
-  });
-
   return {
     startDate: shared.startDate,
     endDate: shared.endDate,
@@ -827,7 +795,6 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     strategyResults: [],
     snapshotSummary,
     distributionSnapshot,
-    yearlyGrowthSeries,
   };
 }
 

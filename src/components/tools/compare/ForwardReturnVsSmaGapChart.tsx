@@ -55,8 +55,8 @@ const BIN_MAX_PCT = 26;
 
 // Each series spans three datasets (raincloud + median line + n/total line)
 // that the legend toggles as a unit.
-const UPRO_SERIES_KEY = "upro";
-const TQQQ_SERIES_KEY = "tqqq";
+const SPX_SERIES_KEY = "spx";
+const NDX_SERIES_KEY = "ndx";
 
 interface PercentileStats {
   count: number;
@@ -127,8 +127,10 @@ interface ForwardReturnVsSmaGapChartProps {
   ndxPrices: PricePoint[];
   rates: RatePoint[];
   monthlyCpi: Array<{ date: string; value: number }>;
-  uproConfig: EtfConfig;
-  tqqqConfig: EtfConfig;
+  /** SMA strategy shown on the SPX side, or null when none is configured. */
+  spxConfig: EtfConfig | null;
+  /** SMA strategy shown on the NDX side, or null when none is configured. */
+  ndxConfig: EtfConfig | null;
   spxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   spxRiskOffOpenValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   ndxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
@@ -579,8 +581,8 @@ export function ForwardReturnVsSmaGapChart({
   ndxPrices,
   rates,
   monthlyCpi,
-  uproConfig,
-  tqqqConfig,
+  spxConfig,
+  ndxConfig,
   spxRiskOffValues,
   spxRiskOffOpenValues,
   ndxRiskOffValues,
@@ -591,27 +593,29 @@ export function ForwardReturnVsSmaGapChart({
 }: ForwardReturnVsSmaGapChartProps) {
   const colors = getChartThemeColors();
 
-  const uproResult = useMemo(
-    () => simulateWithWarmUp(
-      spxPrices,
-      rates,
-      [uproConfig],
-      startDateSp,
-      1000,
-      {
-        riskOffValuesByAsset: spxRiskOffValues,
-        riskOffOpenValuesByAsset: spxRiskOffOpenValues,
-        endDate,
-      },
-    ).etfResults.find((result) => result.id === `${uproConfig.id}-sma`) ?? null,
-    [spxPrices, rates, uproConfig, startDateSp, spxRiskOffValues, spxRiskOffOpenValues, endDate],
+  const spxResult = useMemo(
+    () => spxConfig
+      ? simulateWithWarmUp(
+          spxPrices,
+          rates,
+          [spxConfig],
+          startDateSp,
+          1000,
+          {
+            riskOffValuesByAsset: spxRiskOffValues,
+            riskOffOpenValuesByAsset: spxRiskOffOpenValues,
+            endDate,
+          },
+        ).etfResults.find((result) => result.id === `${spxConfig.id}-sma`) ?? null
+      : null,
+    [spxPrices, rates, spxConfig, startDateSp, spxRiskOffValues, spxRiskOffOpenValues, endDate],
   );
-  const tqqqResult = useMemo(
-    () => ndxPrices.length >= 2
+  const ndxResult = useMemo(
+    () => ndxConfig && ndxPrices.length >= 2
       ? simulateWithWarmUp(
           ndxPrices,
           rates,
-          [tqqqConfig],
+          [ndxConfig],
           startDateNq,
           1000,
           {
@@ -619,38 +623,46 @@ export function ForwardReturnVsSmaGapChart({
             riskOffOpenValuesByAsset: ndxRiskOffOpenValues,
             endDate,
           },
-        ).etfResults.find((result) => result.id === `${tqqqConfig.id}-sma`) ?? null
+        ).etfResults.find((result) => result.id === `${ndxConfig.id}-sma`) ?? null
       : null,
-    [ndxPrices, rates, tqqqConfig, startDateNq, ndxRiskOffValues, ndxRiskOffOpenValues, endDate],
+    [ndxPrices, rates, ndxConfig, startDateNq, ndxRiskOffValues, ndxRiskOffOpenValues, endDate],
   );
 
-  const uproPoints = useMemo(
+  const spxPoints = useMemo(
     () =>
-      buildForwardSmaReturnPoints({
-        indexPrices: spxPrices,
-        strategyResult: uproResult,
-        config: uproConfig,
-        monthlyCpi,
-        startDate: startDateSp,
-        endDate,
-      }),
-    [spxPrices, uproResult, uproConfig, monthlyCpi, startDateSp, endDate],
+      spxConfig
+        ? buildForwardSmaReturnPoints({
+            indexPrices: spxPrices,
+            strategyResult: spxResult,
+            config: spxConfig,
+            monthlyCpi,
+            startDate: startDateSp,
+            endDate,
+          })
+        : [],
+    [spxPrices, spxResult, spxConfig, monthlyCpi, startDateSp, endDate],
   );
-  const tqqqPoints = useMemo(
+  const ndxPoints = useMemo(
     () =>
-      buildForwardSmaReturnPoints({
-        indexPrices: ndxPrices,
-        strategyResult: tqqqResult,
-        config: tqqqConfig,
-        monthlyCpi,
-        startDate: startDateNq,
-        endDate,
-      }),
-    [ndxPrices, tqqqResult, tqqqConfig, monthlyCpi, startDateNq, endDate],
+      ndxConfig
+        ? buildForwardSmaReturnPoints({
+            indexPrices: ndxPrices,
+            strategyResult: ndxResult,
+            config: ndxConfig,
+            monthlyCpi,
+            startDate: startDateNq,
+            endDate,
+          })
+        : [],
+    [ndxPrices, ndxResult, ndxConfig, monthlyCpi, startDateNq, endDate],
   );
 
-  const uproBuckets = useMemo(() => bucketize(uproPoints), [uproPoints]);
-  const tqqqBuckets = useMemo(() => bucketize(tqqqPoints), [tqqqPoints]);
+  const spxBuckets = useMemo(() => bucketize(spxPoints), [spxPoints]);
+  const ndxBuckets = useMemo(() => bucketize(ndxPoints), [ndxPoints]);
+
+  /** Series names track whichever LETF each index family is configured with. */
+  const spxLabel = spxConfig ? `${spxConfig.name} SMA` : "SPX SMA";
+  const ndxLabel = ndxConfig ? `${ndxConfig.name} SMA` : "NDX SMA";
 
   const binCount = Math.round((BIN_MAX_PCT - BIN_MIN_PCT) / BIN_WIDTH_PCT);
   const labels = useMemo(
@@ -658,20 +670,20 @@ export function ForwardReturnVsSmaGapChart({
     [binCount],
   );
 
-  const uproStats = useMemo(
-    () => uproBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
-    [uproBuckets],
+  const spxStats = useMemo(
+    () => spxBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
+    [spxBuckets],
   );
-  const tqqqStats = useMemo(
-    () => tqqqBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
-    [tqqqBuckets],
+  const ndxStats = useMemo(
+    () => ndxBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
+    [ndxBuckets],
   );
 
   // Y-axis bounds must include the full visible P10–P90 percentile range.
   const yBounds = useMemo(() => {
     let lo = Infinity;
     let hi = -Infinity;
-    for (const stats of [...uproStats, ...tqqqStats]) {
+    for (const stats of [...spxStats, ...ndxStats]) {
       if (!stats) continue;
       if (stats.min > 0 && stats.min < lo) lo = stats.min;
       if (stats.max > hi) hi = stats.max;
@@ -679,18 +691,18 @@ export function ForwardReturnVsSmaGapChart({
     if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo <= 0 || hi <= 0) return null;
     // 4% multiplicative pad on a log axis: divide low / multiply high by 1.04.
     return { min: lo / 1.04, max: hi * 1.04 };
-  }, [uproStats, tqqqStats]);
+  }, [spxStats, ndxStats]);
 
   const data = useMemo((): ChartData<"bar" | "line"> => {
-    const uproTotal = uproStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
-    const tqqqTotal = tqqqStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
-    const uproDataset: RaincloudDataset = {
+    const spxTotal = spxStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
+    const ndxTotal = ndxStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
+    const spxDataset: RaincloudDataset = {
       type: "bar",
-      seriesKey: UPRO_SERIES_KEY,
-      label: `UPRO SMA — SMA(${uproConfig.smaPeriod})`,
-      data: uproStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
-      percentileStats: uproStats,
-      totalCount: uproTotal,
+      seriesKey: SPX_SERIES_KEY,
+      label: `${spxLabel} — SMA(${spxConfig?.smaPeriod ?? 0})`,
+      data: spxStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
+      percentileStats: spxStats,
+      totalCount: spxTotal,
       backgroundColor: "rgba(59, 130, 246, 0)",
       borderColor: "rgba(59, 130, 246, 0)",
       borderWidth: 0,
@@ -699,8 +711,8 @@ export function ForwardReturnVsSmaGapChart({
       barPercentage: 0.55,
       percentileColor: "rgba(59, 130, 246, 0.95)",
       percentileLabelHalo: colors.tooltipBackground,
-      cloudProfiles: uproBuckets.map((bucket, index) => {
-        const stats = uproStats[index];
+      cloudProfiles: spxBuckets.map((bucket, index) => {
+        const stats = spxStats[index];
         return stats
           ? buildLogRaincloudDensity(
               bucket.map((point) => point.realReturnFactor),
@@ -709,7 +721,7 @@ export function ForwardReturnVsSmaGapChart({
             )
           : [];
       }),
-      rainPoints: uproBuckets.map((bucket) =>
+      rainPoints: spxBuckets.map((bucket) =>
         sampleRaincloudItems(bucket, (point) => point.realReturnFactor).map((point) => ({
           date: point.date,
           value: point.realReturnFactor,
@@ -719,13 +731,13 @@ export function ForwardReturnVsSmaGapChart({
       rainColor: "rgba(59, 130, 246, 0.7)",
       raincloudSide: -1,
     };
-    const tqqqDataset: RaincloudDataset = {
+    const ndxDataset: RaincloudDataset = {
       type: "bar",
-      seriesKey: TQQQ_SERIES_KEY,
-      label: `TQQQ SMA — SMA(${tqqqConfig.smaPeriod})`,
-      data: tqqqStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
-      percentileStats: tqqqStats,
-      totalCount: tqqqTotal,
+      seriesKey: NDX_SERIES_KEY,
+      label: `${ndxLabel} — SMA(${ndxConfig?.smaPeriod ?? 0})`,
+      data: ndxStats.map((s) => (s ? ([s.min, s.max] as [number, number]) : null)),
+      percentileStats: ndxStats,
+      totalCount: ndxTotal,
       backgroundColor: "rgba(249, 115, 22, 0)",
       borderColor: "rgba(249, 115, 22, 0)",
       borderWidth: 0,
@@ -734,8 +746,8 @@ export function ForwardReturnVsSmaGapChart({
       barPercentage: 0.55,
       percentileColor: "rgba(249, 115, 22, 0.95)",
       percentileLabelHalo: colors.tooltipBackground,
-      cloudProfiles: tqqqBuckets.map((bucket, index) => {
-        const stats = tqqqStats[index];
+      cloudProfiles: ndxBuckets.map((bucket, index) => {
+        const stats = ndxStats[index];
         return stats
           ? buildLogRaincloudDensity(
               bucket.map((point) => point.realReturnFactor),
@@ -744,7 +756,7 @@ export function ForwardReturnVsSmaGapChart({
             )
           : [];
       }),
-      rainPoints: tqqqBuckets.map((bucket) =>
+      rainPoints: ndxBuckets.map((bucket) =>
         sampleRaincloudItems(bucket, (point) => point.realReturnFactor).map((point) => ({
           date: point.date,
           value: point.realReturnFactor,
@@ -754,11 +766,11 @@ export function ForwardReturnVsSmaGapChart({
       rainColor: "rgba(249, 115, 22, 0.7)",
       raincloudSide: 1,
     };
-    const uproMedianLine = {
+    const spxMedianLine = {
       type: "line" as const,
-      seriesKey: UPRO_SERIES_KEY,
-      label: "UPRO SMA median",
-      data: uproStats.map((s) => (s ? s.median : null)),
+      seriesKey: SPX_SERIES_KEY,
+      label: `${spxLabel} median`,
+      data: spxStats.map((s) => (s ? s.median : null)),
       borderColor: "rgba(59, 130, 246, 1)",
       backgroundColor: "rgba(59, 130, 246, 1)",
       borderWidth: 2,
@@ -767,11 +779,11 @@ export function ForwardReturnVsSmaGapChart({
       tension: 0,
       spanGaps: false,
     };
-    const tqqqMedianLine = {
+    const ndxMedianLine = {
       type: "line" as const,
-      seriesKey: TQQQ_SERIES_KEY,
-      label: "TQQQ SMA median",
-      data: tqqqStats.map((s) => (s ? s.median : null)),
+      seriesKey: NDX_SERIES_KEY,
+      label: `${ndxLabel} median`,
+      data: ndxStats.map((s) => (s ? s.median : null)),
       borderColor: "rgba(249, 115, 22, 1)",
       backgroundColor: "rgba(249, 115, 22, 1)",
       borderWidth: 2,
@@ -780,11 +792,11 @@ export function ForwardReturnVsSmaGapChart({
       tension: 0,
       spanGaps: false,
     };
-    const uproFreqLine = {
+    const spxFreqLine = {
       type: "line" as const,
-      seriesKey: UPRO_SERIES_KEY,
-      label: "UPRO SMA n/total",
-      data: uproStats.map((s) => (s && uproTotal > 0 ? (s.count / uproTotal) * 100 : null)),
+      seriesKey: SPX_SERIES_KEY,
+      label: `${spxLabel} n/total`,
+      data: spxStats.map((s) => (s && spxTotal > 0 ? (s.count / spxTotal) * 100 : null)),
       yAxisID: "yFreq",
       borderColor: "rgba(59, 130, 246, 0.55)",
       backgroundColor: "rgba(59, 130, 246, 0.55)",
@@ -795,11 +807,11 @@ export function ForwardReturnVsSmaGapChart({
       tension: 0,
       spanGaps: false,
     };
-    const tqqqFreqLine = {
+    const ndxFreqLine = {
       type: "line" as const,
-      seriesKey: TQQQ_SERIES_KEY,
-      label: "TQQQ SMA n/total",
-      data: tqqqStats.map((s) => (s && tqqqTotal > 0 ? (s.count / tqqqTotal) * 100 : null)),
+      seriesKey: NDX_SERIES_KEY,
+      label: `${ndxLabel} n/total`,
+      data: ndxStats.map((s) => (s && ndxTotal > 0 ? (s.count / ndxTotal) * 100 : null)),
       yAxisID: "yFreq",
       borderColor: "rgba(249, 115, 22, 0.55)",
       backgroundColor: "rgba(249, 115, 22, 0.55)",
@@ -810,19 +822,28 @@ export function ForwardReturnVsSmaGapChart({
       tension: 0,
       spanGaps: false,
     };
+    // A family with nothing to plot contributes no datasets at all, so it takes no
+    // legend entry and no raincloud side. Plugins iterate datasets rather than
+    // indexing them, so a missing slot shifts nothing.
+    const datasets = [
+      ...(spxTotal > 0 ? [spxDataset, spxMedianLine, spxFreqLine] : []),
+      ...(ndxTotal > 0 ? [ndxDataset, ndxMedianLine, ndxFreqLine] : []),
+    ];
     return {
       labels,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      datasets: [uproDataset, tqqqDataset, uproMedianLine, tqqqMedianLine, uproFreqLine, tqqqFreqLine] as any,
+      datasets: datasets as any,
     };
   }, [
     labels,
-    uproBuckets,
-    uproStats,
-    tqqqBuckets,
-    tqqqStats,
-    uproConfig.smaPeriod,
-    tqqqConfig.smaPeriod,
+    spxBuckets,
+    spxStats,
+    ndxBuckets,
+    ndxStats,
+    spxLabel,
+    ndxLabel,
+    spxConfig?.smaPeriod,
+    ndxConfig?.smaPeriod,
     colors.tooltipBackground,
   ]);
 
@@ -992,18 +1013,20 @@ export function ForwardReturnVsSmaGapChart({
     [colors, yBounds],
   );
 
-  const totalUpro = uproPoints.length;
-  const totalTqqq = tqqqPoints.length;
+  const totalSpx = spxPoints.length;
+  const totalNdx = ndxPoints.length;
 
   return (
     <Card className="!p-1 md:!p-5">
       <div className="mb-2 flex items-start justify-between gap-3 md:items-baseline">
         <h3 className="text-sm font-medium text-foreground">1-year forward real return by SMA gap</h3>
         <span className="shrink-0 text-xs text-muted tabular-nums">
-          {totalUpro} UPRO SMA • {totalTqqq} TQQQ SMA
+          {totalSpx > 0 && `${totalSpx} ${spxLabel}`}
+          {totalSpx > 0 && totalNdx > 0 && " • "}
+          {totalNdx > 0 && `${totalNdx} ${ndxLabel}`}
         </span>
       </div>
-      {totalUpro === 0 && totalTqqq === 0 ? (
+      {totalSpx === 0 && totalNdx === 0 ? (
         <div className="text-sm text-muted">
           Loading or not enough forward data — the chart needs at least 252 trading days of history past each candidate
           date in the selected range.

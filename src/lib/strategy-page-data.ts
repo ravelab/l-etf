@@ -4,7 +4,7 @@ import { LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "@/lib/constants"
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { BacktestResult, EtfConfig } from "@/lib/simulation/types";
 
-type StrategyYearlyGrowthSeries = {
+export type StrategyYearlyGrowthSeries = {
   years: string[];
   series: Array<{ label: string; values: Array<number | null> }>;
   inflation?: Array<number | null>;
@@ -41,6 +41,19 @@ export function shortBacktestAssetLabel(fullName: string): string {
   const sma = /^(.*) \(SMA,.*\)$/.exec(fullName);
   if (sma) return `${sma[1].trim()} SMA`;
   return fullName;
+}
+
+/**
+ * Table/chart label for a strategy. With Trade After-Hours off, "SMA Next Open" is
+ * the only SMA execution mode in play, so it reads as plain "SMA".
+ */
+export function formatStrategyLabelForDisplay(label: string, tradeAfterHours: boolean): string {
+  const normalized = normalizeStrategyLabel(label);
+  if (tradeAfterHours) return normalized;
+  return normalized
+    .replace(" SMA Next Open", " SMA")
+    .replace(" SMA Close", " SMA")
+    .replace(" SMA Next Close", " SMA");
 }
 
 export function shouldIncludeStrategyChartLabel(label: string): boolean {

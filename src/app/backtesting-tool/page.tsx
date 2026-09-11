@@ -39,6 +39,8 @@ import { getIsoDate } from "@/lib/date";
 import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { annualizedInflationForRange } from "@/lib/inflation";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
+import { StrategyRealReturnSections } from "@/components/tools/StrategyRealReturnSections";
+import { useStrategyReferenceData } from "@/lib/hooks/use-strategy-reference-data";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
 import type { RunSummary } from "@/lib/run-summary";
 import { buildRunSummary } from "@/lib/run-summary";
@@ -47,6 +49,8 @@ import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
 import { useRefreshEndDateOnInitialVisit } from "@/lib/hooks/use-refresh-end-date";
 import { buildBacktestChartSeries } from "@/lib/backtest-chart-series";
+import { buildBacktestYearlyGrowthSeries, collectBacktestGrowthSeries } from "@/lib/backtest-yearly-growth";
+import { displayedAnnualizedInflationPct } from "@/lib/inflation";
 import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import { buildToolsUrl, shouldQueueToolAutorun } from "@/lib/tools-route";
 import { recordSuccessfulToolRun } from "@/lib/tool-run-history";
@@ -1074,6 +1078,58 @@ export function BacktestingPageContent({
 
   const displayResult = result;
 
+  const indexSeriesForDisplay = smaMode !== 0 ? underlyingIndexSeries : EMPTY_UNDERLYING_INDEX_SERIES;
+
+  /** Real yearly growth of exactly the rows the results table above shows. */
+  const growthSeries = useMemo(() => {
+    if (!displayResult) return null;
+    const series = collectBacktestGrowthSeries({
+      configs: resolvedEtfConfigs,
+      result: displayResult,
+      underlyingIndexSeries: indexSeriesForDisplay,
+    });
+    if (series.length === 0) return null;
+    return buildBacktestYearlyGrowthSeries({ series, monthlyCpi });
+  }, [displayResult, resolvedEtfConfigs, indexSeriesForDisplay, monthlyCpi]);
+
+  const growthInflationPct = useMemo(
+    () =>
+      displayedAnnualizedInflationPct(
+        monthlyCpi,
+        display?.summary.startDate ?? startDate,
+        display?.summary.endDate ?? endDate,
+        annualizedInflation,
+      ),
+    [monthlyCpi, display, startDate, endDate, annualizedInflation],
+  );
+
+  /**
+   * The forward-return chart has one side per index family, so each family is
+   * represented by its first SMA config. Synthetic series are preferred because
+   * the chart simulates from index prices alone and a real-ticker config has no
+   * ETF price history there.
+   */
+  const [spxSmaConfig, ndxSmaConfig] = useMemo(() => {
+    const pick = (indexKey: IndexKey) => {
+      const candidates = resolvedEtfConfigs.filter((cfg) => cfg.smaIndex === indexKey && cfg.smaEnabled);
+      return candidates.find((cfg) => cfg.simulated) ?? candidates[0] ?? null;
+    };
+    return [pick("sp500"), pick("nasdaq100")];
+  }, [resolvedEtfConfigs]);
+
+  const strategyReferenceData = useStrategyReferenceData({
+    startDate,
+    endDate,
+    smaSpPeriod,
+    smaNqPeriod,
+    smaSpUpperBuffer,
+    smaSpLowerBuffer,
+    smaNqUpperBuffer,
+    smaNqLowerBuffer,
+    riskOffAsset,
+    enabled: displayResult !== null && (spxSmaConfig !== null || ndxSmaConfig !== null),
+  });
+
   const handleCheckSimulations = useCallback(() => {
     setSmaMode(0);
     setEndDate(getIsoDate(new Date()));
@@ -1212,6 +1268,13 @@ export function BacktestingPageContent({
               monthlyCpi={monthlyCpi}
               underlyingIndexSeries={smaMode !== 0 ? underlyingIndexSeries : EMPTY_UNDERLYING_INDEX_SERIES}
               resultTableTestId="snapshot-tool-sweep-backtest"
+            />
+            <StrategyRealReturnSections
+              growthSeries={growthSeries}
+              growthInflationPct={growthInflationPct}
+              referenceData={strategyReferenceData}
+              spxConfig={spxSmaConfig}
+              ndxConfig={ndxSmaConfig}
             />
             {smaMode !== 0 && displayResult.etfResults
               .map((etf, i) => ({ etf, i }))

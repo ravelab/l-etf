@@ -5,8 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import type { ChartOptions, TooltipItem } from "chart.js";
 import { Card } from "@/components/ui/Card";
-import { RealYearlyGrowthTable } from "@/components/tools/RealYearlyGrowthTable";
-import { ForwardReturnVsSmaGapChart } from "@/components/tools/compare/ForwardReturnVsSmaGapChart";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
 import { SweepComparisonTable } from "@/components/tools/compare/SweepComparisonTable";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
@@ -22,7 +20,6 @@ import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress"
 import { buildPresetBacktestUrl } from "@/lib/url-builders";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { runParallelVariants } from "@/lib/simulation/parallel";
-import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import { summarizeSmaRow } from "@/lib/simulation/rolling";
 import { scoreRow } from "@/lib/simulation/score";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
@@ -49,9 +46,9 @@ import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { buildToolsUrl, shouldQueueToolAutorun } from "@/lib/tools-route";
 import { recordSuccessfulToolRun } from "@/lib/tool-run-history";
-import { buildStrategyVariants, buildStrategyYearlyGrowthSeries, normalizeStrategyLabel, shouldIncludeStrategyChartLabel } from "@/lib/strategy-page-data";
+import { buildStrategyVariants, formatStrategyLabelForDisplay, normalizeStrategyLabel, shouldIncludeStrategyChartLabel } from "@/lib/strategy-page-data";
 import { buildRealEndValuePercentileSeries } from "@/lib/strategy-percentiles";
-import { annualizedInflationForRange, displayedAnnualizedInflationPct, inflationPctForSweepSectionTitle } from "@/lib/inflation";
+import { annualizedInflationForRange, inflationPctForSweepSectionTitle } from "@/lib/inflation";
 import { formatPercent } from "@/lib/format";
 import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { buildSgovFinalValuesByWindow } from "@/lib/sgov-benchmark";
@@ -124,26 +121,9 @@ type SnapshotStrategySummary = {
   labels: string[];
 };
 
-type YearlyGrowthSeries = {
-  years: string[];
-  series: Array<{ label: string; values: (number | null)[] }>;
-  inflation?: Array<number | null>;
-};
-
 function isAfterHoursStrategy(label: string): boolean {
   const normalized = normalizeStrategyLabel(label);
   return normalized.endsWith("SMA Close") || normalized.endsWith("SMA Next Close");
-}
-
-function formatStrategyLabelForDisplay(label: string, tradeAfterHours: boolean): string {
-  const normalized = normalizeStrategyLabel(label);
-  if (tradeAfterHours) return normalized;
-  // When Trade After-Hours is off, "SMA Next Open" is the only SMA execution mode in play.
-  // Display it as plain "SMA" in tables/charts.
-  return normalized
-    .replace(" SMA Next Open", " SMA")
-    .replace(" SMA Close", " SMA")
-    .replace(" SMA Next Close", " SMA");
 }
 
 const LETF_PROFILE: Record<string, { multiplier: 2 | 3; index: "sp500" | "nasdaq100" }> = {
@@ -420,11 +400,10 @@ export function CompareLETFsPageContent({
     strategyResults: [] as StrategyResult[],
     snapshotSummary: null as SnapshotStrategySummary | null,
     distributionSnapshot: null as DistributionSnapshot | null,
-    yearlyGrowthSeries: null as YearlyGrowthSeries | null,
     runSummaryInputs: null as RunSummary | null,
     tradeAfterHours: false,
   }, {
-    persistKeys: ["strategyResults", "snapshotSummary", "distributionSnapshot", "yearlyGrowthSeries", "annualizedInflation", "monthlyCpi", "runSummaryInputs", "tradeAfterHours"],
+    persistKeys: ["strategyResults", "snapshotSummary", "distributionSnapshot", "annualizedInflation", "monthlyCpi", "runSummaryInputs", "tradeAfterHours"],
   });
 
   const {
@@ -441,24 +420,9 @@ export function CompareLETFsPageContent({
   const { hateDrawdown, toggle: hateDrawdownToggle } = useHateDrawdown();
   const [annualizedInflation, setAnnualizedInflation] = useState(initial.annualizedInflation);
   const [monthlyCpi, setMonthlyCpi] = useState<Array<{ date: string; value: number }>>(initial.monthlyCpi);
-  const [forwardChartData, setForwardChartData] = useState<{
-    spxPrices: PricePoint[];
-    ndxPrices: PricePoint[];
-    rates: import("@/lib/simulation/types").RatePoint[];
-    monthlyCpi: Array<{ date: string; value: number }>;
-    uproConfig: EtfConfig;
-    tqqqConfig: EtfConfig;
-    spxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
-    spxRiskOffOpenValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
-    ndxRiskOffValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
-    ndxRiskOffOpenValues: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
-    effectiveStartSp: string;
-    effectiveStartNq: string;
-  } | null>(null);
   const [strategyResults, setStrategyResults] = useState<StrategyResult[]>(initial.strategyResults);
   const [snapshotSummary, setSnapshotSummary] = useState<SnapshotStrategySummary | null>(initial.snapshotSummary);
   const [distributionSnapshot, setDistributionSnapshot] = useState<DistributionSnapshot | null>(initial.distributionSnapshot);
-  const [yearlyGrowthSeries, setYearlyGrowthSeries] = useState<YearlyGrowthSeries | null>(initial.yearlyGrowthSeries);
   const {
     runSummary,
     setRunSummary,
@@ -483,7 +447,7 @@ export function CompareLETFsPageContent({
 
   const hasInvalidCachedResults =
     hasInvalidLiveStrategyResults(strategyResults);
-  const hasCachedResults = !hasInvalidCachedResults && (strategyResults.length > 0 || yearlyGrowthSeries !== null);
+  const hasCachedResults = !hasInvalidCachedResults && strategyResults.length > 0;
 
   const shouldHydrateSnapshot = !hasCachedResults && !restoredFromCache;
 
@@ -501,7 +465,6 @@ export function CompareLETFsPageContent({
       if (snapshot.strategyResults) setStrategyResults(snapshot.strategyResults as StrategyResult[]);
       if (snapshot.snapshotSummary) setSnapshotSummary(snapshot.snapshotSummary as SnapshotStrategySummary);
       if (snapshot.distributionSnapshot !== undefined) setDistributionSnapshot(snapshot.distributionSnapshot as DistributionSnapshot | null);
-      if (snapshot.yearlyGrowthSeries) setYearlyGrowthSeries(snapshot.yearlyGrowthSeries as YearlyGrowthSeries);
       if (snapshot.annualizedInflation != null) setAnnualizedInflation(snapshot.annualizedInflation as number);
       if (snapshot.monthlyCpi != null) setMonthlyCpi(snapshot.monthlyCpi as Array<{ date: string; value: number }>);
       applyRunSummaryFromSnapshot(snapshot);
@@ -517,106 +480,8 @@ export function CompareLETFsPageContent({
     onSnapshot: applySnapshot,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareLetfsSnapshotState>).runSummaryInputs ||
-      ((state as Partial<CompareLetfsSnapshotState>).strategyResults?.length ?? 0) > 0 ||
-      !!(state as Partial<CompareLetfsSnapshotState>).yearlyGrowthSeries,
+      ((state as Partial<CompareLetfsSnapshotState>).strategyResults?.length ?? 0) > 0,
   });
-
-  // Load the data feeding the "1-year forward real return by SMA gap" raincloud chart
-  // independently of the user clicking Run, so the chart is always populated
-  // by the time the user scrolls to the bottom.
-  useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
-    (async () => {
-      try {
-        const md = await fetchMarketData(
-          ["sp500", "nasdaq100"],
-          startDate,
-          endDate,
-          controller.signal,
-          undefined,
-          {
-            allowMissingPrices: true,
-            rateStartDate: MARKET_DATA_EARLIEST_START,
-            warmUpTradingDays: Math.max(smaSpPeriod, smaNqPeriod),
-          },
-        );
-        if (cancelled) return;
-
-        const spxPrices = md.pricesByIndex["sp500"] ?? [];
-        const ndxPrices = md.pricesByIndex["nasdaq100"] ?? [];
-        const [spxRiskOff, ndxRiskOff] = await Promise.all([
-          loadRiskOffPriceSeries(riskOffAsset, spxPrices, startDate, endDate, controller.signal),
-          ndxPrices.length >= 2
-            ? loadRiskOffPriceSeries(riskOffAsset, ndxPrices, startDate, endDate, controller.signal)
-            : Promise.resolve({
-                closeValuesByAsset: {} as Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
-                openValuesByAsset: {} as Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
-              }),
-        ]);
-        if (cancelled) return;
-
-        const { sp500Variants, nasdaqVariants } = buildStrategyVariants({
-          smaSpPeriod,
-          smaNqPeriod,
-          smaSpUpperBuffer,
-          smaSpLowerBuffer,
-          smaNqUpperBuffer,
-          smaNqLowerBuffer,
-          riskOffAsset,
-          tradeAfterHours,
-        });
-        const executionMode = tradeAfterHours ? "trigger-day-close" : "next-day-open";
-        const uproConfig = sp500Variants.find(
-          ({ config }) => config.name === "UPRO" && config.smaEnabled && config.smaExecutionMode === executionMode,
-        )?.config;
-        const tqqqConfig = nasdaqVariants.find(
-          ({ config }) => config.name === "TQQQ" && config.smaEnabled && config.smaExecutionMode === executionMode,
-        )?.config;
-        if (!uproConfig || !tqqqConfig) throw new Error("Missing SMA chart strategy configuration.");
-
-        setForwardChartData({
-          spxPrices,
-          ndxPrices,
-          rates: md.rates,
-          monthlyCpi: md.monthlyCpi,
-          uproConfig,
-          tqqqConfig,
-          spxRiskOffValues: spxRiskOff.closeValuesByAsset,
-          spxRiskOffOpenValues: spxRiskOff.openValuesByAsset,
-          ndxRiskOffValues: ndxRiskOff.closeValuesByAsset,
-          ndxRiskOffOpenValues: ndxRiskOff.openValuesByAsset,
-          effectiveStartSp: effectiveStartDateFromAlignedSeries({
-            requestedStartDate: startDate,
-            dates: spxPrices.map((price) => price.date),
-            closeByTicker: spxRiskOff.closeValuesByAsset,
-          }),
-          effectiveStartNq: effectiveStartDateFromAlignedSeries({
-            requestedStartDate: startDate,
-            dates: ndxPrices.map((price) => price.date),
-            closeByTicker: ndxRiskOff.closeValuesByAsset,
-          }),
-        });
-      } catch {
-        // Silent fallback — chart shows empty-state message.
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [
-    startDate,
-    endDate,
-    smaSpPeriod,
-    smaNqPeriod,
-    smaSpUpperBuffer,
-    smaSpLowerBuffer,
-    smaNqUpperBuffer,
-    smaNqLowerBuffer,
-    riskOffAsset,
-    tradeAfterHours,
-  ]);
 
   useEffect(() => {
     if (!hasInvalidCachedResults) return;
@@ -625,7 +490,6 @@ export function CompareLETFsPageContent({
       setStrategyResults([]);
       setSnapshotSummary(null);
       setDistributionSnapshot(null);
-      setYearlyGrowthSeries(null);
       clearRunSummary();
     });
     save({
@@ -639,7 +503,6 @@ export function CompareLETFsPageContent({
       strategyResults: [],
       snapshotSummary: null,
       distributionSnapshot: null,
-      yearlyGrowthSeries: null,
       runSummaryInputs: null,
       tradeAfterHours,
     });
@@ -837,44 +700,6 @@ export function CompareLETFsPageContent({
       setStrategyResults(allResults);
       setSnapshotSummary(null);
 
-      // Run single full-period backtests for yearly real growth chart
-      setRunProgress({ pct: 96, label: "Computing yearly growth..." });
-      const sp500Backtest = simulateWithWarmUp(
-        sp500Prices,
-        rates,
-        sp500Variants.map((v) => v.config),
-        startDate,
-        1000, // Sufficient SMA history for state to sync
-        {
-          riskOffValuesByAsset: riskSeriesForSp500.closeValuesByAsset,
-          riskOffOpenValuesByAsset: riskSeriesForSp500.openValuesByAsset,
-          endDate,
-        },
-      );
-      const nasdaqBacktest = hasNasdaqPrices
-        ? simulateWithWarmUp(
-            nasdaqPrices,
-            rates,
-            effectiveNasdaqVariants.map((v) => v.config),
-            startDate,
-            1000, // Sufficient SMA history for state to sync
-            {
-              riskOffValuesByAsset: riskSeriesForNasdaq.closeValuesByAsset,
-              riskOffOpenValuesByAsset: riskSeriesForNasdaq.openValuesByAsset,
-              endDate,
-            },
-          )
-        : null;
-
-      const computedYearlyGrowthSeries: YearlyGrowthSeries = buildStrategyYearlyGrowthSeries({
-        sp500Backtest,
-        nasdaqBacktest,
-        sp500Variants,
-        nasdaqVariants: effectiveNasdaqVariants,
-        monthlyCpi: inflationData.monthlyCpi,
-      });
-      setYearlyGrowthSeries(computedYearlyGrowthSeries);
-
       const nextRunSummary = buildRunSummary({
         startDate,
         endDate,
@@ -901,8 +726,7 @@ export function CompareLETFsPageContent({
         strategyResults: allResults,
         snapshotSummary: null,
         distributionSnapshot: null,
-        yearlyGrowthSeries: computedYearlyGrowthSeries,
-        runSummaryInputs: nextRunSummary,
+          runSummaryInputs: nextRunSummary,
         tradeAfterHours,
       });
 
@@ -1083,18 +907,6 @@ export function CompareLETFsPageContent({
     ]
   );
 
-  /** Always-on Avg Inflation for tables that need inflation context regardless of history-wrap (e.g. Real Yearly Growth Rate). */
-  const realYearlyGrowthInflationPct = useMemo(
-    () =>
-      displayedAnnualizedInflationPct(
-        monthlyCpi,
-        displayStartDate,
-        cpiEndDate,
-        annualizedInflation,
-      ),
-    [monthlyCpi, displayStartDate, cpiEndDate, annualizedInflation]
-  );
-
   /** One combined title inflation only when a single index family is in the summary (combo mixes two effective CPI ranges). */
   const singleFamilySweepTitleInflationPct = useMemo(
     () =>
@@ -1117,23 +929,6 @@ export function CompareLETFsPageContent({
       annualizedInflation,
     ]
   );
-
-  const displayedYearlyGrowthSeries = useMemo<YearlyGrowthSeries | null>(() => {
-    if (!yearlyGrowthSeries) return null;
-    const sorted = [...yearlyGrowthSeries.series].sort(
-      (a, b) =>
-        getDistributionLabelOrder(a.label) - getDistributionLabelOrder(b.label) ||
-        a.label.localeCompare(b.label)
-    );
-    return {
-      years: yearlyGrowthSeries.years,
-      series: sorted.map((s) => ({
-        ...s,
-        label: formatStrategyLabelForDisplay(s.label, tradeAfterHours),
-      })),
-      inflation: yearlyGrowthSeries.inflation,
-    };
-  }, [yearlyGrowthSeries, tradeAfterHours]);
 
   const uproPreset = ETF_PRESETS["UPRO"];
   const tqqqPreset = ETF_PRESETS["TQQQ"];
@@ -1426,28 +1221,6 @@ export function CompareLETFsPageContent({
     p90: findBestLabelByValue(nasdaqDistributionRows, (r) => r.p90),
   }), [nasdaqDistributionRows]);
 
-  const yearlyGrowthTableSeries = useMemo<YearlyGrowthSeries | null>(() => {
-    if (!displayedYearlyGrowthSeries) return null;
-    const desiredOrder = [
-      formatStrategyLabelForDisplay("UPRO SMA Next Open", tradeAfterHours),
-      "UPRO",
-      "VOO",
-      formatStrategyLabelForDisplay("TQQQ SMA Next Open", tradeAfterHours),
-      "TQQQ",
-      "QQQ",
-    ];
-    const byLabel = new Map(displayedYearlyGrowthSeries.series.map((series) => [series.label, series]));
-    const series = desiredOrder
-      .map((label) => byLabel.get(label))
-      .filter((series): series is NonNullable<typeof series> => Boolean(series));
-    if (series.length === 0) return null;
-    return {
-      years: displayedYearlyGrowthSeries.years,
-      series,
-      inflation: displayedYearlyGrowthSeries.inflation,
-    };
-  }, [displayedYearlyGrowthSeries, tradeAfterHours]);
-
   return (
     <div className="min-h-screen bg-background text-foreground p-3 md:p-6">
       <RunSpinnerOverlay active={loading} label={runProgress?.label} pct={runProgress?.pct} />
@@ -1562,30 +1335,6 @@ export function CompareLETFsPageContent({
           />
         )}
 
-        <RealYearlyGrowthTable
-          yearlyGrowthSeries={yearlyGrowthTableSeries}
-          description={`Year-over-year nominal return minus that year's CPI inflation across UPRO SMA, UPRO, VOO, TQQQ SMA, TQQQ, and QQQ. SMA columns use next-open execution.`}
-          title="Real Yearly Growth Rate"
-          inflationPct={realYearlyGrowthInflationPct}
-        />
-
-        {forwardChartData && (
-          <ForwardReturnVsSmaGapChart
-            spxPrices={forwardChartData.spxPrices}
-            ndxPrices={forwardChartData.ndxPrices}
-            rates={forwardChartData.rates}
-            monthlyCpi={forwardChartData.monthlyCpi}
-            uproConfig={forwardChartData.uproConfig}
-            tqqqConfig={forwardChartData.tqqqConfig}
-            spxRiskOffValues={forwardChartData.spxRiskOffValues}
-            spxRiskOffOpenValues={forwardChartData.spxRiskOffOpenValues}
-            ndxRiskOffValues={forwardChartData.ndxRiskOffValues}
-            ndxRiskOffOpenValues={forwardChartData.ndxRiskOffOpenValues}
-            startDateSp={forwardChartData.effectiveStartSp}
-            startDateNq={forwardChartData.effectiveStartNq}
-            endDate={endDate}
-          />
-        )}
       </div>
     </div>
   );
