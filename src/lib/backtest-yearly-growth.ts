@@ -1,6 +1,5 @@
 import { buildYearlyCpiInflation, sampleYearlyRealGrowth } from "@/lib/inflation";
-import { findEtfResult } from "@/lib/simulation/result-lookup";
-import type { BacktestResult, EtfConfig } from "@/lib/simulation/types";
+import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
 import { shortBacktestAssetLabel, type StrategyYearlyGrowthSeries } from "@/lib/strategy-page-data";
 
 interface YearlyGrowthInput {
@@ -57,45 +56,55 @@ export function buildBacktestYearlyGrowthSeries(params: {
   };
 }
 
+/** SMA variants read first within a family, then the plain twin, then anything else. */
+function variantRank(id: string): number {
+  if (id.endsWith("-sma")) return 0;
+  if (id.endsWith("-smaClose")) return 1;
+  if (id.endsWith("-base")) return 2;
+  return 3;
+}
+
 /**
- * The growth table's rows for a finished backtest, in the order they read best:
- * each configured ETF's SMA variant then its plain twin, grouped by index family,
- * with that family's underlying index closing the group.
+ * The growth table's rows for a finished backtest, grouped by index family with
+ * that family's underlying index closing the group.
  *
- * Results are resolved with `findEtfResult` rather than by position, because the
- * engine emits one result for configs that compute identically and maps the other
- * requested ids onto it.
+ * Read straight off the result rather than off the page's current configs. The two
+ * disagree the moment someone changes the form without re-running, and selecting
+ * rows by config while taking data from the result silently dropped whole columns:
+ * switching the preset to an SPX-only LETF made the NDX columns vanish from a
+ * result that still contained them.
  */
 export function collectBacktestGrowthSeries(params: {
-  configs: EtfConfig[];
-  result: Pick<BacktestResult, "etfResults" | "etfResultIdAliases">;
+  result: Pick<BacktestResult, "etfResults">;
   underlyingIndexSeries: Array<{ index: string; label: string; dates: string[]; values: number[] }>;
 }): YearlyGrowthInput[] {
   const indexByFamily = new Map(params.underlyingIndexSeries.map((series) => [series.index, series]));
   const familyOrder: string[] = [];
-  const rowsByFamily = new Map<string, YearlyGrowthInput[]>();
-  const takenResultIds = new Set<string>();
+  const rowsByFamily = new Map<string, EtfResult[]>();
 
-  for (const config of params.configs) {
-    const family = config.smaIndex;
+  for (const etf of params.result.etfResults) {
+    const family = etf.sourceIndex;
     if (!rowsByFamily.has(family)) {
       familyOrder.push(family);
       rowsByFamily.set(family, []);
     }
-    const rows = rowsByFamily.get(family)!;
-    // `<id>` covers the SMA-off case, where configs are never split into variants.
-    for (const id of [`${config.id}-sma`, `${config.id}-base`, config.id]) {
-      const etf = findEtfResult(params.result, id);
-      if (!etf || takenResultIds.has(etf.id)) continue;
-      takenResultIds.add(etf.id);
-      // Same shortening the results table uses, so both read "SSO SMA" rather
-      // than the engine's "SSO (SMA, BRK.B + GLDM + VGSH)".
-      rows.push({ label: shortBacktestAssetLabel(etf.name), dates: etf.dates, values: etf.dailyValues });
-    }
+    rowsByFamily.get(family)!.push(etf);
   }
 
   return familyOrder.flatMap((family) => {
+    const ordered = [...(rowsByFamily.get(family) ?? [])].sort(
+      (a, b) => variantRank(a.id) - variantRank(b.id)
+    );
     const index = indexByFamily.get(family);
-    return [...(rowsByFamily.get(family) ?? []), ...(index ? [{ label: index.label, dates: index.dates, values: index.values }] : [])];
+    return [
+      // Same shortening the results table uses, so both read "SSO SMA" rather
+      // than the engine's "SSO (SMA, BRK.B + GLDM + VGSH)".
+      ...ordered.map((etf) => ({
+        label: shortBacktestAssetLabel(etf.name),
+        dates: etf.dates,
+        values: etf.dailyValues,
+      })),
+      ...(index ? [{ label: index.label, dates: index.dates, values: index.values }] : []),
+    ];
   });
 }

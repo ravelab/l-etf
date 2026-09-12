@@ -59,6 +59,7 @@ import { getLaunchDateForPresetName, useEtfLaunchDates } from "@/lib/hooks/use-e
 import { fetchJsonCached, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoints } from "@/lib/fetch-market-data";
 import { validateSimulationReadyPrices } from "@/lib/utils";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
+import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
 import { alignCloseSeriesToDates } from "@/lib/utils";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
@@ -1087,12 +1088,23 @@ export function BacktestingPageContent({
    * ETF price history there.
    */
   const [spxSmaConfig, ndxSmaConfig] = useMemo(() => {
+    // A config only qualifies if the DISPLAYED result actually holds its SMA series.
+    // The form describes the next run; everything under the results describes the
+    // last one. Ids are positional, so `etf1-sma` exists whichever LETF is selected
+    // — the name is what tells them apart.
+    const shownInResult = (cfg: EtfConfig) => {
+      if (!displayResult) return false;
+      const etf = findEtfResult(displayResult, `${cfg.id}-sma`);
+      return etf != null && shortBacktestAssetLabel(etf.name) === `${cfg.name} SMA`;
+    };
     const pick = (indexKey: IndexKey) => {
-      const candidates = resolvedEtfConfigs.filter((cfg) => cfg.smaIndex === indexKey && cfg.smaEnabled);
+      const candidates = resolvedEtfConfigs.filter(
+        (cfg) => cfg.smaIndex === indexKey && cfg.smaEnabled && shownInResult(cfg)
+      );
       return candidates.find((cfg) => cfg.simulated) ?? candidates[0] ?? null;
     };
     return [pick("sp500"), pick("nasdaq100")];
-  }, [resolvedEtfConfigs]);
+  }, [resolvedEtfConfigs, displayResult]);
 
   const strategyReferenceData = useStrategyReferenceData({
     startDate,
@@ -1124,13 +1136,12 @@ export function BacktestingPageContent({
   const growthSeries = useMemo(() => {
     if (!displayResult) return null;
     const series = collectBacktestGrowthSeries({
-      configs: resolvedEtfConfigs,
       result: displayResult,
       underlyingIndexSeries: indexSeriesForDisplay,
     });
     if (series.length === 0) return null;
     return buildBacktestYearlyGrowthSeries({ series, monthlyCpi: growthMonthlyCpi });
-  }, [displayResult, resolvedEtfConfigs, indexSeriesForDisplay, growthMonthlyCpi]);
+  }, [displayResult, indexSeriesForDisplay, growthMonthlyCpi]);
 
   const growthInflationPct = useMemo(
     () =>

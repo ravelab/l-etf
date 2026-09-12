@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBacktestYearlyGrowthSeries } from "@/lib/backtest-yearly-growth";
+import {
+  buildBacktestYearlyGrowthSeries,
+  collectBacktestGrowthSeries,
+} from "@/lib/backtest-yearly-growth";
+import type { EtfResult } from "@/lib/simulation/types";
 
 /** December CPI observations at a flat 2%/yr, so every year carries inflation. */
 const MONTHLY_CPI = [
@@ -104,4 +108,62 @@ test("buildBacktestYearlyGrowthSeries: returns null when nothing has a full year
     }),
     null
   );
+});
+
+/** Only the fields the collector reads; the rest of EtfResult is irrelevant here. */
+function etfResult(id: string, name: string, sourceIndex: "sp500" | "nasdaq100"): EtfResult {
+  return {
+    id,
+    name,
+    sourceIndex,
+    dates: LONG_DATES,
+    dailyValues: [100, 110, 121, 133.1],
+  } as unknown as EtfResult;
+}
+
+const INDEX_SERIES = [
+  { index: "sp500", label: "VOO", dates: LONG_DATES, values: [100, 103, 106.09, 109.27] },
+  { index: "nasdaq100", label: "QQQ", dates: LONG_DATES, values: [100, 104, 108.16, 112.49] },
+];
+
+test("collectBacktestGrowthSeries: groups by family, SMA first, index closing the group", () => {
+  const rows = collectBacktestGrowthSeries({
+    result: {
+      etfResults: [
+        etfResult("etf1-base", "UPRO (No SMA)", "sp500"),
+        etfResult("etf2-sma", "TQQQ (SMA, SGOV)", "nasdaq100"),
+        etfResult("etf1-sma", "UPRO (SMA, SGOV)", "sp500"),
+        etfResult("etf2-base", "TQQQ (No SMA)", "nasdaq100"),
+      ],
+    },
+    underlyingIndexSeries: INDEX_SERIES,
+  });
+  assert.deepEqual(
+    rows.map((r) => r.label),
+    ["UPRO SMA", "UPRO", "VOO", "TQQQ SMA", "TQQQ", "QQQ"]
+  );
+});
+
+test("collectBacktestGrowthSeries: reports every family the result holds", () => {
+  // The page's own configs used to select these rows while the data came from the
+  // result. Switching the preset to an SPX-only LETF without re-running then made
+  // the NDX columns vanish from a result that still contained them.
+  const rows = collectBacktestGrowthSeries({
+    result: {
+      etfResults: [
+        etfResult("etf1-sma", "UPRO (SMA, SGOV)", "sp500"),
+        etfResult("etf2-sma", "TQQQ (SMA, SGOV)", "nasdaq100"),
+      ],
+    },
+    underlyingIndexSeries: INDEX_SERIES,
+  });
+  assert.deepEqual(rows.map((r) => r.label), ["UPRO SMA", "VOO", "TQQQ SMA", "QQQ"]);
+});
+
+test("collectBacktestGrowthSeries: omits an index row it was given no series for", () => {
+  const rows = collectBacktestGrowthSeries({
+    result: { etfResults: [etfResult("etf1-sma", "SSO (SMA, SGOV)", "sp500")] },
+    underlyingIndexSeries: [],
+  });
+  assert.deepEqual(rows.map((r) => r.label), ["SSO SMA"]);
 });

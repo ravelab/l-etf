@@ -35430,4 +35430,7 @@ date,adj_close,open,close,name,source
 2026-09-02,703.41,7634.58,7666.6,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-09-03,710.72,7686.71,7747.71,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-09-04,708.01,7750.19,7718.6,VOO,yahoo(open+close)+tiingo(adj_close)
-2026-09-08,703.875,7717.81,7673.52,VOO,yahoo(open+close)+provisional(adj_close)
+2026-09-08,704.07,7717.81,7673.52,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-09-09,700.87,7660.68,7636.36,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-09-10,696.65,7594.74,7591.7,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-09-11,702.56,7636.75,7656.98,VOO,yahoo(open+close)+tiingo(adj_close)
