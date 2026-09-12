@@ -1080,29 +1080,6 @@ export function BacktestingPageContent({
 
   const indexSeriesForDisplay = smaMode !== 0 ? underlyingIndexSeries : EMPTY_UNDERLYING_INDEX_SERIES;
 
-  /** Real yearly growth of exactly the rows the results table above shows. */
-  const growthSeries = useMemo(() => {
-    if (!displayResult) return null;
-    const series = collectBacktestGrowthSeries({
-      configs: resolvedEtfConfigs,
-      result: displayResult,
-      underlyingIndexSeries: indexSeriesForDisplay,
-    });
-    if (series.length === 0) return null;
-    return buildBacktestYearlyGrowthSeries({ series, monthlyCpi });
-  }, [displayResult, resolvedEtfConfigs, indexSeriesForDisplay, monthlyCpi]);
-
-  const growthInflationPct = useMemo(
-    () =>
-      displayedAnnualizedInflationPct(
-        monthlyCpi,
-        display?.summary.startDate ?? startDate,
-        display?.summary.endDate ?? endDate,
-        annualizedInflation,
-      ),
-    [monthlyCpi, display, startDate, endDate, annualizedInflation],
-  );
-
   /**
    * The forward-return chart has one side per index family, so each family is
    * represented by its first SMA config. Synthetic series are preferred because
@@ -1127,8 +1104,45 @@ export function BacktestingPageContent({
     smaNqUpperBuffer,
     smaNqLowerBuffer,
     riskOffAsset,
-    enabled: displayResult !== null && (spxSmaConfig !== null || ndxSmaConfig !== null),
+    // Enabled for any displayed result, not just one with an SMA config: the growth
+    // table needs this loader's CPI even when the forward chart has nothing to plot.
+    enabled: displayResult !== null,
   });
+
+  /**
+   * CPI for the sections below the results. A snapshot-hydrated page carries only
+   * the annualized scalar, which cannot price a per-year column — every row would
+   * read 0.00% inflation and report nominal returns — so fall back to the series
+   * the reference-data loader fetches for itself.
+   */
+  const growthMonthlyCpi = useMemo(
+    () => (monthlyCpi.length >= 2 ? monthlyCpi : (strategyReferenceData?.monthlyCpi ?? [])),
+    [monthlyCpi, strategyReferenceData],
+  );
+
+  /** Real yearly growth of exactly the rows the results table above shows. */
+  const growthSeries = useMemo(() => {
+    if (!displayResult) return null;
+    const series = collectBacktestGrowthSeries({
+      configs: resolvedEtfConfigs,
+      result: displayResult,
+      underlyingIndexSeries: indexSeriesForDisplay,
+    });
+    if (series.length === 0) return null;
+    return buildBacktestYearlyGrowthSeries({ series, monthlyCpi: growthMonthlyCpi });
+  }, [displayResult, resolvedEtfConfigs, indexSeriesForDisplay, growthMonthlyCpi]);
+
+  const growthInflationPct = useMemo(
+    () =>
+      displayedAnnualizedInflationPct(
+        growthMonthlyCpi,
+        display?.summary.startDate ?? startDate,
+        display?.summary.endDate ?? endDate,
+        annualizedInflation,
+      ),
+    [growthMonthlyCpi, display, startDate, endDate, annualizedInflation],
+  );
+
 
   const handleCheckSimulations = useCallback(() => {
     setSmaMode(0);

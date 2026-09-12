@@ -420,6 +420,10 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
     etfConfigs: [],
     result: canonicalRun as BacktestResult,
     annualizedInflation,
+    // The scalar alone cannot drive a per-year column: the Real Yearly Growth
+    // table needs the series to price each year's own inflation, and without it
+    // every row reads 0.00% and its returns come out nominal.
+    monthlyCpi: inflationData.monthlyCpi,
   };
 }
 

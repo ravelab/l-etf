@@ -67,9 +67,32 @@ test("buildBacktestYearlyGrowthSeries: carries one inflation row covering every 
   });
   assert.ok(built);
   assert.equal(built.inflation?.length, built.years.length);
+  // Non-zero, not merely numeric: an empty CPI series silently yields 0.00% on every
+  // row and turns the whole table nominal, which is exactly how it shipped broken.
   for (const value of built.inflation ?? []) {
-    assert.equal(typeof value, "number");
+    assert.ok(
+      typeof value === "number" && value > 0.015 && value < 0.025,
+      `expected roughly 2%/yr inflation, got ${value}`
+    );
   }
+});
+
+test("buildBacktestYearlyGrowthSeries: subtracts inflation, so growth is real not nominal", () => {
+  const series = [{ label: "QLD SMA", dates: SHORT_DATES, values: [100, 120, 144] }];
+  const real = buildBacktestYearlyGrowthSeries({ series, monthlyCpi: MONTHLY_CPI });
+  // No CPI at all is the degenerate case: growth then has to come back nominal.
+  const nominal = buildBacktestYearlyGrowthSeries({ series, monthlyCpi: [] });
+  assert.ok(real && nominal);
+
+  const realValue = real.series[0].values.at(-1);
+  const nominalValue = nominal.series[0].values.at(-1);
+  assert.ok(typeof realValue === "number" && typeof nominalValue === "number");
+  assert.ok(
+    realValue < nominalValue - 1,
+    `real ${realValue} should sit clearly below nominal ${nominalValue}`
+  );
+  // 20% nominal against 2% inflation is ~17.6% real.
+  assert.ok(Math.abs(realValue - 17.6) < 0.5, `expected ~17.6% real, got ${realValue}`);
 });
 
 test("buildBacktestYearlyGrowthSeries: returns null when nothing has a full year", () => {

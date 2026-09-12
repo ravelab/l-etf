@@ -66,3 +66,34 @@ test("forward SMA return points use the strategy path and risk-off exit regime",
     * (1 - getRiskOffSpread("SGOV", false));
   assert.ok(Math.abs(points[0].realReturnFactor - expectedFactor) < 1e-12);
 });
+
+test("forward SMA return points are deflated by CPI, not left nominal", () => {
+  const args = {
+    indexPrices: prices,
+    strategyResult,
+    config,
+    startDate: dates[0],
+    endDate: dates[2],
+    forwardTradingDays: 2,
+  };
+  const nominal = buildForwardSmaReturnPoints({ ...args, monthlyCpi: [] });
+  // A CPI reading between the entry and the forward date, so the two resolve to
+  // different index levels and the ratio is a real 10%.
+  const real = buildForwardSmaReturnPoints({
+    ...args,
+    monthlyCpi: [
+      { date: "2024-01-01", value: 100 },
+      { date: "2024-01-03", value: 110 },
+    ],
+  });
+
+  assert.equal(nominal.length, 1);
+  assert.equal(real.length, 1);
+  // An empty CPI series makes cpiIndexRatioEndOverStart return 1, which silently
+  // turns the whole chart nominal — the same way the growth table shipped broken.
+  assert.ok(
+    Math.abs(real[0].realReturnFactor - nominal[0].realReturnFactor / 1.1) < 1e-12,
+    `expected the nominal factor divided by 1.1, got ${real[0].realReturnFactor}`
+  );
+  assert.ok(real[0].realReturnFactor < nominal[0].realReturnFactor);
+});
