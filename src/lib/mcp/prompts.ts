@@ -38,8 +38,10 @@ export function registerPrompts(server: McpServer): void {
                 `1. Read letf://methodology and letf://data-coverage for context and data freshness.\n` +
                 `2. Call get_sma_signals for the current timing signal.\n` +
                 `3. Call run_backtest for ${args.preset} both without SMA and with smaEnabled=true, and compare them to the 1x benchmark.\n` +
-                `4. If available, use compare_strategies for a rolling-window view.\n` +
-                `Summarize CAGR, max drawdown, and the risk/reward tradeoff. Always include the not-investment-advice disclaimer.`,
+                `4. Call stress_test_strategy to see what it did in each historical drawdown — an average over rolling windows hides the episodes that matter most for leverage.\n` +
+                `5. Use compare_strategies or run_rolling_window_analysis for the distribution of outcomes, not just one path.\n` +
+                `6. Only if asked to tune parameters, use optimize_strategy — and report its split-sample rank and neighbourhood, not just the winning cell.\n` +
+                `Summarize CAGR, max drawdown, and the risk/reward tradeoff, and say plainly where the strategy failed as well as where it worked. Always include the not-investment-advice disclaimer.`,
             },
           },
         ],

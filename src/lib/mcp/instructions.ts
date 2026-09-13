@@ -12,6 +12,9 @@ Getting grounded:
 - Read \`letf://methodology\` before interpreting results, and \`letf://data-coverage\` for how fresh the data is.
 - \`get_precomputed_analysis\` serves the site's canonical runs instantly and does not consume the heavy-tool rate limit. Prefer it for common questions; re-run a live tool only for custom inputs or a like-for-like comparison (snapshots are generated with history wrap ON, unlike the live tools).
 
+Picking a tool:
+- One strategy over one range: \`run_backtest\`. What it did in specific crises: \`stress_test_strategy\`. The distribution across history: \`run_rolling_window_analysis\` or \`compare_strategies\`. Tuning parameters: \`optimize_strategy\`. Futures instead of ETFs: \`run_futures_backtest\` for one leverage, \`compare_futures_ladder\` for the whole ladder including the two-sleeve fund.
+
 Reading results:
 - An SMA config is expanded into two results, \`<id>-base\` (no SMA) and \`<id>-sma\`. Select by id; never assume the first result is the one you asked for.
 - Sweeps may stop early on the compute budget. When a result says \`truncated\`, it covers only \`evaluatedConfigs\` of \`totalConfigs\` — narrow the range or widen the step rather than presenting it as complete.
