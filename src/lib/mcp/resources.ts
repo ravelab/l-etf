@@ -1,9 +1,11 @@
 // Read-only MCP resources that ground an agent's answers in the app's own
 // methodology and data freshness, rather than invented finance lore.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ResourceTemplate, type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getPriceDateBounds } from "@/lib/db/queries";
+import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { DISCLAIMER } from "@/lib/mcp/disclaimer";
+import { McpToolError } from "@/lib/mcp/tool-result";
 
 const METHODOLOGY = `# l-etf simulation methodology (summary)
 
@@ -22,6 +24,35 @@ const METHODOLOGY = `# l-etf simulation methodology (summary)
   window of a chosen length to show a distribution of outcomes, not a single path.
 
 ${DISCLAIMER}`;
+
+function presetNames(): string[] {
+  return Object.keys(ETF_PRESETS);
+}
+
+function matchingPresets(names: string[], typed: string): string[] {
+  const prefix = typed.trim().toLowerCase();
+  if (prefix === "") return names;
+  return names.filter((name) => name.toLowerCase().startsWith(prefix));
+}
+
+/**
+ * Every preset name matching what has been typed, `-real` series included.
+ * Case-insensitive because a user types `upro`, and the catalog is small enough
+ * to filter in full.
+ */
+function completePresetName(typed: string): string[] {
+  return matchingPresets(presetNames(), typed);
+}
+
+/**
+ * Simulated presets only. The `-real` series are real-ETF price history, which
+ * `run_backtest` and the rolling-window tools reject outright — offering one as
+ * a completion would only ever produce a tool error.
+ */
+export function completeSimulatedPresetName(typed: string): string[] {
+  const simulated = presetNames().filter((name) => ETF_PRESETS[name]?.simulated);
+  return matchingPresets(simulated, typed);
+}
 
 export function registerResources(server: McpServer): void {
   server.registerResource(
@@ -53,6 +84,41 @@ export function registerResources(server: McpServer): void {
       const payload = { sp500, nasdaq100, retrievedAt: new Date().toISOString() };
       return {
         contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
+
+  // One preset's parameters, without spending a tool call on the whole catalog.
+  // The completion is what lets a client offer the vocabulary instead of making
+  // a user guess whether the 2x Nasdaq series is called QLD or NDX2.
+  server.registerResource(
+    "preset",
+    new ResourceTemplate("letf://preset/{name}", {
+      list: undefined,
+      complete: { name: completePresetName },
+    }),
+    {
+      title: "Leveraged-ETF preset",
+      description:
+        "Parameters for one preset (leverage, index, expense ratio, launch/default start date).",
+      mimeType: "application/json",
+    },
+    async (uri, variables) => {
+      const requested = Array.isArray(variables.name) ? variables.name[0] : variables.name;
+      const preset = typeof requested === "string" ? ETF_PRESETS[requested] : undefined;
+      if (!preset) {
+        throw new McpToolError(
+          `Unknown preset "${String(requested)}". Known presets: ${presetNames().join(", ")}.`,
+        );
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: "application/json",
+            text: JSON.stringify(preset, null, 2),
+          },
+        ],
       };
     },
   );

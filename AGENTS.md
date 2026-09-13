@@ -307,6 +307,12 @@ Sharp edges:
   are actual rungs link, read from `buildFuturesLadderPlan` rather than restated.
   The canonical SMA-buffer URL keys live in `SMA_BUFFER_URL_KEYS`; use it rather
   than spelling `smatspU` and friends again.
+- `letf://preset/{name}` is a `ResourceTemplate` with argument completion. Two
+  completers, deliberately: the resource offers every preset, the
+  `analyze_strategy` prompt offers only the simulated ones, because
+  `run_backtest` rejects the `-real` series and completing one there could only
+  produce a tool error. MCP completion covers prompt and resource arguments
+  only — there is no such thing for tool arguments.
 - MCP progress (`progress.ts`) is opt-in — no `progressToken` on the request
   means no reporter is built. Reports are fire-and-forget, monotonic, and
   clamped to [0,1] with `total:1`; a failed notification must never fail a tool.
