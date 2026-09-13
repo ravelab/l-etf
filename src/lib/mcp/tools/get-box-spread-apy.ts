@@ -3,6 +3,7 @@
 // rate benchmark for leveraged strategies.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { EXTERNAL_READ_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { fetchSpxBoxtradesApyReport } from "@/lib/boxtrades";
 import { toolError, toolSuccess } from "@/lib/mcp/tool-result";
@@ -12,6 +13,7 @@ export function registerGetBoxSpreadApy(server: McpServer): void {
     "get_box_spread_apy",
     {
       title: "Get SPX box-spread APY",
+      annotations: EXTERNAL_READ_ANNOTATIONS,
       description:
         "Fetch SPX box-spread implied financing APYs (a low-risk synthetic borrowing rate) live from " +
         "boxtrades.com. `minDays` filters to contracts with at least that many days to expiry.",

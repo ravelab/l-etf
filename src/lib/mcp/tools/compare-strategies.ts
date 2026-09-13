@@ -4,6 +4,7 @@
 // on the preset's own index.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import type { EtfConfig } from "@/lib/simulation/types";
 import { getDefaultWindowLength } from "@/lib/simulation/defaults";
@@ -19,7 +20,8 @@ import { runAsymmetricBufferGrid } from "@/lib/mcp/buffer-grid-core";
 import { formatSweepRow } from "@/lib/mcp/format";
 import { makeProgressReporter } from "@/lib/mcp/progress";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { compareStrategiesOutput } from "@/lib/mcp/output-schemas";
 import { MAX_ROLLING_SWEEP_CONFIGS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
 import {
   isoDate,
@@ -57,6 +59,7 @@ export function registerCompareStrategies(server: McpServer): void {
     "compare_strategies",
     {
       title: "Compare strategy variants over rolling windows",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Rank variants of a leveraged-ETF strategy across historical rolling windows. Modes: " +
         "`sma_on_off` (SMA vs buy-and-hold), `risk_off_assets` (compare risk-off assets), " +
@@ -95,6 +98,7 @@ export function registerCompareStrategies(server: McpServer): void {
         gridStep: z.number().min(0.1).max(30).optional(),
         objective: z.enum(["score", "avgRealCagr", "worstReturn", "sharpeLike"]).optional(),
       },
+      outputSchema: compareStrategiesOutput,
     },
     async (args, extra) => {
       try {
@@ -140,7 +144,7 @@ export function registerCompareStrategies(server: McpServer): void {
             `${grid.best.lowerBuffer}% (avg return ${grid.best.avgReturnPct.toFixed(1)}%, ` +
             `avg max DD ${grid.best.avgMaxDrawdownPct.toFixed(1)}%).` +
             (grid.truncated ? " Stopped early on the compute budget — narrow the grid for full coverage." : "");
-          return toolSuccess(
+          return toolSuccessTyped(
             summary,
             withDisclaimer({
               mode: args.mode,
@@ -188,7 +192,7 @@ export function registerCompareStrategies(server: McpServer): void {
           `${args.mode}: ${results.length} variants over ${windowLength}y windows. ` +
           `Best avg return: ${best.label} (${best.avgReturnPct.toFixed(1)}%${bestWinRate}).` +
           truncatedNote;
-        return toolSuccess(
+        return toolSuccessTyped(
           summary,
           withDisclaimer({
             mode: args.mode,

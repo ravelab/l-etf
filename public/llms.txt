@@ -30,6 +30,9 @@ L-ETF exposes its simulation engine over the Model Context Protocol so agents ca
 - Prompt: `analyze_strategy`
 - Backtest and sweep tools take `smaExecutionMode` (`trigger-day-close` | `next-day-close` | `next-day-open`, default `next-day-open`) so a result can be re-checked under a different fill assumption.
 - The long-running sweep tools emit MCP progress notifications when the request carries a `progressToken`.
+- Every tool is annotated read-only and non-destructive (only `get_box_spread_apy` is open-world, since it calls a third party), so clients can run them without prompting on each call.
+- `run_backtest`, `run_futures_backtest`, `run_rolling_window_analysis` and `compare_strategies` declare an `outputSchema`; read their payload from `structuredContent`, where the text block is a one-line summary rather than a second copy of the data.
+- The server sends usage instructions at `initialize` covering which tool to reach for first and how to read `-base`/`-sma` results and truncated sweeps.
 
 Every tool returns the not-investment-advice disclaimer — preserve it in any summary. The endpoint is rate-limited per client IP (stricter for the rolling-window sweep tools).
 

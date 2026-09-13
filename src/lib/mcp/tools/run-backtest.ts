@@ -4,10 +4,12 @@
 // spread contract in AGENTS.md is preserved (no hand-rolled renormalization).
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { runBacktestOutput } from "@/lib/mcp/output-schemas";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { formatBacktest, type FormattedBacktest } from "@/lib/mcp/format";
 import { resolveBacktest, type BacktestInput } from "@/lib/mcp/backtest-config";
@@ -73,6 +75,7 @@ export function registerRunBacktest(server: McpServer): void {
     "run_backtest",
     {
       title: "Run a leveraged-ETF backtest",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Backtest a simulated leveraged-ETF strategy over a date range and return CAGR, max drawdown, " +
         "Sharpe, final multiple, trade log, and a 1x benchmark. Specify a `preset` (e.g. UPRO, TQQQ) " +
@@ -92,6 +95,7 @@ export function registerRunBacktest(server: McpServer): void {
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
       },
+      outputSchema: runBacktestOutput,
     },
     async (args) => {
       try {
@@ -100,7 +104,7 @@ export function registerRunBacktest(server: McpServer): void {
           `${formatted.name} ${formatted.startDate}..${formatted.endDate}: ` +
           `${formatted.finalMultiple.toFixed(2)}x, CAGR ${formatted.cagrPct.toFixed(1)}%, ` +
           `max DD ${formatted.maxDrawdownPct.toFixed(1)}%.`;
-        return toolSuccess(summary, withDisclaimer({ backtest: formatted }));
+        return toolSuccessTyped(summary, withDisclaimer({ backtest: formatted }));
       } catch (error) {
         return toolError(error);
       }

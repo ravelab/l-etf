@@ -288,6 +288,16 @@ Sharp edges:
   `makeSweepEtfConfig` so the field set can't drift between browser and server.
   `smaExecutionMode` is an optional passthrough there: the pages leave it unset
   (engine default `next-day-open`), the MCP tools pass the caller's choice.
+- Tools are annotated from `annotations.ts` (read-only everywhere; only
+  `get_box_spread_apy` is open-world) and the server ships `instructions.ts` at
+  `initialize`. Tools with a stable payload declare an `outputSchema`
+  (`output-schemas.ts`) and return via `toolSuccessTyped`, whose text block is
+  the summary alone — the untyped `toolSuccess` serializes the payload into text
+  *as well as* `structuredContent`, which doubled the token cost of every call.
+  The SDK validates `structuredContent` against the schema and raises a protocol
+  (not tool) error on a mismatch, so only declare a schema that
+  `unit-tests/mcp-output-schema.test.ts` exercises with a real call, and route
+  payloads through `sanitizeNonFinite` — `z.number()` rejects NaN.
 - MCP progress (`progress.ts`) is opt-in — no `progressToken` on the request
   means no reporter is built. Reports are fire-and-forget, monotonic, and
   clamped to [0,1] with `total:1`; a failed notification must never fail a tool.

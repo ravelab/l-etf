@@ -3,6 +3,7 @@
 // of `src/app/api/sma-signals/route.ts` but reads data directly (no self-HTTP).
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { getPrices } from "@/lib/db/queries";
 import { applyCalibratedSmaDefaults, readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import { computeSmaSignalSnapshot, getDefaultSmaSignalConfig } from "@/lib/sma-status";
@@ -16,6 +17,7 @@ export function registerGetSmaSignals(server: McpServer): void {
     "get_sma_signals",
     {
       title: "Get current SMA signals",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Compute the current SMA timing signal (buy/sell/hold) for the S&P 500 and Nasdaq-100 " +
         "using the given SMA periods and buffers. When omitted, defaults to the latest SMA " +

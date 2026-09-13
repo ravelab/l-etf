@@ -3,6 +3,7 @@
 // rolls, per-contract fees, and cash-sweep interest. Mirrors /futures-tool.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { simulateFuturesSmaStrategy } from "@/lib/simulation/futures";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
@@ -11,7 +12,8 @@ import { getDefaultSmaBuffer, getDefaultSmaPeriod, DEFAULT_FUTURES_AMOUNT, DEFAU
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { loadBorrowRates, loadIndexPrices, loadInflation, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { runFuturesBacktestOutput } from "@/lib/mcp/output-schemas";
 import { indexSchema, isoDate, riskOffAssetSchema, smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
@@ -99,6 +101,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
     "run_futures_backtest",
     {
       title: "Run an index-futures SMA backtest",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Backtest an SMA timing strategy using index futures (ES/NQ) at a chosen target leverage, with " +
         "optional leverage cap, quarterly rolls, per-contract fees, and cash-sweep interest. Returns CAGR, " +
@@ -115,6 +118,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
       },
+      outputSchema: runFuturesBacktestOutput,
     },
     async (args) => {
       try {
@@ -123,7 +127,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
           `${out.name} ${out.startDate}..${out.endDate}: ` +
           `$${Math.round(out.initialEquity).toLocaleString()} → $${Math.round(out.finalEquity).toLocaleString()}, ` +
           `CAGR ${out.cagrPct.toFixed(1)}%, max DD ${out.maxDrawdownPct.toFixed(1)}%.`;
-        return toolSuccess(summary, withDisclaimer({ futures: out }));
+        return toolSuccessTyped(summary, withDisclaimer({ futures: out }));
       } catch (error) {
         return toolError(error);
       }

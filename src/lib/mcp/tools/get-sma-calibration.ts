@@ -3,6 +3,7 @@
 // calibration run). This is a cached lookup, not a live sweep.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
@@ -12,6 +13,7 @@ export function registerGetSmaCalibration(server: McpServer): void {
     "get_sma_calibration",
     {
       title: "Get SMA calibration snapshot",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Return the precomputed best SMA period/buffer per index from the latest offline calibration " +
         "run. A cached lookup, not a live sweep — for a live parameter sweep use compare_strategies.",

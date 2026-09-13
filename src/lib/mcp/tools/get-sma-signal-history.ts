@@ -3,6 +3,7 @@
 // whipsaw statistics. `get_sma_signals` answers only "what is the signal today".
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { getDefaultSmaBuffer, getDefaultSmaPeriod } from "@/lib/simulation/defaults";
@@ -55,6 +56,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
     "get_sma_signal_history",
     {
       title: "SMA signal history for an index",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "The SMA regime log for one index: every buy/sell crossover in the range, the current regime " +
         "and how long it has held, time in market, and whipsaw stats (flips per year, median days " +

@@ -3,6 +3,7 @@
 // tools. Read-only; no market data touched.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
 import { DEFAULT_RISK_OFF_ASSET, getDefaultSmaBuffer, getDefaultSmaPeriod } from "@/lib/simulation/defaults";
@@ -13,6 +14,7 @@ export function registerListPresets(server: McpServer): void {
     "list_presets",
     {
       title: "List ETF presets and defaults",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "List the leveraged-ETF presets, risk-off assets, and default SMA settings available to " +
         "the other l-etf tools. Call this first to discover valid `preset` and `riskOffAsset` values.",

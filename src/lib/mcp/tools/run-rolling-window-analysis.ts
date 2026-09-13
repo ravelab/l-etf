@@ -3,6 +3,7 @@
 // (avg/best/worst return, drawdowns, win rate) rather than a single path.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getDefaultWindowLength } from "@/lib/simulation/defaults";
 import { resolveBacktest, type BacktestInput } from "@/lib/mcp/backtest-config";
@@ -11,7 +12,8 @@ import { summarizeWindowPoints } from "@/lib/mcp/window-distribution";
 import { makeProgressReporter } from "@/lib/mcp/progress";
 import { formatSweepRow } from "@/lib/mcp/format";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { runRollingWindowOutput } from "@/lib/mcp/output-schemas";
 import { MAX_RETURNED_WINDOWS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
 import {
   indexSchema,
@@ -28,6 +30,7 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
     "run_rolling_window_analysis",
     {
       title: "Rolling-window analysis of a strategy",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Evaluate one leveraged-ETF strategy across every historical rolling window of `windowLength` " +
         "years and return the outcome distribution: average/best/worst return, average and worst " +
@@ -51,6 +54,7 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
         includeWindows: z.boolean().optional(),
         maxWindows: z.number().int().min(1).max(MAX_RETURNED_WINDOWS).optional(),
       },
+      outputSchema: runRollingWindowOutput,
     },
     async (args, extra) => {
       try {
@@ -91,7 +95,7 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
         const summary =
           `${config.name}, ${windowLength}y windows: avg return ${stats.avgReturnPct.toFixed(1)}%, ` +
           `win rate ${winRate}, avg max DD ${stats.avgMaxDrawdownPct.toFixed(1)}%.`;
-        return toolSuccess(
+        return toolSuccessTyped(
           summary,
           withDisclaimer({
             windowLengthYears: windowLength,

@@ -3,6 +3,7 @@
 // outcome distributions. Mirrors /compare-letfs.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getDefaultWindowLength } from "@/lib/simulation/defaults";
 import { runLetfComparison } from "@/lib/mcp/letf-compare-core";
@@ -26,6 +27,7 @@ export function registerCompareLetfs(server: McpServer): void {
     "compare_letfs",
     {
       title: "Compare leveraged ETFs over rolling windows",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Compare simulated leveraged-ETF presets (UPRO, TQQQ, SSO, QLD) across every historical rolling " +
         "window and return percentile outcome distributions (p10/p50/p90 CAGR and final multiple, win " +

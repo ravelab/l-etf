@@ -3,6 +3,7 @@
 // lengths and returns the stats per length (mirrors /statistical-analysis).
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { resolveBacktest, type BacktestInput } from "@/lib/mcp/backtest-config";
 import { runRollingSweep, runRollingWindowPoints } from "@/lib/mcp/sweep-core";
@@ -29,6 +30,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
     "run_holding_period_analysis",
     {
       title: "Holding-period analysis",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Show how a strategy's outcome distribution (avg return, win rate, drawdown) changes with the " +
         "holding period, by running the rolling-window analysis at several window lengths (years). " +

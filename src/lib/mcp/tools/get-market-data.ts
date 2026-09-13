@@ -3,6 +3,7 @@
 // range. Returns are capped to keep payloads manageable.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getBorrowRate, getInflation, getPrices } from "@/lib/db/queries";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
@@ -21,6 +22,7 @@ export function registerGetMarketData(server: McpServer): void {
     "get_market_data",
     {
       title: "Get market data",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Fetch raw market data over a date range: index total-return prices (`prices`, requires " +
         "`index`), LETF borrowing rates (`borrowRates`), or CPI inflation (`inflation`). " +

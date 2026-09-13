@@ -3,6 +3,7 @@
 
 import { createMcpHandler } from "mcp-handler";
 import { registerAll } from "@/lib/mcp/register";
+import { SERVER_INSTRUCTIONS } from "@/lib/mcp/instructions";
 import { enforceMcpRateLimit } from "@/lib/mcp/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ const mcpHandler = createMcpHandler(
   },
   {
     serverInfo: { name: "l-etf", version: "1.0.0" },
+    // Handed to the client during initialize, before it calls anything.
+    instructions: SERVER_INSTRUCTIONS,
   },
   {
     basePath: "/",

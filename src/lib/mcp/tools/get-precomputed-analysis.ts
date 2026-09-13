@@ -6,6 +6,7 @@
 // sweep tools stays free for genuinely novel configurations.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import {
@@ -21,6 +22,7 @@ export function registerGetPrecomputedAnalysis(server: McpServer): void {
     "get_precomputed_analysis",
     {
       title: "Get a precomputed analysis snapshot",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Return the site's canonical precomputed run for a tool page — no simulation, so it is instant " +
         "and does not consume the heavy-tool rate limit. Call with no arguments to list what is " +

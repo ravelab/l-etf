@@ -28,6 +28,51 @@ export function toolSuccess(summary: string, data: Record<string, unknown>): Too
 }
 
 /**
+ * Replace every non-finite number (NaN, +/-Infinity) with null, recursively,
+ * returning new objects and arrays rather than touching the input.
+ *
+ * `JSON.stringify` already renders those as null, so an un-sanitized payload
+ * makes `structuredContent` and the serialized text disagree — and the SDK
+ * validates `structuredContent` against the declared `outputSchema`, where
+ * `z.number()` rejects NaN outright. A degenerate window really does have no
+ * Sharpe ratio, so null is the honest value rather than a loosened schema.
+ */
+export function sanitizeNonFinite<T>(value: T): T {
+  if (typeof value === "number") {
+    return (Number.isFinite(value) ? value : null) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeNonFinite(item)) as T;
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        sanitizeNonFinite(item),
+      ]),
+    ) as T;
+  }
+  return value;
+}
+
+/**
+ * Build a successful result for a tool that declares an `outputSchema`.
+ *
+ * The payload travels once, in `structuredContent`; the text block carries only
+ * the human-readable summary. The spec suggests also serializing the payload
+ * into text for clients that cannot read structured content, but this server's
+ * payloads reach ~8k tokens and duplicating them doubles the cost of every call
+ * for a client that reads `structuredContent` anyway. The schema is what tells
+ * a client the data is there.
+ */
+export function toolSuccessTyped(summary: string, data: Record<string, unknown>): ToolResult {
+  return {
+    content: [{ type: "text", text: summary }],
+    structuredContent: sanitizeNonFinite(data),
+  };
+}
+
+/**
  * A recoverable, user-facing tool error (bad input, missing data). The message
  * is safe to show to the model/user; it must not leak internal details.
  */

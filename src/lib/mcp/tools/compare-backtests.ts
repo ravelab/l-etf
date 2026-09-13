@@ -3,6 +3,7 @@
 // metrics. Covers real-vs-simulated comparison and multi-ETF backtests.
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { runCompareBacktests } from "@/lib/mcp/backtest-compare-core";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
@@ -22,6 +23,7 @@ export function registerCompareBacktests(server: McpServer): void {
     "compare_backtests",
     {
       title: "Compare multiple backtests",
+      annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Backtest several presets over ONE shared date range and compare their metrics. Presets may be " +
         "simulated (UPRO) or real ETFs (UPRO-real) and may span both indexes — ideal for real-vs-simulated " +
