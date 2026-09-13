@@ -298,6 +298,16 @@ Sharp edges:
   (not tool) error on a mismatch, so only declare a schema that
   `unit-tests/mcp-output-schema.test.ts` exercises with a real call, and route
   payloads through `sanitizeNonFinite` — `z.number()` rejects NaN.
+- `optimize_strategy` (`optimize-grid.ts` pure geometry + `optimize-core.ts`
+  orchestration) searches SMA period x upper x lower jointly. It is the tool the
+  chunked sweep exists for — the same search used to need ~53 `compare_strategies`
+  calls. It must never return a bare winner: a split-sample pass re-runs the whole
+  grid on a half of history the search never saw and reports the winner's rank
+  there, and the winner's one-step grid neighbourhood shows plateau vs spike.
+  Both guardrails earn their keep — a 112-cell UPRO search picks SMA 125 U1/L3
+  in sample, which ranks 89/112 out of sample with neighbours 149% worse, while
+  out-of-sample's own best (SMA 200 U4/L3) sits near the calibrated default. The
+  breadth cap counts BOTH passes, not one.
 - `deep-link.ts` links a tool result back to the same run on the site, as a plain
   `permalink` field rather than an MCP `resource_link` (a client may try to
   `resources/read` an `https://` URI this server does not serve). Both builders

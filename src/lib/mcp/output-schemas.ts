@@ -177,3 +177,47 @@ export const compareStrategiesOutput = {
   baseline: sweepRowSchema.optional(),
   disclaimer,
 };
+
+const scoredCellSchema = sweepRowSchema.extend({
+  smaPeriod: z.number(),
+  upperBuffer: metric,
+  lowerBuffer: metric,
+  score: metric,
+  rank: z.number(),
+});
+
+export const optimizeStrategyOutput = {
+  objective: z.string(),
+  windowLengthYears: z.number(),
+  gridCells: z.number(),
+  search: z.object({ startDate: z.string(), endDate: z.string(), inflationPct: metric }),
+  best: scoredCellSchema,
+  top: z.array(scoredCellSchema),
+  stability: z.object({
+    neighbours: z.array(
+      z.object({
+        smaPeriod: z.number(),
+        upperBuffer: metric,
+        lowerBuffer: metric,
+        score: metric,
+      }),
+    ),
+    worstNeighbourScore: metric,
+    worstNeighbourDropPct: metric,
+    plateau: z.boolean(),
+  }),
+  outOfSample: z
+    .object({
+      startDate: z.string(),
+      endDate: z.string(),
+      inflationPct: metric,
+      winnerRank: metric,
+      winnerScore: metric,
+      ownBest: scoredCellSchema.nullable(),
+    })
+    .optional(),
+  truncated: z.boolean(),
+  /** Says plainly that these parameters were chosen on the data they are scored on. */
+  caveat: z.string(),
+  disclaimer,
+};
