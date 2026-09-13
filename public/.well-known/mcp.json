@@ -76,6 +76,10 @@
       {
         "name": "stress_test_strategy",
         "description": "Run one configuration through each named historical drawdown (1907, 1929, 1937, 1973-74, 1987, dot-com, 2008, COVID, 2022)."
+      },
+      {
+        "name": "compare_futures_ladder",
+        "description": "Run the whole index-futures ladder over one range, including the two-sleeve fund, and rank the rungs."
       }
     ],
     "resources": [

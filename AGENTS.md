@@ -298,6 +298,15 @@ Sharp edges:
   (not tool) error on a mismatch, so only declare a schema that
   `unit-tests/mcp-output-schema.test.ts` exercises with a real call, and route
   payloads through `sanitizeNonFinite` — `z.number()` rejects NaN.
+- `compare_futures_ladder` (`futures-ladder-core.ts`) runs the page's whole
+  ladder server-side, reusing `buildFuturesLadderPlan` and
+  `runParallelFuturesStrategies` (whose `typeof Worker === "undefined"` branch is
+  the server path). `hasNasdaqData` must mean "NDX covers the WHOLE range", not
+  "NDX rows exist": the dual-sleeve fund walks the union of its sleeves' trading
+  days and steps a sleeve only on days it has, so an 1885 start leaves the NDX
+  sleeve frozen at half the fund's equity until 1971 and reports a result
+  indistinguishable from the plain SPX rung. It defaults to
+  `CONSTANT_SP500_SHORTCUT_DATE` like the page, not to the S&P's 1885 start.
 - `stress_test_strategy` (`crisis-episodes.ts` catalog + `stress-core.ts`) runs a
   config through each named drawdown. Each episode is its OWN backtest with its
   own warm-up, not a slice of a longer run — a windowed sub-range of a

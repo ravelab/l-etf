@@ -245,3 +245,37 @@ export const stressTestOutput = {
   skipped: z.array(z.object({ name: z.string(), reason: z.string() })),
   disclaimer,
 };
+
+const smaBandSchema = z.object({
+  period: z.number(),
+  upperBuffer: metric,
+  lowerBuffer: metric,
+});
+
+const ladderRungSchema = z.object({
+  name: z.string(),
+  index: z.string(),
+  targetLeverage: metric,
+  dualSleeve: z.boolean(),
+  finalEquity: metric,
+  cagrPct: metric,
+  sharpeRatio: metric,
+  maxDrawdownPct: metric,
+  totalTradingCostPct: metric,
+  avgActualLeverageRiskOn: metric,
+  maxAbsLeverageDeltaRiskOnPct: metric,
+  numSignals: z.number(),
+  futuresTransactions: z.number(),
+});
+
+export const compareFuturesLadderOutput = {
+  startDate: z.string(),
+  endDate: z.string(),
+  initialEquity: metric,
+  riskOffAsset: z.string(),
+  emulationMode: z.boolean(),
+  bands: z.object({ sp500: smaBandSchema, nasdaq100: smaBandSchema }),
+  rungs: z.array(ladderRungSchema),
+  best: ladderRungSchema,
+  disclaimer,
+};

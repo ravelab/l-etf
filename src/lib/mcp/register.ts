@@ -18,6 +18,7 @@ import { registerGetPrecomputedAnalysis } from "@/lib/mcp/tools/get-precomputed-
 import { registerRunFuturesBacktest } from "@/lib/mcp/tools/run-futures-backtest";
 import { registerOptimizeStrategy } from "@/lib/mcp/tools/optimize-strategy";
 import { registerStressTestStrategy } from "@/lib/mcp/tools/stress-test-strategy";
+import { registerCompareFuturesLadder } from "@/lib/mcp/tools/compare-futures-ladder";
 import { registerResources } from "@/lib/mcp/resources";
 import { registerPrompts } from "@/lib/mcp/prompts";
 
@@ -38,6 +39,7 @@ export function registerAll(server: McpServer): void {
   registerRunFuturesBacktest(server);
   registerOptimizeStrategy(server);
   registerStressTestStrategy(server);
+  registerCompareFuturesLadder(server);
   registerResources(server);
   registerPrompts(server);
 }

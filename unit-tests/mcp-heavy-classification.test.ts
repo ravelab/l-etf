@@ -15,12 +15,16 @@ import { MCP_HEAVY_TOOLS } from "@/lib/mcp/limits";
 
 const TOOLS_DIR = "src/lib/mcp/tools";
 
-/** Modules that run the engine across every rolling window in a range. */
+/**
+ * Modules that re-run the engine many times per call — across every rolling
+ * window in a range, or across every rung of the futures ladder.
+ */
 const SWEEPING_CORES = [
   "@/lib/mcp/sweep-core",
   "@/lib/mcp/optimize-core",
   "@/lib/mcp/buffer-grid-core",
   "@/lib/mcp/letf-compare-core",
+  "@/lib/mcp/futures-ladder-core",
 ];
 
 interface ToolSource {
@@ -45,7 +49,7 @@ test("every tool source exposes a discoverable tool name", () => {
   assert.equal(new Set(tools.map((t) => t.toolName)).size, tools.length, "tool names are unique");
 });
 
-test("every tool that sweeps rolling windows is on the strict budget", () => {
+test("every tool that re-runs the engine many times is on the strict budget", () => {
   const offenders = readToolSources()
     .filter((t) => SWEEPING_CORES.some((core) => t.source.includes(core)))
     .filter((t) => !MCP_HEAVY_TOOLS.has(t.toolName))
