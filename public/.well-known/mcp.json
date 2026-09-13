@@ -72,6 +72,10 @@
       {
         "name": "optimize_strategy",
         "description": "Search SMA period and asymmetric buffers together over rolling windows, with split-sample and neighbourhood overfitting checks."
+      },
+      {
+        "name": "stress_test_strategy",
+        "description": "Run one configuration through each named historical drawdown (1907, 1929, 1937, 1973-74, 1987, dot-com, 2008, COVID, 2022)."
       }
     ],
     "resources": [

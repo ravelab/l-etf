@@ -221,3 +221,27 @@ export const optimizeStrategyOutput = {
   caveat: z.string(),
   disclaimer,
 };
+
+const episodeSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  strategyReturnPct: metric,
+  strategyMaxDrawdownPct: metric,
+  buyAndHoldReturnPct: metric,
+  buyAndHoldMaxDrawdownPct: metric,
+  index1xReturnPct: metric,
+  trades: z.number(),
+  startedInvested: z.boolean().nullable(),
+});
+
+export const stressTestOutput = {
+  strategy: z.string(),
+  index: z.string(),
+  windowsTested: z.number(),
+  episodes: z.array(episodeSchema),
+  worstEpisode: episodeSchema,
+  skipped: z.array(z.object({ name: z.string(), reason: z.string() })),
+  disclaimer,
+};

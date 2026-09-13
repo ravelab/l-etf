@@ -298,6 +298,14 @@ Sharp edges:
   (not tool) error on a mismatch, so only declare a schema that
   `unit-tests/mcp-output-schema.test.ts` exercises with a real call, and route
   payloads through `sanitizeNonFinite` — `z.number()` rejects NaN.
+- `stress_test_strategy` (`crisis-episodes.ts` catalog + `stress-core.ts`) runs a
+  config through each named drawdown. Each episode is its OWN backtest with its
+  own warm-up, not a slice of a longer run — a windowed sub-range of a
+  precomputed series has to be renormalized through `window-calculations.ts` to
+  keep the entry-spread contract, and re-running a two-year window is ~20ms. The
+  warm-up is the point: it decides whether the rule was already out when the
+  crisis opened (`startedInvested`). A test asserts every catalogued episode is a
+  real 1x index drawdown, which is what would catch a wrong date.
 - `optimize_strategy` (`optimize-grid.ts` pure geometry + `optimize-core.ts`
   orchestration) searches SMA period x upper x lower jointly. It is the tool the
   chunked sweep exists for — the same search used to need ~53 `compare_strategies`

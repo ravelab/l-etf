@@ -17,6 +17,7 @@ import { registerGetBoxSpreadApy } from "@/lib/mcp/tools/get-box-spread-apy";
 import { registerGetPrecomputedAnalysis } from "@/lib/mcp/tools/get-precomputed-analysis";
 import { registerRunFuturesBacktest } from "@/lib/mcp/tools/run-futures-backtest";
 import { registerOptimizeStrategy } from "@/lib/mcp/tools/optimize-strategy";
+import { registerStressTestStrategy } from "@/lib/mcp/tools/stress-test-strategy";
 import { registerResources } from "@/lib/mcp/resources";
 import { registerPrompts } from "@/lib/mcp/prompts";
 
@@ -36,6 +37,7 @@ export function registerAll(server: McpServer): void {
   registerGetPrecomputedAnalysis(server);
   registerRunFuturesBacktest(server);
   registerOptimizeStrategy(server);
+  registerStressTestStrategy(server);
   registerResources(server);
   registerPrompts(server);
 }
