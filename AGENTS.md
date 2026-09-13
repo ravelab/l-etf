@@ -298,6 +298,12 @@ Sharp edges:
   (not tool) error on a mismatch, so only declare a schema that
   `unit-tests/mcp-output-schema.test.ts` exercises with a real call, and route
   payloads through `sanitizeNonFinite` — `z.number()` rejects NaN.
+- `get_forward_sma_returns` (`forward-returns-core.ts`) is the only analysis here
+  that conditions on a state and looks forward rather than back over a window.
+  Its bin geometry lives in `src/lib/forward-sma-bins.ts`, shared with
+  `ForwardReturnVsSmaGapChart.tsx` — the bins used to be private to that
+  `"use client"` component, which a server tool cannot import, and a second copy
+  would let chart and tool answer the same question differently.
 - `compare_futures_ladder` (`futures-ladder-core.ts`) runs the page's whole
   ladder server-side, reusing `buildFuturesLadderPlan` and
   `runParallelFuturesStrategies` (whose `typeof Worker === "undefined"` branch is

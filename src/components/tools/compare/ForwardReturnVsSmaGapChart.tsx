@@ -26,8 +26,14 @@ import type { EtfConfig, PricePoint, RatePoint } from "@/lib/simulation/types";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import {
   buildForwardSmaReturnPoints,
-  type ForwardSmaReturnPoint,
 } from "@/lib/simulation/forward-sma-returns";
+import {
+  FORWARD_GAP_BIN_MAX_PCT,
+  FORWARD_GAP_BIN_MIN_PCT,
+  FORWARD_GAP_BIN_WIDTH_PCT,
+  binLabelForIndex,
+  bucketizeForwardPoints,
+} from "@/lib/forward-sma-bins";
 import {
   buildLogRaincloudDensity,
   sampleRaincloudItems,
@@ -47,11 +53,11 @@ ChartJS.register(
   Legend,
 );
 
-const BIN_WIDTH_PCT = 2; // x-axis bin width: 2 percentage points of gap
-// Bins clipped to [-20%, +26%] so the edge buckets read "≤-18%" / "≥24%";
-// any values past those cutoffs fold into the edge buckets.
-const BIN_MIN_PCT = -20;
-const BIN_MAX_PCT = 26;
+// Bin geometry lives in `@/lib/forward-sma-bins` so the MCP tool that answers
+// the same question cannot drift from this chart.
+const BIN_WIDTH_PCT = FORWARD_GAP_BIN_WIDTH_PCT;
+const BIN_MIN_PCT = FORWARD_GAP_BIN_MIN_PCT;
+const BIN_MAX_PCT = FORWARD_GAP_BIN_MAX_PCT;
 
 // Each series spans three datasets (raincloud + median line + n/total line)
 // that the legend toggles as a unit.
@@ -89,28 +95,9 @@ function summarize(values: number[]): PercentileStats | null {
   };
 }
 
-function binIndexForGap(gapPct: number): number {
-  const clipped = Math.min(BIN_MAX_PCT - 1e-9, Math.max(BIN_MIN_PCT, gapPct));
-  return Math.floor((clipped - BIN_MIN_PCT) / BIN_WIDTH_PCT);
-}
+const binLabel = binLabelForIndex;
 
-function binLabel(idx: number): string {
-  const lo = BIN_MIN_PCT + idx * BIN_WIDTH_PCT;
-  const hi = lo + BIN_WIDTH_PCT;
-  if (idx === 0) return `≤${hi}%`;
-  if (lo + BIN_WIDTH_PCT >= BIN_MAX_PCT) return `≥${lo}%`;
-  return `${lo} to ${hi}%`;
-}
-
-function bucketize(points: ForwardSmaReturnPoint[]): ForwardSmaReturnPoint[][] {
-  const binCount = Math.round((BIN_MAX_PCT - BIN_MIN_PCT) / BIN_WIDTH_PCT);
-  const buckets: ForwardSmaReturnPoint[][] = Array.from({ length: binCount }, () => []);
-  for (const p of points) {
-    if (!Number.isFinite(p.realReturnFactor) || p.realReturnFactor <= 0) continue;
-    buckets[binIndexForGap(p.gap)].push(p);
-  }
-  return buckets;
-}
+const bucketize = bucketizeForwardPoints;
 
 function factorToPctLabel(factor: number): string {
   if (!Number.isFinite(factor) || factor <= 0) return "";

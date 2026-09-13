@@ -279,3 +279,27 @@ export const compareFuturesLadderOutput = {
   best: ladderRungSchema,
   disclaimer,
 };
+
+export const forwardSmaReturnsOutput = {
+  strategy: z.string(),
+  index: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  forwardTradingDays: z.number(),
+  observations: z.number(),
+  bins: z.array(
+    z.object({
+      label: z.string(),
+      fromGapPct: metric,
+      toGapPct: metric,
+      count: z.number(),
+      medianRealReturnPct: metric,
+      p10RealReturnPct: metric,
+      p90RealReturnPct: metric,
+      minRealReturnPct: metric,
+      maxRealReturnPct: metric,
+    }),
+  ),
+  note: z.string(),
+  disclaimer,
+};

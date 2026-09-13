@@ -80,6 +80,10 @@
       {
         "name": "compare_futures_ladder",
         "description": "Run the whole index-futures ladder over one range, including the two-sleeve fund, and rank the rungs."
+      },
+      {
+        "name": "get_forward_sma_returns",
+        "description": "Forward real returns bucketed by how far the index sat above or below its SMA."
       }
     ],
     "resources": [

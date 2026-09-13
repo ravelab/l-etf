@@ -19,6 +19,7 @@ import { registerRunFuturesBacktest } from "@/lib/mcp/tools/run-futures-backtest
 import { registerOptimizeStrategy } from "@/lib/mcp/tools/optimize-strategy";
 import { registerStressTestStrategy } from "@/lib/mcp/tools/stress-test-strategy";
 import { registerCompareFuturesLadder } from "@/lib/mcp/tools/compare-futures-ladder";
+import { registerGetForwardSmaReturns } from "@/lib/mcp/tools/get-forward-sma-returns";
 import { registerResources } from "@/lib/mcp/resources";
 import { registerPrompts } from "@/lib/mcp/prompts";
 
@@ -40,6 +41,7 @@ export function registerAll(server: McpServer): void {
   registerOptimizeStrategy(server);
   registerStressTestStrategy(server);
   registerCompareFuturesLadder(server);
+  registerGetForwardSmaReturns(server);
   registerResources(server);
   registerPrompts(server);
 }
