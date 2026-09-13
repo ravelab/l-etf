@@ -362,6 +362,10 @@ Sharp edges:
 - `unit-tests/mcp-discovery.test.ts` pins `public/.well-known/mcp.json` and
   `public/llms.txt` to `register.ts`, so adding a tool fails the suite until
   both discovery documents list it.
+- Every `/mcp` request logs one line (`[mcp] tool=... ms=... status=...`) from
+  `request-info.ts`. A Request body can only be read once, so the route parses
+  the tool names there and passes them to `enforceMcpRateLimit` rather than each
+  cloning its own copy.
 - `MCP_HEAVY_TOOLS` (the strict per-IP budget) is hand-maintained, and
   `unit-tests/mcp-heavy-classification.test.ts` enforces it by reading the tool
   sources: any tool importing a sweeping engine core (`sweep-core`,

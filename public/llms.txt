@@ -16,7 +16,7 @@ This is **not investment advice**. It is an educational/research tool; past back
 - [Compare SMA Buffers](https://l-etf.com/compare-threshold-strategies): Sweep buffer thresholds around the moving average to reduce false switches.
 - [Compare Risk-Off Assets](https://l-etf.com/compare-riskoff-assets): Compare defensive assets (SGOV, VGSH, GLDM, BRK.B, VOO, QQQ, and equal-weight mixes) held while the strategy is out of the leveraged ETF.
 - [Holding Period Statistics](https://l-etf.com/statistical-analysis): How win rates and returns change as the holding period changes.
-- [Futures Tool](https://l-etf.com/futures-tool): SMA strategy simulation using index futures instead of ETFs, with margin scenarios (Normal/Stress/Crisis/Extreme) and futures-specific fees.
+- [Futures Tool](https://l-etf.com/futures-tool): SMA strategy simulation using index futures instead of ETFs — a ladder of target leverages including a two-sleeve SPX+NDX fund, with quarterly rolls, per-contract commissions, bid/ask spreads, cash-sweep interest, and an optional comparison against the equivalent leveraged ETFs.
 - [FAQ](https://l-etf.com/faq): Methodology — what leveraged ETFs are, how the SMA rule works, how borrowing-cost calibration works, trading-cost assumptions, and the full daily-return formula used in the simulation.
 
 ## MCP server (for AI agents)

@@ -7,6 +7,7 @@
 // request — on a Redis error we fall back to the in-memory counter.
 
 import { Redis } from "@upstash/redis";
+import { parseToolCallNames } from "@/lib/mcp/request-info";
 import {
   MCP_RL_GLOBAL_LIMIT,
   MCP_RL_HEAVY_LIMIT,
@@ -121,22 +122,14 @@ export function clientIp(request: Request): string {
 }
 
 /**
- * Inspect a Streamable-HTTP POST body to see whether it invokes one of the
- * compute-heavy tools. Returns false on any parse error (treated as light).
+ * Whether a request invokes one of the compute-heavy tools. Takes already-parsed
+ * tool names when the caller has them (the route parses once and shares the
+ * result with the access log), and parses the body itself otherwise. A body it
+ * cannot read is treated as light — the MCP handler will reject it anyway.
  */
-async function isHeavyToolCall(request: Request): Promise<boolean> {
-  try {
-    const text = await request.clone().text();
-    if (!text) return false;
-    const parsed = JSON.parse(text) as unknown;
-    const messages = Array.isArray(parsed) ? parsed : [parsed];
-    return messages.some((m) => {
-      const msg = m as { method?: string; params?: { name?: string } };
-      return msg?.method === "tools/call" && !!msg.params?.name && MCP_HEAVY_TOOLS.has(msg.params.name);
-    });
-  } catch {
-    return false;
-  }
+async function isHeavyToolCall(request: Request, toolNames?: string[]): Promise<boolean> {
+  const names = toolNames ?? (await parseToolCallNames(request));
+  return names.some((name) => MCP_HEAVY_TOOLS.has(name));
 }
 
 function tooManyResponse(result: RateLimitResult): Response {
@@ -160,13 +153,16 @@ function tooManyResponse(result: RateLimitResult): Response {
  * Enforce MCP rate limits for an incoming request. Returns a 429 `Response`
  * when the caller is over a limit, or `null` to let the request proceed.
  */
-export async function enforceMcpRateLimit(request: Request): Promise<Response | null> {
+export async function enforceMcpRateLimit(
+  request: Request,
+  toolNames?: string[],
+): Promise<Response | null> {
   const ip = clientIp(request);
 
   const global = await rateLimit(`ip:${ip}`, MCP_RL_GLOBAL_LIMIT, MCP_RL_WINDOW_SEC);
   if (!global.ok) return tooManyResponse(global);
 
-  if (request.method === "POST" && (await isHeavyToolCall(request))) {
+  if (request.method === "POST" && (await isHeavyToolCall(request, toolNames))) {
     const heavy = await rateLimit(`heavy:${ip}`, MCP_RL_HEAVY_LIMIT, MCP_RL_WINDOW_SEC);
     if (!heavy.ok) return tooManyResponse(heavy);
   }
