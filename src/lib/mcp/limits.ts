@@ -79,6 +79,10 @@ export const MCP_HEAVY_TOOLS = new Set<string>([
   "run_rolling_window_analysis",
   "run_holding_period_analysis",
   "compare_strategies",
+  "compare_letfs",
+  // The most expensive tool here: a joint grid search, evaluated twice when the
+  // split-sample check is on, so up to MAX_ROLLING_SWEEP_CONFIGS simulations.
+  "optimize_strategy",
   // Not engine-heavy, but each call fans out one upstream request per SPX
   // expiry to a third party, so it belongs on the strict budget.
   "get_box_spread_apy",

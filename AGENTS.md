@@ -347,6 +347,12 @@ Sharp edges:
 - `unit-tests/mcp-discovery.test.ts` pins `public/.well-known/mcp.json` and
   `public/llms.txt` to `register.ts`, so adding a tool fails the suite until
   both discovery documents list it.
+- `MCP_HEAVY_TOOLS` (the strict per-IP budget) is hand-maintained, and
+  `unit-tests/mcp-heavy-classification.test.ts` enforces it by reading the tool
+  sources: any tool importing a sweeping engine core (`sweep-core`,
+  `optimize-core`, `buffer-grid-core`, `letf-compare-core`) must be in the set.
+  This exists because `optimize_strategy` — the most expensive tool here — first
+  shipped on the light 120/min budget.
 - The endpoint is rate-limited in `rate-limit.ts` (Upstash-backed when the
   `UPSTASH_REDIS_REST_*` env vars are set, per-instance in-memory otherwise);
   a global per-IP budget plus a stricter one for `MCP_HEAVY_TOOLS`. The route
