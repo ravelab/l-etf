@@ -51,6 +51,8 @@ const backtestSchema = z.object({
 
 export const runBacktestOutput = {
   backtest: backtestSchema,
+  /** Opens this exact run in the site's backtesting tool. Preset runs only. */
+  permalink: z.string().optional(),
   disclaimer,
 };
 
@@ -75,6 +77,8 @@ export const runFuturesBacktestOutput = {
     riskOffSessionDayCount: z.number(),
     sessionDayCount: z.number(),
   }),
+  /** Opens the site's futures ladder with this configuration. Rung leverages only. */
+  permalink: z.string().optional(),
   disclaimer,
 };
 

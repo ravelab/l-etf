@@ -10,6 +10,7 @@ import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { runBacktestOutput } from "@/lib/mcp/output-schemas";
+import { backtestPermalink } from "@/lib/mcp/deep-link";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { formatBacktest, type FormattedBacktest } from "@/lib/mcp/format";
 import { resolveBacktest, type BacktestInput } from "@/lib/mcp/backtest-config";
@@ -99,12 +100,27 @@ export function registerRunBacktest(server: McpServer): void {
     },
     async (args) => {
       try {
-        const formatted = await runBacktestCore(args as BacktestInput);
+        const input = args as BacktestInput;
+        const formatted = await runBacktestCore(input);
+        const resolved = resolveBacktest(input);
+        const permalink = backtestPermalink({
+          preset: input.preset,
+          startDate: resolved.startDate,
+          endDate: resolved.endDate,
+          smaPeriod: resolved.config.smaPeriod,
+          smaUpperBuffer: resolved.config.smaUpperBuffer,
+          smaLowerBuffer: resolved.config.smaLowerBuffer,
+          riskOffAsset: resolved.config.riskOffAsset,
+        });
         const summary =
           `${formatted.name} ${formatted.startDate}..${formatted.endDate}: ` +
           `${formatted.finalMultiple.toFixed(2)}x, CAGR ${formatted.cagrPct.toFixed(1)}%, ` +
-          `max DD ${formatted.maxDrawdownPct.toFixed(1)}%.`;
-        return toolSuccessTyped(summary, withDisclaimer({ backtest: formatted }));
+          `max DD ${formatted.maxDrawdownPct.toFixed(1)}%.` +
+          (permalink ? ` Chart: ${permalink}` : "");
+        return toolSuccessTyped(
+          summary,
+          withDisclaimer({ backtest: formatted, ...(permalink ? { permalink } : {}) }),
+        );
       } catch (error) {
         return toolError(error);
       }

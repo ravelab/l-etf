@@ -298,6 +298,15 @@ Sharp edges:
   (not tool) error on a mismatch, so only declare a schema that
   `unit-tests/mcp-output-schema.test.ts` exercises with a real call, and route
   payloads through `sanitizeNonFinite` — `z.number()` rejects NaN.
+- `deep-link.ts` links a tool result back to the same run on the site, as a plain
+  `permalink` field rather than an MCP `resource_link` (a client may try to
+  `resources/read` an `https://` URI this server does not serve). Both builders
+  return undefined rather than approximating: a custom leverage has no preset for
+  the backtest page to select, and the futures page has NO leverage input — it
+  runs the fixed ladder from `futures-plan.ts` in full — so only leverages that
+  are actual rungs link, read from `buildFuturesLadderPlan` rather than restated.
+  The canonical SMA-buffer URL keys live in `SMA_BUFFER_URL_KEYS`; use it rather
+  than spelling `smatspU` and friends again.
 - MCP progress (`progress.ts`) is opt-in — no `progressToken` on the request
   means no reporter is built. Reports are fire-and-forget, monotonic, and
   clamped to [0,1] with `total:1`; a failed notification must never fail a tool.

@@ -33,6 +33,7 @@ L-ETF exposes its simulation engine over the Model Context Protocol so agents ca
 - Every tool is annotated read-only and non-destructive (only `get_box_spread_apy` is open-world, since it calls a third party), so clients can run them without prompting on each call.
 - `run_backtest`, `run_futures_backtest`, `run_rolling_window_analysis` and `compare_strategies` declare an `outputSchema`; read their payload from `structuredContent`, where the text block is a one-line summary rather than a second copy of the data.
 - The server sends usage instructions at `initialize` covering which tool to reach for first and how to read `-base`/`-sma` results and truncated sweeps.
+- `run_backtest` and `run_futures_backtest` return a `permalink` that opens the same configuration on the site, so a reader can check the chart and trade log behind the numbers. It is omitted rather than approximated when the page cannot open that run — a custom leverage has no preset to select, and the futures page runs a fixed ladder, so only rung leverages link.
 
 Every tool returns the not-investment-advice disclaimer — preserve it in any summary. The endpoint is rate-limited per client IP (stricter for the rolling-window sweep tools).
 

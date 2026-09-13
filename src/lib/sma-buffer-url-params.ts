@@ -1,5 +1,5 @@
 /** Canonical URL keys for asymmetric SMA re-entry/exit bands (shared across tool tabs). */
-const SMA_BUFFER_URL_KEYS = {
+export const SMA_BUFFER_URL_KEYS = {
   spUpper: "smatspU",
   spLower: "smatspL",
   nqUpper: "smatnqU",

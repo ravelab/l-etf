@@ -14,6 +14,7 @@ import { loadBorrowRates, loadIndexPrices, loadInflation, loadRiskOffRawSeriesFo
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { runFuturesBacktestOutput } from "@/lib/mcp/output-schemas";
+import { futuresLadderPermalink } from "@/lib/mcp/deep-link";
 import { indexSchema, isoDate, riskOffAssetSchema, smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
@@ -122,12 +123,29 @@ export function registerRunFuturesBacktest(server: McpServer): void {
     },
     async (args) => {
       try {
-        const out = await runFuturesBacktestCore(args as FuturesInput);
+        const input = args as FuturesInput;
+        const out = await runFuturesBacktestCore(input);
+        const permalink = futuresLadderPermalink({
+          index: input.index,
+          targetLeverage: input.targetLeverage,
+          maxLeverage: input.maxLeverage,
+          startDate: out.startDate,
+          endDate: out.endDate,
+          smaPeriod: input.smaPeriod ?? getDefaultSmaPeriod(input.index),
+          smaUpperBuffer: input.smaBuffer ?? getDefaultSmaBuffer(input.index),
+          smaLowerBuffer: input.smaBuffer ?? getDefaultSmaBuffer(input.index),
+          riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
+          initialEquity: out.initialEquity,
+        });
         const summary =
           `${out.name} ${out.startDate}..${out.endDate}: ` +
           `$${Math.round(out.initialEquity).toLocaleString()} → $${Math.round(out.finalEquity).toLocaleString()}, ` +
-          `CAGR ${out.cagrPct.toFixed(1)}%, max DD ${out.maxDrawdownPct.toFixed(1)}%.`;
-        return toolSuccessTyped(summary, withDisclaimer({ futures: out }));
+          `CAGR ${out.cagrPct.toFixed(1)}%, max DD ${out.maxDrawdownPct.toFixed(1)}%.` +
+          (permalink ? ` Ladder: ${permalink}` : "");
+        return toolSuccessTyped(
+          summary,
+          withDisclaimer({ futures: out, ...(permalink ? { permalink } : {}) }),
+        );
       } catch (error) {
         return toolError(error);
       }
