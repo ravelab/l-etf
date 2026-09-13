@@ -90,11 +90,12 @@ test("run_futures_backtest: 3x futures realizes target leverage", async () => {
 test("holding-period sweep returns per-length stats", async () => {
   const { config, index, startDate, endDate } = resolveBacktest({ preset: "UPRO", smaEnabled: true });
   const lengths = [3, 10, 20];
-  const rows = await Promise.all(
+  const sweeps = await Promise.all(
     lengths.map((wl) => runRollingSweep({ index, configs: [config], windowLength: wl, startDate, endDate })),
   );
-  for (const r of rows) {
-    assert.equal(r.length, 1);
-    assert.ok(Number.isFinite(r[0].stats.avgReturn));
+  for (const sweep of sweeps) {
+    assert.equal(sweep.rows.length, 1);
+    assert.ok(Number.isFinite(sweep.rows[0].stats.avgReturn));
+    assert.equal(sweep.truncated, false);
   }
 });

@@ -57,13 +57,14 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
         const windowLength = args.windowLength ?? getDefaultWindowLength();
         const { config, index, startDate, endDate } = resolveBacktest(args as BacktestInput);
         const onProgress = makeProgressReporter(extra);
-        const rows = await runRollingSweep({
+        const { rows } = await runRollingSweep({
           index,
           configs: [config],
           windowLength,
           startDate,
           endDate,
           onProgress,
+          signal: extra.signal,
         });
         if (rows.length === 0) {
           throw new McpToolError("No valid rolling windows for this strategy and range.");
@@ -75,7 +76,14 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
         const wantsDistribution = args.includePercentiles === true || args.includeWindows === true;
         const distribution = wantsDistribution
           ? summarizeWindowPoints(
-              await runRollingWindowPoints({ index, config, windowLength, startDate, endDate }),
+              await runRollingWindowPoints({
+                index,
+                config,
+                windowLength,
+                startDate,
+                endDate,
+                signal: extra.signal,
+              }),
               { includeWindows: args.includeWindows === true, maxWindows: args.maxWindows },
             )
           : undefined;

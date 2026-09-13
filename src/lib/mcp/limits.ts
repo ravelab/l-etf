@@ -1,23 +1,57 @@
-// Compute guardrails for the heavy (rolling-window / sweep) MCP tools. These
-// tools run the single-threaded engine inside one serverless invocation, so we
-// bound their breadth to stay well under the function timeout and keep payloads
-// small.
+// Compute guardrails for the heavy (rolling-window / sweep) MCP tools.
+//
+// These tools run the single-threaded engine inside one serverless invocation.
+// Breadth used to be a flat 24 configs everywhere, on the theory that the 300 s
+// function timeout was the binding constraint. Measured against the real engine
+// over full history, 24 configs takes ~0.7 s — the true constraint was retained
+// heap, since the engine holds a full daily series per config for the life of
+// one call. `sweep-chunking.ts` now keeps that flat, so the rolling-sweep path
+// is bounded by the time budget in `compute-budget.ts` and the structural caps
+// below, which exist to keep response payloads sane rather than to dodge a
+// timeout.
 
-export const MAX_SWEEP_CONFIGS = 24;
+import { MCP_SWEEP_BUDGET_MS, maxConfigsInBudget } from "@/lib/mcp/compute-budget";
+
+/**
+ * Breadth cap for the tools that take an explicit list of presets
+ * (`compare_backtests`, `compare_letfs`). These run `runParallelBacktest` /
+ * `runParallelVariants`, which are NOT chunked and so still hold every config's
+ * series at once — this cap stays where it was.
+ */
+export const MAX_COMPARE_PRESETS = 24;
+
 export const MIN_WINDOW_YEARS = 1;
 export const MAX_WINDOW_YEARS = 50;
 
+/**
+ * Rolling windows step monthly (`CONSTANT_STEP_MONTHS`), not daily, so the
+ * count is bounded by the months of available history (~141 years) minus the
+ * holding period — even at the 1-year minimum. That bound is what makes the
+ * cost estimate in `compute-budget.ts` trustworthy.
+ */
+const MAX_ROLLING_WINDOWS = 1690;
+
+/**
+ * Breadth cap for the chunked rolling-window sweep (`compare_strategies`).
+ * Structural: 400 rows is already a large tool payload, and a caller wanting
+ * more should narrow its range or refine coarse→fine. The budget term is a
+ * backstop so the cap can never quietly exceed what one invocation can finish.
+ */
+export const MAX_ROLLING_SWEEP_CONFIGS = Math.min(
+  400,
+  maxConfigsInBudget(MAX_ROLLING_WINDOWS, MCP_SWEEP_BUDGET_MS),
+);
+
 // Upper bound on the SMA-period sweep breadth (count = (max-min)/step + 1).
-export const MAX_SMA_PERIOD_STEPS = 24;
+export const MAX_SMA_PERIOD_STEPS = 240;
 
 // Upper bound on the symmetric-buffer sweep breadth.
-export const MAX_BUFFER_STEPS = 24;
+export const MAX_BUFFER_STEPS = 240;
 
-// Upper bound on the 2-D (upper, lower) buffer grid, in cells. Kept under
-// MAX_SWEEP_CONFIGS so a grid plus its baseline costs no more engine time than
-// any other sweep mode; agents refine a promising region with a second, finer
-// call rather than one huge grid (the same coarse→fine flow the page uses).
-export const MAX_BUFFER_GRID_CELLS = 20;
+// Upper bound on the 2-D (upper, lower) buffer grid, in cells. Each grid also
+// carries a no-SMA baseline config, so this stays below
+// MAX_ROLLING_SWEEP_CONFIGS with room for it.
+export const MAX_BUFFER_GRID_CELLS = 384;
 
 // Max raw rolling-window rows returned when a caller opts into the per-window
 // distribution. Windows overlap daily, so a long range yields thousands; past

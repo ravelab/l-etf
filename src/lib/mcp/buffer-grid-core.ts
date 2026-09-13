@@ -26,6 +26,8 @@ interface BufferGridResult {
   objective: ObjectiveKey;
   inflationPct: number;
   cells: number;
+  /** True when the time budget stopped the grid before every cell ran. */
+  truncated: boolean;
   results: BufferGridRow[];
   best: BufferGridRow;
   /** Same LETF held with no SMA timing, for reference. Absent if it wiped out. */
@@ -46,14 +48,16 @@ export async function runAsymmetricBufferGrid(params: {
   startDate: string;
   endDate: string;
   onProgress?: (fraction: number, label?: string) => void;
+  signal?: AbortSignal;
 }): Promise<BufferGridResult> {
-  const { base, index, spec, objective, windowLength, startDate, endDate, onProgress } = params;
+  const { base, index, spec, objective, windowLength, startDate, endDate, onProgress, signal } = params;
   const { configs, grid } = buildAsymmetricBufferConfigs(base, spec);
 
-  const [rows, monthlyCpi] = await Promise.all([
-    runRollingSweep({ index, configs, windowLength, startDate, endDate, onProgress }),
+  const [sweep, monthlyCpi] = await Promise.all([
+    runRollingSweep({ index, configs, windowLength, startDate, endDate, onProgress, signal }),
     loadInflation(startDate, endDate),
   ]);
+  const { rows } = sweep;
   if (rows.length === 0) {
     throw new McpToolError("No valid rolling windows for this buffer grid and range.");
   }
@@ -99,6 +103,7 @@ export async function runAsymmetricBufferGrid(params: {
     objective,
     inflationPct,
     cells: results.length,
+    truncated: sweep.truncated,
     results,
     best: results[0],
     ...(baseline ? { baseline } : {}),

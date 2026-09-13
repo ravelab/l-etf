@@ -268,7 +268,7 @@ Sharp edges:
   to the surviving one in `result.etfResultIdAliases`, which only
   `findEtfResult` consults.
 - The heavy tools reuse the engine server-side (single-threaded main-thread
-  fallback; breadth bounded by `limits.ts`): `sweep-core.ts` →
+  fallback; breadth bounded by `limits.ts` + `compute-budget.ts`): `sweep-core.ts` →
   `runParallelSimulations` mode `sweep` (rolling-window / holding-period /
   `compare_strategies`); `letf-compare-core.ts` → `runParallelVariants` mode
   `variants` + `strategy-percentiles` (`compare_letfs`);
@@ -329,6 +329,35 @@ Sharp edges:
 - `next.config.ts` `outputFileTracingIncludes` must include the `/[transport]`
   route (alongside `/api/**/*`) so the CSV data and calibration snapshot are
   bundled into the MCP function on Vercel.
+
+## Sweep breadth: what actually bounds it
+
+Breadth was capped at a flat 24 configs on the theory that the 300s function
+timeout bound it. It does not: 24 configs over full history (1,572 monthly-stepped
+rolling windows) runs in ~0.7s, 1,000 in ~37s. **Memory** was the real ceiling,
+from two independent sources, and both had to be fixed:
+
+- `runParallelSimulations` precomputes a full daily-value series per config and
+  holds every one for the life of the call. `sweep-core.ts` now runs the config
+  list in chunks of `SWEEP_CHUNK_SIZE` (`sweep-chunking.ts`), loading market data
+  once and re-entering the engine per chunk (~50ms setup each).
+- `sma.ts`'s `smaCache` / `signalCache` are WeakMaps keyed on the *price series*,
+  whose inner Maps were unbounded and keyed by SMA parameters. Since the price
+  series stays alive for a whole sweep, those grew once per distinct config, each
+  entry retaining a full-length array — a leak per *config*, which chunking alone
+  cannot reach. They are LRU-bounded via `bounded-cache.ts`. Any new
+  parameter-keyed memo under a long-lived WeakMap key needs the same treatment.
+
+Measured at a 512MB heap: chunked+bounded is flat at ~670-700MB RSS for 400,
+1,000 and 2,000 configs (2,000 in ~64s); unchunked OOMs at 1,000. Rolling windows
+step monthly (`CONSTANT_STEP_MONTHS`), so the window count is bounded (~1,690 even
+at the 1-year minimum) — that bound is what makes `estimateSweepMs` trustworthy.
+
+When chunking, stamp `paramValues` from the **whole** config list before slicing.
+Rows are joined on `row.parameterValue` (never array index — see the rule above),
+so a chunk-local restamp makes later chunks overwrite earlier ones.
+`unit-tests/mcp-sweep-chunked.test.ts` pins chunked output as bit-identical to a
+single pass.
 
 ## Maintaining this file
 

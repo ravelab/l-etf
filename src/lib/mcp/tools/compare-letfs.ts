@@ -9,7 +9,7 @@ import { runLetfComparison } from "@/lib/mcp/letf-compare-core";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { makeProgressReporter } from "@/lib/mcp/progress";
 import { toolError, toolSuccess, McpToolError } from "@/lib/mcp/tool-result";
-import { MAX_SWEEP_CONFIGS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
+import { MAX_COMPARE_PRESETS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
 import {
   isoDate,
   presetSchema,
@@ -32,7 +32,7 @@ export function registerCompareLetfs(server: McpServer): void {
         "rate vs 1x, median drawdown). Set `smaEnabled` to gate each with SMA timing + risk-off. " +
         "Simulated series only. NOT investment advice.",
       inputSchema: {
-        presets: z.array(presetSchema).min(1).max(MAX_SWEEP_CONFIGS).optional(),
+        presets: z.array(presetSchema).min(1).max(MAX_COMPARE_PRESETS).optional(),
         smaEnabled: z.boolean().optional(),
         windowLength: z.number().min(MIN_WINDOW_YEARS).max(MAX_WINDOW_YEARS).optional(),
         smaPeriod: smaPeriodSchema.optional(),
@@ -48,8 +48,8 @@ export function registerCompareLetfs(server: McpServer): void {
       try {
         const onProgress = makeProgressReporter(extra);
         const presets = args.presets ?? DEFAULT_PRESETS;
-        if (presets.length > MAX_SWEEP_CONFIGS) {
-          throw new McpToolError(`Too many presets (${presets.length}); limit is ${MAX_SWEEP_CONFIGS}.`);
+        if (presets.length > MAX_COMPARE_PRESETS) {
+          throw new McpToolError(`Too many presets (${presets.length}); limit is ${MAX_COMPARE_PRESETS}.`);
         }
         const windowLength = args.windowLength ?? getDefaultWindowLength();
         const rows = await runLetfComparison({

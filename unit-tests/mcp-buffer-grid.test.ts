@@ -43,22 +43,40 @@ test("buildAsymmetricBufferConfigs spans the full cartesian grid plus a baseline
   assert.ok(configs.some((c) => c.smaUpperBuffer !== c.smaLowerBuffer), "grid must be asymmetric");
 });
 
+// The widest grid the buffer schema allows (0..30 on both axes at the finest
+// practical step), so this stays oversized however the cell budget moves.
+const OVERSIZED_GRID = {
+  minUpperBuffer: 0,
+  maxUpperBuffer: 30,
+  minLowerBuffer: 0,
+  maxLowerBuffer: 30,
+  gridStep: 0.5,
+} as const;
+
 test("buildAsymmetricBufferConfigs rejects a grid past the cell budget", () => {
   assert.throws(
-    () =>
-      buildAsymmetricBufferConfigs(base(), {
-        minUpperBuffer: 0,
-        maxUpperBuffer: 10,
-        minLowerBuffer: 0,
-        maxLowerBuffer: 10,
-        gridStep: 1,
-      }),
+    () => buildAsymmetricBufferConfigs(base(), { ...OVERSIZED_GRID }),
     (err: Error) => {
       assert.match(err.message, new RegExp(String(MAX_BUFFER_GRID_CELLS)));
-      assert.match(err.message, /121 cells/);
+      assert.match(err.message, /\d+ cells/);
       return true;
     },
   );
+});
+
+test("buildAsymmetricBufferConfigs accepts a grid that fits the cell budget", () => {
+  // A 10x10 grid was over the old flat 20-cell cap and is the kind of breadth
+  // chunked sweeps exist to allow. One extra config is the no-SMA baseline.
+  const { configs, grid } = buildAsymmetricBufferConfigs(base(), {
+    minUpperBuffer: 1,
+    maxUpperBuffer: 10,
+    minLowerBuffer: 1,
+    maxLowerBuffer: 10,
+    gridStep: 1,
+  });
+  assert.equal(grid.size, 100);
+  assert.equal(configs.length, 101);
+  assert.ok(grid.size <= MAX_BUFFER_GRID_CELLS);
 });
 
 test("compare_strategies advertises the asymmetric_buffers mode", async () => {
@@ -121,11 +139,7 @@ test("compare_strategies asymmetric_buffers rejects an oversized grid", async ()
     arguments: {
       preset: "UPRO",
       mode: "asymmetric_buffers",
-      minUpperBuffer: 0,
-      maxUpperBuffer: 10,
-      minLowerBuffer: 0,
-      maxLowerBuffer: 10,
-      gridStep: 1,
+      ...OVERSIZED_GRID,
     },
   });
   assert.equal(res.isError, true);

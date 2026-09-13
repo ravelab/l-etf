@@ -46,7 +46,7 @@ test("sma_periods enforces the step-count limit", () => {
 test("rolling sweep returns aggregate stats for each config", async () => {
   const { config, index, startDate, endDate } = baseConfig();
   const configs = buildSmaOnOffConfigs(config);
-  const rows = await runRollingSweep({ index, configs, windowLength: 10, startDate, endDate });
+  const { rows } = await runRollingSweep({ index, configs, windowLength: 10, startDate, endDate });
   assert.equal(rows.length, 2);
   for (const r of rows) {
     assert.ok(Number.isFinite(r.stats.avgReturn));

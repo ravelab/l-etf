@@ -7,7 +7,7 @@ import { z } from "zod/v4";
 import { runCompareBacktests } from "@/lib/mcp/backtest-compare-core";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
-import { MAX_SWEEP_CONFIGS } from "@/lib/mcp/limits";
+import { MAX_COMPARE_PRESETS } from "@/lib/mcp/limits";
 import {
   isoDate,
   presetSchema,
@@ -27,7 +27,7 @@ export function registerCompareBacktests(server: McpServer): void {
         "simulated (UPRO) or real ETFs (UPRO-real) and may span both indexes — ideal for real-vs-simulated " +
         "checks or multi-ETF comparisons. Set `smaEnabled` to gate all with SMA timing. NOT investment advice.",
       inputSchema: {
-        presets: z.array(presetSchema).min(1).max(MAX_SWEEP_CONFIGS),
+        presets: z.array(presetSchema).min(1).max(MAX_COMPARE_PRESETS),
         smaEnabled: z.boolean().optional(),
         smaPeriod: smaPeriodSchema.optional(),
         smaUpperBuffer: smaBufferSchema.optional(),

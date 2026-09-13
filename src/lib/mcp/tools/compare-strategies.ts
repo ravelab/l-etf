@@ -20,7 +20,7 @@ import { formatSweepRow } from "@/lib/mcp/format";
 import { makeProgressReporter } from "@/lib/mcp/progress";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
-import { MAX_SWEEP_CONFIGS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
+import { MAX_ROLLING_SWEEP_CONFIGS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
 import {
   isoDate,
   presetSchema,
@@ -120,6 +120,7 @@ export function registerCompareStrategies(server: McpServer): void {
           const grid = await runAsymmetricBufferGrid({
             base,
             index,
+            signal: extra.signal,
             spec: {
               minUpperBuffer: args.minUpperBuffer ?? 1,
               maxUpperBuffer: args.maxUpperBuffer ?? 4,
@@ -137,7 +138,8 @@ export function registerCompareStrategies(server: McpServer): void {
             `asymmetric_buffers: ${grid.cells} (upper, lower) cells over ${windowLength}y windows, ` +
             `ranked by ${grid.objective}. Best: upper ${grid.best.upperBuffer}% / lower ` +
             `${grid.best.lowerBuffer}% (avg return ${grid.best.avgReturnPct.toFixed(1)}%, ` +
-            `avg max DD ${grid.best.avgMaxDrawdownPct.toFixed(1)}%).`;
+            `avg max DD ${grid.best.avgMaxDrawdownPct.toFixed(1)}%).` +
+            (grid.truncated ? " Stopped early on the compute budget — narrow the grid for full coverage." : "");
           return toolSuccess(
             summary,
             withDisclaimer({
@@ -152,20 +154,23 @@ export function registerCompareStrategies(server: McpServer): void {
         }
 
         const configs = buildConfigsForMode(args.mode, base, args);
-        if (configs.length > MAX_SWEEP_CONFIGS) {
+        if (configs.length > MAX_ROLLING_SWEEP_CONFIGS) {
           throw new McpToolError(
-            `This comparison would run ${configs.length} strategies, over the limit of ${MAX_SWEEP_CONFIGS}.`,
+            `This comparison would run ${configs.length} strategies, over the limit of ` +
+              `${MAX_ROLLING_SWEEP_CONFIGS}. Widen the step or narrow the range.`,
           );
         }
 
-        const rows = await runRollingSweep({
+        const sweep = await runRollingSweep({
           index,
           configs,
           windowLength,
           startDate,
           endDate,
           onProgress,
+          signal: extra.signal,
         });
+        const { rows } = sweep;
         if (rows.length === 0) {
           throw new McpToolError("No valid rolling windows for these strategies and range.");
         }
@@ -176,12 +181,25 @@ export function registerCompareStrategies(server: McpServer): void {
 
         const best = results[0];
         const bestWinRate = best.winRatePct != null ? `, win rate ${best.winRatePct.toFixed(0)}%` : "";
+        const truncatedNote = sweep.truncated
+          ? ` Stopped early on the compute budget after ${sweep.evaluatedConfigs}/${sweep.totalConfigs} variants.`
+          : "";
         const summary =
           `${args.mode}: ${results.length} variants over ${windowLength}y windows. ` +
-          `Best avg return: ${best.label} (${best.avgReturnPct.toFixed(1)}%${bestWinRate}).`;
+          `Best avg return: ${best.label} (${best.avgReturnPct.toFixed(1)}%${bestWinRate}).` +
+          truncatedNote;
         return toolSuccess(
           summary,
-          withDisclaimer({ mode: args.mode, windowLengthYears: windowLength, startDate, endDate, results }),
+          withDisclaimer({
+            mode: args.mode,
+            windowLengthYears: windowLength,
+            startDate,
+            endDate,
+            ...(sweep.truncated
+              ? { truncated: true, evaluatedConfigs: sweep.evaluatedConfigs, totalConfigs: sweep.totalConfigs }
+              : {}),
+            results,
+          }),
         );
       } catch (error) {
         return toolError(error);

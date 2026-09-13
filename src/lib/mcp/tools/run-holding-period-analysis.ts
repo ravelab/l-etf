@@ -69,7 +69,14 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
 
         const byLength = await Promise.all(
           lengths.map(async (windowLength) => {
-            const rows = await runRollingSweep({ index, configs: [config], windowLength, startDate, endDate });
+            const { rows } = await runRollingSweep({
+              index,
+              configs: [config],
+              windowLength,
+              startDate,
+              endDate,
+              signal: extra.signal,
+            });
             if (rows.length === 0) return null;
             const summary = {
               windowLengthYears: windowLength,
@@ -85,6 +92,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
               windowLength,
               startDate,
               endDate,
+              signal: extra.signal,
             });
             reportStep?.(++completed, `${completed}/${lengths.length} holding periods`);
             return { ...summary, distribution: summarizeWindowPoints(points, {}) };

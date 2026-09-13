@@ -1,10 +1,16 @@
 import type { SmaSignal } from "./types";
 import { CONSTANT_SMA_CHECK_FREQUENCY } from "../constants";
+import { SMA_CACHE_MAX_ENTRIES, boundedCacheGet, boundedCacheSet } from "./bounded-cache";
 
 /**
  * WeakMap-based SMA cache: same prices array reference + same period → same result.
  * In parameter sweeps, the same window prices are reused across all parameter values,
  * so this avoids redundant O(n) sliding window computations.
+ *
+ * The inner Map is LRU-bounded: the WeakMap key is the price series, which
+ * stays alive for a whole sweep, so an unbounded inner Map grows once per
+ * distinct period and each entry retains a full-length series. See
+ * `bounded-cache.ts`.
  */
 const smaCache = new WeakMap<number[], Map<number, number[]>>();
 
@@ -19,7 +25,7 @@ const smaCache = new WeakMap<number[], Map<number, number[]>>();
 export function computeSma(prices: number[], period: number): number[] {
   let byPeriod = smaCache.get(prices);
   if (byPeriod) {
-    const cached = byPeriod.get(period);
+    const cached = boundedCacheGet(byPeriod, period);
     if (cached) return cached;
   }
 
@@ -42,7 +48,7 @@ export function computeSma(prices: number[], period: number): number[] {
     byPeriod = new Map();
     smaCache.set(prices, byPeriod);
   }
-  byPeriod.set(period, result);
+  boundedCacheSet(byPeriod, period, result, SMA_CACHE_MAX_ENTRIES);
   return result;
 }
 
@@ -69,7 +75,7 @@ export function generateSmaSignals(
   const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
-    const cached = byPrices.get(cacheKey);
+    const cached = boundedCacheGet(byPrices, cacheKey);
     if (cached) return cached;
   }
 
@@ -133,6 +139,6 @@ export function generateSmaSignals(
     byPrices = new Map();
     signalCache.set(prices, byPrices);
   }
-  byPrices.set(cacheKey, result);
+  boundedCacheSet(byPrices, cacheKey, result, SMA_CACHE_MAX_ENTRIES);
   return result;
 }
