@@ -6,7 +6,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getBorrowRate, getInflation, getPrices } from "@/lib/db/queries";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { getMarketDataOutput } from "@/lib/mcp/output-schemas";
 import { indexSchema, isoDate } from "@/lib/mcp/schemas";
 
 const MAX_ROWS = 2000;
@@ -33,6 +34,7 @@ export function registerGetMarketData(server: McpServer): void {
         startDate: isoDate,
         endDate: isoDate,
       },
+      outputSchema: getMarketDataOutput,
     },
     async (args) => {
       try {
@@ -44,7 +46,7 @@ export function registerGetMarketData(server: McpServer): void {
           if (!args.index) throw new McpToolError("`index` is required when dataType is `prices`.");
           const rows = await getPrices(args.index, args.startDate, args.endDate);
           const { rows: capped, truncated } = capRows(rows);
-          return toolSuccess(
+          return toolSuccessTyped(
             `${capped.length} price rows for ${args.index}${truncated ? " (truncated)" : ""}.`,
             { dataType: args.dataType, index: args.index, truncated, rows: capped },
           );
@@ -53,7 +55,7 @@ export function registerGetMarketData(server: McpServer): void {
         if (args.dataType === "borrowRates") {
           const rows = await getBorrowRate(args.startDate, args.endDate);
           const { rows: capped, truncated } = capRows(rows);
-          return toolSuccess(`${capped.length} borrow-rate rows${truncated ? " (truncated)" : ""}.`, {
+          return toolSuccessTyped(`${capped.length} borrow-rate rows${truncated ? " (truncated)" : ""}.`, {
             dataType: args.dataType,
             truncated,
             rows: capped,
@@ -62,7 +64,7 @@ export function registerGetMarketData(server: McpServer): void {
 
         const rows = await getInflation(args.startDate, args.endDate);
         const { rows: capped, truncated } = capRows(rows);
-        return toolSuccess(`${capped.length} inflation rows${truncated ? " (truncated)" : ""}.`, {
+        return toolSuccessTyped(`${capped.length} inflation rows${truncated ? " (truncated)" : ""}.`, {
           dataType: args.dataType,
           truncated,
           rows: capped,

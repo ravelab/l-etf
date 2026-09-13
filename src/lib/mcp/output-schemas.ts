@@ -303,3 +303,111 @@ export const forwardSmaReturnsOutput = {
   note: z.string(),
   disclaimer,
 };
+
+export const listPresetsOutput = {
+  presets: z.array(
+    z.object({
+      key: z.string(),
+      name: z.string(),
+      leverage: metric,
+      index: z.string(),
+      simulated: z.boolean(),
+      expenseRatio: metric,
+      description: z.string(),
+    }),
+  ),
+  riskOffAssets: z.array(z.object({ value: z.string(), label: z.string() })),
+  defaults: z.object({
+    riskOffAsset: z.string(),
+    sma: z.object({
+      sp500: z.object({ period: z.number(), buffer: metric }),
+      nasdaq100: z.object({ period: z.number(), buffer: metric }),
+    }),
+  }),
+};
+
+/**
+ * `get_market_data` answers on three row shapes — price bars carry OHLC, rates
+ * and CPI carry a single value — so `rows` is a union rather than three
+ * separate tools. `dataType` says which one came back.
+ */
+export const getMarketDataOutput = {
+  dataType: z.string(),
+  index: z.string().optional(),
+  truncated: z.boolean(),
+  // Price rows are storage `DailyPrice` records passed through as-is, so this
+  // must list every field they carry: the generated JSON Schema is emitted with
+  // `additionalProperties: false`, and a client that has called tools/list
+  // validates against it strictly.
+  rows: z.array(
+    z.union([
+      z.object({
+        date: z.string(),
+        adj_open: metric.optional(),
+        adj_close: metric.optional(),
+        open: metric.optional(),
+        close: metric.optional(),
+        name: z.string(),
+        source: z.string(),
+      }),
+      z.object({ date: z.string(), value: metric }),
+    ]),
+  ),
+};
+
+export const compareBacktestsOutput = {
+  backtests: z.array(backtestSchema),
+  disclaimer,
+};
+
+const percentileTripleSchema = z.object({ p10: metric, p50: metric, p90: metric });
+
+export const compareLetfsOutput = {
+  windowLengthYears: z.number(),
+  smaEnabled: z.boolean(),
+  results: z.array(
+    z.object({
+      preset: z.string(),
+      index: z.string(),
+      windows: z.number(),
+      winRatePct: metric,
+      avgCagrPct: metric,
+      cagrPct: percentileTripleSchema,
+      finalMultiple: percentileTripleSchema,
+      medianMaxDrawdownPct: metric,
+    }),
+  ),
+  disclaimer,
+};
+
+const smaSignalSchema = z.object({
+  signal: z.string(),
+  indexValue: metric,
+  indexDate: z.string(),
+  smaValue: metric,
+  percentDiff: metric,
+  signalLabel: z.string(),
+  signalEmoji: z.string(),
+});
+
+export const getSmaSignalsOutput = {
+  config: z.object({}).loose(),
+  signals: z.object({
+    sp500: smaSignalSchema,
+    nasdaq100: smaSignalSchema,
+    timestamp: z.string(),
+  }),
+};
+
+export const runHoldingPeriodOutput = {
+  strategy: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  results: z.array(
+    sweepRowSchema.extend({
+      windowLengthYears: z.number(),
+      distribution: distributionSchema.optional(),
+    }),
+  ),
+  disclaimer,
+};

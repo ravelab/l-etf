@@ -31,7 +31,7 @@ L-ETF exposes its simulation engine over the Model Context Protocol so agents ca
 - Backtest and sweep tools take `smaExecutionMode` (`trigger-day-close` | `next-day-close` | `next-day-open`, default `next-day-open`) so a result can be re-checked under a different fill assumption.
 - The long-running sweep tools emit MCP progress notifications when the request carries a `progressToken`.
 - Every tool is annotated read-only and non-destructive (only `get_box_spread_apy` is open-world, since it calls a third party), so clients can run them without prompting on each call.
-- `run_backtest`, `run_futures_backtest`, `run_rolling_window_analysis` and `compare_strategies` declare an `outputSchema`; read their payload from `structuredContent`, where the text block is a one-line summary rather than a second copy of the data.
+- Most tools declare an `outputSchema`; read their payload from `structuredContent`, where the text block is a one-line summary rather than a second copy of the data. The snapshot and third-party tools (`get_precomputed_analysis`, `get_sma_calibration`, `get_sma_signal_history`, `get_box_spread_apy`) stay untyped and still carry their JSON in the text block.
 - The server sends usage instructions at `initialize` covering which tool to reach for first and how to read `-base`/`-sma` results and truncated sweeps.
 - `run_backtest` and `run_futures_backtest` return a `permalink` that opens the same configuration on the site, so a reader can check the chart and trade log behind the numbers. It is omitted rather than approximated when the page cannot open that run — a custom leverage has no preset to select, and the futures page runs a fixed ladder, so only rung leverages link.
 

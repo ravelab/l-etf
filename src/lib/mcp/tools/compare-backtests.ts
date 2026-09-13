@@ -7,7 +7,8 @@ import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { runCompareBacktests } from "@/lib/mcp/backtest-compare-core";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { compareBacktestsOutput } from "@/lib/mcp/output-schemas";
 import { MAX_COMPARE_PRESETS } from "@/lib/mcp/limits";
 import {
   isoDate,
@@ -39,6 +40,7 @@ export function registerCompareBacktests(server: McpServer): void {
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
       },
+      outputSchema: compareBacktestsOutput,
     },
     async (args) => {
       try {
@@ -59,7 +61,7 @@ export function registerCompareBacktests(server: McpServer): void {
         const summary =
           `${results.length} backtests ${ranked[0].startDate}..${ranked[0].endDate}. ` +
           `Best: ${ranked[0].name} (${ranked[0].finalMultiple.toFixed(2)}x, CAGR ${ranked[0].cagrPct.toFixed(1)}%).`;
-        return toolSuccess(summary, withDisclaimer({ backtests: results }));
+        return toolSuccessTyped(summary, withDisclaimer({ backtests: results }));
       } catch (error) {
         return toolError(error);
       }

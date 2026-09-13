@@ -11,12 +11,23 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { registerAll } from "@/lib/mcp/register";
 import { sanitizeNonFinite } from "@/lib/mcp/tool-result";
 
+/**
+ * Connects AND calls tools/list, which is what a real client does first.
+ *
+ * That is not incidental: listing caches each tool's output schema on the
+ * client, which then validates every result against the *generated JSON
+ * Schema* — emitted with `additionalProperties: false` — rather than against
+ * the zod object, which silently strips unknown keys. Without the list call
+ * these tests exercise only the lenient server-side path and would pass on a
+ * schema that every real client rejects.
+ */
 async function connectClient(): Promise<Client> {
   const server = new McpServer({ name: "l-etf", version: "1.0.0" });
   registerAll(server);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "test", version: "1.0.0" });
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  await client.listTools();
   return client;
 }
 
@@ -67,6 +78,16 @@ test("schema'd tools advertise an output schema in tools/list", async () => {
     "run_futures_backtest",
     "run_rolling_window_analysis",
     "compare_strategies",
+    "optimize_strategy",
+    "stress_test_strategy",
+    "compare_futures_ladder",
+    "get_forward_sma_returns",
+    "list_presets",
+    "get_market_data",
+    "compare_backtests",
+    "compare_letfs",
+    "get_sma_signals",
+    "run_holding_period_analysis",
   ]) {
     const tool = tools.find((t) => t.name === name);
     assert.ok(tool, `${name} is not registered`);
@@ -189,5 +210,80 @@ test("compare_strategies validates on the 2-D buffer-grid branch", async () => {
   const data = res.structuredContent as { best: { upperBuffer: number }; cells: number };
   assert.ok(data.cells > 0);
   assert.ok(typeof data.best.upperBuffer === "number");
+  await client.close();
+});
+
+test("list_presets validates against its declared schema", async () => {
+  const client = await connectClient();
+  const res = await client.callTool({ name: "list_presets", arguments: {} });
+  assert.notEqual(res.isError, true, JSON.stringify(res.content));
+  const data = res.structuredContent as { presets: unknown[]; riskOffAssets: unknown[] };
+  assert.ok(data.presets.length > 0);
+  assert.ok(data.riskOffAssets.length > 0);
+  await client.close();
+});
+
+test("get_market_data validates on all three of its row shapes", async () => {
+  const client = await connectClient();
+  for (const args of [
+    { dataType: "prices", index: "sp500", startDate: "2019-01-01", endDate: "2019-03-01" },
+    { dataType: "borrowRates", startDate: "2019-01-01", endDate: "2019-03-01" },
+    { dataType: "inflation", startDate: "2019-01-01", endDate: "2019-06-01" },
+  ]) {
+    const res = await client.callTool({ name: "get_market_data", arguments: args });
+    assert.notEqual(res.isError, true, `${args.dataType}: ${JSON.stringify(res.content)}`);
+    const data = res.structuredContent as { rows: unknown[]; dataType: string };
+    assert.equal(data.dataType, args.dataType);
+    assert.ok(data.rows.length > 0, `${args.dataType} returned no rows`);
+  }
+  await client.close();
+});
+
+test("get_sma_signals validates against its declared schema", async () => {
+  const client = await connectClient();
+  const res = await client.callTool({ name: "get_sma_signals", arguments: {} });
+  assert.notEqual(res.isError, true, JSON.stringify(res.content));
+  const data = res.structuredContent as { signals: { sp500: { signalLabel: string } } };
+  assert.ok(data.signals.sp500.signalLabel.length > 0);
+  await client.close();
+});
+
+test("compare_backtests and compare_letfs validate against their schemas", async () => {
+  const client = await connectClient();
+  const backtests = await client.callTool({
+    name: "compare_backtests",
+    arguments: { presets: ["UPRO", "SSO"], startDate: "1990-01-01", endDate: "2020-01-01" },
+  });
+  assert.notEqual(backtests.isError, true, JSON.stringify(backtests.content));
+  assert.equal((backtests.structuredContent as { backtests: unknown[] }).backtests.length, 2);
+
+  const letfs = await client.callTool({
+    name: "compare_letfs",
+    arguments: { presets: ["UPRO", "TQQQ"], windowLength: 10, startDate: "1990-01-01", endDate: "2020-01-01" },
+  });
+  assert.notEqual(letfs.isError, true, JSON.stringify(letfs.content));
+  assert.ok((letfs.structuredContent as { results: unknown[] }).results.length > 0);
+  await client.close();
+});
+
+test("run_holding_period_analysis validates, distribution included", async () => {
+  const client = await connectClient();
+  const res = await client.callTool({
+    name: "run_holding_period_analysis",
+    arguments: {
+      preset: "UPRO",
+      smaEnabled: true,
+      windowLengths: [5, 10],
+      startDate: "1950-01-01",
+      endDate: "2020-01-01",
+      includePercentiles: true,
+    },
+  });
+  assert.notEqual(res.isError, true, JSON.stringify(res.content));
+  const data = res.structuredContent as {
+    results: Array<{ windowLengthYears: number; distribution?: { windowCount: number } }>;
+  };
+  assert.equal(data.results.length, 2);
+  assert.ok(data.results[0].distribution!.windowCount > 0);
   await client.close();
 });

@@ -9,7 +9,8 @@ import { getDefaultWindowLength } from "@/lib/simulation/defaults";
 import { runLetfComparison } from "@/lib/mcp/letf-compare-core";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { makeProgressReporter } from "@/lib/mcp/progress";
-import { toolError, toolSuccess, McpToolError } from "@/lib/mcp/tool-result";
+import { toolError, toolSuccessTyped, McpToolError } from "@/lib/mcp/tool-result";
+import { compareLetfsOutput } from "@/lib/mcp/output-schemas";
 import { MAX_COMPARE_PRESETS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
 import {
   isoDate,
@@ -45,6 +46,7 @@ export function registerCompareLetfs(server: McpServer): void {
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
       },
+      outputSchema: compareLetfsOutput,
     },
     async (args, extra) => {
       try {
@@ -73,7 +75,7 @@ export function registerCompareLetfs(server: McpServer): void {
         const summary =
           `${rows.length} LETFs over ${windowLength}y windows${args.smaEnabled ? " (SMA-gated)" : " (buy & hold)"}. ` +
           `Best median CAGR: ${best.preset} (${best.cagrPct.p50.toFixed(1)}%).`;
-        return toolSuccess(
+        return toolSuccessTyped(
           summary,
           withDisclaimer({ windowLengthYears: windowLength, smaEnabled: args.smaEnabled ?? false, results: rows }),
         );

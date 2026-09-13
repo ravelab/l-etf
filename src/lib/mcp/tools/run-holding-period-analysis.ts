@@ -11,7 +11,8 @@ import { summarizeWindowPoints } from "@/lib/mcp/window-distribution";
 import { makeStepReporter } from "@/lib/mcp/progress";
 import { formatSweepRow } from "@/lib/mcp/format";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { runHoldingPeriodOutput } from "@/lib/mcp/output-schemas";
 import { MAX_HOLDING_PERIODS, MAX_WINDOW_YEARS, MIN_WINDOW_YEARS } from "@/lib/mcp/limits";
 import {
   indexSchema,
@@ -56,6 +57,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
         smaExecutionMode: smaExecutionModeSchema.optional(),
         includePercentiles: z.boolean().optional(),
       },
+      outputSchema: runHoldingPeriodOutput,
     },
     async (args, extra) => {
       try {
@@ -107,7 +109,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
 
         const summary =
           `${config.name}: ${results.length} holding periods (${results.map((r) => `${r.windowLengthYears}y`).join(", ")}).`;
-        return toolSuccess(summary, withDisclaimer({ strategy: config.name, startDate, endDate, results }));
+        return toolSuccessTyped(summary, withDisclaimer({ strategy: config.name, startDate, endDate, results }));
       } catch (error) {
         return toolError(error);
       }

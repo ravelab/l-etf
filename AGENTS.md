@@ -298,6 +298,15 @@ Sharp edges:
   (not tool) error on a mismatch, so only declare a schema that
   `unit-tests/mcp-output-schema.test.ts` exercises with a real call, and route
   payloads through `sanitizeNonFinite` — `z.number()` rejects NaN.
+  **A test harness must call `client.listTools()` before `callTool`**: listing is
+  what caches the schema on the client, which then validates against the
+  generated JSON Schema (emitted `additionalProperties: false`) instead of the
+  zod object, which silently strips unknown keys. Every MCP harness in
+  `unit-tests/` primes it; without that, a schema missing a pass-through field
+  (`DailyPrice.name`/`.source`, say) passes the suite and fails in every real
+  client. `get_precomputed_analysis`, `get_sma_calibration`,
+  `get_sma_signal_history` and `get_box_spread_apy` stay untyped on purpose —
+  their payloads are pass-through snapshots or third-party shapes.
 - `get_forward_sma_returns` (`forward-returns-core.ts`) is the only analysis here
   that conditions on a state and looks forward rather than back over a window.
   Its bin geometry lives in `src/lib/forward-sma-bins.ts`, shared with

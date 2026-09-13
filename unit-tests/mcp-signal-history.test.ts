@@ -34,6 +34,9 @@ async function connectClient(): Promise<Client> {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "test", version: "1.0.0" });
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  // Priming tools/list makes the client validate results against the generated
+  // JSON Schema, the way a real client does. See mcp-output-schema.test.ts.
+  await client.listTools();
   return client;
 }
 

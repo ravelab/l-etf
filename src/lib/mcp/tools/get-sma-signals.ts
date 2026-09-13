@@ -7,7 +7,8 @@ import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { getPrices } from "@/lib/db/queries";
 import { applyCalibratedSmaDefaults, readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import { computeSmaSignalSnapshot, getDefaultSmaSignalConfig } from "@/lib/sma-status";
-import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
+import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
+import { getSmaSignalsOutput } from "@/lib/mcp/output-schemas";
 import { smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
 
 const TWO_YEARS_MS = 2 * 365.25 * 24 * 60 * 60 * 1000;
@@ -30,6 +31,7 @@ export function registerGetSmaSignals(server: McpServer): void {
         smaNqUpperBuffer: smaBufferSchema.optional(),
         smaNqLowerBuffer: smaBufferSchema.optional(),
       },
+      outputSchema: getSmaSignalsOutput,
     },
     async (args) => {
       try {
@@ -59,7 +61,7 @@ export function registerGetSmaSignals(server: McpServer): void {
         }
 
         const snapshot = computeSmaSignalSnapshot({ sp500Prices, nasdaqPrices, config });
-        return toolSuccess(
+        return toolSuccessTyped(
           `SPX: ${snapshot.sp500.signalLabel}; NDX: ${snapshot.nasdaq100.signalLabel}.`,
           { config, signals: snapshot },
         );
