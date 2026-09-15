@@ -24,7 +24,7 @@ export type SmaBand = {
   lowerBuffer: number;
 };
 
-type FuturesLadderStep = {
+export type FuturesLadderStep = {
   index: IndexKey;
   leverage: number;
   maxLeverage?: number;
@@ -118,6 +118,28 @@ export function buildFuturesLadderPlan(params: {
         ]
       : []),
   ];
+}
+
+/**
+ * The ladder entries whose trade-by-trade detail the futures page lists under
+ * "Transactions" — the headline rung per index family, not the whole ladder.
+ *
+ * Shared with snapshot generation, which keeps `transactions[]` only for these
+ * runs and drops the rest (they are still needed in full for the scalar
+ * leverage columns). That filter used to be a hand-copied duplicate of the
+ * page's, and the copy is what a new rung silently invalidates.
+ *
+ * Note this matches the two-sleeve fund as well as the plain 4.5x SPX rung:
+ * both are SPX at 4.5x, and the page lists both.
+ */
+export function showsFuturesTransactions(
+  run: { index: IndexKey; targetLeverage: number },
+  showEmulations: boolean
+): boolean {
+  return (
+    (run.index === "sp500" && run.targetLeverage === (showEmulations ? 3 : 4.5)) ||
+    (run.index === "nasdaq100" && run.targetLeverage === 3)
+  );
 }
 
 /**

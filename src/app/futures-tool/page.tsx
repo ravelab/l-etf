@@ -17,7 +17,7 @@ import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from
 import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, INDEX_DATE_RANGES } from "@/lib/constants";
 import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT } from "@/lib/simulation/defaults";
 import type { BacktestResult, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
-import type { FuturesRunPlan } from "@/lib/simulation/futures-run-plan";
+import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
 import {
   fetchLatestIndexPriceAnchors,
   fetchMarketData,
@@ -28,6 +28,7 @@ import { runParallelBacktest } from "@/lib/simulation/parallel";
 import {
   buildEmulationEtfConfigs,
   buildFuturesLadderPlan,
+  showsFuturesTransactions,
   type SmaBandsByIndex,
 } from "@/lib/simulation/futures-plan";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
@@ -507,32 +508,7 @@ export function FuturesPageContent({
 
       const futuresRuns = await runParallelFuturesStrategies({
         signal,
-        plans: futuresPlan.map((step): FuturesRunPlan => {
-          if (step.secondary) {
-            return {
-              kind: "dual",
-              dual: {
-                displayName: step.displayName ?? "Dual sleeve SMA",
-                initialEquity: amount,
-                primary: sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
-                secondary: sleeveParams(
-                  step.secondary.index,
-                  step.secondary.leverage,
-                  step.secondary.maxLeverage,
-                  step.secondary.sma
-                ),
-              },
-            };
-          }
-          return {
-            kind: "single",
-            single: {
-              ...sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
-              initialEquity: amount,
-              displayName: step.displayName,
-            },
-          };
-        }),
+        plans: buildFuturesRunPlans({ steps: futuresPlan, initialEquity: amount, sleeveParams }),
         onProgress: (completed, total) => {
           const fraction = total > 0 ? completed / total : 1;
           setRunProgress({ pct: 45 + fraction * 10, label: "Simulating futures strategies..." });
@@ -827,11 +803,7 @@ export function FuturesPageContent({
                   </div>
                   {(() => {
                     const transactionStrategies = futuresDetails
-                      .filter((strategy) =>
-                        (strategy.index === "sp500" &&
-                            strategy.targetLeverage === (showEmulations ? 3 : 4.5)) ||
-                          (strategy.index === "nasdaq100" && strategy.targetLeverage === 3)
-                      )
+                      .filter((strategy) => showsFuturesTransactions(strategy, showEmulations))
                       .slice()
                       .sort((a, b) => {
                         const ia = a.index === "sp500" ? 0 : 1;

@@ -18,7 +18,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   fetchInflationData,
@@ -74,11 +74,15 @@ import {
 import { simulateBacktest, simulateWithWarmUp } from "../src/lib/simulation/engine";
 import {
   DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
-  simulateFuturesSmaStrategy,
   type FuturesStrategyResult,
 } from "../src/lib/simulation/futures";
 import { buildRunSummary } from "../src/lib/run-summary";
-import { buildFuturesLadderPlan } from "../src/lib/simulation/futures-plan";
+import {
+  buildFuturesLadderPlan,
+  showsFuturesTransactions,
+  type SmaBand,
+} from "../src/lib/simulation/futures-plan";
+import { buildFuturesRunPlans, runFuturesPlan } from "../src/lib/simulation/futures-run-plan";
 import { validateSimulationReadyPrices } from "../src/lib/utils";
 import {
   precomputeAllConfigDailyValues,
@@ -109,7 +113,15 @@ import {
 } from "../src/lib/simulation/buffer-grid-search";
 
 const OUTPUT_DIR = join(process.cwd(), "src", "lib", "tool-snapshots");
-const MAX_SNAPSHOT_SIZE_BYTES = 5 * 1024 * 1024;
+/**
+ * A payload budget, not a disk one: a page's whole snapshot is downloaded by
+ * every visitor who lands on its canned default view. Futures is the big one
+ * (~6.3 MB, ~1.2 MB over the wire compressed) because its Transactions section
+ * lists every trade of three ladder entries, the two-sleeve fund included.
+ *
+ * Going over does NOT drop the page's snapshot — see the check in `main`.
+ */
+const MAX_SNAPSHOT_SIZE_BYTES = 8 * 1024 * 1024;
 const FUTURES_SNAPSHOT_TARGET_POINTS = 1000;
 const DATA_LATEST_END = "9999-12-31";
 
@@ -247,6 +259,8 @@ async function main() {
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
+  const oversized: string[] = [];
+
   for (const pageKey of requestedPages) {
     console.log(`[snapshots] Building ${pageKey}...`);
     const pageState = await SNAPSHOT_BUILDERS[pageKey](sharedInputs);
@@ -262,17 +276,30 @@ async function main() {
     const sizeBytes = Buffer.byteLength(serialized, "utf8");
     const maxBytes = MAX_SNAPSHOT_SIZE_BYTES;
     if (sizeBytes > maxBytes) {
-      if (existsSync(outputPath)) {
-        rmSync(outputPath);
-      }
+      // Deliberately keeps whatever is already on disk and fails the run at the
+      // end. This used to delete the file and exit 0, so the monthly build
+      // committed the deletion and the page silently lost its canned default —
+      // which is exactly what the futures ladder's two-sleeve fund caused the
+      // first time a rung pushed the payload over the limit.
       const sizeKb = Math.round(sizeBytes / 1024);
       const limitKb = Math.round(maxBytes / 1024);
-      console.log(`[snapshots] Skipped ${outputPath} (${sizeKb} KB > ${limitKb} KB limit)`);
+      console.error(
+        `[snapshots] ${pageKey} is ${sizeKb} KB, over the ${limitKb} KB limit — keeping the existing ${outputPath}`
+      );
+      oversized.push(`${pageKey} (${sizeKb} KB)`);
       continue;
     }
     writeFileSync(outputPath, serialized);
     const sizeKb = Math.round(sizeBytes / 1024);
     console.log(`[snapshots] Wrote ${outputPath} (${sizeKb} KB)`);
+  }
+
+  if (oversized.length > 0) {
+    throw new Error(
+      `Over the ${Math.round(MAX_SNAPSHOT_SIZE_BYTES / 1024)} KB snapshot limit: ${oversized.join(", ")}. ` +
+        "Shed payload (drop a transaction log the page does not render, downsample harder) " +
+        "or raise MAX_SNAPSHOT_SIZE_BYTES knowing every visitor downloads it."
+    );
   }
 }
 
@@ -492,8 +519,11 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   const yearSpan =
     (new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) /
     (1000 * 60 * 60 * 24 * 365.25);
+  // The canned page is the default ladder view; "Check Emulations" is a click away
+  // and runs live. Both the plan and the kept transaction logs follow this flag.
+  const showEmulations = false;
   const futuresPlan = buildFuturesLadderPlan({
-    showEmulations: false,
+    showEmulations,
     hasNasdaqData: hasNqData,
     yearSpan,
     bands: {
@@ -510,30 +540,38 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     },
   });
 
-  const futuresRuns: FuturesStrategyResult[] = futuresPlan
-    .filter((step) => step.index !== "nasdaq100" || hasNqData)
-    .map((step) =>
-      simulateFuturesSmaStrategy({
-        index: step.index,
-        prices: step.index === "sp500" ? spPrices : nqPrices,
-        rates,
-        startDate,
-        endDate,
-        initialEquity: amount,
-        targetLeverage: step.leverage,
-        maxLeverage: step.maxLeverage,
-        displayName: step.displayName,
-        smaPeriod: step.sma.period,
-        smaUpperBuffer: step.sma.upperBuffer, smaLowerBuffer: step.sma.lowerBuffer,
-        riskOffAsset: shared.riskOffAsset,
-        riskOffCloseByTicker: step.index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
-        riskOffOpenByTicker: step.index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
-        leverageTolerancePct,
-        rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
-        monthlyCpi: inflationData.monthlyCpi,
-        futuresPriceAnchor: step.index === "sp500" ? spPriceAnchor : nqPriceAnchor,
-      }),
-    );
+  /** Everything a sleeve needs that does not depend on which rung asked for it. */
+  const sleeveParams = (
+    index: IndexKey,
+    leverage: number,
+    maxLeverage: number | undefined,
+    sma: SmaBand,
+  ) => ({
+    index,
+    prices: index === "sp500" ? spPrices : nqPrices,
+    rates,
+    startDate,
+    endDate,
+    targetLeverage: leverage,
+    maxLeverage,
+    smaPeriod: sma.period,
+    smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
+    riskOffAsset: shared.riskOffAsset,
+    riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
+    riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
+    leverageTolerancePct,
+    rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
+    monthlyCpi: inflationData.monthlyCpi,
+    futuresPriceAnchor: index === "sp500" ? spPriceAnchor : nqPriceAnchor,
+  });
+
+  // Same mapping the page and the MCP ladder tool use, so a step with a second
+  // sleeve runs as the fund here too rather than as a lone primary sleeve.
+  const futuresRuns: FuturesStrategyResult[] = buildFuturesRunPlans({
+    steps: futuresPlan.filter((step) => step.index !== "nasdaq100" || hasNqData),
+    initialEquity: amount,
+    sleeveParams,
+  }).map(runFuturesPlan);
 
   // Global date axis = union of SP + NQ trading days in range, sorted.
   const spDisplay = validateSimulationReadyPrices("sp500", spPrices, endDate).filter(
@@ -565,23 +603,22 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   };
 
   // The full payload (per-day arrays + all transactions for all strategies)
-  // weighs ~5.7 MB. Two-step shrink to keep the cached snapshot small:
+  // weighs ~7.5 MB. Three-step shrink to keep the cached snapshot small:
   // 1. Downsample per-day arrays to ~1000 points — visually indistinguishable
   //    from the full series at normal chart widths.
-  // 2. Drop transactions[] for strategies that the Transactions section never
-  //    renders (the UI filter at futures-tool/page.tsx shows only the 4.5×
-  //    SPX and 3× NDX entries in the default non-emulation view). The other
-  //    entries still need to be present in futuresDetails because the page
-  //    derives scalar metrics (avgActualLeverageById, maxLeverageDeltaById)
-  //    from them.
+  // 2. Drop transactions[] for strategies the page's Transactions section never
+  //    renders (`showsFuturesTransactions`, shared with the page so a new rung
+  //    cannot silently change what is kept). The other entries still need to be
+  //    present in futuresDetails because the page derives scalar metrics
+  //    (avgActualLeverageById, maxLeverageDeltaById) from them.
+  // 3. Round what is left: the raw floats carry 17 significant digits and every
+  //    cell that renders them is formatted to at most 2 decimals or 2 significant
+  //    figures, so the extra digits are ~20% of the file and change no pixel.
   const combinedResult = downsampleBacktestResult(fullResult, FUTURES_SNAPSHOT_TARGET_POINTS);
-  const isShownInTransactionsSection = (run: FuturesStrategyResult): boolean =>
-    (run.index === "sp500" && run.targetLeverage === 4.5) ||
-    (run.index === "nasdaq100" && run.targetLeverage === 3);
   const downsampledFuturesRuns: FuturesStrategyResult[] = futuresRuns.map((run) => ({
     ...run,
     etfResult: downsampleEtfResult(run.etfResult, FUTURES_SNAPSHOT_TARGET_POINTS),
-    transactions: isShownInTransactionsSection(run) ? run.transactions : [],
+    transactions: showsFuturesTransactions(run, showEmulations) ? roundTransactions(run.transactions) : [],
   }));
 
   const runSummaryInputs = buildRunSummary({
@@ -1527,6 +1564,36 @@ function downsampleEtfResult(etf: EtfResult, target: number): EtfResult {
         ? idx.map((i) => etf.smaPrices[i])
         : etf.smaPrices,
   };
+}
+
+/**
+ * Decimals kept per transaction field. Every cell that renders one is formatted
+ * to at most two decimals or two significant figures, so this is invisible on
+ * screen; the percent deltas keep more because a near-zero delta is shown to two
+ * significant figures and 4 decimals would round its tail away.
+ */
+const TRANSACTION_FIELD_DECIMALS: Record<string, number> = {
+  leverageDeltaPct: 6,
+  leverageDeltaPctBefore: 6,
+  cashInterestAnnualRatePct: 6,
+};
+const TRANSACTION_DEFAULT_DECIMALS = 4;
+
+/** Trims 17-significant-digit floats out of the snapshot's transaction log. */
+function roundTransactions(
+  transactions: FuturesStrategyResult["transactions"],
+): FuturesStrategyResult["transactions"] {
+  return transactions.map(
+    (transaction) =>
+      Object.fromEntries(
+        Object.entries(transaction).map(([key, value]) => [
+          key,
+          typeof value === "number" && Number.isFinite(value)
+            ? Number(value.toFixed(TRANSACTION_FIELD_DECIMALS[key] ?? TRANSACTION_DEFAULT_DECIMALS))
+            : value,
+        ]),
+      ) as FuturesStrategyResult["transactions"][number],
+  );
 }
 
 function downsampleBacktestResult(result: BacktestResult, target: number): BacktestResult {

@@ -11,7 +11,7 @@ import { CONSTANT_SP500_SHORTCUT_DATE } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { buildFuturesLadderPlan, type SmaBand, type SmaBandsByIndex } from "@/lib/simulation/futures-plan";
 import { runParallelFuturesStrategies } from "@/lib/simulation/futures-parallel";
-import type { FuturesRunPlan } from "@/lib/simulation/futures-run-plan";
+import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
 import { getDefaultSmaBuffer, getDefaultSmaPeriod, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY } from "@/lib/simulation/futures";
 import type { EtfConfig, IndexKey, PricePoint } from "@/lib/simulation/types";
@@ -152,31 +152,7 @@ export async function runFuturesLadder(params: {
     monthlyCpi,
   });
 
-  const plans: FuturesRunPlan[] = steps.map((step) =>
-    step.secondary
-      ? {
-          kind: "dual" as const,
-          dual: {
-            displayName: step.displayName ?? "Dual sleeve SMA",
-            initialEquity,
-            primary: sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
-            secondary: sleeveParams(
-              step.secondary.index,
-              step.secondary.leverage,
-              step.secondary.maxLeverage,
-              step.secondary.sma,
-            ),
-          },
-        }
-      : {
-          kind: "single" as const,
-          single: {
-            ...sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
-            initialEquity,
-            displayName: step.displayName,
-          },
-        },
-  );
+  const plans = buildFuturesRunPlans({ steps, initialEquity, sleeveParams });
 
   const runs = await runParallelFuturesStrategies({
     plans,

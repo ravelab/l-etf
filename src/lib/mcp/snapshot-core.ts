@@ -1,7 +1,7 @@
 // Distill the site's precomputed tool snapshots into agent-sized payloads.
 //
 // `src/lib/tool-snapshots/*.json` holds one canonical run per tool page, but
-// they embed full daily series (backtesting ~1.8MB, futures ~4MB) because the
+// they embed full daily series (backtesting ~1.8MB, futures ~6MB) because the
 // pages hydrate charts from them. Everything here strips those arrays and keeps
 // the headline numbers, so an agent can answer the common questions without
 // spending the heavy rate-limit budget re-running the engine.
@@ -84,7 +84,7 @@ interface AsymRowLike extends SmaComparisonRow {
 
 /**
  * Parsed snapshots, memoized by file mtime. These files total ~6.5MB (futures
- * alone is ~4MB) and `listSnapshots` touches all seven just to read two fields
+ * alone is ~6MB) and `listSnapshots` touches all seven just to read two fields
  * each, so re-parsing per call is the dominant cost of an otherwise cheap tool.
  * Keying on mtime keeps dev correct after `npm run snapshots:generate`.
  */

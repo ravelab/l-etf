@@ -23,7 +23,7 @@ const snapshotFileByPageKey = {
 
 /**
  * Serialized response bodies, memoized by file mtime. These snapshots are large
- * (futures ~4MB, backtesting ~1.8MB) and were re-read, re-parsed and
+ * (futures ~6MB, backtesting ~1.8MB) and were re-read, re-parsed and
  * re-serialized on every request. Caching the finished body string skips both
  * the parse and the stringify; mtime keying keeps dev correct after
  * `npm run snapshots:generate`.

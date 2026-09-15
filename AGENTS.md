@@ -132,6 +132,17 @@ asymmetric pair. Upper governs re-entry and lower governs the exit, so that move
 the trapdoor rather than the band — the ladders rode 1973-74 down 91.5% where
 their twins stopped at 65.9%. Same failure mode `sweep-items.ts` prevents.
 
+A ladder step is turned into something runnable by `buildFuturesRunPlans`
+(`futures-run-plan.ts`) — the single place that decides a step with `secondary`
+runs as a two-sleeve fund. Three callers share it: the page, the MCP
+`compare_futures_ladder` tool, and `generate-snapshots.ts`. The snapshot script
+is the one that gets forgotten: it mapped steps itself, never learned about
+`secondary`, and so shipped a canned futures page whose fund row was a second
+copy of the plain 4.5x SPX rung (1.0B where the fund makes 1.8B). Whatever the
+page renders *off* a run — currently which rungs list their trades
+(`showsFuturesTransactions`) — is shared the same way, because the snapshot
+keeps `transactions[]` only for those.
+
 ## Futures engine: total-return invariant
 
 `src/lib/simulation/futures.ts` must keep a held position earning exactly
@@ -364,10 +375,14 @@ Sharp edges:
   (mode `variants`) directly.
 - `get_precomputed_analysis` (`snapshot-core.ts`) serves
   `src/lib/tool-snapshots/*.json`, which embed full daily series (backtesting
-  ~1.8MB, futures ~4MB) — always distil, never return `pageState` raw. Those
+  ~1.8MB, futures ~6MB) — always distil, never return `pageState` raw. Those
   snapshots are generated with history wrap ENABLED while every MCP tool runs
   `historyWrap:false`, so their best/worst window dates can sit in the future;
   the tool attaches a caveat saying so and it must stay attached.
+  `MAX_SNAPSHOT_SIZE_BYTES` in `generate-snapshots.ts` budgets what a visitor
+  downloads with a page's canned default; a page over it FAILS the run and keeps
+  the file already on disk. It used to delete that file and exit 0, so the
+  monthly build committed the deletion and the page lost its default silently.
 - `unit-tests/mcp-discovery.test.ts` pins `public/.well-known/mcp.json` and
   `public/llms.txt` to `register.ts`, so adding a tool fails the suite until
   both discovery documents list it.
