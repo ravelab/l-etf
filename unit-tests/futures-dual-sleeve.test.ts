@@ -92,7 +92,7 @@ test("dual sleeve: with no trigger it is exactly two independent half-size sleev
   const primary = sleeve("sp500", 4.5, ALWAYS_ON, 4.5);
   const secondary = sleeve("nasdaq100", 3, ALWAYS_ON);
   const fund = simulateDualSleeveFuturesStrategy({
-    displayName: "Max 4.5x SPX 3x NDX SMA",
+    displayName: "Max 4.5x SPX / Max 3x NDX SMA",
     initialEquity: 30_000,
     primary,
     secondary,
@@ -123,7 +123,7 @@ test("dual sleeve: the 50/50 reset actually fires and moves the result", () => {
   const primary = sleeve("sp500", 4.5, NORMAL_SP, 4.5);
   const secondary = sleeve("nasdaq100", 3, NORMAL_NQ);
   const fund = simulateDualSleeveFuturesStrategy({
-    displayName: "Max 4.5x SPX 3x NDX SMA",
+    displayName: "Max 4.5x SPX / Max 3x NDX SMA",
     initialEquity: 30_000,
     primary,
     secondary,
@@ -141,13 +141,13 @@ test("dual sleeve: the 50/50 reset actually fires and moves the result", () => {
 
 test("dual sleeve: reports the fund's own curve, not the primary sleeve's", () => {
   const fund = simulateDualSleeveFuturesStrategy({
-    displayName: "Max 4.5x SPX 3x NDX SMA",
+    displayName: "Max 4.5x SPX / Max 3x NDX SMA",
     initialEquity: 30_000,
     primary: sleeve("sp500", 4.5, NORMAL_SP, 4.5),
     secondary: sleeve("nasdaq100", 3, NORMAL_NQ),
   });
   const { etfResult } = fund;
-  assert.equal(etfResult.name, "Max 4.5x SPX 3x NDX SMA");
+  assert.equal(etfResult.name, "Max 4.5x SPX / Max 3x NDX SMA");
   assert.equal(etfResult.dailyValues.length, etfResult.dates.length);
   assert.equal(etfResult.smaPrices.length, etfResult.dates.length, "SMA overlay must span the fund calendar");
   assert.equal(etfResult.finalValue, etfResult.dailyValues.at(-1));
@@ -165,7 +165,7 @@ test("dual sleeve: the merged ledger reports the fund, not one sleeve", () => {
   // the fund's starting amount. Rows stamped with a sleeve's own equity made every
   // row read as half — 0.50x from the first line.
   const fund = simulateDualSleeveFuturesStrategy({
-    displayName: "Max 4.5x SPX 3x NDX SMA",
+    displayName: "Max 4.5x SPX / Max 3x NDX SMA",
     initialEquity: 100_000,
     primary: sleeve("sp500", 4.5, NORMAL_SP, 4.5),
     secondary: sleeve("nasdaq100", 3, NORMAL_NQ),
@@ -222,7 +222,7 @@ test("futures plan: the dual-sleeve rung carries each index's own band", () => {
   });
   const dual = plan.find((step) => step.secondary);
   assert.ok(dual, "the ladder must offer the two-sleeve fund");
-  assert.equal(dual.displayName, "Max 4.5x SPX 3x NDX SMA");
+  assert.equal(dual.displayName, "Max 4.5x SPX / Max 3x NDX SMA");
   assert.equal(dual.index, "sp500");
   assert.equal(dual.leverage, 4.5);
   assert.equal(dual.maxLeverage, 4.5);

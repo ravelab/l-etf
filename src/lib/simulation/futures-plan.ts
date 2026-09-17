@@ -93,7 +93,7 @@ export function buildFuturesLadderPlan(params: {
     index: "sp500",
     leverage: 4.5,
     maxLeverage: 4.5,
-    displayName: "Max 4.5x SPX 3x NDX SMA",
+    displayName: "Max 4.5x SPX / Max 3x NDX SMA",
     sma: sp,
     secondary: { index: "nasdaq100", leverage: 3, sma: nq },
   };

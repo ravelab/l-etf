@@ -25,7 +25,7 @@ import type {
 import type { EtfResult } from "@/lib/simulation/types";
 
 export type DualSleeveFuturesParams = {
-  /** Row name in the results table, e.g. "Max 4.5x SPX 3x NDX SMA". */
+  /** Row name in the results table, e.g. "Max 4.5x SPX / Max 3x NDX SMA". */
   displayName: string;
   /** Whole-fund equity at inception; each sleeve opens with half. */
   initialEquity: number;
