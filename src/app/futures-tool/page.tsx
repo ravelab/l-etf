@@ -350,6 +350,46 @@ export function FuturesPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: (state) => {
       const snapshot = state as Record<string, unknown>;
+      // A snapshot is a complete canned run, not only its result arrays. Keep
+      // the controls synchronized with the inputs that produced those arrays;
+      // otherwise the page can display a snapshot ending on an older date
+      // while the form still appears to describe today's run.
+      handleFieldChange(
+        "startDate",
+        normalizeDateString(snapshot.startDate as string | undefined, dateRange.min)
+      );
+      handleFieldChange(
+        "endDate",
+        normalizeDateString(snapshot.endDate as string | undefined, dateRange.max)
+      );
+      handleFieldChange(
+        "smaSpPeriod",
+        normalizeNumberValue(snapshot.smaSpPeriod, 186, { integer: true, min: 1 })
+      );
+      handleFieldChange(
+        "smaNqPeriod",
+        normalizeNumberValue(snapshot.smaNqPeriod, 150, { integer: true, min: 1 })
+      );
+      handleFieldChange(
+        "smaSpUpperBuffer",
+        normalizeNumberValue(snapshot.smaSpUpperBuffer, 3.6, { min: 0 })
+      );
+      handleFieldChange(
+        "smaSpLowerBuffer",
+        normalizeNumberValue(snapshot.smaSpLowerBuffer, 3.6, { min: 0 })
+      );
+      handleFieldChange(
+        "smaNqUpperBuffer",
+        normalizeNumberValue(snapshot.smaNqUpperBuffer, 11.9, { min: 0 })
+      );
+      handleFieldChange(
+        "smaNqLowerBuffer",
+        normalizeNumberValue(snapshot.smaNqLowerBuffer, 11.9, { min: 0 })
+      );
+      handleFieldChange(
+        "riskOffAsset",
+        normalizeRiskOffAsset(snapshot.riskOffAsset as string | undefined)
+      );
       setAmount(normalizeNumberValue(snapshot.amount as number, DEFAULT_FUTURES_AMOUNT, { min: 0 }));
       setLeverageTolerancePct(
         normalizeNumberValue(

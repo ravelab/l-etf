@@ -104,6 +104,7 @@ import {
 import { buildStrategyVariants, buildStrategyYearlyGrowthSeries, normalizeStrategyLabel, shouldIncludeStrategyChartLabel } from "../src/lib/strategy-page-data";
 import { buildSgovFinalValuesByWindow } from "../src/lib/sgov-benchmark";
 import { computeWinRatesByWindowLength, type WinRatesByWindow } from "../src/lib/simulation/win-rates";
+import { readSmaCalibrationSnapshot } from "../src/lib/sma-calibration";
 import {
   dedupePoints,
   pickTopCell,
@@ -232,6 +233,7 @@ type PageSnapshot = {
 
 async function main() {
   const requestedPages = parseRequestedPages(process.argv.slice(2));
+  const calibration = await readSmaCalibrationSnapshot();
   const snapshotEndDate = await getLatestSharedTradeDate([
     "sp500",
     "nasdaq100",
@@ -245,12 +247,12 @@ async function main() {
     startDate: CONSTANT_SP500_SHORTCUT_DATE,
     endDate: snapshotEndDate,
     windowLength: getDefaultWindowLength(),
-    smaSpPeriod: getDefaultSmaPeriod("sp500"),
-    smaNqPeriod: getDefaultSmaPeriod("nasdaq100"),
-    smaSpUpperBuffer: getDefaultSmaBuffer("sp500"),
-    smaSpLowerBuffer: getDefaultSmaBuffer("sp500"),
-    smaNqUpperBuffer: getDefaultSmaBuffer("nasdaq100"),
-    smaNqLowerBuffer: getDefaultSmaBuffer("nasdaq100"),
+    smaSpPeriod: calibration?.sp500.smaPeriod ?? getDefaultSmaPeriod("sp500"),
+    smaNqPeriod: calibration?.nasdaq100.smaPeriod ?? getDefaultSmaPeriod("nasdaq100"),
+    smaSpUpperBuffer: calibration?.sp500.smaUpperBuffer ?? getDefaultSmaBuffer("sp500"),
+    smaSpLowerBuffer: calibration?.sp500.smaLowerBuffer ?? getDefaultSmaBuffer("sp500"),
+    smaNqUpperBuffer: calibration?.nasdaq100.smaUpperBuffer ?? getDefaultSmaBuffer("nasdaq100"),
+    smaNqLowerBuffer: calibration?.nasdaq100.smaLowerBuffer ?? getDefaultSmaBuffer("nasdaq100"),
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     smaExecutionMode: "next-day-open",
   } as const;
@@ -649,7 +651,9 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
+    smaSpLowerBuffer: shared.smaSpLowerBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaNqLowerBuffer: shared.smaNqLowerBuffer,
     riskOffAsset: shared.riskOffAsset,
     amount,
     leverageTolerancePct,
