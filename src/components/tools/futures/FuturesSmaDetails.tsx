@@ -9,7 +9,7 @@ import {
 } from "@/lib/simulation/futures";
 import { Card } from "@/components/ui/Card";
 import { formatDate, formatCurrency, formatCurrencySigFigs, formatPercentPointsSigFigs } from "@/lib/format";
-import { useMaxPageButtons } from "@/lib/hooks/use-max-page-buttons";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
 
 const PAGE_SIZE = 10;
@@ -78,7 +78,6 @@ function FuturesSmaDetailsImpl({
   monthlyCpi: Array<{ date: string; value: number }>;
 }) {
   const [page, setPage] = useState(0);
-  const maxButtons = useMaxPageButtons();
   type DisplayRow = FuturesStrategyResult["transactions"][number] & {
     displayAction?: string;
     displaySymbol?: string;
@@ -424,6 +423,13 @@ function FuturesSmaDetailsImpl({
       {rows.length === 0 ? (
         <div className="text-xs text-muted">No transactions for this SMA run.</div>
       ) : (
+        <>
+        <TablePagination
+          page={pageSafe}
+          pageSize={PAGE_SIZE}
+          totalItems={rows.length}
+          onPageChange={setPage}
+        />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -559,96 +565,9 @@ function FuturesSmaDetailsImpl({
             </tbody>
           </table>
         </div>
+        </>
       )}
 
-      {totalPages > 1 && (
-        <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted">
-          <span>
-            {pageSafe * PAGE_SIZE + 1}&ndash;{Math.min((pageSafe + 1) * PAGE_SIZE, rows.length)} of {rows.length}
-          </span>
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-            <button
-              type="button"
-              disabled={pageSafe === 0}
-              onClick={() => setPage((p) => p - 1)}
-              className="rounded px-2 py-1 hover:bg-card-border/30 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Prev
-            </button>
-            {(() => {
-              const pages = [];
-              if (totalPages <= maxButtons) {
-                for (let i = 0; i < totalPages; i++) {
-                  pages.push(
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPage(i)}
-                      className={`rounded px-2 py-1 ${pageSafe === i ? "bg-accent text-accent-contrast" : "hover:bg-card-border/30"}`}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                }
-              } else {
-                const range = 2;
-                const start = Math.max(0, pageSafe - range);
-                const end = Math.min(totalPages - 1, pageSafe + range);
-
-                if (start > 0) {
-                  pages.push(
-                    <button
-                      key={0}
-                      type="button"
-                      onClick={() => setPage(0)}
-                      className="rounded px-2 py-1 hover:bg-card-border/30"
-                    >
-                      1
-                    </button>
-                  );
-                  if (start > 1) pages.push(<span key="start-dots" className="px-1">...</span>);
-                }
-
-                for (let i = start; i <= end; i++) {
-                  pages.push(
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPage(i)}
-                      className={`rounded px-2 py-1 ${pageSafe === i ? "bg-accent text-accent-contrast" : "hover:bg-card-border/30"}`}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                }
-
-                if (end < totalPages - 1) {
-                  if (end < totalPages - 2) pages.push(<span key="end-dots" className="px-1">...</span>);
-                  pages.push(
-                    <button
-                      key={totalPages - 1}
-                      type="button"
-                      onClick={() => setPage(totalPages - 1)}
-                      className="rounded px-2 py-1 hover:bg-card-border/30"
-                    >
-                      {totalPages}
-                    </button>
-                  );
-                }
-              }
-              return pages;
-            })()}
-            <button
-              type="button"
-              disabled={pageSafe === totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded px-2 py-1 hover:bg-card-border/30 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
     </Card>
   );
 }

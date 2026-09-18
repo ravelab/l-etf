@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMaxPageButtons } from "@/lib/hooks/use-max-page-buttons";
+import { TablePagination } from "@/components/ui/TablePagination";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
 import type { BacktestResult, EtfConfig, PricePoint } from "@/lib/simulation/types";
@@ -392,7 +392,6 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           finalEtfPrice: number;
           }) {
           const [page, setPage] = useState(0);
-          const maxButtons = useMaxPageButtons();
 
           // Build date→price lookups per risk-off ticker
           const riskOffLookups = useMemo(() => {
@@ -410,8 +409,8 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           });
           }, [riskOffPricesByTicker]);
 
-  const totalPages = Math.ceil(tradeRows.length / TRADES_PAGE_SIZE);
-  const paged = tradeRows.slice(page * TRADES_PAGE_SIZE, (page + 1) * TRADES_PAGE_SIZE);
+  const pageSafe = Math.min(page, Math.max(0, Math.ceil(tradeRows.length / TRADES_PAGE_SIZE) - 1));
+  const paged = tradeRows.slice(pageSafe * TRADES_PAGE_SIZE, (pageSafe + 1) * TRADES_PAGE_SIZE);
   const segmentCtx: SmaSegmentContext = {
     tradeRows,
     endDate,
@@ -421,7 +420,14 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
   };
 
   return (
-    <div className="overflow-x-auto">
+    <>
+      <TablePagination
+        page={page}
+        pageSize={TRADES_PAGE_SIZE}
+        totalItems={tradeRows.length}
+        onPageChange={setPage}
+      />
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-card-border text-left text-muted">
@@ -476,85 +482,8 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           )})}
         </tbody>
       </table>
-      {totalPages > 1 && (
-        <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted">
-          <span>
-            {page * TRADES_PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * TRADES_PAGE_SIZE, tradeRows.length)} of {tradeRows.length}
-          </span>
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-            <button
-              type="button"
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-              className="rounded px-2 py-1 hover:bg-card-border/30 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Prev
-            </button>
-            {(() => {
-              const pages = [];
-              if (totalPages <= maxButtons) {
-                for (let i = 0; i < totalPages; i++) {
-                  pages.push(
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPage(i)}
-                      className={`rounded px-2 py-1 ${page === i ? "bg-accent text-accent-contrast" : "hover:bg-card-border/30"}`}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                }
-              } else {
-                const range = 2;
-                const start = Math.max(0, page - range);
-                const end = Math.min(totalPages - 1, page + range);
-
-                if (start > 0) {
-                  pages.push(
-                    <button key={0} type="button" onClick={() => setPage(0)} className="rounded px-2 py-1 hover:bg-card-border/30">
-                      1
-                    </button>
-                  );
-                  if (start > 1) pages.push(<span key="start-dots" className="px-1">...</span>);
-                }
-
-                for (let i = start; i <= end; i++) {
-                  pages.push(
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPage(i)}
-                      className={`rounded px-2 py-1 ${page === i ? "bg-accent text-accent-contrast" : "hover:bg-card-border/30"}`}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                }
-
-                if (end < totalPages - 1) {
-                  if (end < totalPages - 2) pages.push(<span key="end-dots" className="px-1">...</span>);
-                  pages.push(
-                    <button key={totalPages - 1} type="button" onClick={() => setPage(totalPages - 1)} className="rounded px-2 py-1 hover:bg-card-border/30">
-                      {totalPages}
-                    </button>
-                  );
-                }
-              }
-              return pages;
-            })()}
-            <button
-              type="button"
-              disabled={page === totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded px-2 py-1 hover:bg-card-border/30 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
 

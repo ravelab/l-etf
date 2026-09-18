@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SectionTitleWithInflation } from "@/components/tools/SectionTitleWithInflation";
 import { formatPercent } from "@/lib/format";
-import { useMaxPageButtons } from "@/lib/hooks/use-max-page-buttons";
+import { TablePagination } from "@/components/ui/TablePagination";
 
 type YearlyGrowthSeries = {
   years: string[];
@@ -54,7 +54,6 @@ export function RealYearlyGrowthTable({
   inflationPct?: number | null;
 }) {
   const [page, setPage] = useState(0);
-  const maxButtons = useMaxPageButtons();
   const normalized = yearlyGrowthSeries;
   if (!normalized || normalized.series.length === 0) return null;
 
@@ -66,8 +65,8 @@ export function RealYearlyGrowthTable({
     }))
     .filter((row) => row.hasValue);
 
-  const totalPages = Math.ceil(visibleRows.length / PAGE_SIZE);
-  const pagedRows = visibleRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageSafe = Math.min(page, Math.max(0, Math.ceil(visibleRows.length / PAGE_SIZE) - 1));
+  const pagedRows = visibleRows.slice(pageSafe * PAGE_SIZE, (pageSafe + 1) * PAGE_SIZE);
 
   if (visibleRows.length === 0) return null;
 
@@ -77,6 +76,12 @@ export function RealYearlyGrowthTable({
         <SectionTitleWithInflation title={title} inflationPct={inflationPct} />
       </div>
       <p className="text-xs text-muted mb-4">{description}</p>
+      <TablePagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalItems={visibleRows.length}
+        onPageChange={setPage}
+      />
       <div className="overflow-x-auto">
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <thead>
@@ -129,84 +134,6 @@ export function RealYearlyGrowthTable({
           </tbody>
         </table>
       </div>
-      {totalPages > 1 && (
-        <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-muted">
-          <span>
-            {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, visibleRows.length)} of {visibleRows.length}
-          </span>
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-            <button
-              type="button"
-              disabled={page === 0}
-              onClick={() => setPage((p) => p - 1)}
-              className="rounded px-2 py-1 hover:bg-card-border/30 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Prev
-            </button>
-            {(() => {
-              const pages = [];
-              if (totalPages <= maxButtons) {
-                for (let i = 0; i < totalPages; i++) {
-                  pages.push(
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPage(i)}
-                      className={`rounded px-2 py-1 ${page === i ? "bg-accent text-accent-contrast" : "hover:bg-card-border/30"}`}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                }
-              } else {
-                const range = 2; // Show 2 pages before and after current
-                const start = Math.max(0, page - range);
-                const end = Math.min(totalPages - 1, page + range);
-
-                if (start > 0) {
-                  pages.push(
-                    <button key={0} type="button" onClick={() => setPage(0)} className="rounded px-2 py-1 hover:bg-card-border/30">
-                      1
-                    </button>
-                  );
-                  if (start > 1) pages.push(<span key="start-dots" className="px-1">...</span>);
-                }
-
-                for (let i = start; i <= end; i++) {
-                  pages.push(
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPage(i)}
-                      className={`rounded px-2 py-1 ${page === i ? "bg-accent text-accent-contrast" : "hover:bg-card-border/30"}`}
-                    >
-                      {i + 1}
-                    </button>
-                  );
-                }
-
-                if (end < totalPages - 1) {
-                  if (end < totalPages - 2) pages.push(<span key="end-dots" className="px-1">...</span>);
-                  pages.push(
-                    <button key={totalPages - 1} type="button" onClick={() => setPage(totalPages - 1)} className="rounded px-2 py-1 hover:bg-card-border/30">
-                      {totalPages}
-                    </button>
-                  );
-                }
-              }
-              return pages;
-            })()}
-            <button
-              type="button"
-              disabled={page === totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded px-2 py-1 hover:bg-card-border/30 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
     </Card>
   );
 }
