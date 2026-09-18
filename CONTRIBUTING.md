@@ -22,6 +22,7 @@ Day-to-day work happens on `dev`. `main` is production and only advances by a fa
    ```bash
    npm run push:dev             # push + wait for preview UI CI
    npm run promote              # fast-forward main + wait for production smoke
+   npm run promote:now          # same, without waiting for the smoke
    # or one shot:
    npm run ship -- "your message"
    ```

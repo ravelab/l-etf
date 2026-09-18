@@ -152,6 +152,7 @@ The cron schedule lives in [`vercel.json`](./vercel.json); the build orchestrati
 | `npm run push:dev` | Push `dev` and wait for post-deploy E2E CI. |
 | `npm run ship -- "msg"` | Check, commit on `dev`, push, promote to `main`. |
 | `npm run promote` | Fast-forward `dev` → `main` and wait for production smoke. |
+| `npm run promote:now` | Same promotion, without waiting for production smoke. |
 | `npm run fetch-data` | Refresh local market-data CSVs in `./data/`. Accepts optional args (e.g. `npm run fetch-data index-sp`, `... borrow`, `... risk-off`, `... UPRO TQQQ`). |
 | `npm run calibrate` | Recalibrate simulated-LETF parameters against real ETF history. |
 | `npm run snapshots:generate` | Generate compact per-page tool snapshots used by the UI for fast first paint. |
@@ -172,6 +173,7 @@ npm run setup:hooks          # once per clone
 npm run push:dev             # from dev: push + wait for preview UI CI
 npm run ship -- "message"    # check, commit, push:dev, promote to main
 npm run promote              # ship whatever is already on origin/dev
+npm run promote:now          # same, without waiting for production smoke
 ```
 
 If preview deployments are Vercel-protected, add the project's automation bypass as the
