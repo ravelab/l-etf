@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { isAbortError } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
@@ -179,6 +179,16 @@ export function FuturesPageContent({
       const v = strategy.maxAbsLeverageDeltaRiskOnPct;
       if (Number.isFinite(v)) {
         byId[strategy.etfResult.id] = v;
+      }
+    }
+    return byId;
+  }, [futuresDetails]);
+
+  const sleeveLeverageMetricsById = useMemo(() => {
+    const byId: NonNullable<ComponentProps<typeof ResultsTable>["sleeveLeverageMetricsById"]> = {};
+    for (const strategy of futuresDetails ?? []) {
+      if (strategy.sleeveLeverageMetrics) {
+        byId[strategy.etfResult.id] = strategy.sleeveLeverageMetrics;
       }
     }
     return byId;
@@ -829,6 +839,7 @@ export function FuturesPageContent({
                 metricLinkTab="futures"
                 avgActualLeverageById={avgActualLeverageById}
                 maxLeverageDeltaById={maxLeverageDeltaById}
+                sleeveLeverageMetricsById={sleeveLeverageMetricsById}
                 variant="futures"
               />
 

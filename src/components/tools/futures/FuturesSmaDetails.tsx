@@ -440,7 +440,9 @@ function FuturesSmaDetailsImpl({
                 <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Interest Earned</th>
                 <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Excess Liquidity</th>
                 <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Leverage Δ</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Value</th>
+                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">
+                  {strategy.sleeveLeverageMetrics ? "Value (SPX size)" : "Value"}
+                </th>
                 <th className="pb-2 font-medium whitespace-nowrap text-right">Real Value</th>
               </tr>
             </thead>
@@ -470,6 +472,13 @@ function FuturesSmaDetailsImpl({
                 const portfolioEq = ledgerPortfolioEquity(row);
                 const realValue = realEquityForRow(row.date, portfolioEq);
                 const realMultiple = initialEquity > 0 ? realValue / initialEquity : 0;
+                const spxSharePct =
+                  strategy.sleeveLeverageMetrics &&
+                  Number.isFinite(row.spxEquity) &&
+                  Number.isFinite(portfolioEq) &&
+                  portfolioEq > 0
+                    ? ((row.spxEquity as number) / portfolioEq) * 100
+                    : null;
                 return (
                   <tr key={`${row.date}-${symbolRaw}-${row.qtyDelta}-${idx}-${isTerminalBookClose ? "eol" : ""}`} className="border-b border-card-border/50">
                     <td className="py-2.5 pr-4 whitespace-nowrap">{formatDate(row.date)}</td>
@@ -537,7 +546,9 @@ function FuturesSmaDetailsImpl({
                         : "—"}
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums font-medium">
-                      {Number.isFinite(portfolioEq) ? formatCurrency(portfolioEq) : "—"}
+                      {Number.isFinite(portfolioEq)
+                        ? `${formatCurrency(portfolioEq)}${spxSharePct != null ? ` (${spxSharePct.toFixed(0)}%)` : ""}`
+                        : "—"}
                     </td>
                     <td className="py-2.5 whitespace-nowrap text-right tabular-nums font-medium text-blue-400">
                       {Number.isFinite(portfolioEq) ? formatMultiple(realMultiple) : "—"}

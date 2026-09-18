@@ -151,8 +151,10 @@ export function simulateDualSleeveFuturesStrategy(
   const fundRows = (
     own: FuturesStrategyResult,
     other: FuturesStrategyResult,
-    otherSleeve: FuturesSleeve
+    otherSleeve: FuturesSleeve,
+    ownIsPrimary: boolean
   ): FuturesTransactionRow[] => {
+    const ownEquity = byDateWithCarryForward(own.etfResult.dates, own.etfResult.dailyValues);
     const otherEquity = byDateWithCarryForward(other.etfResult.dates, other.etfResult.dailyValues);
     const otherExcess = byDateWithCarryForward(
       otherSleeve.dates,
@@ -161,13 +163,14 @@ export function simulateDualSleeveFuturesStrategy(
     return own.transactions.map((row) => ({
       ...row,
       equity: row.equity + otherEquity(row.date),
+      spxEquity: ownIsPrimary ? ownEquity(row.date) : otherEquity(row.date),
       excessLiquidity: row.excessLiquidity + otherExcess(row.date),
     }));
   };
 
   const transactions: FuturesTransactionRow[] = [
-    ...fundRows(primaryResult, secondaryResult, sleeves[1]),
-    ...fundRows(secondaryResult, primaryResult, sleeves[0]),
+    ...fundRows(primaryResult, secondaryResult, sleeves[1], true),
+    ...fundRows(secondaryResult, primaryResult, sleeves[0], false),
   ].sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
 
   // CAGR, drawdown and Sharpe must come from the FUND's curve, never the primary
@@ -203,9 +206,20 @@ export function simulateDualSleeveFuturesStrategy(
     transactions,
     initialEquity,
     // Leverage is measured per sleeve against its own target, so a single fund-level
-    // figure would compare two different targets. Reported by the sleeves, not here.
+    // figure would compare two different targets. Keep both figures for the results
+    // table instead of presenting an ambiguous fund-level average.
     avgActualLeverageRiskOn: NaN,
     maxAbsLeverageDeltaRiskOnPct: NaN,
+    sleeveLeverageMetrics: {
+      primary: {
+        avgActualLeverageRiskOn: primaryResult.avgActualLeverageRiskOn,
+        maxAbsLeverageDeltaRiskOnPct: primaryResult.maxAbsLeverageDeltaRiskOnPct,
+      },
+      secondary: {
+        avgActualLeverageRiskOn: secondaryResult.avgActualLeverageRiskOn,
+        maxAbsLeverageDeltaRiskOnPct: secondaryResult.maxAbsLeverageDeltaRiskOnPct,
+      },
+    },
     riskOffSessionDayCount: dates.filter((_, k) =>
       sleeves.every((sleeve, s) => !investedAt(sleeve, dayIndexByDate[s].get(dates[k]) ?? cursor[s]))
     ).length,

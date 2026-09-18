@@ -35,6 +35,8 @@ export type FuturesTransactionRow = {
   leverageDeltaPctBefore?: number;
   leverageDeltaPct: number;
   equity: number;
+  /** SPX sleeve equity for a dual-sleeve fund, used to show its share of total value. */
+  spxEquity?: number;
   /** Synthetic closing row at window end (not an additional trade in PnL). */
   isEndLiquidation?: boolean;
 };
@@ -49,6 +51,17 @@ export type FuturesStrategyResult = {
   avgActualLeverageRiskOn: number;
   /** Max |actual/target − 1| in percent points at end of day while risk-on with futures, before emergency margin peels. */
   maxAbsLeverageDeltaRiskOnPct: number;
+  /** Per-sleeve leverage metrics for a multi-sleeve fund result. */
+  sleeveLeverageMetrics?: {
+    primary: {
+      avgActualLeverageRiskOn: number;
+      maxAbsLeverageDeltaRiskOnPct: number;
+    };
+    secondary: {
+      avgActualLeverageRiskOn: number;
+      maxAbsLeverageDeltaRiskOnPct: number;
+    };
+  };
   /** Days in the window (`invested === false` after SMA shift). */
   riskOffSessionDayCount: number;
   sessionDayCount: number;

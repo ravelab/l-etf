@@ -156,6 +156,10 @@ interface ResultsTableProps {
   /** Mean actual leverage (multiple) on risk-on days with futures; futures tab only. */
   avgActualLeverageById?: Record<string, number>;
   maxLeverageDeltaById?: Record<string, number>;
+  sleeveLeverageMetricsById?: Record<string, {
+    primary: { avgActualLeverageRiskOn: number; maxAbsLeverageDeltaRiskOnPct: number };
+    secondary: { avgActualLeverageRiskOn: number; maxAbsLeverageDeltaRiskOnPct: number };
+  }>;
   variant?: ResultsTableVariant;
 }
 
@@ -169,6 +173,7 @@ function ResultsTableImpl({
   metricLinkTab = "backtest",
   avgActualLeverageById,
   maxLeverageDeltaById,
+  sleeveLeverageMetricsById,
   variant = "backtest",
 }: ResultsTableProps) {
   const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
@@ -444,17 +449,27 @@ function ResultsTableImpl({
               {variant === "futures" && (
                 <>
                   <td className="py-2.5 pr-4 text-muted tabular-nums whitespace-nowrap">
-                    {Number.isFinite(avgActualLeverageById?.[r.id] ?? NaN)
-                      ? `${(avgActualLeverageById?.[r.id] ?? 0).toLocaleString(undefined, {
+                    {sleeveLeverageMetricsById?.[r.id]
+                      ? `${sleeveLeverageMetricsById[r.id].primary.avgActualLeverageRiskOn.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}x / ${sleeveLeverageMetricsById[r.id].secondary.avgActualLeverageRiskOn.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}x`
-                      : "—"}
+                      : Number.isFinite(avgActualLeverageById?.[r.id] ?? NaN)
+                        ? `${(avgActualLeverageById?.[r.id] ?? 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}x`
+                        : "—"}
                   </td>
                   <td className="py-2.5 pr-4 text-muted">
-                    {Number.isFinite(maxLeverageDeltaById?.[r.id] ?? NaN)
-                      ? formatPercent(maxLeverageDeltaById?.[r.id] ?? 0)
-                      : "—"}
+                    {sleeveLeverageMetricsById?.[r.id]
+                      ? `${formatPercent(sleeveLeverageMetricsById[r.id].primary.maxAbsLeverageDeltaRiskOnPct)} / ${formatPercent(sleeveLeverageMetricsById[r.id].secondary.maxAbsLeverageDeltaRiskOnPct)}`
+                      : Number.isFinite(maxLeverageDeltaById?.[r.id] ?? NaN)
+                        ? formatPercent(maxLeverageDeltaById?.[r.id] ?? 0)
+                        : "—"}
                   </td>
                 </>
               )}
