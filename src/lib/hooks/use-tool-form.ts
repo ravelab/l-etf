@@ -85,7 +85,6 @@ export function useToolForm<T extends Record<string, unknown>>(
     return next;
   })();
 
-  const [letf, setLetf] = useState<string>(sanitizedInitial.letf);
   // `index` is page-local and unpersisted, so on a fresh mount it would fall back
   // to the "sp500" default while `letf` comes back from the SHARED store — e.g.
   // letf=TQQQ with index=sp500, which ran the 3x NDX preset over SPX prices until
@@ -95,11 +94,12 @@ export function useToolForm<T extends Record<string, unknown>>(
   // so seed it from there; a combo keeps whatever was cached since its legs carry
   // their own indices.
   const initialPresetContext = resolvePresetContext(sanitizedInitial.letf);
-  const [index, setIndex] = useState<IndexKey>(
-    initialPresetContext.isCombo
-      ? sanitizedInitial.index
-      : (initialPresetContext.selectedPreset.index as IndexKey)
-  );
+  const initialIndex: IndexKey = initialPresetContext.isCombo
+    ? sanitizedInitial.index
+    : (initialPresetContext.selectedPreset.index as IndexKey);
+
+  const [letf, setLetf] = useState<string>(sanitizedInitial.letf);
+  const [index, setIndex] = useState<IndexKey>(initialIndex);
   const [startDate, setStartDate] = useState(sanitizedInitial.startDate);
   const [endDate, setEndDate] = useState(sanitizedInitial.endDate);
   const [windowLength, setWindowLength] = useState(() => sanitizedInitial.windowLength);
