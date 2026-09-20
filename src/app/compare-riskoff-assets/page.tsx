@@ -493,15 +493,15 @@ export function CompareRiskOffAssetsPageContent({
         {display && bestRow && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Risk-Off Asset` : "Best Avg Real CAGR Risk-Off Asset"}</p>
+              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scoring Risk-Off Asset` : "Best Scoring Risk-Off Asset"}</p>
               <p className="text-lg font-semibold">{formatAsset(bestRow)}</p>
             </Card>
             <Card>
-              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Avg Real CAGR` : "Best Avg Real CAGR"}</p>
+              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real CAGR` : "Best Scorer’s Avg Real CAGR"}</p>
               <p className="text-lg font-semibold text-positive">{formatPercent(bestRow.avgReturn - inflPct)}</p>
             </Card>
             <Card>
-              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Avg Real End Value` : "Best Avg Real End Value"}</p>
+              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real End Value` : "Best Scorer’s Avg Real End Value"}</p>
               <p className="text-lg font-semibold text-value-accent">{formatFinalValuePct(bestRow.avgFinalRealValue)}</p>
             </Card>
             <Card>
@@ -515,11 +515,11 @@ export function CompareRiskOffAssetsPageContent({
                   <p className="text-lg font-semibold">{formatAsset2(bestRow2)}</p>
                 </Card>
                 <Card>
-                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Avg Real CAGR</p>
+                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real CAGR</p>
                   <p className="text-lg font-semibold text-positive">{formatPercent(bestRow2.avgReturn - inflPct)}</p>
                 </Card>
                 <Card>
-                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Avg Real End Value</p>
+                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real End Value</p>
                   <p className="text-lg font-semibold text-value-accent">{formatFinalValuePct(bestRow2.avgFinalRealValue)}</p>
                 </Card>
                 <Card>

@@ -85,7 +85,7 @@ export function CompareBufferStrategiesPageContent({
     maxBuffer: 21,
     fineStep: 0.5,
     coarseStep: 2,
-    fineHalfWidth: 1.5,
+    fineHalfWidth: 1,
     showBaseline: true,
     annualizedInflation: 0,
     monthlyCpi: [] as Array<{ date: string; value: number }>,
@@ -252,7 +252,7 @@ export function CompareBufferStrategiesPageContent({
       if (maxT) setMaxBuffer(normalizeNumberValue(maxT, 21, { min: 0 }));
       if (step) setFineStep(normalizeNumberValue(step, 0.5, { min: 0.1 }));
       if (cstep) setCoarseStep(normalizeNumberValue(cstep, 2, { min: 0.5 }));
-      if (hw) setFineHalfWidth(normalizeNumberValue(hw, 1.5, { min: 0.5 }));
+      if (hw) setFineHalfWidth(normalizeNumberValue(hw, 1, { min: 0.5 }));
     });
   }, [searchParams, pathname, shouldAutoRunFromSearch, active, suppressAutoRun, allowInitialSearchAutoRun, hasCachedResults, setLetf, setIndex, setSmaSpPeriod, setSmaNqPeriod]);
 
@@ -817,15 +817,15 @@ export function CompareBufferStrategiesPageContent({
         {display && bestRow && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Buffer` : "Best Avg Real CAGR Buffer"}</p>
+              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scoring Buffer` : "Best Scoring Buffer"}</p>
               <p className="text-lg font-semibold">{bestRow.parameterValue}%</p>
             </Card>
             <Card>
-              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Avg Real CAGR` : "Best Avg Real CAGR"}</p>
+              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real CAGR` : "Best Scorer’s Avg Real CAGR"}</p>
               <p className="text-lg font-semibold text-positive">{formatPercent((bestRow.avgReturn - inflPct))}</p>
             </Card>
             <Card>
-              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Avg Real End Value` : "Best Avg Real End Value"}</p>
+              <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real End Value` : "Best Scorer’s Avg Real End Value"}</p>
               <p className="text-lg font-semibold text-value-accent">{formatFinalValuePct(bestRow.avgFinalRealValue)}</p>
             </Card>
             <Card>
@@ -839,11 +839,11 @@ export function CompareBufferStrategiesPageContent({
                   <p className="text-lg font-semibold">{bestRow2.parameterValue}%</p>
                 </Card>
                 <Card>
-                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Avg Real CAGR</p>
+                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real CAGR</p>
                   <p className="text-lg font-semibold text-positive">{formatPercent((bestRow2.avgReturn - inflPct))}</p>
                 </Card>
                 <Card>
-                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Avg Real End Value</p>
+                  <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real End Value</p>
                   <p className="text-lg font-semibold text-value-accent">{formatFinalValuePct(bestRow2.avgFinalRealValue)}</p>
                 </Card>
                 <Card>
