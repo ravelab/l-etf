@@ -854,7 +854,7 @@ async function buildCompareThresholdSnapshot(shared: SharedInputs) {
     maxBuffer: 21,
     fineStep: 0.5,
     coarseStep: 2,
-    fineHalfWidth: 1.5,
+    fineHalfWidth: 1,
   });
 }
 
