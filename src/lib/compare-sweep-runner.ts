@@ -15,7 +15,6 @@ type SweepOutcome<TRow> = {
 export async function runCompareSweep<TRow, TRiskOffValues>(p: {
   comboSubs: EtfPreset[] | null;
   selectedPreset: EtfPreset;
-  index: IndexKey;
   startDate: string;
   endDate: string;
   warmUpTradingDays?: number;
@@ -40,9 +39,13 @@ export async function runCompareSweep<TRow, TRiskOffValues>(p: {
   inflationData: InflationData;
   inflationWarning: boolean;
 }> {
+  // The index is never a free parameter: a combo runs each leg on its own leg's
+  // index, and a single preset runs on the preset's index. Taking it from page
+  // state instead let a stale `index` simulate TQQQ over SPX prices and report it
+  // as a TQQQ result, with nothing in the output saying which index it used.
   const indicesToFetch: IndexKey[] = p.comboSubs
     ? [...new Set(p.comboSubs.map((sub) => sub.index))] as IndexKey[]
-    : [p.index];
+    : [p.selectedPreset.index as IndexKey];
 
   const marketData = await fetchMarketData(
     indicesToFetch,
@@ -108,7 +111,7 @@ export async function runCompareSweep<TRow, TRiskOffValues>(p: {
     };
   }
 
-  const prices = pricesByIndex[p.index];
+  const prices = pricesByIndex[p.selectedPreset.index];
   const riskOffValues = await p.loadRiskOffValues(p.selectedPreset, prices);
   p.onProgress(20, "Running simulations...");
   const res = await p.runSweepForPreset(

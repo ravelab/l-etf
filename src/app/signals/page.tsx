@@ -15,6 +15,10 @@ import type { SmaSignalResult } from "@/lib/sma-signals";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 
 const USE_CALIBRATED_DEFAULTS_KEY = "signals-use-calibrated-defaults";
+const ALTERNATIVE_SMA_DEFAULTS = {
+  sp500: { smaPeriod: 186, smaLowerBuffer: 2.8, smaUpperBuffer: 3 },
+  nasdaq100: { smaPeriod: 150, smaLowerBuffer: 11.9, smaUpperBuffer: 7.4 },
+} as const;
 
 interface SmaSignalsResponse {
   sp500: SmaSignalResult;
@@ -88,6 +92,15 @@ export default function SignalsPage() {
     setSmaNqUpperBuffer(calibration.nasdaq100.smaUpperBuffer);
     setSmaNqLowerBuffer(calibration.nasdaq100.smaLowerBuffer);
   }, [calibration]);
+
+  const handleSetAlternative = useCallback(() => {
+    setSmaSpPeriod(ALTERNATIVE_SMA_DEFAULTS.sp500.smaPeriod);
+    setSmaSpUpperBuffer(ALTERNATIVE_SMA_DEFAULTS.sp500.smaUpperBuffer);
+    setSmaSpLowerBuffer(ALTERNATIVE_SMA_DEFAULTS.sp500.smaLowerBuffer);
+    setSmaNqPeriod(ALTERNATIVE_SMA_DEFAULTS.nasdaq100.smaPeriod);
+    setSmaNqUpperBuffer(ALTERNATIVE_SMA_DEFAULTS.nasdaq100.smaUpperBuffer);
+    setSmaNqLowerBuffer(ALTERNATIVE_SMA_DEFAULTS.nasdaq100.smaLowerBuffer);
+  }, []);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(USE_CALIBRATED_DEFAULTS_KEY);
@@ -213,6 +226,9 @@ export default function SignalsPage() {
             <div className="mt-4 flex items-center gap-1.5 md:gap-2 min-h-[20px] text-[11px] md:text-sm text-muted">
               <Button variant="secondary" size="sm" disabled={!calibration || useCalibratedDefaults} onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
                 Set default
+              </Button>
+              <Button variant="secondary" size="sm" disabled={useCalibratedDefaults} onClick={handleSetAlternative} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
+                Set alternative
               </Button>
               {calibration ? (
                 <>

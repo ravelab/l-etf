@@ -602,7 +602,6 @@ export function CompareBufferStrategiesPageContent({
       const result = await runCompareSweep({
         comboSubs,
         selectedPreset,
-        index,
         startDate,
         endDate,
         warmUpTradingDays: Math.max(smaSpPeriod, smaNqPeriod),

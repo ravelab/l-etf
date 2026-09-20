@@ -86,7 +86,20 @@ export function useToolForm<T extends Record<string, unknown>>(
   })();
 
   const [letf, setLetf] = useState<string>(sanitizedInitial.letf);
-  const [index, setIndex] = useState<IndexKey>(sanitizedInitial.index);
+  // `index` is page-local and unpersisted, so on a fresh mount it would fall back
+  // to the "sp500" default while `letf` comes back from the SHARED store — e.g.
+  // letf=TQQQ with index=sp500, which ran the 3x NDX preset over SPX prices until
+  // some later effect re-synced them (the compare pages' preset effects
+  // deliberately skip their first run, and the URL-param effect only fires when
+  // the URL carries `letf`). For a single preset the index IS the preset's index,
+  // so seed it from there; a combo keeps whatever was cached since its legs carry
+  // their own indices.
+  const initialPresetContext = resolvePresetContext(sanitizedInitial.letf);
+  const [index, setIndex] = useState<IndexKey>(
+    initialPresetContext.isCombo
+      ? sanitizedInitial.index
+      : (initialPresetContext.selectedPreset.index as IndexKey)
+  );
   const [startDate, setStartDate] = useState(sanitizedInitial.startDate);
   const [endDate, setEndDate] = useState(sanitizedInitial.endDate);
   const [windowLength, setWindowLength] = useState(() => sanitizedInitial.windowLength);

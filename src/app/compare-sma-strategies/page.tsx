@@ -415,7 +415,6 @@ export function CompareSmaStrategiesPageContent({
       const result = await runCompareSweep({
         comboSubs,
         selectedPreset,
-        index,
         startDate,
         endDate,
         warmUpTradingDays: maxSmaPeriod,
