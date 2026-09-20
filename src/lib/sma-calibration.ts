@@ -7,7 +7,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { SmaSignalConfig } from "@/lib/sma-status";
 
 export interface SmaCalibrationIndexResult {
   /**
@@ -65,19 +64,4 @@ export async function readSmaCalibrationSnapshot(): Promise<SmaCalibrationResult
   } catch {
     return null;
   }
-}
-
-export function applyCalibratedSmaDefaults(
-  config: SmaSignalConfig,
-  calibration: SmaCalibrationResult
-): SmaSignalConfig {
-  return {
-    ...config,
-    smaSpPeriod: calibration.sp500.smaPeriod,
-    smaSpUpperBuffer: calibration.sp500.smaUpperBuffer,
-    smaSpLowerBuffer: calibration.sp500.smaLowerBuffer,
-    smaNqPeriod: calibration.nasdaq100.smaPeriod,
-    smaNqUpperBuffer: calibration.nasdaq100.smaUpperBuffer,
-    smaNqLowerBuffer: calibration.nasdaq100.smaLowerBuffer,
-  };
 }

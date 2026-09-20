@@ -13,7 +13,8 @@ import {
   SMA_PUSH_DELIVERY_OPTIONS,
 } from "@/lib/push/server";
 import { pushSmaConfigSchema, pushSubscribePayloadSchema } from "@/lib/push/schema";
-import { applyCalibratedSmaDefaults, type SmaCalibrationResult } from "@/lib/sma-calibration";
+import type { SmaCalibrationResult } from "@/lib/sma-calibration";
+import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 
 test("formats SMA push parameters compactly", () => {
   assert.equal(

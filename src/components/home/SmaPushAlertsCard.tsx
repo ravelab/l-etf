@@ -19,6 +19,9 @@ import {
   unsubscribeFromPushAlerts,
 } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
+import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
+import { formatSmaSummary } from "@/lib/buffer-format";
+import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 
 type PushState = {
   status: "checking" | "unsupported" | "ready" | "subscribed" | "install-first" | "error";
@@ -26,7 +29,10 @@ type PushState = {
 };
 
 type SmaPushAlertsCardProps = {
+  /** The page's live SMA inputs. Only used when the calibrated toggle is off. */
   smaConfig: PushSmaConfig;
+  /** Latest calibration snapshot; the band the alerts run on while the toggle is on. */
+  calibration: SmaCalibrationResult | null;
   onConfigChange?: (field: keyof PushSmaConfig, value: boolean) => void;
   useCalibratedDefaults: boolean;
   onUseCalibratedDefaultsChange: (value: boolean) => void;
@@ -45,7 +51,7 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
   return ` (${parts.join(", ")})`;
 }
 
-export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefaults, onUseCalibratedDefaultsChange }: SmaPushAlertsCardProps) {
+export function SmaPushAlertsCard({ smaConfig: pageConfig, calibration, onConfigChange, useCalibratedDefaults, onUseCalibratedDefaultsChange }: SmaPushAlertsCardProps) {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [subscriptionConfig, setSubscriptionConfig] = useState<PushSmaConfig | null>(null);
@@ -141,6 +147,17 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefa
       cancelled = true;
     };
   }, [browserState]);
+
+  // With the toggle on, the alerts run on the calibration snapshot no matter what
+  // the page's inputs say — the cron re-points the subscription at it before every
+  // evaluation — so everything below (what we subscribe with, what we display, and
+  // whether the subscription is stale) reads the calibrated band, not the inputs.
+  // Otherwise an exploratory tweak upstairs would nag "Update alerts" for a change
+  // the next cron run would revert.
+  const smaConfig =
+    useCalibratedDefaults && calibration
+      ? applyCalibratedSmaDefaults(pageConfig, calibration)
+      : pageConfig;
 
   const calibratedDefaultsChanged = Boolean(subscriptionConfig?.useCalibratedDefaults) !== useCalibratedDefaults;
 
@@ -329,6 +346,21 @@ export function SmaPushAlertsCard({ smaConfig, onConfigChange, useCalibratedDefa
               checked={useCalibratedDefaults}
               onChange={onUseCalibratedDefaultsChange}
             />
+            {useCalibratedDefaults && (
+              <p className="text-xs text-muted">
+                {calibration ? (
+                  <>
+                    Alerts use the calibrated band —{" "}
+                    {formatSmaSummary("SPX", calibration.sp500.smaPeriod, calibration.sp500.smaLowerBuffer, calibration.sp500.smaUpperBuffer)}
+                    {", "}
+                    {formatSmaSummary("NDX", calibration.nasdaq100.smaPeriod, calibration.nasdaq100.smaLowerBuffer, calibration.nasdaq100.smaUpperBuffer)}
+                    {" — and follow it as it is recalibrated, whatever the parameters above are set to."}
+                  </>
+                ) : (
+                  "Alerts use the calibrated band and follow it as it is recalibrated, whatever the parameters above are set to."
+                )}
+              </p>
+            )}
           </div>
           <p className="text-sm font-bold text-foreground">{state.message}</p>
         </div>

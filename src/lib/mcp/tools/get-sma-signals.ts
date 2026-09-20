@@ -5,7 +5,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { getPrices } from "@/lib/db/queries";
-import { applyCalibratedSmaDefaults, readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
+import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
+import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 import { computeSmaSignalSnapshot, getDefaultSmaSignalConfig } from "@/lib/sma-status";
 import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { getSmaSignalsOutput } from "@/lib/mcp/output-schemas";

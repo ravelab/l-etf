@@ -13,7 +13,8 @@ import {
   type SmaSignalConfig,
   type SmaSignalSnapshot,
 } from "@/lib/sma-status";
-import { applyCalibratedSmaDefaults, readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
+import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
+import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 import { SITE_URL } from "@/lib/seo";
 import type {
   PushSendPayload,

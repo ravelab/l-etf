@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { BufferPairInput } from "@/components/ui/BufferPairInput";
 import { Card } from "@/components/ui/Card";
@@ -114,10 +114,20 @@ export default function SignalsPage() {
     window.localStorage.setItem(USE_CALIBRATED_DEFAULTS_KEY, String(value));
   }, []);
 
-  // Keeps the SMA inputs synced to the latest calibration whenever the toggle is
-  // on (including when calibration is refetched on a later visit after it changes).
+  // The toggle governs the ALERTS only (the cron re-points a calibrated
+  // subscription at the latest snapshot before every evaluation — see
+  // `syncCalibratedPushSubscriptions`), so the inputs below stay editable while it
+  // is on. Turning it on still fills them in once, as a starting point; it must not
+  // re-apply on later calibration fetches or it would silently discard edits made
+  // after that.
+  const calibratedDefaultsAppliedRef = useRef(false);
   useEffect(() => {
-    if (!useCalibratedDefaults) return;
+    if (!useCalibratedDefaults) {
+      calibratedDefaultsAppliedRef.current = false;
+      return;
+    }
+    if (!calibration || calibratedDefaultsAppliedRef.current) return;
+    calibratedDefaultsAppliedRef.current = true;
     Promise.resolve().then(() => handleSetDefault());
   }, [useCalibratedDefaults, calibration, handleSetDefault]);
 
@@ -182,10 +192,7 @@ export default function SignalsPage() {
 
         <Card>
             <h2 className="text-lg font-semibold mb-4">SMA Parameters</h2>
-            <fieldset
-              disabled={useCalibratedDefaults}
-              className={`grid grid-cols-2 md:grid-cols-4 gap-4 border-0 m-0 p-0 ${useCalibratedDefaults ? "opacity-60" : ""}`}
-            >
+            <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border-0 m-0 p-0">
               <Input
                 label="SPX SMA Period"
                 info="How many trading days the SPX moving-average line is averaged over. When the SPX price rises above this line, the strategy holds the leveraged ETF. When it falls below, the strategy switches to the safe asset."
@@ -224,10 +231,10 @@ export default function SignalsPage() {
               />
             </fieldset>
             <div className="mt-4 flex items-center gap-1.5 md:gap-2 min-h-[20px] text-[11px] md:text-sm text-muted">
-              <Button variant="secondary" size="sm" disabled={!calibration || useCalibratedDefaults} onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
+              <Button variant="secondary" size="sm" disabled={!calibration} onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
                 Set default
               </Button>
-              <Button variant="secondary" size="sm" disabled={useCalibratedDefaults} onClick={handleSetAlternative} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
+              <Button variant="secondary" size="sm" onClick={handleSetAlternative} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
                 Set alternative
               </Button>
               {calibration ? (
@@ -261,6 +268,7 @@ export default function SignalsPage() {
 
         <SmaPushAlertsCard
           smaConfig={pushSmaConfig}
+          calibration={calibration}
           onConfigChange={handleConfigChange}
           useCalibratedDefaults={useCalibratedDefaults}
           onUseCalibratedDefaultsChange={handleUseCalibratedDefaultsChange}
