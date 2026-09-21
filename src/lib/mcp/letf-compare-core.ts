@@ -9,7 +9,7 @@ import { percentile } from "@/lib/strategy-percentiles";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import type { EtfConfig } from "@/lib/simulation/types";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { makeSweepEtfConfig, type SweepPresetDef } from "@/lib/simulation/sweep-items";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
 import { McpToolError } from "@/lib/mcp/tool-result";
@@ -98,8 +98,8 @@ export async function runLetfComparison(input: LetfCompareInput): Promise<LetfCo
       name: key,
       smaEnabled: input.smaEnabled,
       smaPeriod,
-      smaUpperBuffer: input.smaUpperBuffer ?? getDefaultSmaBuffer(index),
-      smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaBuffer(index),
+      smaUpperBuffer: input.smaUpperBuffer ?? getDefaultSmaUpperBuffer(index),
+      smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaLowerBuffer(index),
       riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
       smaExecutionMode: input.smaExecutionMode,
     });

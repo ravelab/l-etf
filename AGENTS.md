@@ -422,6 +422,90 @@ Sharp edges:
   route (alongside `/api/**/*`) so the CSV data and calibration snapshot are
   bundled into the MCP function on Vercel.
 
+## SMA calibration: why it is two scripts
+
+The shipped SMA band (`src/lib/tool-snapshots/sma-calibration.json`, applied by
+the Signals page and the push-alert cron) comes from a JOINT search over
+period x upper buffer x lower buffer, scored over SEVERAL date ranges at once.
+
+Joint, because the best buffer is strongly period-dependent — SPX wants ~3%
+near 185d but ~9-15% near 40d — so sweeping the period at one fixed buffer and
+then the buffer at that period is coordinate descent on a surface with no
+reason to be separable. That is what `calibrate-sma.ts` used to do, and the
+fixed starting buffer, not the data, decided which basin it landed in: it
+shipped NDX 150d -17.6%/+20.4% while 131d -18%/+20% scored ~9% higher.
+
+Multi-era, because one range picks a rule for one regime. See
+`src/lib/simulation/sma-calibration-eras.ts` for the ranges and weights (they
+are the tool pages' own date presets, so any band can be checked by hand). The
+modern ranges contain no 1929-32 and no 1973-74, so the combos that top them
+are short-SMA rules that ride those crashes down 88-95%, and the score's
+`(maxDrawdown - 80)^4` capitulation term then detonates on an older range: a
+`start`-only search returned SPX 32d -6.1%/+7.9%, worth 8,802 on `start` and
+-4,354 on `proto`. Because that term is already unbounded below, a plain
+weighted sum of RAW per-era scores is the whole "must not be terrible
+anywhere" rule. Never normalise per-era scores before combining — min-max or
+z-scoring rescales a -51,721 wipeout into merely "the worst candidate" and
+discards exactly the signal the eras were added to carry.
+
+A full joint grid is far too slow for the monthly Vercel build, so the work is
+split across two scripts that MUST score a combo identically — both go through
+`scripts/lib/sma-sweep-context.ts`, and the parameter box is
+`src/lib/simulation/sma-search-bounds.ts`. Neither may grow a second copy.
+
+- `npm run explore-sma` (`explore-sma-space.ts`) is the expensive half: every
+  period against every buffer cell, each scored on every era, forked across
+  cores. It writes `sma-search-space.json`, whose payload is a PER-PERIOD
+  buffer seed — the best (upper, lower) at each period. Run it by hand when the
+  score function, the era weights, the trading-cost model or the risk-off
+  default changes, never on a schedule; `unit-tests/sma-calibration-artifacts.test.ts`
+  fails when the committed seeds were generated under different era weights.
+  Its `--buffer-step` is the cost dial (2% ~ 30 min, 1% ~ 2 h) and must stay at
+  or below the calibrator's `BASIN_BUFFER_HALF_WIDTH`, which is what re-searches
+  around each seed.
+- `npm run calibrate-sma` is the monthly half (~30s/index, inside the Vercel
+  build on the first Monday). It reads those seeds and does a real joint search:
+  score every period at its seed, open up the best few *separated* periods over
+  a buffer square, re-search the period axis around the leaders, refine buffers
+  to 0.1%.
+
+The split works because the surface is spiky along the period axis (NDX 105d
+beats 110d by 2.5x) but smooth in the buffer plane at a fixed period, and it is
+the buffer plane that is expensive. Step 1 still visits EVERY period, so a
+stale seed costs accuracy at one period rather than hiding a basin — which is
+what lets the expensive run stay a one-off. With no snapshot at all a bounded
+coarse scan stands in, so a missing artifact costs a minute, not an hour.
+
+`src/lib/simulation/defaults.ts` holds a HAND-REFRESHED copy of the result as
+an asymmetric band (`getDefaultSmaUpperBuffer` / `getDefaultSmaLowerBuffer`).
+It is what an input box starts at and what an MCP caller gets when it omits the
+parameter; the push alerts do not read it — they follow the snapshot, which the
+monthly build rewrites. So it drifts between refreshes, deliberately, and no
+test pins the two together (one would fail every month the cron recalibrates).
+There is no `getDefaultSmaBuffer` any more: a single default fed to both sides
+is the futures-ladder bug above waiting to happen, and `defaults.test.ts` now
+asserts the two sides differ.
+
+Two things that look like details and are not:
+
+- Pick top-N periods with `pickTopDistinctPeriods`, not a plain top-N. Because
+  the surface is spiky, a plain top-N is N adjacent points on one spike and the
+  next stage then refines one basin N times.
+- The winner's score alone does not say whether it is a plateau or a knife
+  edge. `summarizePlateau` prices its immediate neighbours into
+  `neighborhoodMinScore` / `neighborhoodMedianScore`. Those are recorded and
+  never acted on — the calibration still picks the top score — but a winner
+  whose neighbours collapse is fitted to this sample, and the same in-sample
+  spike is what `optimize_strategy`'s split-sample guardrail exists to catch.
+- Combos that trade identically over the whole history score identically to
+  ~1e-12, so the raw score CANNOT order them: SPX 30d -6.1%/+8% beat
+  31d -6%/+8% by 5e-12, and the winner it handed over was the one that needed
+  its lower buffer to the exact 0.1%. `findScoreTies` + `pickMostStable` settle
+  those on the worst immediate neighbour instead, which moved SPX to
+  32d -6.1%/+7.9% at the same score with its worst neighbour 3.4x better.
+  `limitTiesPerPeriod` is what keeps that candidate list from filling up with
+  one period's buffer variants.
+
 ## Sweep breadth: what actually bounds it
 
 Breadth was capped at a flat 24 configs on the theory that the 300s function

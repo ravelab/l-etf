@@ -6,7 +6,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
 import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 import { getDefaultSmaSignalConfig } from "@/lib/sma-status";
@@ -33,8 +33,8 @@ async function defaultBand(index: IndexKey): Promise<{ period: number; upper: nu
   if (!base) {
     return {
       period: getDefaultSmaPeriod(index),
-      upper: getDefaultSmaBuffer(index),
-      lower: getDefaultSmaBuffer(index),
+      upper: getDefaultSmaUpperBuffer(index),
+      lower: getDefaultSmaLowerBuffer(index),
     };
   }
   return index === "nasdaq100"

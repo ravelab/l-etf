@@ -320,8 +320,8 @@ export const listPresetsOutput = {
   defaults: z.object({
     riskOffAsset: z.string(),
     sma: z.object({
-      sp500: z.object({ period: z.number(), buffer: metric }),
-      nasdaq100: z.object({ period: z.number(), buffer: metric }),
+      sp500: z.object({ period: z.number(), upperBuffer: metric, lowerBuffer: metric }),
+      nasdaq100: z.object({ period: z.number(), upperBuffer: metric, lowerBuffer: metric }),
     }),
   }),
 };

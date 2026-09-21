@@ -55,8 +55,9 @@ import {
   DEFAULT_FUTURES_AMOUNT,
   DEFAULT_LEVERAGE_TOLERANCE_PCT,
   DEFAULT_RISK_OFF_ASSET,
-  getDefaultSmaBuffer,
+  getDefaultSmaLowerBuffer,
   getDefaultSmaPeriod,
+  getDefaultSmaUpperBuffer,
   getDefaultWindowLength,
 } from "../src/lib/simulation/defaults";
 import {
@@ -249,10 +250,10 @@ async function main() {
     windowLength: getDefaultWindowLength(),
     smaSpPeriod: calibration?.sp500.smaPeriod ?? getDefaultSmaPeriod("sp500"),
     smaNqPeriod: calibration?.nasdaq100.smaPeriod ?? getDefaultSmaPeriod("nasdaq100"),
-    smaSpUpperBuffer: calibration?.sp500.smaUpperBuffer ?? getDefaultSmaBuffer("sp500"),
-    smaSpLowerBuffer: calibration?.sp500.smaLowerBuffer ?? getDefaultSmaBuffer("sp500"),
-    smaNqUpperBuffer: calibration?.nasdaq100.smaUpperBuffer ?? getDefaultSmaBuffer("nasdaq100"),
-    smaNqLowerBuffer: calibration?.nasdaq100.smaLowerBuffer ?? getDefaultSmaBuffer("nasdaq100"),
+    smaSpUpperBuffer: calibration?.sp500.smaUpperBuffer ?? getDefaultSmaUpperBuffer("sp500"),
+    smaSpLowerBuffer: calibration?.sp500.smaLowerBuffer ?? getDefaultSmaLowerBuffer("sp500"),
+    smaNqUpperBuffer: calibration?.nasdaq100.smaUpperBuffer ?? getDefaultSmaUpperBuffer("nasdaq100"),
+    smaNqLowerBuffer: calibration?.nasdaq100.smaLowerBuffer ?? getDefaultSmaLowerBuffer("nasdaq100"),
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     smaExecutionMode: "next-day-open",
   } as const;

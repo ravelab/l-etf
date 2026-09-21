@@ -18,7 +18,7 @@ import {
   getValidPresetKey,
   DEFAULT_COMBO_PRESET,
 } from "@/lib/simulation/presets";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
 import { EtfConfigCard } from "@/components/tools/backtest/EtfConfigCard";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
 import { SmaChart } from "@/components/tools/backtest/SmaChart";
@@ -253,10 +253,10 @@ export function BacktestingPageContent({
       if (decoded.endDate) setEndDate(normalizeDateString(decoded.endDate, getIsoDate(new Date())));
       if (decoded.smaSpPeriod != null) setSmaSpPeriod(normalizeNumberValue(decoded.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }));
       if (decoded.smaNqPeriod != null) setSmaNqPeriod(normalizeNumberValue(decoded.smaNqPeriod, getDefaultSmaPeriod("nasdaq100"), { integer: true, min: 1 }));
-      if (decoded.smaSpUpperBuffer != null) setSmaSpUpperBuffer(normalizeNumberValue(decoded.smaSpUpperBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }));
-      if (decoded.smaSpLowerBuffer != null) setSmaSpLowerBuffer(normalizeNumberValue(decoded.smaSpLowerBuffer, getDefaultSmaBuffer("sp500"), { min: 0 }));
-      if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }));
-      if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getDefaultSmaBuffer("nasdaq100"), { min: 0 }));
+      if (decoded.smaSpUpperBuffer != null) setSmaSpUpperBuffer(normalizeNumberValue(decoded.smaSpUpperBuffer, getDefaultSmaUpperBuffer("sp500"), { min: 0 }));
+      if (decoded.smaSpLowerBuffer != null) setSmaSpLowerBuffer(normalizeNumberValue(decoded.smaSpLowerBuffer, getDefaultSmaLowerBuffer("sp500"), { min: 0 }));
+      if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaUpperBuffer("nasdaq100"), { min: 0 }));
+      if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }));
       if (decoded.riskOffAsset) setRiskOffAsset(normalizeRiskOffAsset(decoded.riskOffAsset));
       const smaParam = params.get("sma");
       // Use Promise.resolve().then() to defer state updates and avoid cascading render warnings

@@ -24,6 +24,24 @@ export interface SmaCalibrationIndexResult {
   worstReturn: number;
   avgMaxDrawdown: number;
   avgTrades: number;
+  /** How many (period, upper, lower) combos the joint search scored. */
+  evaluatedCombos?: number;
+  /**
+   * Raw score per calibration era (`proto` / `proxy` / `start`). `score` is the
+   * weighted mean of these; these are what show whether the band merely wins on
+   * the modern range or also survives 1929-32 and 1973-74.
+   */
+  scoresByEra?: Record<string, number>;
+  eraWeights?: Record<string, number>;
+  /**
+   * Score of the winner's worst / median immediate neighbour — one SMA day or
+   * 0.1% of buffer away. The score surface is spiky along the period axis, so
+   * a winner whose neighbours collapse is a knife edge fitted to this sample
+   * rather than a rule worth running forward. Recorded, never acted on: the
+   * calibration still picks the top score.
+   */
+  neighborhoodMinScore?: number;
+  neighborhoodMedianScore?: number;
 }
 
 export interface SmaCalibrationResult {
@@ -44,6 +62,11 @@ const smaCalibrationIndexResultSchema = z.object({
   worstReturn: z.number(),
   avgMaxDrawdown: z.number(),
   avgTrades: z.number(),
+  evaluatedCombos: z.number().optional(),
+  scoresByEra: z.record(z.string(), z.number()).optional(),
+  eraWeights: z.record(z.string(), z.number()).optional(),
+  neighborhoodMinScore: z.number().optional(),
+  neighborhoodMedianScore: z.number().optional(),
 });
 
 const smaCalibrationResultSchema = z.object({

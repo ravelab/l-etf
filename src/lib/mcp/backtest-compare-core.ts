@@ -10,7 +10,7 @@ import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { getPrices } from "@/lib/db/queries";
 import type { EtfConfig, PricePoint } from "@/lib/simulation/types";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { makeSweepEtfConfig } from "@/lib/simulation/sweep-items";
 import { formatBacktest, type FormattedBacktest } from "@/lib/mcp/format";
 import { coerceToPricePoints, loadBorrowRates, loadIndexPrices, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
@@ -62,8 +62,8 @@ export async function runCompareBacktests(input: CompareBacktestsInput): Promise
           name: preset.name,
           smaEnabled: input.smaEnabled,
           smaPeriod,
-          smaUpperBuffer: input.smaUpperBuffer ?? getDefaultSmaBuffer(index),
-          smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaBuffer(index),
+          smaUpperBuffer: input.smaUpperBuffer ?? getDefaultSmaUpperBuffer(index),
+          smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaLowerBuffer(index),
           riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
           smaExecutionMode: input.smaExecutionMode,
         },

@@ -6,7 +6,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
-import { DEFAULT_RISK_OFF_ASSET, getDefaultSmaBuffer, getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSET, getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
 import { toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { listPresetsOutput } from "@/lib/mcp/output-schemas";
 
@@ -38,8 +38,16 @@ export function registerListPresets(server: McpServer): void {
           defaults: {
             riskOffAsset: DEFAULT_RISK_OFF_ASSET,
             sma: {
-              sp500: { period: getDefaultSmaPeriod("sp500"), buffer: getDefaultSmaBuffer("sp500") },
-              nasdaq100: { period: getDefaultSmaPeriod("nasdaq100"), buffer: getDefaultSmaBuffer("nasdaq100") },
+              sp500: {
+                period: getDefaultSmaPeriod("sp500"),
+                upperBuffer: getDefaultSmaUpperBuffer("sp500"),
+                lowerBuffer: getDefaultSmaLowerBuffer("sp500"),
+              },
+              nasdaq100: {
+                period: getDefaultSmaPeriod("nasdaq100"),
+                upperBuffer: getDefaultSmaUpperBuffer("nasdaq100"),
+                lowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
+              },
             },
           },
         };

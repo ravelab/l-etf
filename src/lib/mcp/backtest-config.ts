@@ -4,7 +4,7 @@
 
 import type { EtfConfig } from "@/lib/simulation/types";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { McpToolError } from "@/lib/mcp/tool-result";
@@ -83,8 +83,8 @@ export function resolveBacktest(input: BacktestInput): ResolvedBacktest {
 
   const smaEnabled = input.smaEnabled ?? false;
   const smaPeriod = input.smaPeriod ?? getDefaultSmaPeriod(index);
-  const smaUpperBuffer = input.smaUpperBuffer ?? getDefaultSmaBuffer(index);
-  const smaLowerBuffer = input.smaLowerBuffer ?? getDefaultSmaBuffer(index);
+  const smaUpperBuffer = input.smaUpperBuffer ?? getDefaultSmaUpperBuffer(index);
+  const smaLowerBuffer = input.smaLowerBuffer ?? getDefaultSmaLowerBuffer(index);
   const riskOffAsset = input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET;
 
   const config: EtfConfig = {

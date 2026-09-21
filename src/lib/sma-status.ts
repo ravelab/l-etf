@@ -1,5 +1,5 @@
 import storage, { type DailyPrice } from "@/lib/data/storage";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
 import { getSmaSignal, type SmaSignalResult } from "@/lib/sma-signals";
 
 export type SmaSignalConfig = {
@@ -25,12 +25,12 @@ export type SmaSignalSnapshot = {
 
 const DEFAULT_SMA_SIGNAL_CONFIG: SmaSignalConfig = {
   smaSpPeriod: getDefaultSmaPeriod("sp500"),
-  smaSpUpperBuffer: getDefaultSmaBuffer("sp500"),
-  smaSpLowerBuffer: getDefaultSmaBuffer("sp500"),
+  smaSpUpperBuffer: getDefaultSmaUpperBuffer("sp500"),
+  smaSpLowerBuffer: getDefaultSmaLowerBuffer("sp500"),
   smaSpEnabled: true,
   smaNqPeriod: getDefaultSmaPeriod("nasdaq100"),
-  smaNqUpperBuffer: getDefaultSmaBuffer("nasdaq100"),
-  smaNqLowerBuffer: getDefaultSmaBuffer("nasdaq100"),
+  smaNqUpperBuffer: getDefaultSmaUpperBuffer("nasdaq100"),
+  smaNqLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
   smaNqEnabled: true,
   notifyEveryClose: false,
   useCalibratedDefaults: false,

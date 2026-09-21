@@ -12,7 +12,7 @@ import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fet
 import { buildFuturesLadderPlan, type SmaBand, type SmaBandsByIndex } from "@/lib/simulation/futures-plan";
 import { runParallelFuturesStrategies } from "@/lib/simulation/futures-parallel";
 import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY } from "@/lib/simulation/futures";
 import type { EtfConfig, IndexKey, PricePoint } from "@/lib/simulation/types";
 import {
@@ -55,11 +55,10 @@ interface FuturesLadderResult {
 }
 
 function bandFor(index: IndexKey, override?: Partial<SmaBand>): SmaBand {
-  const buffer = getDefaultSmaBuffer(index);
   return {
     period: override?.period ?? getDefaultSmaPeriod(index),
-    upperBuffer: override?.upperBuffer ?? buffer,
-    lowerBuffer: override?.lowerBuffer ?? buffer,
+    upperBuffer: override?.upperBuffer ?? getDefaultSmaUpperBuffer(index),
+    lowerBuffer: override?.lowerBuffer ?? getDefaultSmaLowerBuffer(index),
   };
 }
 

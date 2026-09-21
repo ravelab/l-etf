@@ -8,7 +8,7 @@ import { z } from "zod/v4";
 import { simulateFuturesSmaStrategy } from "@/lib/simulation/futures";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import type { EtfConfig } from "@/lib/simulation/types";
-import { getDefaultSmaBuffer, getDefaultSmaPeriod, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { loadBorrowRates, loadIndexPrices, loadInflation, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
@@ -35,7 +35,11 @@ interface FuturesInput {
 export async function runFuturesBacktestCore(input: FuturesInput) {
   const { index } = input;
   const smaPeriod = input.smaPeriod ?? getDefaultSmaPeriod(index);
-  const smaBuffer = input.smaBuffer ?? getDefaultSmaBuffer(index);
+  // `smaBuffer` is one number by design — a caller that passes it is asking for a
+  // symmetric band. Omitting it must fall back to the asymmetric default pair,
+  // not to one side of it used for both.
+  const smaUpperBuffer = input.smaBuffer ?? getDefaultSmaUpperBuffer(index);
+  const smaLowerBuffer = input.smaBuffer ?? getDefaultSmaLowerBuffer(index);
   const riskOffAsset = input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET;
   const initialEquity = input.initialEquity ?? DEFAULT_FUTURES_AMOUNT;
   const startDate = input.startDate ?? INDEX_DATE_RANGES[index].min;
@@ -63,8 +67,8 @@ export async function runFuturesBacktestCore(input: FuturesInput) {
     targetLeverage: input.targetLeverage,
     maxLeverage: input.maxLeverage,
     smaPeriod,
-    smaUpperBuffer: smaBuffer,
-    smaLowerBuffer: smaBuffer,
+    smaUpperBuffer,
+    smaLowerBuffer,
     riskOffAsset,
     riskOffCloseByTicker: aligned.closeValuesByAsset as Record<string, number[]>,
     riskOffOpenByTicker: aligned.openValuesByAsset as Record<string, number[]>,
@@ -132,8 +136,8 @@ export function registerRunFuturesBacktest(server: McpServer): void {
           startDate: out.startDate,
           endDate: out.endDate,
           smaPeriod: input.smaPeriod ?? getDefaultSmaPeriod(input.index),
-          smaUpperBuffer: input.smaBuffer ?? getDefaultSmaBuffer(input.index),
-          smaLowerBuffer: input.smaBuffer ?? getDefaultSmaBuffer(input.index),
+          smaUpperBuffer: input.smaBuffer ?? getDefaultSmaUpperBuffer(input.index),
+          smaLowerBuffer: input.smaBuffer ?? getDefaultSmaLowerBuffer(input.index),
           riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
           initialEquity: out.initialEquity,
         });

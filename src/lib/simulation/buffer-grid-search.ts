@@ -10,6 +10,7 @@
 
 import type { SmaComparisonRow } from "./types";
 import { scoreRow as scoreSmaRow } from "./score";
+import { GRID_AXIS_EPSILON, buildAxis } from "./grid-axis";
 
 export interface BufferPoint {
   upper: number;
@@ -45,41 +46,7 @@ interface FineGridSpec {
 
 export type ObjectiveKey = "avgRealCagr" | "worstReturn" | "sharpeLike" | "score";
 
-const EPSILON = 1e-9;
-
-function buildAxis(min: number, max: number, step: number): number[] {
-  if (!isFinite(min) || !isFinite(max) || !isFinite(step) || step <= 0) {
-    return [];
-  }
-  const lo = Math.min(min, max);
-  const hi = Math.max(min, max);
-  const values: number[] = [];
-  for (let v = lo; v <= hi + EPSILON; v += step) {
-    values.push(roundToStep(v, step));
-  }
-  // Always include the upper bound if floating drift kept it out.
-  const last = values[values.length - 1];
-  if (last === undefined || last < hi - EPSILON) {
-    values.push(roundToStep(hi, step));
-  }
-  return dedupe(values);
-}
-
-function roundToStep(value: number, step: number): number {
-  const decimals = step >= 1 ? 0 : Math.min(6, Math.max(0, Math.ceil(-Math.log10(step))) + 1);
-  const factor = Math.pow(10, decimals);
-  return Math.round(value * factor) / factor;
-}
-
-function dedupe(sorted: number[]): number[] {
-  const out: number[] = [];
-  for (const v of sorted) {
-    if (out.length === 0 || Math.abs(out[out.length - 1] - v) > EPSILON) {
-      out.push(v);
-    }
-  }
-  return out;
-}
+const EPSILON = GRID_AXIS_EPSILON;
 
 export function planCoarseGrid(spec: CoarseGridSpec): BufferPoint[] {
   const uppers = buildAxis(spec.minUpper, spec.maxUpper, spec.coarseStep);
