@@ -5,6 +5,7 @@ import {
   planFineGrid,
   dedupePoints,
   pickTopCell,
+  pickTopDistinctCells,
   scoreRow,
   topK,
   type AsymmetricSweepRow,
@@ -95,6 +96,21 @@ test("pickTopCell ignores NaN/infinite scores", () => {
   const top = pickTopCell(rows, "avgRealCagr", 0);
   assert.ok(top);
   assert.equal(top!.upperBuffer, 3);
+});
+
+test("pickTopDistinctCells keeps separated coarse basins for refinement", () => {
+  const rows: AsymmetricSweepRow[] = [
+    makeRow(4, 6, 20),
+    makeRow(4, 4, 19),
+    makeRow(2, 2, 18),
+    makeRow(6, 6, 17),
+    makeRow(4, 5, 16),
+  ];
+  const cells = pickTopDistinctCells(rows, "avgRealCagr", 0, 3, 2);
+  assert.deepEqual(
+    cells.map((row) => [row.upperBuffer, row.lowerBuffer]),
+    [[4, 6], [4, 4], [2, 2]],
+  );
 });
 
 test("scoreRow subtracts inflation for avgRealCagr", () => {

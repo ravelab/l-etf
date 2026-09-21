@@ -148,6 +148,47 @@ export function pickTopCell(
   );
 }
 
+/**
+ * Return several separated coarse cells for multi-basin refinement.
+ *
+ * A single plateau-centre pick is useful for displaying one stable winner, but
+ * it is not sufficient as the seed for a fine search: the centre of a coarse
+ * plateau can lie away from its highest cell. Keep multiple basins alive until
+ * their fine results can be ranked on the same surface.
+ */
+export function pickTopDistinctCells(
+  rows: AsymmetricSweepRow[],
+  key: ObjectiveKey,
+  inflationPct: number,
+  count: number,
+  minSeparation: number,
+): AsymmetricSweepRow[] {
+  if (count <= 0) return [];
+  const candidates = rows
+    .map((row) => ({ row, score: scoreRow(row, key, inflationPct) }))
+    .filter((candidate) => isFinite(candidate.score))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.row.upperBuffer - b.row.upperBuffer ||
+        a.row.lowerBuffer - b.row.lowerBuffer,
+    );
+  const selected: AsymmetricSweepRow[] = [];
+  for (const candidate of candidates) {
+    if (
+      selected.every(
+        (row) =>
+          Math.abs(row.upperBuffer - candidate.row.upperBuffer) >= minSeparation ||
+          Math.abs(row.lowerBuffer - candidate.row.lowerBuffer) >= minSeparation,
+      )
+    ) {
+      selected.push(candidate.row);
+      if (selected.length >= count) break;
+    }
+  }
+  return selected;
+}
+
 export function topK(
   rows: AsymmetricSweepRow[],
   key: ObjectiveKey,

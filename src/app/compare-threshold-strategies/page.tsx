@@ -31,6 +31,7 @@ import {
   planFineGrid,
   dedupePoints,
   pickTopCell,
+  pickTopDistinctCells,
   type AsymmetricSweepRow,
   type BufferPoint,
   type ObjectiveKey,
@@ -499,24 +500,49 @@ export function CompareBufferStrategiesPageContent({
     const ctx = asymContextByPresetRef.current.get(presetDef.name);
     if (!ctx || coarseRows.length === 0) return { rows: coarseRows, fineWindow: null };
 
-    const top = pickTopCell(coarseRows, "score", inflPct);
-    if (!top) return { rows: coarseRows, fineWindow: null };
+    // Refine several separated coarse basins. Picking only the centre of the
+    // best coarse plateau can skip its peak and exclude a better fine-grid
+    // solution in a neighbouring basin (for example the calibrated 3.5/3.6%
+    // band when the coarse centre lands around 4/6%).
+    const topCells = pickTopDistinctCells(coarseRows, "score", inflPct, 4, coarseStep);
+    // Always keep the strongest diagonal cell as a seed. The symmetric band
+    // is a meaningful benchmark, and a near-diagonal asymmetric optimum should
+    // not disappear just because the coarse plateau centre favours one side.
+    const diagonal = pickTopDistinctCells(
+      coarseRows.filter((row) => Math.abs(row.upperBuffer - row.lowerBuffer) < 1e-9),
+      "score",
+      inflPct,
+      1,
+      0,
+    )[0];
+    if (
+      diagonal &&
+      !topCells.some(
+        (cell) =>
+          cell.upperBuffer === diagonal.upperBuffer && cell.lowerBuffer === diagonal.lowerBuffer,
+      )
+    ) {
+      topCells.push(diagonal);
+    }
+    if (topCells.length === 0) return { rows: coarseRows, fineWindow: null };
 
     const finePoints = dedupePoints(
-      planFineGrid({
-        centerUpper: top.upperBuffer,
-        centerLower: top.lowerBuffer,
-        halfWidth: fineHalfWidth,
-        fineStep,
-        bounds: { minUpper: minBuffer, maxUpper: maxBuffer, minLower: minBuffer, maxLower: maxBuffer },
-      }),
+      topCells.flatMap((top) =>
+        planFineGrid({
+          centerUpper: top.upperBuffer,
+          centerLower: top.lowerBuffer,
+          halfWidth: fineHalfWidth,
+          fineStep,
+          bounds: { minUpper: minBuffer, maxUpper: maxBuffer, minLower: minBuffer, maxLower: maxBuffer },
+        }),
+      ),
       ctx.coarsePoints,
     );
     const fineWindow = {
-      minU: Math.max(minBuffer, top.upperBuffer - fineHalfWidth),
-      maxU: Math.min(maxBuffer, top.upperBuffer + fineHalfWidth),
-      minL: Math.max(minBuffer, top.lowerBuffer - fineHalfWidth),
-      maxL: Math.min(maxBuffer, top.lowerBuffer + fineHalfWidth),
+      minU: Math.min(...topCells.map((top) => Math.max(minBuffer, top.upperBuffer - fineHalfWidth))),
+      maxU: Math.max(...topCells.map((top) => Math.min(maxBuffer, top.upperBuffer + fineHalfWidth))),
+      minL: Math.min(...topCells.map((top) => Math.max(minBuffer, top.lowerBuffer - fineHalfWidth))),
+      maxL: Math.max(...topCells.map((top) => Math.min(maxBuffer, top.lowerBuffer + fineHalfWidth))),
     };
     if (finePoints.length === 0) return { rows: coarseRows, fineWindow };
 
@@ -556,7 +582,7 @@ export function CompareBufferStrategiesPageContent({
       return { ...row, upperBuffer: u / 100, lowerBuffer: l / 100, stage: "fine" };
     });
     return { rows: [...coarseRows, ...fineRows], fineWindow };
-  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, minBuffer, maxBuffer, fineStep, fineHalfWidth, windowLength, startDate, endDate, setRunProgress]);
+  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, windowLength, startDate, endDate, setRunProgress]);
 
   const handleRun = useCallback(async () => {
     setLoading(true);
@@ -1038,4 +1064,3 @@ function AsymmetricSection({
     </Card>
   );
 }
-
