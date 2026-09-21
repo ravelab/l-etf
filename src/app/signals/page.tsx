@@ -16,6 +16,18 @@ import type { SmaSignalResult } from "@/lib/sma-signals";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 
 const USE_CALIBRATED_DEFAULTS_KEY = "signals-use-calibrated-defaults";
+const DEFAULT_SMA_PRESET = {
+  sp500: {
+    smaPeriod: getDefaultSmaPeriod("sp500"),
+    smaLowerBuffer: getDefaultSmaLowerBuffer("sp500"),
+    smaUpperBuffer: getDefaultSmaUpperBuffer("sp500"),
+  },
+  nasdaq100: {
+    smaPeriod: getDefaultSmaPeriod("nasdaq100"),
+    smaLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
+    smaUpperBuffer: getDefaultSmaUpperBuffer("nasdaq100"),
+  },
+} as const;
 const ALTERNATIVE_SMA_DEFAULTS = [
   {
     sp500: { smaPeriod: 31, smaLowerBuffer: 6, smaUpperBuffer: 8 },
@@ -240,41 +252,37 @@ export default function SignalsPage() {
                 onUpperChange={setSmaNqUpperBuffer}
               />
             </fieldset>
-            <div className="mt-4 flex flex-col items-start gap-3">
-              <div className="flex items-center gap-1.5 md:gap-2 min-h-[20px] text-[11px] md:text-sm text-muted flex-wrap">
-                <Button variant="secondary" size="sm" disabled={!calibration} onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
+            <div className="mt-4 flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
+              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                <Button variant="secondary" size="sm" onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
                   Set default
                 </Button>
-                {calibration ? (
-                  <>
-                    <span className="whitespace-nowrap">
-                      {formatSmaSummary("SPX", calibration.sp500.smaPeriod, calibration.sp500.smaLowerBuffer, calibration.sp500.smaUpperBuffer)}
-                    </span>
-                    <span className="whitespace-nowrap">
-                      {formatSmaSummary("NDX", calibration.nasdaq100.smaPeriod, calibration.nasdaq100.smaLowerBuffer, calibration.nasdaq100.smaUpperBuffer)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="whitespace-nowrap">Loading calibrated defaults\u2026</span>
-                )}
+                <span className="whitespace-nowrap">
+                  {formatSmaSummary("SPX", DEFAULT_SMA_PRESET.sp500.smaPeriod, DEFAULT_SMA_PRESET.sp500.smaLowerBuffer, DEFAULT_SMA_PRESET.sp500.smaUpperBuffer)}
+                </span>
+                <span className="whitespace-nowrap">
+                  {formatSmaSummary("NDX", DEFAULT_SMA_PRESET.nasdaq100.smaPeriod, DEFAULT_SMA_PRESET.nasdaq100.smaLowerBuffer, DEFAULT_SMA_PRESET.nasdaq100.smaUpperBuffer)}
+                </span>
               </div>
 
-              <div className="flex w-full max-w-md flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 {ALTERNATIVE_SMA_DEFAULTS.map((preset, index) => (
-                  <Button
-                    key={`alternative-${index + 1}`}
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleSetAlternative(preset)}
-                    className="w-full justify-start px-3 py-2 text-left text-[11px] md:text-xs"
-                  >
-                    <span className="flex flex-col items-start gap-0.5">
-                      <span className="font-semibold">Set alternative {index + 1}</span>
-                      <span className="text-muted text-[10px] md:text-[11px]">
-                        {formatSmaSummary("SPX", preset.sp500.smaPeriod, preset.sp500.smaLowerBuffer, preset.sp500.smaUpperBuffer)} · {formatSmaSummary("NDX", preset.nasdaq100.smaPeriod, preset.nasdaq100.smaLowerBuffer, preset.nasdaq100.smaUpperBuffer)}
-                      </span>
+                  <div key={`alternative-${index + 1}`} className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleSetAlternative(preset)}
+                      className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs"
+                    >
+                      Set alternative {index + 1}
+                    </Button>
+                    <span className="whitespace-nowrap">
+                      {formatSmaSummary("SPX", preset.sp500.smaPeriod, preset.sp500.smaLowerBuffer, preset.sp500.smaUpperBuffer)}
                     </span>
-                  </Button>
+                    <span className="whitespace-nowrap">
+                      {formatSmaSummary("NDX", preset.nasdaq100.smaPeriod, preset.nasdaq100.smaLowerBuffer, preset.nasdaq100.smaUpperBuffer)}
+                    </span>
+                  </div>
                 ))}
               </div>
             </div>
