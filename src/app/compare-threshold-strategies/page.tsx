@@ -777,7 +777,7 @@ export function CompareBufferStrategiesPageContent({
           onRun={handleRun}
           onCancel={handleCancel}
           loading={loading}
-          runLabel="Compare Strategies"
+          runLabel="Compare SMA Buffers"
           progress={runProgress}
           error={error}
         >

@@ -38,8 +38,8 @@ const ALTERNATIVE_SMA_DEFAULTS = [
     nasdaq100: { smaPeriod: 137, smaLowerBuffer: 18, smaUpperBuffer: 20 },
   },
   {
-    sp500: { smaPeriod: 273, smaLowerBuffer: 2, smaUpperBuffer: 4 },
-    nasdaq100: { smaPeriod: 208, smaLowerBuffer: 12, smaUpperBuffer: 6 },
+    sp500: { smaPeriod: 269, smaLowerBuffer: 2, smaUpperBuffer: 3.5 },
+    nasdaq100: { smaPeriod: 208, smaLowerBuffer: 11.5, smaUpperBuffer: 5 },
   },
 ] as const;
 

@@ -522,7 +522,7 @@ export function CompareSmaStrategiesPageContent({
           onRun={handleRun}
           onCancel={handleCancel}
           loading={loading}
-          runLabel="Compare SMA Strategies"
+          runLabel="Compare SMA Periods"
           progress={runProgress}
           error={error}
         >
