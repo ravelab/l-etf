@@ -14022,3 +14022,4 @@ date,adj_close,open,close,name,source
 2026-09-16,704.72,29110,28945.06,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-09-17,716.92,29401.5,29446.98,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-09-18,721.45,29529.6,29644.17,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-09-21,741.849,29947.2,30482.35,QQQ,yahoo(open+close)+provisional(adj_close)
