@@ -43,6 +43,7 @@ export function SweepComparisonTable({
   hateDrawdown = false,
   showAvgTrades = true,
   showAvgCagr = false,
+  scorePlateauCenter,
 }: {
   rows: SmaComparisonRow[];
   baseline?: SmaComparisonRow | null;
@@ -63,6 +64,8 @@ export function SweepComparisonTable({
   hateDrawdown?: boolean;
   showAvgTrades?: boolean;
   showAvgCagr?: boolean;
+  /** Row selected by plateau-centre logic for score-ranked strategy searches. */
+  scorePlateauCenter?: SmaComparisonRow | null;
 }) {
   const [sortKey, setSortKey] = useState<SweepSortKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -105,12 +108,18 @@ export function SweepComparisonTable({
     const dir = sortDir === "asc" ? 1 : -1;
     const metricFn = metricFns[sortKey];
     if (metricFn) {
-      return [...rows].sort((a, b) => (metricFn(a) - metricFn(b)) * dir);
+      return [...rows].sort((a, b) => {
+        if (sortKey === "score" && sortDir === "desc" && scorePlateauCenter) {
+          if (a === scorePlateauCenter) return -1;
+          if (b === scorePlateauCenter) return 1;
+        }
+        return (metricFn(a) - metricFn(b)) * dir;
+      });
     }
     const key = sortKey as keyof SmaComparisonRow;
     return [...rows].sort((a, b) => ((a[key] as number) - (b[key] as number)) * dir);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortKey, sortDir, inflationPct, hateDrawdown]);
+  }, [rows, sortKey, sortDir, inflationPct, hateDrawdown, scorePlateauCenter]);
 
   const pageSafe = Math.min(page, Math.max(0, Math.ceil(sorted.length / PAGE_SIZE) - 1));
   const paged = pagination ? sorted.slice(pageSafe * PAGE_SIZE, (pageSafe + 1) * PAGE_SIZE) : sorted;

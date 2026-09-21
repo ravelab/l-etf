@@ -86,7 +86,7 @@ export function CompareBufferStrategiesPageContent({
     maxBuffer: 21,
     fineStep: 0.5,
     coarseStep: 2,
-    fineHalfWidth: 1,
+    fineHalfWidth: 0.5,
     showBaseline: true,
     annualizedInflation: 0,
     monthlyCpi: [] as Array<{ date: string; value: number }>,
@@ -253,7 +253,7 @@ export function CompareBufferStrategiesPageContent({
       if (maxT) setMaxBuffer(normalizeNumberValue(maxT, 21, { min: 0 }));
       if (step) setFineStep(normalizeNumberValue(step, 0.5, { min: 0.1 }));
       if (cstep) setCoarseStep(normalizeNumberValue(cstep, 2, { min: 0.5 }));
-      if (hw) setFineHalfWidth(normalizeNumberValue(hw, 1, { min: 0.5 }));
+      if (hw) setFineHalfWidth(normalizeNumberValue(hw, 0.5, { min: 0.5 }));
     });
   }, [searchParams, pathname, shouldAutoRunFromSearch, active, suppressAutoRun, allowInitialSearchAutoRun, hasCachedResults, setLetf, setIndex, setSmaSpPeriod, setSmaNqPeriod]);
 
@@ -1059,6 +1059,7 @@ function AsymmetricSection({
           startDate={startDate}
           showStartDate={false}
           hateDrawdown={hateDrawdown}
+          scorePlateauCenter={top}
         />
       </div>
     </Card>
