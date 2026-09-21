@@ -38,8 +38,8 @@ const ALTERNATIVE_SMA_DEFAULTS = [
     nasdaq100: { smaPeriod: 137, smaLowerBuffer: 18, smaUpperBuffer: 20 },
   },
   {
-    sp500: { smaPeriod: 169, smaLowerBuffer: 4, smaUpperBuffer: 4 },
-    nasdaq100: { smaPeriod: 154, smaLowerBuffer: 18, smaUpperBuffer: 21 },
+    sp500: { smaPeriod: 273, smaLowerBuffer: 2, smaUpperBuffer: 4 },
+    nasdaq100: { smaPeriod: 208, smaLowerBuffer: 12, smaUpperBuffer: 6 },
   },
 ] as const;
 
@@ -79,10 +79,7 @@ export default function SignalsPage() {
     }
   }, []);
 
-  // Persisted separately from the shared SMA inputs since it's a Signals-page-only
-  // preference (the compare-* tools shouldn't inherit "always use calibrated values").
   const [useCalibratedDefaults, setUseCalibratedDefaultsState] = useState(false);
-
   const pushSmaConfig: PushSmaConfig = {
     smaSpPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
@@ -105,7 +102,6 @@ export default function SignalsPage() {
       .then((data) => setCalibration(data))
       .catch(() => setCalibration(null));
   }, []);
-
   const handleSetDefault = useCallback(() => {
     setSmaSpPeriod(getDefaultSmaPeriod("sp500"));
     setSmaSpUpperBuffer(getDefaultSmaUpperBuffer("sp500"));
@@ -126,9 +122,7 @@ export default function SignalsPage() {
 
   useEffect(() => {
     const stored = window.localStorage.getItem(USE_CALIBRATED_DEFAULTS_KEY);
-    if (stored === "true") {
-      Promise.resolve().then(() => setUseCalibratedDefaultsState(true));
-    }
+    if (stored === "true") Promise.resolve().then(() => setUseCalibratedDefaultsState(true));
   }, []);
 
   const handleUseCalibratedDefaultsChange = useCallback((value: boolean) => {
@@ -136,12 +130,6 @@ export default function SignalsPage() {
     window.localStorage.setItem(USE_CALIBRATED_DEFAULTS_KEY, String(value));
   }, []);
 
-  // The toggle governs the ALERTS only (the cron re-points a calibrated
-  // subscription at the latest snapshot before every evaluation — see
-  // `syncCalibratedPushSubscriptions`), so the inputs below stay editable while it
-  // is on. Turning it on still fills them in once, as a starting point; it must not
-  // re-apply on later calibration fetches or it would silently discard edits made
-  // after that.
   const calibratedDefaultsAppliedRef = useRef(false);
   useEffect(() => {
     if (!useCalibratedDefaults) {

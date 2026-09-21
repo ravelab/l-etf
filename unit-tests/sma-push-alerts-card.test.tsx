@@ -42,9 +42,8 @@ window.matchMedia = ((query: string) => ({
 
 const { SmaPushAlertsCard } = await import("@/components/home/SmaPushAlertsCard");
 
-// The page's inputs — deliberately NOT the calibrated values, which is the whole
-// point: with the toggle on they are a scratchpad for the Signals cards, and the
-// alerts must still run on the calibration snapshot.
+// The page inputs differ from the monthly calibration to prove alerts use the
+// calibration snapshot when the toggle is enabled.
 const PAGE_CONFIG: PushSmaConfig = {
   smaSpPeriod: 200,
   smaSpUpperBuffer: 1,
@@ -59,31 +58,9 @@ const PAGE_CONFIG: PushSmaConfig = {
 };
 
 const CALIBRATION: SmaCalibrationResult = {
-  generatedAt: "2026-09-01T00:00:00.000Z",
-  endDate: "2026-08-31",
-  windowLength: 10,
-  sp500: {
-    startDate: "1988-01-04",
-    smaPeriod: 160,
-    smaUpperBuffer: 4,
-    smaLowerBuffer: 3,
-    score: 1,
-    avgReturn: 1,
-    worstReturn: 1,
-    avgMaxDrawdown: 1,
-    avgTrades: 1,
-  },
-  nasdaq100: {
-    startDate: "1985-01-31",
-    smaPeriod: 70,
-    smaUpperBuffer: 7.4,
-    smaLowerBuffer: 11.9,
-    score: 1,
-    avgReturn: 1,
-    worstReturn: 1,
-    avgMaxDrawdown: 1,
-    avgTrades: 1,
-  },
+  generatedAt: "2026-09-01T00:00:00.000Z", endDate: "2026-08-31", windowLength: 10,
+  sp500: { startDate: "1988-01-04", smaPeriod: 174, smaUpperBuffer: 3.5, smaLowerBuffer: 3.6, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
+  nasdaq100: { startDate: "1985-01-31", smaPeriod: 127, smaUpperBuffer: 19.3, smaLowerBuffer: 17.8, score: 1, avgReturn: 1, worstReturn: 1, avgMaxDrawdown: 1, avgTrades: 1 },
 };
 
 function renderCard(props: Partial<Parameters<typeof SmaPushAlertsCard>[0]> = {}) {
@@ -99,14 +76,14 @@ function renderCard(props: Partial<Parameters<typeof SmaPushAlertsCard>[0]> = {}
   );
 }
 
-describe("SmaPushAlertsCard with calibrated defaults", () => {
+describe("SmaPushAlertsCard defaults", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getStoredPushAlertConfig.mockReturnValue(null);
     getCurrentPushSubscription.mockResolvedValue(null);
   });
 
-  it("subscribes with the calibrated band, not the page's inputs", async () => {
+  it("subscribes with the calibrated band", async () => {
     renderCard();
 
     const button = await screen.findByRole("button", { name: /Enable SPX SMA alerts/ });
@@ -115,12 +92,12 @@ describe("SmaPushAlertsCard with calibrated defaults", () => {
 
     await waitFor(() => expect(subscribeToPushAlerts).toHaveBeenCalled());
     expect(subscribeToPushAlerts.mock.calls[0][1]).toMatchObject({
-      smaSpPeriod: 160,
-      smaSpUpperBuffer: 4,
-      smaSpLowerBuffer: 3,
-      smaNqPeriod: 70,
-      smaNqUpperBuffer: 7.4,
-      smaNqLowerBuffer: 11.9,
+      smaSpPeriod: 174,
+      smaSpUpperBuffer: 3.5,
+      smaSpLowerBuffer: 3.6,
+      smaNqPeriod: 127,
+      smaNqUpperBuffer: 19.3,
+      smaNqLowerBuffer: 17.8,
     });
   });
 
@@ -143,12 +120,12 @@ describe("SmaPushAlertsCard with calibrated defaults", () => {
     getCurrentPushSubscription.mockResolvedValue({ endpoint: "https://example.test/sub" } as never);
     getStoredPushAlertConfig.mockReturnValue({
       ...PAGE_CONFIG,
-      smaSpPeriod: 160,
-      smaSpUpperBuffer: 4,
-      smaSpLowerBuffer: 3,
-      smaNqPeriod: 70,
-      smaNqUpperBuffer: 7.4,
-      smaNqLowerBuffer: 11.9,
+      smaSpPeriod: 174,
+      smaSpUpperBuffer: 3.5,
+      smaSpLowerBuffer: 3.6,
+      smaNqPeriod: 127,
+      smaNqUpperBuffer: 19.3,
+      smaNqLowerBuffer: 17.8,
     });
 
     renderCard();

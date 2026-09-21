@@ -31,7 +31,6 @@ type PushState = {
 type SmaPushAlertsCardProps = {
   /** The page's live SMA inputs. Only used when the calibrated toggle is off. */
   smaConfig: PushSmaConfig;
-  /** Latest calibration snapshot; the band the alerts run on while the toggle is on. */
   calibration: SmaCalibrationResult | null;
   onConfigChange?: (field: keyof PushSmaConfig, value: boolean) => void;
   useCalibratedDefaults: boolean;
@@ -148,12 +147,6 @@ export function SmaPushAlertsCard({ smaConfig: pageConfig, calibration, onConfig
     };
   }, [browserState]);
 
-  // With the toggle on, the alerts run on the calibration snapshot no matter what
-  // the page's inputs say — the cron re-points the subscription at it before every
-  // evaluation — so everything below (what we subscribe with, what we display, and
-  // whether the subscription is stale) reads the calibrated band, not the inputs.
-  // Otherwise an exploratory tweak upstairs would nag "Update alerts" for a change
-  // the next cron run would revert.
   const smaConfig =
     useCalibratedDefaults && calibration
       ? applyCalibratedSmaDefaults(pageConfig, calibration)
@@ -342,7 +335,7 @@ export function SmaPushAlertsCard({ smaConfig: pageConfig, calibration, onConfig
               onChange={handleNotifyEveryCloseChange}
             />
             <Toggle
-              label="Use default values which are calibrated over time"
+              label="Use the latest calibrated band for alerts"
               checked={useCalibratedDefaults}
               onChange={onUseCalibratedDefaultsChange}
             />
@@ -354,11 +347,9 @@ export function SmaPushAlertsCard({ smaConfig: pageConfig, calibration, onConfig
                     {formatSmaSummary("SPX", calibration.sp500.smaPeriod, calibration.sp500.smaLowerBuffer, calibration.sp500.smaUpperBuffer)}
                     {", "}
                     {formatSmaSummary("NDX", calibration.nasdaq100.smaPeriod, calibration.nasdaq100.smaLowerBuffer, calibration.nasdaq100.smaUpperBuffer)}
-                    {" — and follow it as it is recalibrated, whatever the parameters above are set to."}
+                    {" — and follow it as it is recalibrated."}
                   </>
-                ) : (
-                  "Alerts use the calibrated band and follow it as it is recalibrated, whatever the parameters above are set to."
-                )}
+                ) : "Alerts use the latest calibrated band and follow it as it is recalibrated."}
               </p>
             )}
           </div>
