@@ -40,11 +40,31 @@ describe("SMA_CALIBRATION_ERAS", () => {
     );
   });
 
+  it("is disjoint: each era stops where the next begins", () => {
+    // Nested eras counted the modern data in every era, so a weight did not
+    // mean what it said — under the old nested NDX 2:8 the pre-1985 segment
+    // carried an effective ~0.5/10, because only 167 of proto's 668 windows
+    // began before 1985.
+    for (const indexKey of ["sp500", "nasdaq100"] as const) {
+      const eras = SMA_CALIBRATION_ERAS[indexKey];
+      for (let i = 0; i < eras.length - 1; i++) {
+        assert.equal(
+          eras[i].endDate,
+          eras[i + 1].startDate,
+          `${indexKey}: ${eras[i].key} must end exactly where ${eras[i + 1].key} starts`
+        );
+      }
+      // Only the live era runs to today; every closed era must bound itself.
+      assert.equal(eras[eras.length - 1].endDate, undefined);
+      assert.ok(eras.slice(0, -1).every((era) => era.endDate !== undefined));
+    }
+  });
+
   it("weights the real index above its reconstructions, and totals 10 on both", () => {
     for (const indexKey of ["sp500", "nasdaq100"] as const) {
       const eras = SMA_CALIBRATION_ERAS[indexKey];
       const total = eras.reduce((sum, era) => sum + era.weight, 0);
-      assert.equal(total, 10, `${indexKey} weights must total 10 to stay comparable`);
+      assert.equal(total, 100, `${indexKey} weights must total 100 to stay comparable`);
       // Listed oldest-first, and weight must rise with data quality.
       for (let i = 1; i < eras.length; i++) {
         assert.ok(
@@ -60,9 +80,9 @@ describe("SMA_CALIBRATION_ERAS", () => {
 
 describe("combineEraScores", () => {
   it("is the weight-normalised mean", () => {
-    // SPX 1:3:6 over /10.
+    // SPX 5:25:70 over /100.
     const score = combineEraScores("sp500", { proto: -4354, proxy: -3713, start: 8802 });
-    assert.ok(Math.abs(score - (-4354 * 1 + -3713 * 3 + 8802 * 6) / 10) < 1e-9);
+    assert.ok(Math.abs(score - (-4354 * 5 + -3713 * 25 + 8802 * 70) / 100) < 1e-9);
   });
 
   it("lets one catastrophic era sink a combo that wins the modern range", () => {
@@ -88,7 +108,7 @@ describe("combineEraScores", () => {
 
 describe("describeEraWeights", () => {
   it("renders the weights for logs and snapshot provenance", () => {
-    assert.equal(describeEraWeights("sp500"), "proto 1 · proxy 3 · start 6");
-    assert.equal(describeEraWeights("nasdaq100"), "proto 2 · start 8");
+    assert.equal(describeEraWeights("sp500"), "proto 5 · proxy 25 · start 70");
+    assert.equal(describeEraWeights("nasdaq100"), "proto 5 · start 95");
   });
 });

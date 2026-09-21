@@ -101,6 +101,12 @@ export async function buildSmaSweepContext({
     expandedStartDate,
     endDate
   );
+  // History wrap stays ON for every era (the app-wide default). It is what
+  // makes an era's coverage uniform: a window running past the era's end
+  // replays the era's own opening, so the first and last years of the era
+  // appear in as many windows as the middle. Without it those edges sit in a
+  // handful of windows while the middle sits in ~120, and the era's score
+  // becomes a statement about its middle years.
   const windows = buildRollingWindows({
     prices,
     windowLength,
@@ -207,12 +213,17 @@ export async function buildSmaEraContexts({
       ctx: await buildSmaSweepContext({
         indexKey,
         startDate: era.startDate,
-        endDate,
+        // Each era is scored over its OWN range, wrapped. Letting a window run
+        // on into the next era's real data instead would leave every era's
+        // first years covered by only a handful of windows while its middle sat
+        // in ~120 — the score would then be about the middle of each era.
+        endDate: era.endDate ?? endDate,
         windowLength,
         maxPeriod,
       }),
     });
   }
+
   return { indexKey, contexts, primary: primaryEra(indexKey).key };
 }
 

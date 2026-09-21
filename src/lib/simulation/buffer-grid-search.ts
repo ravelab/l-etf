@@ -11,6 +11,7 @@
 import type { SmaComparisonRow } from "./types";
 import { scoreRow as scoreSmaRow } from "./score";
 import { GRID_AXIS_EPSILON, buildAxis } from "./grid-axis";
+import { PLATEAU_TOLERANCE, inferSteps, pickPlateauCenter } from "./plateau";
 
 export interface BufferPoint {
   upper: number;
@@ -117,8 +118,13 @@ export function scoreRow(row: AsymmetricSweepRow, key: ObjectiveKey, inflationPc
 }
 
 /**
- * Pick the (upper, lower) cell with the best objective score. Ties broken by
- * lower upperBuffer then lower lowerBuffer to keep results deterministic.
+ * Pick the (upper, lower) cell to report as best.
+ *
+ * The middle of the flat region around the top cell, not the top cell — a 0.1%
+ * buffer move can halve the score, so the argmax often sits on an edge. Shares
+ * `findPlateau` with the sweep pages and the offline calibrator so all three
+ * name the same band. Ties inside the plateau fall back to lower upperBuffer
+ * then lower lowerBuffer, keeping the old determinism.
  */
 export function pickTopCell(
   rows: AsymmetricSweepRow[],
@@ -126,23 +132,20 @@ export function pickTopCell(
   inflationPct: number
 ): AsymmetricSweepRow | null {
   if (rows.length === 0) return null;
-  let best: AsymmetricSweepRow | null = null;
-  let bestScore = -Infinity;
-  for (const row of rows) {
-    const score = scoreRow(row, key, inflationPct);
-    if (!isFinite(score)) continue;
-    if (
-      score > bestScore + EPSILON ||
-      (Math.abs(score - bestScore) <= EPSILON &&
-        best !== null &&
-        (row.upperBuffer < best.upperBuffer ||
-          (row.upperBuffer === best.upperBuffer && row.lowerBuffer < best.lowerBuffer)))
-    ) {
-      best = row;
-      bestScore = score;
-    }
-  }
-  return best;
+  const candidates = rows
+    .map((row) => ({
+      item: row,
+      coords: [row.upperBuffer, row.lowerBuffer],
+      score: scoreRow(row, key, inflationPct),
+    }))
+    .filter((candidate) => isFinite(candidate.score));
+  if (candidates.length === 0) return null;
+  return (
+    pickPlateauCenter(candidates, {
+      tolerance: PLATEAU_TOLERANCE,
+      steps: inferSteps(candidates, 2),
+    }) ?? null
+  );
 }
 
 export function topK(

@@ -2,8 +2,18 @@ import type { TooltipItem } from "chart.js";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
 import { formatPercent } from "@/lib/format";
 import { scoreRow } from "@/lib/simulation/score";
+import { PLATEAU_TOLERANCE, inferSteps, pickPlateauCenter } from "@/lib/simulation/plateau";
 import type { SmaComparisonRow } from "@/lib/simulation/types";
 
+/**
+ * The row a sweep highlights as best.
+ *
+ * Not the argmax: the score surface is spiky, and the top row is routinely one
+ * step from a cliff. This returns the middle of the flat region around the top
+ * row instead, via the same `findPlateau` the offline calibrator uses — so the
+ * band a page highlights and the band `calibrate-sma` ships agree rather than
+ * differing by an edge-vs-centre step.
+ */
 export function getBestSweepRow(
   rows: SmaComparisonRow[],
   inflationPct: number,
@@ -13,9 +23,17 @@ export function getBestSweepRow(
   if (rows.length === 0) return null;
   const yearsFor = (r: SmaComparisonRow) =>
     r.avgWindowYears && r.avgWindowYears > 0 ? r.avgWindowYears : windowYears;
-  return [...rows].sort(
-    (a, b) => scoreRow(b, inflationPct, yearsFor(b)) - scoreRow(a, inflationPct, yearsFor(a))
-  )[0];
+  const candidates = rows.map((row) => ({
+    item: row,
+    coords: [row.parameterValue],
+    score: scoreRow(row, inflationPct, yearsFor(row)),
+  }));
+  return (
+    pickPlateauCenter(candidates, {
+      tolerance: PLATEAU_TOLERANCE,
+      steps: inferSteps(candidates, 1),
+    }) ?? null
+  );
 }
 
 export function sortSweepRowsByPeriod(rows: SmaComparisonRow[]): SmaComparisonRow[] {

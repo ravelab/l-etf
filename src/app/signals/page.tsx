@@ -9,16 +9,27 @@ import { SignalCard } from "@/components/home/SignalCard";
 import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
 import { getSharedInputs } from "@/lib/hooks/use-shared-inputs";
 import { formatSmaSummary } from "@/lib/buffer-format";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
 import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 
 const USE_CALIBRATED_DEFAULTS_KEY = "signals-use-calibrated-defaults";
-const ALTERNATIVE_SMA_DEFAULTS = {
-  sp500: { smaPeriod: 186, smaLowerBuffer: 2.8, smaUpperBuffer: 3 },
-  nasdaq100: { smaPeriod: 150, smaLowerBuffer: 11.9, smaUpperBuffer: 7.4 },
-} as const;
+const ALTERNATIVE_SMA_DEFAULTS = [
+  {
+    sp500: { smaPeriod: 31, smaLowerBuffer: 6, smaUpperBuffer: 8 },
+    nasdaq100: { smaPeriod: 105, smaLowerBuffer: 21, smaUpperBuffer: 18 },
+  },
+  {
+    sp500: { smaPeriod: 273, smaLowerBuffer: 2, smaUpperBuffer: 4 },
+    nasdaq100: { smaPeriod: 137, smaLowerBuffer: 18, smaUpperBuffer: 20 },
+  },
+  {
+    sp500: { smaPeriod: 169, smaLowerBuffer: 4, smaUpperBuffer: 4 },
+    nasdaq100: { smaPeriod: 154, smaLowerBuffer: 18, smaUpperBuffer: 21 },
+  },
+] as const;
 
 interface SmaSignalsResponse {
   sp500: SmaSignalResult;
@@ -84,22 +95,21 @@ export default function SignalsPage() {
   }, []);
 
   const handleSetDefault = useCallback(() => {
-    if (!calibration) return;
-    setSmaSpPeriod(calibration.sp500.smaPeriod);
-    setSmaSpUpperBuffer(calibration.sp500.smaUpperBuffer);
-    setSmaSpLowerBuffer(calibration.sp500.smaLowerBuffer);
-    setSmaNqPeriod(calibration.nasdaq100.smaPeriod);
-    setSmaNqUpperBuffer(calibration.nasdaq100.smaUpperBuffer);
-    setSmaNqLowerBuffer(calibration.nasdaq100.smaLowerBuffer);
-  }, [calibration]);
+    setSmaSpPeriod(getDefaultSmaPeriod("sp500"));
+    setSmaSpUpperBuffer(getDefaultSmaUpperBuffer("sp500"));
+    setSmaSpLowerBuffer(getDefaultSmaLowerBuffer("sp500"));
+    setSmaNqPeriod(getDefaultSmaPeriod("nasdaq100"));
+    setSmaNqUpperBuffer(getDefaultSmaUpperBuffer("nasdaq100"));
+    setSmaNqLowerBuffer(getDefaultSmaLowerBuffer("nasdaq100"));
+  }, []);
 
-  const handleSetAlternative = useCallback(() => {
-    setSmaSpPeriod(ALTERNATIVE_SMA_DEFAULTS.sp500.smaPeriod);
-    setSmaSpUpperBuffer(ALTERNATIVE_SMA_DEFAULTS.sp500.smaUpperBuffer);
-    setSmaSpLowerBuffer(ALTERNATIVE_SMA_DEFAULTS.sp500.smaLowerBuffer);
-    setSmaNqPeriod(ALTERNATIVE_SMA_DEFAULTS.nasdaq100.smaPeriod);
-    setSmaNqUpperBuffer(ALTERNATIVE_SMA_DEFAULTS.nasdaq100.smaUpperBuffer);
-    setSmaNqLowerBuffer(ALTERNATIVE_SMA_DEFAULTS.nasdaq100.smaLowerBuffer);
+  const handleSetAlternative = useCallback((preset: (typeof ALTERNATIVE_SMA_DEFAULTS)[number]) => {
+    setSmaSpPeriod(preset.sp500.smaPeriod);
+    setSmaSpUpperBuffer(preset.sp500.smaUpperBuffer);
+    setSmaSpLowerBuffer(preset.sp500.smaLowerBuffer);
+    setSmaNqPeriod(preset.nasdaq100.smaPeriod);
+    setSmaNqUpperBuffer(preset.nasdaq100.smaUpperBuffer);
+    setSmaNqLowerBuffer(preset.nasdaq100.smaLowerBuffer);
   }, []);
 
   useEffect(() => {
@@ -230,25 +240,43 @@ export default function SignalsPage() {
                 onUpperChange={setSmaNqUpperBuffer}
               />
             </fieldset>
-            <div className="mt-4 flex items-center gap-1.5 md:gap-2 min-h-[20px] text-[11px] md:text-sm text-muted">
-              <Button variant="secondary" size="sm" disabled={!calibration} onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
-                Set default
-              </Button>
-              <Button variant="secondary" size="sm" onClick={handleSetAlternative} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
-                Set alternative
-              </Button>
-              {calibration ? (
-                <>
-                  <span className="whitespace-nowrap">
-                    {formatSmaSummary("SPX", calibration.sp500.smaPeriod, calibration.sp500.smaLowerBuffer, calibration.sp500.smaUpperBuffer)}
-                  </span>
-                  <span className="whitespace-nowrap">
-                    {formatSmaSummary("NDX", calibration.nasdaq100.smaPeriod, calibration.nasdaq100.smaLowerBuffer, calibration.nasdaq100.smaUpperBuffer)}
-                  </span>
-                </>
-              ) : (
-                <span className="whitespace-nowrap">Loading calibrated defaults\u2026</span>
-              )}
+            <div className="mt-4 flex flex-col items-start gap-3">
+              <div className="flex items-center gap-1.5 md:gap-2 min-h-[20px] text-[11px] md:text-sm text-muted flex-wrap">
+                <Button variant="secondary" size="sm" disabled={!calibration} onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
+                  Set default
+                </Button>
+                {calibration ? (
+                  <>
+                    <span className="whitespace-nowrap">
+                      {formatSmaSummary("SPX", calibration.sp500.smaPeriod, calibration.sp500.smaLowerBuffer, calibration.sp500.smaUpperBuffer)}
+                    </span>
+                    <span className="whitespace-nowrap">
+                      {formatSmaSummary("NDX", calibration.nasdaq100.smaPeriod, calibration.nasdaq100.smaLowerBuffer, calibration.nasdaq100.smaUpperBuffer)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="whitespace-nowrap">Loading calibrated defaults\u2026</span>
+                )}
+              </div>
+
+              <div className="flex w-full max-w-md flex-col gap-2">
+                {ALTERNATIVE_SMA_DEFAULTS.map((preset, index) => (
+                  <Button
+                    key={`alternative-${index + 1}`}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleSetAlternative(preset)}
+                    className="w-full justify-start px-3 py-2 text-left text-[11px] md:text-xs"
+                  >
+                    <span className="flex flex-col items-start gap-0.5">
+                      <span className="font-semibold">Set alternative {index + 1}</span>
+                      <span className="text-muted text-[10px] md:text-[11px]">
+                        {formatSmaSummary("SPX", preset.sp500.smaPeriod, preset.sp500.smaLowerBuffer, preset.sp500.smaUpperBuffer)} · {formatSmaSummary("NDX", preset.nasdaq100.smaPeriod, preset.nasdaq100.smaLowerBuffer, preset.nasdaq100.smaUpperBuffer)}
+                      </span>
+                    </span>
+                  </Button>
+                ))}
+              </div>
             </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <SignalCard

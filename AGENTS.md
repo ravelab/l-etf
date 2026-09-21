@@ -437,16 +437,26 @@ shipped NDX 150d -17.6%/+20.4% while 131d -18%/+20% scored ~9% higher.
 
 Multi-era, because one range picks a rule for one regime. See
 `src/lib/simulation/sma-calibration-eras.ts` for the ranges and weights (they
-are the tool pages' own date presets, so any band can be checked by hand). The
-modern ranges contain no 1929-32 and no 1973-74, so the combos that top them
-are short-SMA rules that ride those crashes down 88-95%, and the score's
+start at the tool pages' own date presets, so any band can be checked by hand).
+The modern ranges contain no 1929-32 and no 1973-74, so the combos that top
+them are short-SMA rules that ride those crashes down 88-95%, and the score's
 `(maxDrawdown - 80)^4` capitulation term then detonates on an older range: a
 `start`-only search returned SPX 32d -6.1%/+7.9%, worth 8,802 on `start` and
--4,354 on `proto`. Because that term is already unbounded below, a plain
-weighted sum of RAW per-era scores is the whole "must not be terrible
+-4,354 on the full history. Because that term is already unbounded below, a
+plain weighted sum of RAW per-era scores is the whole "must not be terrible
 anywhere" rule. Never normalise per-era scores before combining — min-max or
 z-scoring rescales a -51,721 wipeout into merely "the worst candidate" and
 discards exactly the signal the eras were added to carry.
+
+The eras are DISJOINT — each `endDate` is the next era's `startDate`, and only
+the live era runs to today. They used to be nested (every era ran to today), so
+the modern data was counted in all of them and a weight did not mean what it
+said: under the old nested NDX 2:8 only 167 of proto's 668 windows began before
+1985, leaving that segment an effective ~0.5/10. A closed era also runs with
+history wrap OFF: wrap extends the final windows past the end of DATA, but
+inside a closed era the continuation is real — it is the next era — so wrapping
+would fabricate a tail over data that exists. Only the live era keeps wrap, and
+its synthetic windows are why it has more windows than its span implies.
 
 A full joint grid is far too slow for the monthly Vercel build, so the work is
 split across two scripts that MUST score a combo identically — both go through
@@ -491,20 +501,28 @@ Two things that look like details and are not:
 - Pick top-N periods with `pickTopDistinctPeriods`, not a plain top-N. Because
   the surface is spiky, a plain top-N is N adjacent points on one spike and the
   next stage then refines one basin N times.
-- The winner's score alone does not say whether it is a plateau or a knife
-  edge. `summarizePlateau` prices its immediate neighbours into
-  `neighborhoodMinScore` / `neighborhoodMedianScore`. Those are recorded and
-  never acted on — the calibration still picks the top score — but a winner
-  whose neighbours collapse is fitted to this sample, and the same in-sample
-  spike is what `optimize_strategy`'s split-sample guardrail exists to catch.
-- Combos that trade identically over the whole history score identically to
-  ~1e-12, so the raw score CANNOT order them: SPX 30d -6.1%/+8% beat
-  31d -6%/+8% by 5e-12, and the winner it handed over was the one that needed
-  its lower buffer to the exact 0.1%. `findScoreTies` + `pickMostStable` settle
-  those on the worst immediate neighbour instead, which moved SPX to
-  32d -6.1%/+7.9% at the same score with its worst neighbour 3.4x better.
-  `limitTiesPerPeriod` is what keeps that candidate list from filling up with
-  one period's buffer variants.
+- **Never ship the argmax.** The surface is spiky, and the top point routinely
+  sits one step from a cliff: NDX 125, 126 and 127 all scored 18,050 while 128
+  scored 8,780, so reporting 127 put the rule one step from a 2.1x drop for no
+  gain over 126. `src/lib/simulation/plateau.ts` takes the points within
+  `PLATEAU_TOLERANCE` of the best, keeps the CONNECTED region containing it,
+  and returns the member nearest that region's centre. Connectivity is the part
+  that matters — a centroid taken across two same-height basins lands in the
+  valley between them, in neither. The calibrator flood-fills the region by
+  evaluating outward from its leader; the sweep pages already hold a dense grid
+  and just hand their rows over.
+- That module is shared on purpose: `getBestSweepRow` (1-D period/buffer
+  sweeps), `pickTopCell` (the 2-D asymmetric buffer grid) and `calibrate-sma`
+  (3-D) all call it, so the band a page highlights and the band the calibration
+  ships are the same point rather than differing by an edge-vs-centre step.
+  Its tie-breaks compare coordinates NUMERICALLY — a string compare of joined
+  coords orders "10" before "9" — and the peak itself is tie-broken on
+  coordinates so a plateau never depends on the caller's array order.
+- `summarizePlateau` separately records `neighborhoodMinScore` /
+  `neighborhoodMedianScore` for the shipped band. Those are recorded and never
+  acted on, but a winner whose neighbours collapse is fitted to this sample,
+  and the same in-sample spike is what `optimize_strategy`'s split-sample
+  guardrail exists to catch.
 
 ## Sweep breadth: what actually bounds it
 

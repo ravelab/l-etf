@@ -45,10 +45,8 @@ import {
 } from "../src/lib/simulation/sma-calibration-eras";
 import { buildAxis } from "../src/lib/simulation/grid-axis";
 import {
+  comboKey,
   dedupeCombos,
-  findScoreTies,
-  limitTiesPerPeriod,
-  pickMostStable,
   pickTop,
   pickTopDistinctPeriods,
   planBufferNeighborhood,
@@ -57,6 +55,7 @@ import {
   summarizePlateau,
   type SmaCombo,
 } from "../src/lib/simulation/sma-search";
+import { PLATEAU_TOLERANCE, findPlateau } from "../src/lib/simulation/plateau";
 import {
   SMA_SEARCH_MAX_BUFFER,
   SMA_SEARCH_MAX_PERIOD,
@@ -109,15 +108,14 @@ const FINE_BUFFER_STEP = 0.1;
 const MAX_POLISH_ROUNDS = 4;
 
 /**
- * Step 6: two combos within this relative distance score the same for every
- * practical purpose — usually because they trade identically over the whole
- * history — so the raw score cannot choose between them. At most
- * `MAX_TIE_CANDIDATES` of them get their neighbourhood priced so the tie is
- * settled on stability instead of float noise.
+ * Step 6: map the flat region around the leader and ship its MIDDLE.
+ *
+ * The argmax routinely sits on a cliff edge — NDX 125/126/127 all scored
+ * 18,050 while 128 scored 8,780, so shipping 127 put the rule one step from a
+ * 2.1x drop for nothing. `maxCombos` bounds the flood fill; a plateau bigger
+ * than that is flat enough that its sampled middle is a fine answer.
  */
-const SCORE_TIE_RELATIVE_TOLERANCE = 1e-9;
-const MAX_TIE_CANDIDATES = 12;
-const MAX_TIE_CANDIDATES_PER_PERIOD = 3;
+const PLATEAU_MAX_COMBOS = 400;
 
 /**
  * Stand-in seeds when no exhaustive snapshot exists: a coarse joint scan,
@@ -296,42 +294,57 @@ async function calibrateIndex(
     winner = next;
   }
 
-  // Step 6 — settle exact ties on stability. This does not overrule the score:
-  // the candidates are already tied on it, to within 1e-9 relative. It only
-  // replaces a float-noise ordering, which on SPX handed the win to a point
-  // that needed its lower buffer to the exact 0.1% over an equal-scoring one
-  // that did not.
-  const ties = limitTiesPerPeriod(
-    findScoreTies(evaluated, SCORE_TIE_RELATIVE_TOLERANCE),
-    MAX_TIE_CANDIDATES_PER_PERIOD,
-    MAX_TIE_CANDIDATES
+  // Step 6 — walk outward from the leader over every combo that scores within
+  // `PLATEAU_TOLERANCE` of it, then ship the middle of that region rather than
+  // its peak. Flood fill rather than a fixed box: the plateau's shape is not
+  // known ahead of time, and only points reachable from the leader count, so a
+  // separate same-height basin cannot drag the centre into the valley between.
+  const plateauSeen = new Set<string>();
+  const plateauScored: EraEvaluatedCombo[] = [];
+  const frontier: SmaCombo[] = [winner.combo];
+  plateauSeen.add(comboKey(winner.combo));
+  plateauScored.push(winner);
+  const plateauFloor = winner.score - Math.abs(winner.score) * PLATEAU_TOLERANCE;
+
+  while (frontier.length > 0 && plateauScored.length < PLATEAU_MAX_COMBOS) {
+    const current = frontier.shift() as SmaCombo;
+    const neighbours = planCombos(
+      planPeriodNeighborhood(current.smaPeriod, 1, PERIOD_BOUNDS),
+      planBufferNeighborhood(
+        current.smaUpperBuffer,
+        current.smaLowerBuffer,
+        FINE_BUFFER_STEP,
+        FINE_BUFFER_STEP,
+        BUFFER_BOUNDS
+      ),
+      plateauSeen
+    );
+    if (neighbours.length === 0) continue;
+    const scored = evaluateCombosAcrossEras(eras, neighbours);
+    plateauScored.push(...scored);
+    for (const entry of scored) {
+      // Only a near-best neighbour is worth expanding from; anything lower is
+      // the plateau's edge and the fill stops there.
+      if (entry.score >= plateauFloor) frontier.push(entry.combo);
+    }
+  }
+  // The fill can turn up something better than the point it started from.
+  evaluated.push(...plateauScored.filter((entry) => entry !== winner));
+
+  const plateauResult = findPlateau(
+    plateauScored.map((entry) => ({
+      item: entry,
+      coords: [entry.combo.smaPeriod, entry.combo.smaUpperBuffer, entry.combo.smaLowerBuffer],
+      score: entry.score,
+    })),
+    { tolerance: PLATEAU_TOLERANCE, steps: [1, FINE_BUFFER_STEP, FINE_BUFFER_STEP] }
   );
-  if (ties.length > 1) {
-    const tieCombos: SmaCombo[] = [];
-    for (const tie of ties) {
-      tieCombos.push(
-        ...planCombos(
-          planPeriodNeighborhood(tie.combo.smaPeriod, 1, PERIOD_BOUNDS),
-          planBufferNeighborhood(
-            tie.combo.smaUpperBuffer,
-            tie.combo.smaLowerBuffer,
-            FINE_BUFFER_STEP,
-            FINE_BUFFER_STEP,
-            BUFFER_BOUNDS
-          ),
-          seen
-        )
-      );
-    }
-    evaluated.push(...evaluateCombosAcrossEras(eras, tieCombos));
-    const stablest = pickMostStable(ties, evaluated, 1, FINE_BUFFER_STEP);
-    if (stablest !== winner) {
-      const describe = (c: SmaCombo) => `${c.smaPeriod}d -${c.smaLowerBuffer}%/+${c.smaUpperBuffer}%`;
-      console.log(
-        `  [${indexKey}] ${ties.length} combos tied on score; taking the safer neighbourhood: ${describe(stablest.combo)} over ${describe(winner.combo)}`
-      );
-      winner = stablest;
-    }
+  if (plateauResult && plateauResult.center.item !== winner) {
+    const describe = (c: SmaCombo) => `${c.smaPeriod}d -${c.smaLowerBuffer}%/+${c.smaUpperBuffer}%`;
+    console.log(
+      `  [${indexKey}] plateau of ${plateauResult.members.length} combos (${plateauResult.widths[0]}d x ${plateauResult.widths[1].toFixed(1)}% x ${plateauResult.widths[2].toFixed(1)}%) — centring ${describe(plateauResult.center.item.combo)} over peak ${describe(plateauResult.peak.item.combo)}`
+    );
+    winner = plateauResult.center.item;
   }
 
   // Price the winner's immediate surroundings. A spike that collapses one step
