@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { BufferPairInput } from "@/components/ui/BufferPairInput";
 import { Card } from "@/components/ui/Card";
@@ -129,17 +129,6 @@ export default function SignalsPage() {
     setUseCalibratedDefaultsState(value);
     window.localStorage.setItem(USE_CALIBRATED_DEFAULTS_KEY, String(value));
   }, []);
-
-  const calibratedDefaultsAppliedRef = useRef(false);
-  useEffect(() => {
-    if (!useCalibratedDefaults) {
-      calibratedDefaultsAppliedRef.current = false;
-      return;
-    }
-    if (!calibration || calibratedDefaultsAppliedRef.current) return;
-    calibratedDefaultsAppliedRef.current = true;
-    Promise.resolve().then(() => handleSetDefault());
-  }, [useCalibratedDefaults, calibration, handleSetDefault]);
 
   useEffect(() => {
     persist({

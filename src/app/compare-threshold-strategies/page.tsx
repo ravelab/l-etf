@@ -797,7 +797,7 @@ export function CompareBufferStrategiesPageContent({
             type="number"
             step={0.5}
             min={0}
-            max={20}
+            max={21}
             value={maxBuffer}
             onChange={(e) => setMaxBuffer(parseNumberOrKeep(e.currentTarget.value, maxBuffer))}
           />
@@ -1059,7 +1059,6 @@ function AsymmetricSection({
           startDate={startDate}
           showStartDate={false}
           hateDrawdown={hateDrawdown}
-          scorePlateauCenter={top}
         />
       </div>
     </Card>

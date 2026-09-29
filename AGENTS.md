@@ -496,6 +496,17 @@ There is no `getDefaultSmaBuffer` any more: a single default fed to both sides
 is the futures-ladder bug above waiting to happen, and `defaults.test.ts` now
 asserts the two sides differ.
 
+The Signals page's saved `signals-use-calibrated-defaults` preference is for
+push alerts only. `SmaPushAlertsCard` applies the calibration snapshot when it
+builds an alert subscription; loading that preference or the snapshot must not
+replace the page's shared SMA inputs. Only the page's "Set default" button
+should apply the hand-refreshed input defaults.
+
+The asymmetric SMA-buffer heatmap uses `pickTopCell` to highlight a stable
+plateau-center band. That selection must not override `SweepComparisonTable`'s
+numeric Score sort: when Score is descending, the highest score is the first
+table row. The buffer tool's default Max SMA Buffer and its input `max` are 21.
+
 Two things that look like details and are not:
 
 - Pick top-N periods with `pickTopDistinctPeriods`, not a plain top-N. Because
