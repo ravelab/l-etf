@@ -185,21 +185,22 @@ function extractDerivedArrays(prices: PricePoint[]): DerivedArrays {
 // accounting for tracking error and trading frictions not captured in the model.
 export type SwapSpreadModel = { rateSensitivity: number; baseSpread: number };
 let SWAP_SPREAD_MODEL: Record<string, Record<number, SwapSpreadModel>> = {
-  // S&P 500 - calibrated 2026-08-18
+  // S&P 500 - calibrated 2026-10-05
   sp500: {
     // SSO (2x)
-    2: { rateSensitivity: 0.713561, baseSpread: 0.002114 },
+    2: { rateSensitivity: 0.727645, baseSpread: 0.002794 },
     // UPRO (3x)
-    3: { rateSensitivity: 0.734562, baseSpread: 0.003632 },
+    3: { rateSensitivity: 0.825572, baseSpread: 0.003055 },
   },
-  // Nasdaq 100 - calibrated 2026-08-18
+  // Nasdaq 100 - calibrated 2026-10-05
   nasdaq100: {
     // QLD (2x)
-    2: { rateSensitivity: 0.705492, baseSpread: 0.000781 },
+    2: { rateSensitivity: 0.892253, baseSpread: -0.001530 },
     // TQQQ (3x)
-    3: { rateSensitivity: 0.825570, baseSpread: 0.000543 },
+    3: { rateSensitivity: 0.946281, baseSpread: -0.000256 },
   },
 };
+
 
 
 
