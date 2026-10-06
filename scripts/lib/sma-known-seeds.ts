@@ -7,21 +7,6 @@ import {
 } from "../../src/lib/simulation/sma-search-bounds";
 import { buildSmaEraContexts, evaluateCombosAcrossEras } from "./sma-sweep-context";
 
-type ScoredBand = { combo: SmaCombo; score: number; row: { avgReturn: number } };
-
-/** Prefer a known member of the same plateau when CAGR is similar and score is no worse. */
-export function retainKnownSmaPlateauBand<T extends ScoredBand>(
-  center: T,
-  members: T[],
-  known: SmaCombo | undefined,
-): T {
-  if (!known) return center;
-  const preferred = members.find((member) => comboKey(member.combo) === comboKey(known));
-  return preferred && preferred.score >= center.score
-    && Math.abs(preferred.row.avgReturn - center.row.avgReturn) <= 1
-    ? preferred : center;
-}
-
 /** Keep freshly rescored fine-buffer candidates when a coarse grid misses them. */
 export async function retainKnownSmaSeeds(
   indexKey: IndexKey,

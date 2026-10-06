@@ -52,7 +52,6 @@ import {
   planBufferNeighborhood,
   planCombos,
   planPeriodNeighborhood,
-  summarizePlateau,
   type SmaCombo,
 } from "../src/lib/simulation/sma-search";
 import { PLATEAU_TOLERANCE, findPlateau } from "../src/lib/simulation/plateau";
@@ -80,7 +79,7 @@ import {
   type SmaEraContexts,
 } from "./lib/sma-sweep-context";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
-import { retainKnownSmaPlateauBand } from "./lib/sma-known-seeds";
+import { rankStableSmaCandidates } from "../src/lib/simulation/sma-stability-score";
 import type { IndexKey } from "../src/lib/simulation/types";
 
 const PERIOD_BOUNDS = { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD };
@@ -347,33 +346,26 @@ async function calibrateIndex(
     );
     winner = plateauResult.center.item;
   }
-  if (plateauResult) {
-    const retained = retainKnownSmaPlateauBand(
-      winner, plateauResult.members.map((member) => member.item), searchSpace?.best,
-    );
-    if (retained !== winner) {
-      console.log(`  [${indexKey}] retaining known ${retained.combo.smaPeriod}d band within the same plateau: CAGR ${retained.row.avgReturn.toFixed(2)}% vs centre ${winner.row.avgReturn.toFixed(2)}%, score ${retained.score.toFixed(1)} vs ${winner.score.toFixed(1)}`);
-      winner = retained;
-    }
-  }
-
-  // Price the winner's immediate surroundings. A spike that collapses one step
-  // away is an artifact of this sample; recording it keeps that visible
-  // instead of implicit. It does not change the pick.
-  const plateau = summarizePlateau(winner.combo, evaluated, 1, FINE_BUFFER_STEP);
+  // Score complete neighborhoods and rank by the weakest nearby result.
+  // The raw search proposes candidates; stability determines the shipped band.
+  const stable = rankStableSmaCandidates(evaluated, winner,
+    (combos) => evaluateCombosAcrossEras(eras, combos));
+  const stableWinner = stable.ranked[0];
+  winner = stableWinner.entry;
+  const plateau = stableWinner;
 
   const eraDetail = (entry: EraEvaluatedCombo) =>
     SMA_CALIBRATION_ERAS[indexKey]
       .map((era) => `${era.key}=${(entry.scoresByEra[era.key] ?? Number.NaN).toFixed(0)}`)
       .join(" ");
   console.log(
-    `  [${indexKey}] ${evaluated.length} combos evaluated · winner ${winner.combo.smaPeriod}d -${winner.combo.smaLowerBuffer}%/+${winner.combo.smaUpperBuffer}% weighted=${winner.score.toFixed(1)} (${eraDetail(winner)})`
+    `  [${indexKey}] ${stable.evaluated.length} combos evaluated · winner ${winner.combo.smaPeriod}d -${winner.combo.smaLowerBuffer}%/+${winner.combo.smaUpperBuffer}% stability=${stableWinner.score.toFixed(1)} base=${winner.score.toFixed(1)} (${eraDetail(winner)})`
   );
   // Print the runners-up from separate basins: when the winner shifts between
   // months, the build log is the only place to see what it beat.
-  for (const runnerUp of pickTopDistinctPeriods(evaluated, 5, BASIN_MIN_SEPARATION).slice(1)) {
+  for (const runnerUp of pickTopDistinctPeriods(stable.ranked.map((rank) => ({ ...rank.entry, score: rank.score })), 5, BASIN_MIN_SEPARATION).filter((entry) => comboKey(entry.combo) !== comboKey(winner.combo))) {
     console.log(
-      `  [${indexKey}]   runner-up ${runnerUp.combo.smaPeriod}d -${runnerUp.combo.smaLowerBuffer}%/+${runnerUp.combo.smaUpperBuffer}% weighted=${runnerUp.score.toFixed(1)} (${eraDetail(runnerUp)})`
+      `  [${indexKey}]   runner-up ${runnerUp.combo.smaPeriod}d -${runnerUp.combo.smaLowerBuffer}%/+${runnerUp.combo.smaUpperBuffer}% stability=${runnerUp.score.toFixed(1)} (${eraDetail(runnerUp)})`
     );
   }
   console.log(
@@ -387,12 +379,14 @@ async function calibrateIndex(
     smaPeriod: winner.combo.smaPeriod,
     smaUpperBuffer: winner.combo.smaUpperBuffer,
     smaLowerBuffer: winner.combo.smaLowerBuffer,
-    score: winner.score,
+    score: stableWinner.score,
+    baseScore: winner.score,
+    stabilityPenalty: stableWinner.stabilityPenalty,
     avgReturn: winner.row.avgReturn,
     worstReturn: winner.row.worstReturn,
     avgMaxDrawdown: winner.row.avgMaxDrawdown,
     avgTrades: winner.row.avgTrades,
-    evaluatedCombos: evaluated.length,
+    evaluatedCombos: stable.evaluated.length,
     neighborhoodMinScore: Number.isFinite(plateau.minScore) ? plateau.minScore : undefined,
     neighborhoodMedianScore: Number.isFinite(plateau.medianScore) ? plateau.medianScore : undefined,
   };

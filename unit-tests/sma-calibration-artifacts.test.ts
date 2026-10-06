@@ -59,17 +59,20 @@ describe("sma-calibration snapshot", () => {
         `${index} must score every calibration era`
       );
       assert.deepEqual(Object.keys(band.eraWeights ?? {}).sort(), expected);
-      // `score` must be the weighted mean of what it recorded, or the shipped
-      // number and the numbers behind it have drifted apart.
+      // The base score remains the weighted mean; the final score includes stability.
       let weighted = 0;
       let total = 0;
       for (const era of SMA_CALIBRATION_ERAS[index]) {
         weighted += (band.scoresByEra?.[era.key] ?? Number.NaN) * era.weight;
         total += era.weight;
       }
+      if (band.baseScore !== undefined) {
+        assert.equal(band.score, Math.min(band.baseScore, band.neighborhoodMinScore!));
+        assert.equal(band.stabilityPenalty, band.baseScore - band.score);
+      }
       assert.ok(
-        Math.abs(weighted / total - band.score) < 1e-6,
-        `${index} score ${band.score} is not the weighted mean of its era scores`
+        Math.abs(weighted / total - (band.baseScore ?? band.score)) < 1e-6,
+        `${index} base score is not the weighted mean of its era scores`
       );
     }
   });
@@ -81,6 +84,8 @@ describe("sma-calibration snapshot", () => {
     // fields, so an older artifact must keep working untouched.
     for (const index of INDICES) {
       const {
+        baseScore,
+        stabilityPenalty,
         evaluatedCombos,
         neighborhoodMinScore,
         neighborhoodMedianScore,
@@ -88,6 +93,8 @@ describe("sma-calibration snapshot", () => {
         eraWeights,
         ...legacy
       } = snapshot[index];
+      void baseScore;
+      void stabilityPenalty;
       void evaluatedCombos;
       void neighborhoodMinScore;
       void neighborhoodMedianScore;

@@ -467,7 +467,8 @@ its synthetic windows are why it has more windows than its span implies.
 A full joint grid is far too slow for the monthly Vercel build, so the work is
 split across two scripts that MUST score a combo identically — both go through
 `scripts/lib/sma-sweep-context.ts`, and the parameter box is
-`src/lib/simulation/sma-search-bounds.ts`. Neither may grow a second copy.
+`src/lib/simulation/sma-search-bounds.ts`. Neither may grow a second copy. Those are BASE scores; the calibrator then
+applies the fine-grid stability objective below to its proposed candidates.
 
 - `npm run explore-sma` (`explore-sma-space.ts`) is the expensive half: every
   period against every buffer cell, each scored on every era, forked across
@@ -481,7 +482,8 @@ split across two scripts that MUST score a combo identically — both go through
   Its `--buffer-step` is the cost dial (2% ~ 30 min, 1% ~ 2 h) and must stay at
   or below the calibrator's `BASIN_BUFFER_HALF_WIDTH`, which is what re-searches
   around each seed.
-- `npm run calibrate-sma` is the monthly half (~30s/index, inside the Vercel
+- `npm run calibrate-sma` is the monthly half (a few minutes/index including
+  complete stability neighborhoods, inside the Vercel
   build on the first Monday). It reads those seeds and does a real joint search:
   score every period at its seed, open up the best few *separated* periods over
   a buffer square, re-search the period axis around the leaders, refine buffers
@@ -527,22 +529,28 @@ Two things that look like details and are not:
   that matters — a centroid taken across two same-height basins lands in the
   valley between them, in neither. The calibrator flood-fills the region by
   evaluating outward from its leader; the sweep pages already hold a dense grid
-  and just hand their rows over. The calibrator may retain its strongest known
-  seed inside that same connected plateau when its freshly computed score is
-  no worse than the centre and its real CAGR differs by at most 1 percentage
-  point (`retainKnownSmaPlateauBand`). This continuity rule has no period or
-  index-specific bonus.
+  and just hand their rows over. The calibrator then ranks proposed bands by
+  `min(baseScore, worstImmediateNeighborBaseScore)` through
+  `rankStableSmaCandidates` (`sma-stability-score.ts`). It evaluates complete,
+  unique neighborhoods (±1 day and ±0.1% on both buffer axes); missing engine
+  results fail calibration rather than making a band look safe. Base score is
+  an upper bound, so candidates below the center's proven stable score need
+  no neighbor runs. The raw plateau center wins a tie at the highest stable
+  score. Never reintroduce the known-band override: it chose NDX 127 over the
+  stable 125 center despite 127's worst neighbor losing 61% of the score.
+  The snapshot records `baseScore`, `stabilityPenalty` and final `score`
+  separately; era scores and exhaustive seeds remain base scores.
 - That module is shared on purpose: `getBestSweepRow` (1-D period/buffer
   sweeps), `pickTopCell` (the 2-D asymmetric buffer grid) and `calibrate-sma`
   (3-D) all call it, so the band a page highlights and the band the calibration
-  ships follow the same plateau geometry, with the calibrator continuity rule
+  ships follow the same plateau geometry, with the calibrator stability ranking
   above.
   Its tie-breaks compare coordinates NUMERICALLY — a string compare of joined
   coords orders "10" before "9" — and the peak itself is tie-broken on
   coordinates so a plateau never depends on the caller's array order.
 - `summarizePlateau` separately records `neighborhoodMinScore` /
-  `neighborhoodMedianScore` for the shipped band. Those are recorded and never
-  acted on, but a winner whose neighbours collapse is fitted to this sample,
+  `neighborhoodMedianScore` for the shipped band. The minimum caps the final calibration score; a winner whose neighbors
+  collapse is fitted to this sample,
   and the same in-sample spike is what `optimize_strategy`'s split-sample
   guardrail exists to catch.
 

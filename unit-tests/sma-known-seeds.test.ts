@@ -1,17 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { retainKnownSmaSeeds, retainKnownSmaPlateauBand } from "../scripts/lib/sma-known-seeds";
+import { retainKnownSmaSeeds } from "../scripts/lib/sma-known-seeds";
 import type { SmaSearchSpaceIndexResult, SmaSeed } from "../src/lib/sma-search-space";
-
-test("known plateau members are preferred only with similar CAGR and no worse score", () => {
-  const center = { combo: { smaPeriod: 125, smaUpperBuffer: 19.5, smaLowerBuffer: 17.9 }, score: 14790, row: { avgReturn: 31 } };
-  const known = { combo: { smaPeriod: 127, smaUpperBuffer: 19.3, smaLowerBuffer: 17.8 }, score: 14904, row: { avgReturn: 31 } };
-  assert.equal(retainKnownSmaPlateauBand(center, [center, known], known.combo), known);
-  assert.equal(retainKnownSmaPlateauBand(center, [center], known.combo), center, "outside plateau");
-  assert.equal(retainKnownSmaPlateauBand(center, [center, { ...known, score: 14000 }], known.combo), center, "worse score");
-  assert.equal(retainKnownSmaPlateauBand(center, [center, { ...known, row: { avgReturn: 32.01 } }], known.combo), center, "CAGR differs by more than 1 point");
-  assert.equal(retainKnownSmaPlateauBand(center, [center, known], undefined), center);
-});
 
 test("coarse search retains a better fine-buffer candidate using fresh scores", async () => {
   const candidate: SmaSeed = { smaPeriod: 174, smaUpperBuffer: 3.5, smaLowerBuffer: 3.6, score: 1e9 };

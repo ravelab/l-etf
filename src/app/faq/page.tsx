@@ -171,9 +171,11 @@ const FAQ_DATA: FAQItem[] = [
           not proof that more switches make a strategy more reliable.
         </p>
         <p className="mt-3">
-          Calibration can keep a known band within the same near-optimal region
-          when its score is no worse than the region&apos;s center and its average
-          real annual return differs by at most 1 percentage point.
+          Calibration also tests neighboring parameters: one SMA day and 0.1
+          percentage point in either buffer. Its final score is the lower of
+          the band&apos;s base score and its worst neighbor&apos;s base score.
+          Bands with sharp drops nearby lose rank. If the plateau center shares
+          the highest final score, calibration keeps that center.
         </p>
         <p className="mt-3">
           Use it as a sorting aid, then look at the actual return, drawdown, and trade-count numbers
