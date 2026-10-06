@@ -31,15 +31,15 @@ const DEFAULT_SMA_PRESET = {
 const ALTERNATIVE_SMA_DEFAULTS = [
   {
     sp500: { smaPeriod: 31, smaLowerBuffer: 6, smaUpperBuffer: 8 },
-    nasdaq100: { smaPeriod: 105, smaLowerBuffer: 21, smaUpperBuffer: 18 },
+    nasdaq100: { smaPeriod: 31, smaLowerBuffer: 8, smaUpperBuffer: 10 },
+  },
+  {
+    sp500: { smaPeriod: 100, smaLowerBuffer: 8, smaUpperBuffer: 6 },
+    nasdaq100: { smaPeriod: 75, smaLowerBuffer: 10, smaUpperBuffer: 12 },
   },
   {
     sp500: { smaPeriod: 273, smaLowerBuffer: 2, smaUpperBuffer: 4 },
-    nasdaq100: { smaPeriod: 137, smaLowerBuffer: 18, smaUpperBuffer: 20 },
-  },
-  {
-    sp500: { smaPeriod: 269, smaLowerBuffer: 2, smaUpperBuffer: 3.5 },
-    nasdaq100: { smaPeriod: 208, smaLowerBuffer: 11.5, smaUpperBuffer: 5 },
+    nasdaq100: { smaPeriod: 250, smaLowerBuffer: 16, smaUpperBuffer: 0 },
   },
 ] as const;
 

@@ -5,12 +5,35 @@ type ScoreOptions = {
   hateDrawdown?: boolean;
 };
 
+// Counts individual risk-on/off switches, not complete exit/re-entry cycles.
+const TARGET_TRADES_PER_YEAR = 0.5;
+const SPARSE_TRADING_PENALTY_WEIGHT = 8000;
+const FREQUENT_TRADING_PENALTY_WEIGHT = 3000;
+const ABOVE_TARGET_PENALTY_WEIGHT = 400;
+
+function tradingFrequencyPenalty(avgTradesPerYear: number): number {
+  const frequency = Math.max(0, avgTradesPerYear);
+  // The minimum penalty is at 0.5/year; one switch/year has a modest penalty.
+  // A zero-trade strategy has a finite penalty, so this remains a preference
+  // rather than excluding buy-and-hold regardless of its other metrics.
+  const sparseDistance = Math.max(0, (TARGET_TRADES_PER_YEAR - frequency) / TARGET_TRADES_PER_YEAR);
+  const aboveTargetDistance = Math.max(0, frequency - TARGET_TRADES_PER_YEAR);
+  const frequentDistance = Math.max(0, frequency - 1);
+  const frequencyPenalty = SPARSE_TRADING_PENALTY_WEIGHT * sparseDistance ** 2
+    + ABOVE_TARGET_PENALTY_WEIGHT * aboveTargetDistance ** 2
+    + FREQUENT_TRADING_PENALTY_WEIGHT * frequentDistance ** 2;
+  // Retain the existing steep protection against extreme trading frequency,
+  // beyond one switch/year.
+  const excessiveTradingPenalty = Math.max(0, frequency ** 7 - 1);
+  return frequencyPenalty + excessiveTradingPenalty;
+}
+
 /**
  * Core score from inputs that are already **real** (inflation-adjusted):
  * - avgRealCagr / worstRealCagr: average and worst rolling real CAGR (%).
  * Drawdowns are nominal path metrics (not inflation series).
  *
- * Simple linear equation: rewards returns and CAGR, penalizes drawdowns and excess trades.
+ * Rewards returns and CAGR, penalizes drawdowns and deviations from 0.5 switches/year.
  */
 function computeScore(
   avgRealCagr: number,
@@ -34,9 +57,7 @@ function computeScore(
   const capitulationPenalty =
     biggestMaxDrawdown > 80 ? Math.pow(biggestMaxDrawdown - 80, 4.0) : 0;
 
-  // Penalize frequent trading super-linearly so infrequent traders (≤1/yr) are
-  // barely dinged while frequent traders (≥5/yr) pay a steep cost.
-  const tradePenalty = Math.pow(Math.max(0, avgTradesPerYear), 7.0);
+  const tradePenalty = tradingFrequencyPenalty(avgTradesPerYear);
 
   return returnScore - drawdownPenalty - capitulationPenalty - tradePenalty;
 }

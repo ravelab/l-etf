@@ -424,6 +424,12 @@ Sharp edges:
 
 ## SMA calibration: why it is two scripts
 
+`src/lib/simulation/score.ts` prefers 0.5 risk-on/off switches per year
+(each exit or re-entry is one switch). Its two-sided frequency penalty is lowest
+at 0.5/year and modest at 1/year; do not restore a flat 0.5–1 band or the old
+penalty that only discouraged churn.
+Changing its strength or target requires regenerating search seeds and calibration.
+
 The shipped SMA band (`src/lib/tool-snapshots/sma-calibration.json`, applied by
 the Signals page and the push-alert cron) comes from a JOINT search over
 period x upper buffer x lower buffer, scored over SEVERAL date ranges at once.
@@ -470,6 +476,8 @@ split across two scripts that MUST score a combo identically — both go through
   score function, the era weights, the trading-cost model or the risk-off
   default changes, never on a schedule; `unit-tests/sma-calibration-artifacts.test.ts`
   fails when the committed seeds were generated under different era weights.
+  `sma-known-seeds.ts` re-scores prior seeds and the saved band after the grid
+  pass so a coarser refresh cannot discard a better fractional-buffer candidate.
   Its `--buffer-step` is the cost dial (2% ~ 30 min, 1% ~ 2 h) and must stay at
   or below the calibrator's `BASIN_BUFFER_HALF_WIDTH`, which is what re-searches
   around each seed.
@@ -519,11 +527,16 @@ Two things that look like details and are not:
   that matters — a centroid taken across two same-height basins lands in the
   valley between them, in neither. The calibrator flood-fills the region by
   evaluating outward from its leader; the sweep pages already hold a dense grid
-  and just hand their rows over.
+  and just hand their rows over. The calibrator may retain its strongest known
+  seed inside that same connected plateau when its freshly computed score is
+  no worse than the centre and its real CAGR differs by at most 1 percentage
+  point (`retainKnownSmaPlateauBand`). This continuity rule has no period or
+  index-specific bonus.
 - That module is shared on purpose: `getBestSweepRow` (1-D period/buffer
   sweeps), `pickTopCell` (the 2-D asymmetric buffer grid) and `calibrate-sma`
   (3-D) all call it, so the band a page highlights and the band the calibration
-  ships are the same point rather than differing by an edge-vs-centre step.
+  ships follow the same plateau geometry, with the calibrator continuity rule
+  above.
   Its tie-breaks compare coordinates NUMERICALLY — a string compare of joined
   coords orders "10" before "9" — and the peak itself is tie-broken on
   coordinates so a plateau never depends on the caller's array order.

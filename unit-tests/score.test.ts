@@ -34,6 +34,42 @@ test("scoreRow penalizes excessive trades", () => {
   assert.equal(scoreRow(row1, 0) > scoreRow(row2, 0), true);
 });
 
+test("scoreRow prefers 0.5 over 0.75 and 1 trades/year", () => {
+  const scores = [0.5, 0.75, 1].map((avgTrades) => scoreRow(mockRow({ avgTrades }), 0));
+  assert.ok(scores[0] > scores[1]);
+  assert.ok(scores[1] > scores[2]);
+  assert.ok(Math.abs(scores[0] - scores[2] - 100) < 1e-9);
+});
+
+test("scoreRow penalizes both sparse and frequent switching progressively", () => {
+  const score = (avgTrades: number) => scoreRow(mockRow({ avgTrades }), 0);
+  assert.ok(score(0.5) > score(0.25));
+  assert.ok(score(0.25) > score(0.1));
+  assert.ok(score(0.1) > score(0));
+  assert.ok(Number.isFinite(score(0)));
+  assert.ok(score(1) > score(1.5));
+  assert.ok(score(1.5) > score(2));
+  assert.ok(score(2) > score(5));
+  assert.ok(Math.abs(score(0.5) - score(0.25) - 2000) < 1e-9);
+  assert.ok(Math.abs(score(1) - score(2) - 3927) < 1e-9);
+});
+
+test("scoreRow annualizes trade frequency across different window lengths", () => {
+  for (const frequency of [0, 0.1, 0.25, 0.5, 0.75, 1, 2, 5]) {
+    const yearly = scoreRow(mockRow({ avgTrades: frequency }), 0, 1);
+    const decade = scoreRow(mockRow({ avgTrades: frequency * 10 }), 0, 10);
+    assert.ok(Math.abs(yearly - decade) < 1e-9);
+  }
+});
+
+test("scoreRow's trading penalty is continuous at the preferred rate and the excessive-trading threshold", () => {
+  const score = (avgTrades: number) => scoreRow(mockRow({ avgTrades }), 0);
+  for (const boundary of [0.5, 1]) {
+    assert.ok(Math.abs(score(boundary) - score(boundary - 1e-8)) < 1e-4);
+    assert.ok(Math.abs(score(boundary) - score(boundary + 1e-8)) < 1e-4);
+  }
+});
+
 test("scoreRow applies capitulation penalty for >80% drawdown", () => {
   const row1 = mockRow({ biggestMaxDrawdown: 79 });
   const row2 = mockRow({ biggestMaxDrawdown: 81 });

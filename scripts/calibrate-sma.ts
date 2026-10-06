@@ -80,6 +80,7 @@ import {
   type SmaEraContexts,
 } from "./lib/sma-sweep-context";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
+import { retainKnownSmaPlateauBand } from "./lib/sma-known-seeds";
 import type { IndexKey } from "../src/lib/simulation/types";
 
 const PERIOD_BOUNDS = { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD };
@@ -345,6 +346,15 @@ async function calibrateIndex(
       `  [${indexKey}] plateau of ${plateauResult.members.length} combos (${plateauResult.widths[0]}d x ${plateauResult.widths[1].toFixed(1)}% x ${plateauResult.widths[2].toFixed(1)}%) — centring ${describe(plateauResult.center.item.combo)} over peak ${describe(plateauResult.peak.item.combo)}`
     );
     winner = plateauResult.center.item;
+  }
+  if (plateauResult) {
+    const retained = retainKnownSmaPlateauBand(
+      winner, plateauResult.members.map((member) => member.item), searchSpace?.best,
+    );
+    if (retained !== winner) {
+      console.log(`  [${indexKey}] retaining known ${retained.combo.smaPeriod}d band within the same plateau: CAGR ${retained.row.avgReturn.toFixed(2)}% vs centre ${winner.row.avgReturn.toFixed(2)}%, score ${retained.score.toFixed(1)} vs ${winner.score.toFixed(1)}`);
+      winner = retained;
+    }
   }
 
   // Price the winner's immediate surroundings. A spike that collapses one step

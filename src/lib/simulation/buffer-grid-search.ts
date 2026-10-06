@@ -112,7 +112,7 @@ export function scoreRow(row: AsymmetricSweepRow, key: ObjectiveKey, inflationPc
     }
     case "score":
       // Heuristic strategy score used by the main comparison tools — rewards
-      // returns, penalises drawdowns and excessive trading.
+      // returns, penalises drawdowns and trading outside the preferred frequency.
       return scoreSmaRow(row, inflationPct, row.avgWindowYears ?? 1);
   }
 }

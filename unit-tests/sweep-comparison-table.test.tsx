@@ -13,7 +13,9 @@ function row(parameterValue: number, score: number): SmaComparisonRow {
     worstReturn: 0,
     avgMaxDrawdown: 0,
     biggestMaxDrawdown: 0,
-    avgTrades: 0,
+    // Keep frequency at the preferred rate so this isolates numeric sorting.
+    avgTrades: 0.5,
+    avgWindowYears: 1,
     avgTradingCostPct: 0,
   };
 }

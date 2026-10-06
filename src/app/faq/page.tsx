@@ -160,8 +160,21 @@ const FAQ_DATA: FAQItem[] = [
           <li>Higher inflation-adjusted returns</li>
           <li>Better results in bad historical periods</li>
           <li>Smaller losses from peak to bottom</li>
-          <li>Less excessive trading</li>
+          <li>Trading frequency near one risk-on/off switch every two years</li>
         </ul>
+        <p className="mt-3">
+          The trading-frequency penalty is lowest at 0.5 switches per year. One
+          switch per year has a modest penalty, and the penalty increases for
+          both rarer and more frequent switches, with a stronger
+          penalty for rare switching. An exit and a
+          later re-entry count as two switches. This is a scoring preference,
+          not proof that more switches make a strategy more reliable.
+        </p>
+        <p className="mt-3">
+          Calibration can keep a known band within the same near-optimal region
+          when its score is no worse than the region&apos;s center and its average
+          real annual return differs by at most 1 percentage point.
+        </p>
         <p className="mt-3">
           Use it as a sorting aid, then look at the actual return, drawdown, and trade-count numbers
           before drawing conclusions.

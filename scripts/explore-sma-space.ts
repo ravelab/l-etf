@@ -48,6 +48,8 @@ import {
   SMA_SEARCH_MIN_PERIOD,
 } from "../src/lib/simulation/sma-search-bounds";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
+import { readSmaCalibrationSnapshot } from "../src/lib/sma-calibration";
+import { retainKnownSmaSeeds } from "./lib/sma-known-seeds";
 import type {
   ExploreWorkerRequest,
   ExploreWorkerResponse,
@@ -310,6 +312,25 @@ async function main(): Promise<void> {
 
   // A single-index run must not drop the other index's seeds from the file.
   const previous = await readSmaSearchSpaceSnapshot();
+  const calibration = await readSmaCalibrationSnapshot();
+  for (const indexKey of options.indices) {
+    const result = results[indexKey];
+    if (!result) continue;
+    const candidates = [...(previous?.[indexKey].periodSeeds ?? [])];
+    const band = calibration?.[indexKey];
+    if (band) candidates.push({
+      smaPeriod: band.smaPeriod,
+      smaUpperBuffer: band.smaUpperBuffer,
+      smaLowerBuffer: band.smaLowerBuffer,
+      score: band.score,
+    });
+    // Re-evaluate under today's score/data; never carry old scores forward.
+    results[indexKey] = await retainKnownSmaSeeds(indexKey, endDate, windowLength, result, candidates);
+    const retainedBest = results[indexKey].best;
+    if (retainedBest.score > result.best.score) {
+      console.log(`[explore-sma] ${indexKey} best after re-scoring known bands: ${retainedBest.smaPeriod}d -${retainedBest.smaLowerBuffer}%/+${retainedBest.smaUpperBuffer}% weighted=${retainedBest.score.toFixed(1)}`);
+    }
+  }
   const sp500 = results.sp500 ?? previous?.sp500;
   const nasdaq100 = results.nasdaq100 ?? previous?.nasdaq100;
   if (!sp500 || !nasdaq100) {
