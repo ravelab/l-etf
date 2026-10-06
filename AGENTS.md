@@ -486,21 +486,19 @@ stale seed costs accuracy at one period rather than hiding a basin — which is
 what lets the expensive run stay a one-off. With no snapshot at all a bounded
 coarse scan stands in, so a missing artifact costs a minute, not an hour.
 
-`src/lib/simulation/defaults.ts` holds a HAND-REFRESHED copy of the result as
-an asymmetric band (`getDefaultSmaUpperBuffer` / `getDefaultSmaLowerBuffer`).
-It is what an input box starts at and what an MCP caller gets when it omits the
-parameter; the push alerts do not read it — they follow the snapshot, which the
-monthly build rewrites. So it drifts between refreshes, deliberately, and no
-test pins the two together (one would fail every month the cron recalibrates).
-There is no `getDefaultSmaBuffer` any more: a single default fed to both sides
-is the futures-ladder bug above waiting to happen, and `defaults.test.ts` now
-asserts the two sides differ.
+`src/lib/simulation/defaults.ts` imports the calibration JSON directly for its
+asymmetric band (`getDefaultSmaUpperBuffer` / `getDefaultSmaLowerBuffer`), so
+new input defaults and omitted MCP parameters follow the same snapshot as
+calibrated push alerts. The monthly build rewrites the snapshot before bundling;
+do not reintroduce a separate literal band. `defaults.test.ts` checks agreement.
+There is no `getDefaultSmaBuffer`: feeding one default to both sides is the
+futures-ladder bug above waiting to happen.
 
 The Signals page's saved `signals-use-calibrated-defaults` preference is for
 push alerts only. `SmaPushAlertsCard` applies the calibration snapshot when it
 builds an alert subscription; loading that preference or the snapshot must not
 replace the page's shared SMA inputs. Only the page's "Set default" button
-should apply the hand-refreshed input defaults.
+should apply the latest calibrated input defaults.
 
 The asymmetric SMA-buffer heatmap uses `pickTopCell` to highlight a stable
 plateau-center band. That selection must not override `SweepComparisonTable`'s

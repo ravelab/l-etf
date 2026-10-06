@@ -1,3 +1,5 @@
+import calibration from "../tool-snapshots/sma-calibration.json";
+
 /**
  * Default SMA rule per index, as an ASYMMETRIC band — upper governs re-entry,
  * lower governs the exit. Never collapse these back to one number used for both
@@ -5,17 +7,14 @@
  * the band and rode 1973-74 down 91.5% where its LETF twin stopped at 65.9%
  * (see the futures-plan notes in AGENTS.md).
  *
- * These are a hand-refreshed copy of the last `npm run calibrate-sma` result
- * (`src/lib/tool-snapshots/sma-calibration.json`), which is scored across every
- * range in `sma-calibration-eras.ts`. They are what an input box starts at and
- * what an MCP caller gets when it omits the parameter; the push alerts do NOT
- * read them — those follow the calibration snapshot itself, which the monthly
- * build refreshes. So these drift from the snapshot between refreshes, and that
- * is fine; re-sync them when a calibration moves materially.
+ * Read the last `npm run calibrate-sma` result directly so input defaults,
+ * omitted MCP parameters, and calibrated push alerts share the same band.
+ * The monthly build refreshes the snapshot before bundling the app. Importing
+ * JSON keeps this module safe for both browser and server callers.
  */
 const DEFAULT_SMA_BANDS = {
-  sp500: { period: 174, upperBuffer: 3.5, lowerBuffer: 3.6 },
-  nasdaq100: { period: 127, upperBuffer: 19.3, lowerBuffer: 17.8 },
+  sp500: { period: calibration.sp500.smaPeriod, upperBuffer: calibration.sp500.smaUpperBuffer, lowerBuffer: calibration.sp500.smaLowerBuffer },
+  nasdaq100: { period: calibration.nasdaq100.smaPeriod, upperBuffer: calibration.nasdaq100.smaUpperBuffer, lowerBuffer: calibration.nasdaq100.smaLowerBuffer },
 } as const satisfies Record<"sp500" | "nasdaq100", { period: number; upperBuffer: number; lowerBuffer: number }>;
 
 const DEFAULT_PERIOD_YEARS = 10;

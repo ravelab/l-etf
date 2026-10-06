@@ -136,12 +136,12 @@ test("a buy-and-hold run omits the timing comparison rather than faking it", asy
 });
 
 test("trade counts track the SMA period rather than being pinned", async () => {
-  // The calibrated ~186-day SMA sells once per episode and stays out, which
+  // A slow SMA with narrow buffers sells once per episode and stays out, which
   // looks suspiciously constant until you vary the period: a fast SMA whipsaws
   // through the same windows. This is what tells the two apart.
   const [slow, fast] = await Promise.all([
-    runStressTest({ preset: "UPRO", smaEnabled: true, smaPeriod: 186 }),
-    runStressTest({ preset: "UPRO", smaEnabled: true, smaPeriod: 20 }),
+    runStressTest({ preset: "UPRO", smaEnabled: true, smaPeriod: 186, smaUpperBuffer: 3.5, smaLowerBuffer: 3.6 }),
+    runStressTest({ preset: "UPRO", smaEnabled: true, smaPeriod: 20, smaUpperBuffer: 3.5, smaLowerBuffer: 3.6 }),
   ]);
   const total = (r: Awaited<ReturnType<typeof runStressTest>>) =>
     r.episodes.reduce((sum, e) => sum + e.trades, 0);

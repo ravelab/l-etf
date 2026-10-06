@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import calibration from "../src/lib/tool-snapshots/sma-calibration.json";
 import {
   getDefaultSmaPeriod,
   getDefaultSmaUpperBuffer,
@@ -7,13 +8,12 @@ import {
   getDefaultWindowLength,
 } from "../src/lib/simulation/defaults";
 
-test("defaults return expected values", () => {
-  assert.equal(getDefaultSmaPeriod("sp500"), 174);
-  assert.equal(getDefaultSmaUpperBuffer("sp500"), 3.5);
-  assert.equal(getDefaultSmaLowerBuffer("sp500"), 3.6);
-  assert.equal(getDefaultSmaPeriod("nasdaq100"), 127);
-  assert.equal(getDefaultSmaUpperBuffer("nasdaq100"), 19.3);
-  assert.equal(getDefaultSmaLowerBuffer("nasdaq100"), 17.8);
+test("defaults follow the saved calibration", () => {
+  for (const index of ["sp500", "nasdaq100"] as const) {
+    assert.equal(getDefaultSmaPeriod(index), calibration[index].smaPeriod);
+    assert.equal(getDefaultSmaUpperBuffer(index), calibration[index].smaUpperBuffer);
+    assert.equal(getDefaultSmaLowerBuffer(index), calibration[index].smaLowerBuffer);
+  }
   assert.equal(getDefaultWindowLength(), 10);
 });
 
