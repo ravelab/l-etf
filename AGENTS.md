@@ -501,6 +501,8 @@ asymmetric band (`getDefaultSmaUpperBuffer` / `getDefaultSmaLowerBuffer`), so
 new input defaults and omitted MCP parameters follow the same snapshot as
 calibrated push alerts. The monthly build rewrites the snapshot before bundling;
 do not reintroduce a separate literal band. `defaults.test.ts` checks agreement.
+Upper and lower remain independent fields even when calibration happens to
+choose equal numbers (SPX 175d, 3.6% on both sides under half-gap scoring).
 There is no `getDefaultSmaBuffer`: feeding one default to both sides is the
 futures-ladder bug above waiting to happen.
 
@@ -530,7 +532,8 @@ Two things that look like details and are not:
   valley between them, in neither. The calibrator flood-fills the region by
   evaluating outward from its leader; the sweep pages already hold a dense grid
   and just hand their rows over. The calibrator then ranks proposed bands by
-  `min(baseScore, worstImmediateNeighborBaseScore)` through
+  `baseScore - 0.5 * max(0, baseScore - worstImmediateNeighborBaseScore)`
+  through
   `rankStableSmaCandidates` (`sma-stability-score.ts`). It evaluates complete,
   unique neighborhoods (±1 day and ±0.1% on both buffer axes); missing engine
   results fail calibration rather than making a band look safe. Base score is
@@ -549,8 +552,9 @@ Two things that look like details and are not:
   coords orders "10" before "9" — and the peak itself is tie-broken on
   coordinates so a plateau never depends on the caller's array order.
 - `summarizePlateau` separately records `neighborhoodMinScore` /
-  `neighborhoodMedianScore` for the shipped band. The minimum caps the final calibration score; a winner whose neighbors
-  collapse is fitted to this sample,
+  `neighborhoodMedianScore` for the shipped band. Half the downward gap is
+  deducted from the base score; a winner whose neighbors collapse is fitted
+  to this sample,
   and the same in-sample spike is what `optimize_strategy`'s split-sample
   guardrail exists to catch.
 

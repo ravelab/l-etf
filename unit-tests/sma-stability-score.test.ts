@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { rankStableSmaCandidates, stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
 import { comboKey, type SmaCombo } from "../src/lib/simulation/sma-search";
 
-test("stability score caps a spike without inflating a stable band", () => {
-  assert.equal(stabilityAdjustedSmaScore(14904, 5826), 5826);
+test("stability score preserves half the base advantage without inflating stable bands", () => {
+  assert.equal(stabilityAdjustedSmaScore(14904, 5826), 10365);
   assert.equal(stabilityAdjustedSmaScore(14790, 14790), 14790);
   assert.equal(stabilityAdjustedSmaScore(100, 200), 100);
-  assert.equal(stabilityAdjustedSmaScore(-100, -200), -200);
+  assert.equal(stabilityAdjustedSmaScore(-100, -200), -150);
 });
 
 const center = { combo: { smaPeriod: 125, smaUpperBuffer: 19.5, smaLowerBuffer: 17.9 }, score: 14790 };
@@ -24,12 +24,23 @@ test("complete neighborhoods put the plateau center above a higher raw-score spi
   assert.equal(ranked[0].score, 14790);
   assert.equal(ranked[0].neighborCount, 26, "duplicates cannot weight the diagnostics");
   const penalized = ranked.find((rank) => comboKey(rank.entry.combo) === comboKey(spike.combo))!;
-  assert.equal(penalized.score, 5826);
-  assert.equal(penalized.stabilityPenalty, 14904 - 5826);
+  assert.equal(penalized.score, 10365);
+  assert.equal(penalized.stabilityPenalty, (14904 - 5826) / 2);
 });
 
 test("missing or nonfinite engine neighbors fail instead of hiding a cliff", () => {
   assert.throws(() => rankStableSmaCandidates([center], center, () => []), /every neighboring result/);
   assert.throws(() => rankStableSmaCandidates([center], center,
     (combos) => combos.map((combo) => ({ combo, score: NaN }))), /finite neighboring scores/);
+});
+
+// Same neighborhood strength, different base performance: the stronger base
+// must contribute to rank rather than disappear behind a hard minimum.
+test("higher base performance wins when neighboring performance is comparable", () => {
+  const band199 = stabilityAdjustedSmaScore(12804.101357086627, 12804.101357086589);
+  const band200 = stabilityAdjustedSmaScore(13146.278967401253, 12801.715006717783);
+  assert.ok(band200 > band199);
+  assert.ok(Math.abs(band200 - 12973.996987059518) < 1e-8);
+  assert.ok(stabilityAdjustedSmaScore(14904, 5826) < stabilityAdjustedSmaScore(14790, 14790),
+    "a small base advantage cannot outweigh a severe neighboring cliff");
 });

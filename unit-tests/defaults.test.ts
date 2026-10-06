@@ -17,11 +17,13 @@ test("defaults follow the saved calibration", () => {
   assert.equal(getDefaultWindowLength(), 10);
 });
 
-test("the default band is asymmetric, and stays that way", () => {
+test("asymmetric calibrated bands keep distinct entry and exit buffers", () => {
   // Upper governs re-entry, lower governs the exit. Collapsing them to one
   // number moves the trapdoor rather than the band — the futures-ladder bug in
-  // AGENTS.md. A future edit that makes both sides equal should have to say so.
+  // AGENTS.md. Calibration may legitimately choose equal values; only bands
+  // with different calibrated values must preserve that asymmetry.
   for (const index of ["sp500", "nasdaq100"] as const) {
+    if (calibration[index].smaUpperBuffer === calibration[index].smaLowerBuffer) continue;
     assert.notEqual(
       getDefaultSmaUpperBuffer(index),
       getDefaultSmaLowerBuffer(index),

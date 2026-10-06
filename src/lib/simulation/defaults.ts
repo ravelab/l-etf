@@ -2,7 +2,8 @@ import calibration from "../tool-snapshots/sma-calibration.json";
 
 /**
  * Default SMA rule per index, as an ASYMMETRIC band — upper governs re-entry,
- * lower governs the exit. Never collapse these back to one number used for both
+ * lower governs the exit. Calibration may choose equal numerical values.
+ * Never collapse the separate fields back to one number used for both
  * sides: doing exactly that to the futures ladder moved the trapdoor rather than
  * the band and rode 1973-74 down 91.5% where its LETF twin stopped at 65.9%
  * (see the futures-plan notes in AGENTS.md).

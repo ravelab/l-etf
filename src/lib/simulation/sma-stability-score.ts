@@ -7,9 +7,9 @@ import {
   SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER,
 } from "./sma-search-bounds";
 
-/** A calibration score cannot exceed what its worst immediate neighbour earns. */
+/** Preserve half the base-score advantage while penalizing weak immediate neighbors. */
 export function stabilityAdjustedSmaScore(baseScore: number, worstNeighborScore: number): number {
-  return Math.min(baseScore, worstNeighborScore);
+  return baseScore - 0.5 * Math.max(0, baseScore - worstNeighborScore);
 }
 
 export function rankStableSmaCandidates<T extends ScoredCombo>(

@@ -172,9 +172,10 @@ const FAQ_DATA: FAQItem[] = [
         </p>
         <p className="mt-3">
           Calibration also tests neighboring parameters: one SMA day and 0.1
-          percentage point in either buffer. Its final score is the lower of
-          the band&apos;s base score and its worst neighbor&apos;s base score.
-          Bands with sharp drops nearby lose rank. If the plateau center shares
+          percentage point in either buffer. Its final score subtracts half
+          the gap between the band&apos;s base score and its worst neighbor&apos;s
+          base score, when that neighbor scores lower. This retains half the base-score advantage while penalizing
+          sharp drops nearby. Better neighbors never increase the base score. If the plateau center shares
           the highest final score, calibration keeps that center.
         </p>
         <p className="mt-3">

@@ -26,6 +26,8 @@ import {
   SMA_SEARCH_MIN_PERIOD,
 } from "../src/lib/simulation/sma-search-bounds";
 
+import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
+
 const INDICES = ["sp500", "nasdaq100"] as const;
 
 describe("sma-calibration snapshot", () => {
@@ -67,7 +69,7 @@ describe("sma-calibration snapshot", () => {
         total += era.weight;
       }
       if (band.baseScore !== undefined) {
-        assert.equal(band.score, Math.min(band.baseScore, band.neighborhoodMinScore!));
+        assert.equal(band.score, stabilityAdjustedSmaScore(band.baseScore, band.neighborhoodMinScore!));
         assert.equal(band.stabilityPenalty, band.baseScore - band.score);
       }
       assert.ok(
