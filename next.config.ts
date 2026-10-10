@@ -72,6 +72,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Freeze the same id into the browser bundle and version endpoint. A saved
+  // last-visit id cannot tell us which build a newly loaded page is running.
+  env: {
+    NEXT_PUBLIC_DEPLOY_VERSION:
+      process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+  },
   // Needed so Puppeteer V8 coverage can map `/_next/static` chunks back onto src/**
   // for the combined unit+e2e coverage report. Everywhere that report is produced
   // emits them; the deployment people actually browse does not, because a served

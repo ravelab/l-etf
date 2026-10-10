@@ -76,3 +76,11 @@ test("deployUpdateNoticeMs: a long stretch hidden is a relaunch, so no notice", 
 test("deployUpdateNoticeMs: a backwards clock is not read as a resume", () => {
   assert.equal(deployUpdateNoticeMs(-5000), DEPLOY_UPDATE_NOTICE_MS);
 });
+
+
+test("deployUpdateNoticeMs: installed-app resumes are silent even after a brief absence", () => {
+  assert.equal(deployUpdateNoticeMs(1000, true), DEPLOY_UPDATE_NOTICE_RESUME_MS);
+  assert.equal(deployUpdateNoticeMs(0, true), DEPLOY_UPDATE_NOTICE_RESUME_MS);
+  assert.equal(deployUpdateNoticeMs(null, true), DEPLOY_UPDATE_NOTICE_MS);
+  assert.equal(deployUpdateNoticeMs(-1, true), DEPLOY_UPDATE_NOTICE_MS);
+});

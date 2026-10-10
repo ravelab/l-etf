@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
+import { BUILD_DEPLOY_VERSION } from "@/lib/deploy-version";
 
 export const dynamic = "force-dynamic";
 
 /** Unique per Vercel deployment; stable for the lifetime of this build. */
 export async function GET() {
-  const v =
-    process.env.VERCEL_DEPLOYMENT_ID ??
-    process.env.VERCEL_GIT_COMMIT_SHA ??
-    "local";
   return NextResponse.json(
-    { v },
+    { v: BUILD_DEPLOY_VERSION },
     {
       headers: {
         "Cache-Control": "no-store, max-age=0",

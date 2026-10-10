@@ -5,7 +5,10 @@
  * on its own; the component owns the polling, the popup and the actual reload.
  */
 
-/** localStorage key holding the deployment id this tab is running. */
+/** Inlined by next.config.ts at build time, shared by the client and endpoint. */
+export const BUILD_DEPLOY_VERSION = process.env.NEXT_PUBLIC_DEPLOY_VERSION ?? "local";
+
+/** localStorage key broadcasting the latest deployment confirmed by a tab. */
 export const DEPLOY_ID_STORAGE_KEY = "l-etf-deploy-id";
 
 /** Poll cadence for /api/deploy-version while the tab is open. */
@@ -51,11 +54,11 @@ export function parseDeployVersion(body: unknown): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-/** Decides what a freshly polled deployment id means for a tab holding `stored`. */
-export function decideDeployAction(stored: string | null, incoming: string | null): DeployAction {
+/** Decides what a freshly polled deployment id means for a tab running `current`. */
+export function decideDeployAction(current: string | null, incoming: string | null): DeployAction {
   if (incoming === null) return "ignore";
-  if (stored === null) return "adopt";
-  return stored === incoming ? "ignore" : "update";
+  if (current === null) return "adopt";
+  return current === incoming ? "ignore" : "update";
 }
 
 /**
@@ -63,11 +66,12 @@ export function decideDeployAction(stored: string | null, incoming: string | nul
  * hidden when the check that found the update was triggered.
  *
  * `hiddenForMs` is null when the page never went hidden, so a plain in-session
- * poll keeps the full notice. A negative span means the clock moved backwards
+ * poll keeps the full notice. Installed apps resume silently even after a brief
+ * stretch hidden. A negative span means the clock moved backwards
  * and is treated the same way, never as a resume.
  */
-export function deployUpdateNoticeMs(hiddenForMs: number | null): number {
-  if (hiddenForMs !== null && hiddenForMs >= DEPLOY_RESUME_HIDDEN_MS) {
+export function deployUpdateNoticeMs(hiddenForMs: number | null, standalone = false): number {
+  if (hiddenForMs !== null && hiddenForMs >= 0 && (standalone || hiddenForMs >= DEPLOY_RESUME_HIDDEN_MS)) {
     return DEPLOY_UPDATE_NOTICE_RESUME_MS;
   }
   return DEPLOY_UPDATE_NOTICE_MS;

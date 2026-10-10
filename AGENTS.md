@@ -100,6 +100,14 @@ Both `worker.ts`'s `mode_type === 'backtest'` branch and `parallel.ts`'s
 spread-deduction bug pattern as the live paths; leave them alone unless you
 also verify they've become reachable.
 
+## Deployment updates
+
+`DeployVersionWatcher` must compare the server version with the loaded build's
+`BUILD_DEPLOY_VERSION`, frozen by `next.config.ts` and shared with
+`/api/deploy-version`. Never use localStorage as the running version: a fresh
+load already has the new build but retains the previous visit's id, and other
+tabs can overwrite it. Storage events are hints to re-check the server only.
+
 ## Tool pages: cancellation and run races
 
 Every tool page runs a long simulation behind an `AbortController`, and the same

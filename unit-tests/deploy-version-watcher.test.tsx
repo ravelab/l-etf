@@ -64,6 +64,8 @@ describe("DeployVersionWatcher", () => {
       async () => ({ ok: true, json: async () => ({ v: served }) }) as unknown as Response
     );
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
+    Object.defineProperty(navigator, "standalone", { configurable: true, value: false });
   });
 
   afterEach(() => {
@@ -71,17 +73,66 @@ describe("DeployVersionWatcher", () => {
     vi.useRealTimers();
   });
 
-  it("adopts the first id it sees without reloading", async () => {
-    render(<DeployVersionWatcher />);
+  it("records the current build without reloading", async () => {
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
     await advance(DEPLOY_FIRST_CHECK_MS);
     expect(localStorage.getItem(DEPLOY_ID_STORAGE_KEY)).toBe(RUNNING);
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it("does not update a fresh load already running the latest build despite stale storage", async () => {
+    localStorage.setItem(DEPLOY_ID_STORAGE_KEY, RUNNING);
+    served = SHIPPED;
+    render(<DeployVersionWatcher runningVersion={SHIPPED} />);
+    await advance(DEPLOY_FIRST_CHECK_MS);
+    await advance(DEPLOY_UPDATE_NOTICE_MS);
+    expect(localStorage.getItem(DEPLOY_ID_STORAGE_KEY)).toBe(SHIPPED);
+    expect(reload).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain("Updating app");
+  });
+
+  it("updates an old build even when another tab already saved the latest id", async () => {
+    localStorage.setItem(DEPLOY_ID_STORAGE_KEY, SHIPPED);
+    served = SHIPPED;
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
+    await advance(DEPLOY_FIRST_CHECK_MS);
+    await advance(DEPLOY_UPDATE_NOTICE_MS);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates a stale build with no stored id", async () => {
+    served = SHIPPED;
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
+    await advance(DEPLOY_FIRST_CHECK_MS);
+    await advance(DEPLOY_UPDATE_NOTICE_MS);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms storage notifications against the loaded build instead of blindly reloading", async () => {
+    served = SHIPPED;
+    render(<DeployVersionWatcher runningVersion={SHIPPED} />);
+    await dispatch([window, new StorageEvent("storage", {
+      key: DEPLOY_ID_STORAGE_KEY, oldValue: RUNNING, newValue: SHIPPED,
+    })]);
+    await advance(DEPLOY_UPDATE_NOTICE_MS);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("uses another tab's update notification to refresh a genuinely stale build", async () => {
+    served = SHIPPED;
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
+    await dispatch([window, new StorageEvent("storage", {
+      key: DEPLOY_ID_STORAGE_KEY, oldValue: RUNNING, newValue: SHIPPED,
+    })]);
+    await advance(DEPLOY_UPDATE_NOTICE_MS);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the full notice when the update lands mid-session", async () => {
     localStorage.setItem(DEPLOY_ID_STORAGE_KEY, RUNNING);
     served = SHIPPED;
-    render(<DeployVersionWatcher />);
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
 
     await advance(DEPLOY_FIRST_CHECK_MS);
     expect(reload).not.toHaveBeenCalled();
@@ -93,7 +144,7 @@ describe("DeployVersionWatcher", () => {
 
   it("cuts the notice when the update is found returning from a long stretch hidden", async () => {
     localStorage.setItem(DEPLOY_ID_STORAGE_KEY, RUNNING);
-    render(<DeployVersionWatcher />);
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
     await advance(DEPLOY_FIRST_CHECK_MS);
 
     served = SHIPPED;
@@ -101,13 +152,26 @@ describe("DeployVersionWatcher", () => {
     await advance(DEPLOY_RESUME_HIDDEN_MS);
     await setVisibility("visible");
 
+    expect(document.body.textContent).not.toContain("Updating app");
     await advance(0);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("silently reloads an installed iPhone app even after a brief background visit", async () => {
+    Object.defineProperty(navigator, "standalone", { configurable: true, value: true });
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
+    await advance(DEPLOY_FIRST_CHECK_MS);
+    served = SHIPPED;
+    await setVisibility("hidden");
+    await advance(1000);
+    await setVisibility("visible");
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).not.toContain("Updating app");
+  });
+
   it("keeps the notice for a return from a brief tab switch", async () => {
     localStorage.setItem(DEPLOY_ID_STORAGE_KEY, RUNNING);
-    render(<DeployVersionWatcher />);
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
     await advance(DEPLOY_FIRST_CHECK_MS);
 
     served = SHIPPED;
@@ -123,25 +187,26 @@ describe("DeployVersionWatcher", () => {
 
   it("treats a persisted pageshow as a relaunch even with no hidden span recorded", async () => {
     localStorage.setItem(DEPLOY_ID_STORAGE_KEY, RUNNING);
-    render(<DeployVersionWatcher />);
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
     await advance(DEPLOY_FIRST_CHECK_MS);
 
     served = SHIPPED;
     await dispatch([window, pageShowEvent(true)]);
 
+    expect(document.body.textContent).not.toContain("Updating app");
     await advance(0);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
   it("ignores the initial non-persisted pageshow", async () => {
-    render(<DeployVersionWatcher />);
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
     await dispatch([window, pageShowEvent(false)]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("fetches once when one resume fires visibility, focus and pageshow together", async () => {
     localStorage.setItem(DEPLOY_ID_STORAGE_KEY, RUNNING);
-    render(<DeployVersionWatcher />);
+    render(<DeployVersionWatcher runningVersion={RUNNING} />);
     await advance(DEPLOY_FIRST_CHECK_MS);
 
     await setVisibility("hidden");

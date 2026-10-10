@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isStandaloneApp } from "@/lib/push/client";
 import { AppUpdatingOverlay } from "@/components/ui/AppUpdatingOverlay";
 import {
+  BUILD_DEPLOY_VERSION,
   DEPLOY_FIRST_CHECK_MS,
   DEPLOY_ID_STORAGE_KEY,
   DEPLOY_POLL_MS,
@@ -15,18 +17,16 @@ import {
 } from "@/lib/deploy-version";
 
 /**
- * Compares the running tab's stored deployment id with GET /api/deploy-version.
+ * Compares the loaded build's deployment id with GET /api/deploy-version.
  * After a new Vercel deploy, the next poll (or visibility / focus / bfcache restore)
  * shows the "Updating app" popup and reloads, so cached JS/HTML don't stick around in
  * standalone / Add-to-Home-Screen mode.
  *
- * iOS never re-fetches a home-screen app on launch: tapping the icon resumes the
- * suspended web view, so the reload below is the *only* thing that moves a resumed
- * PWA onto a new build. A resume is also the one case where the popup buys nothing,
- * since the user is watching a launch rather than a page they were reading, so the
- * notice is cut to zero there and kept in full for an update found mid-session.
+ * A home-screen launch can resume a suspended web view instead of fetching a
+ * fresh page. Resume checks still move that old build onto the latest release;
+ * a fresh load already running it must ignore any previous visit's stored id.
  */
-export function DeployVersionWatcher() {
+export function DeployVersionWatcher({ runningVersion = BUILD_DEPLOY_VERSION }: { runningVersion?: string }) {
   /** Non-null once an update is committed to; carries the notice that path earned. */
   const [update, setUpdate] = useState<{ noticeMs: number } | null>(null);
   /** Set the instant an update is detected — `update` state lands a render too late
@@ -36,6 +36,12 @@ export function DeployVersionWatcher() {
   const startUpdate = useCallback((noticeMs: number) => {
     if (updatingRef.current) return;
     updatingRef.current = true;
+    if (noticeMs === DEPLOY_UPDATE_NOTICE_RESUME_MS) {
+      // Reload directly: rendering the overlay even with a zero-delay timer can
+      // flash "Updating app" while the browser waits for the new document.
+      window.location.reload();
+      return;
+    }
     setUpdate({ noticeMs });
   }, []);
 
@@ -46,20 +52,11 @@ export function DeployVersionWatcher() {
   }, [update]);
 
   useEffect(() => {
-    const readStoredId = (): string | null => {
-      try {
-        return localStorage.getItem(DEPLOY_ID_STORAGE_KEY);
-      } catch {
-        // Safari private mode / storage disabled — treat as "nothing stored yet".
-        return null;
-      }
-    };
-
     const writeStoredId = (id: string) => {
       try {
         localStorage.setItem(DEPLOY_ID_STORAGE_KEY, id);
       } catch {
-        // Non-fatal: without persistence we simply re-adopt on the next load.
+        // Non-fatal: this tab still checks its build id without cross-tab hints.
       }
     };
 
@@ -87,9 +84,7 @@ export function DeployVersionWatcher() {
         const incoming = parseDeployVersion(await res.json());
         if (cancelled || updatingRef.current || incoming === null) return;
 
-        const action = decideDeployAction(readStoredId(), incoming);
-        if (action === "ignore") return;
-
+        const action = decideDeployAction(runningVersion, incoming);
         writeStoredId(incoming);
         if (action === "update") startUpdate(noticeMs);
       } catch {
@@ -100,9 +95,9 @@ export function DeployVersionWatcher() {
     };
 
     const onStorage = (e: StorageEvent) => {
-      // Peeked, not consumed: this tab may still be hidden, and the span it is
-      // building is what a later resume would read.
-      if (isDeployStorageUpdate(e)) startUpdate(deployUpdateNoticeMs(hiddenFor()));
+      // Storage is only a hint. Confirm with the server against this tab's build:
+      // another tab may write our current id, or an older deployment's id.
+      if (isDeployStorageUpdate(e)) void check(deployUpdateNoticeMs(hiddenFor(), isStandaloneApp()));
     };
 
     const onVisibility = () => {
@@ -110,11 +105,11 @@ export function DeployVersionWatcher() {
         hiddenSince = Date.now();
         return;
       }
-      void check(deployUpdateNoticeMs(consumeHiddenFor()));
+      void check(deployUpdateNoticeMs(consumeHiddenFor(), isStandaloneApp()));
     };
 
     const onFocus = () => {
-      void check(deployUpdateNoticeMs(consumeHiddenFor()));
+      void check(deployUpdateNoticeMs(consumeHiddenFor(), isStandaloneApp()));
     };
 
     const onPageShow = (e: PageTransitionEvent) => {
@@ -129,7 +124,7 @@ export function DeployVersionWatcher() {
 
     const t0 = window.setTimeout(() => void check(DEPLOY_UPDATE_NOTICE_MS), DEPLOY_FIRST_CHECK_MS);
     const interval = window.setInterval(
-      () => void check(deployUpdateNoticeMs(hiddenFor())),
+      () => void check(deployUpdateNoticeMs(hiddenFor(), isStandaloneApp())),
       DEPLOY_POLL_MS
     );
 
@@ -147,7 +142,7 @@ export function DeployVersionWatcher() {
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("storage", onStorage);
     };
-  }, [startUpdate]);
+  }, [runningVersion, startUpdate]);
 
   return <AppUpdatingOverlay active={update !== null} />;
 }
