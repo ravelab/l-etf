@@ -19,12 +19,14 @@ import type { FormattedBacktest } from "../src/lib/mcp/format";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
 import { CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 
-test("evidence preference keeps NDX 183 narrowly ahead of the previous default and 148 after stability scoring", async () => {
+test("shared score narrowly ranks NDX's 10-switch rule before 6, then 16", async () => {
   const eras = await buildSmaEraContexts({ indexKey: "nasdaq100", endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+  // The shipped rules before this scoring change: 10, 6 and 16 switches.
+  // Their real CAGRs differ; frequency alone must not determine their order.
   const rules = [
-    { smaPeriod: 183, smaLowerBuffer: 18.1, smaUpperBuffer: 7 },
-    { smaPeriod: 125, smaLowerBuffer: 17.9, smaUpperBuffer: 19.4 },
-    { smaPeriod: 148, smaLowerBuffer: 12.1, smaUpperBuffer: 7.9 },
+    { smaPeriod: 136, smaLowerBuffer: 18, smaUpperBuffer: 9.6 },
+    { smaPeriod: 126, smaLowerBuffer: 17.9, smaUpperBuffer: 19.4 },
+    { smaPeriod: 200, smaLowerBuffer: 11.8, smaUpperBuffer: 5 },
   ];
   const scores = rules.map((rule) => {
     const points = planCombos(planPeriodNeighborhood(rule.smaPeriod, 1, { minPeriod: 20, maxPeriod: 280 }),
@@ -34,10 +36,32 @@ test("evidence preference keeps NDX 183 narrowly ahead of the previous default a
     const center = rows.find((row) => comboKey(row.combo) === comboKey(rule))!;
     return stabilityAdjustedSmaScore(center.score, Math.min(...rows.map((row) => row.score)));
   });
-  for (const competitor of scores.slice(1)) {
-    assert.ok(scores[0] > competitor);
-    assert.ok((scores[0] - competitor) / competitor < 0.02);
+  for (let i = 1; i < scores.length; i++) {
+    assert.ok(scores[i - 1] > scores[i]);
+    assert.ok((scores[i - 1] - scores[i]) / scores[i] < 0.02, "adjacent rules stay within 2%");
   }
+});
+
+test("the same scoring formula preserves the previous six SPX rules' order", async () => {
+  const eras = await buildSmaEraContexts({ indexKey: "sp500", endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+  const rules = [
+    { smaPeriod: 175, smaLowerBuffer: 3.6, smaUpperBuffer: 3.6 },
+    { smaPeriod: 91, smaLowerBuffer: 7.1, smaUpperBuffer: 6.6 },
+    { smaPeriod: 261, smaLowerBuffer: 2.3, smaUpperBuffer: 3.5 },
+    { smaPeriod: 30, smaLowerBuffer: 6.2, smaUpperBuffer: 7.9 },
+    { smaPeriod: 145, smaLowerBuffer: 3.4, smaUpperBuffer: 5.7 },
+    { smaPeriod: 65, smaLowerBuffer: 6.5, smaUpperBuffer: 5.4 },
+  ];
+  const scores = rules.map((rule) => {
+    const points = planCombos(planPeriodNeighborhood(rule.smaPeriod, 1, { minPeriod: 20, maxPeriod: 280 }),
+      planBufferNeighborhood(rule.smaUpperBuffer, rule.smaLowerBuffer, 0.1, 0.1, { minBuffer: 0, maxBuffer: 21 }), new Set<string>());
+    const rows = evaluateCombosAcrossEras(eras, points);
+    assert.equal(rows.length, points.length);
+    const center = rows.find((row) => comboKey(row.combo) === comboKey(rule))!;
+    return stabilityAdjustedSmaScore(center.score, Math.min(...rows.map((row) => row.score)));
+  });
+  for (let i = 1; i < scores.length; i++) assert.ok(scores[i - 1] > scores[i]);
+  assert.ok(Math.abs(scores[0] / 5246.785590704165 - 1) < 0.001, "previous default changes by less than 0.1%");
 });
 
 test("preset ranking pairs each index by multi-era score even when the weakest rule has higher CAGR", () => {

@@ -432,21 +432,45 @@ Sharp edges:
 
 ## SMA calibration: why it is two scripts
 
-`src/lib/simulation/score.ts` prefers 0.5 risk-on/off switches per year
-(each exit or re-entry is one switch). The extra penalty below 0.35/year limits
-return advantages supported by very few decisions while preserving current SPX
-rankings. It is a scoring preference, not statistical confidence: overlapping
-rolling windows do not create independent trades. Its two-sided frequency penalty is lowest
-at 0.5/year and modest at 1/year; do not restore a flat 0.5–1 band or the old
-penalty that only discouraged churn.
-The evidence surcharge is `min(3500, 14000 * max(0, 1 - switchesPerYear / 0.35)^2)`;
-the original sparse penalty continues increasing after this surcharge saturates.
-It leaves scores above 0.35/year intact and keeps NDX 183/−18.1%/+7%
-narrowly ahead of both 125/−17.9%/+19.4% and 148/−12.1%/+7.9%
-under the weighted stable objective.
+`src/lib/simulation/score.ts` uses ONE formula for SPX and NDX: real rolling
+CAGR and worst returns, drawdown penalties, and a smooth two-sided switching
+penalty. Each exit or re-entry is one switch. The preferred frequency is
+0.3/year; its penalty is `19500 * max(0, 1 - frequency / 0.3)^2` below the
+target and `200 * max(0, frequency - 0.3)^2` above it, plus the existing
+heavy churn penalties above one switch/year. This balances return against
+limited evidence, not a rank by trade count. It is a scoring preference, not
+statistical confidence: overlapping rolling windows do not create independent
+trades. Do not introduce index-specific formulas, parameter-specific bonuses,
+or an evidence surcharge in addition to the smooth sparse penalty.
+The engine regression through 2026-10-09 pins the user's reference order:
+NDX 136/−18%/+9.6% (10 switches), 126/−17.9%/+19.4% (6), then
+200/−11.8%/+5% (16), each adjacent stable-score lead below 2%.
+It also pins the preceding six SPX rules' relative order. A subsequent search
+may discover stronger rules; do not force these three into preset positions.
 Changing its strength or target requires regenerating search seeds and calibration.
 Before manual recalibration/search, refresh market data with `npm run fetch-data`
 and use the latest complete shared trading day rather than a stale snapshot end.
+Use `npm run refresh-sma` for the combined SPX/NDX refresh: it has a 55-minute
+hard ceiling, including data refresh and canned tool results. It re-scores all
+saved period seeds under the current formula instead of automatically repeating
+the exhaustive coarse grid. The artifact records `searchMode` to distinguish
+a seed re-score from a new coarse-grid exploration. Calibration has a 15-minute
+watchdog; on timeout the preset search re-scores the saved bands itself.
+`explore-sma-cagr` has a shared 15-minute optional-refinement budget, divided
+between indices, and records when that budget stops the search. Only candidates
+with complete immediate stability neighborhoods may become presets. Establish
+six positive, distinct, fully checked rules before optional refinement, choosing
+fallback seeds by score rather than ascending period. A zero-minute budget
+finalizes this checked pool. Worker process groups are stopped on timeouts and
+interruptions. Exhaustive `explore-sma` is a separate, potentially long operation;
+do not invoke it automatically or bypass the combined ceiling unless the user
+explicitly authorizes a longer search. Budget-limited presets are the best fully
+checked candidates found, not a claim of exhaustive convergence.
+The standalone npm calibration/exploration commands also have process-group
+watchdogs, capped at 55 minutes (preset refinement normally has a 20-minute
+watchdog around its 15-minute soft budget). A coarse exploration that times out
+keeps the existing seed artifact; `refresh-sma` is the path that finalizes useful
+results within the combined budget.
 
 The shipped SMA band (`src/lib/tool-snapshots/sma-calibration.json`, applied by
 the Signals page and the push-alert cron) comes from a JOINT search over

@@ -340,6 +340,7 @@ async function main(): Promise<void> {
   }
 
   const payload: SmaSearchSpaceSnapshot = {
+    searchMode: "coarse-grid",
     generatedAt: new Date().toISOString(),
     endDate,
     windowLength,

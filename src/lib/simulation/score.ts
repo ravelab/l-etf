@@ -6,30 +6,23 @@ type ScoreOptions = {
 };
 
 // Counts individual risk-on/off switches, not complete exit/re-entry cycles.
-const TARGET_TRADES_PER_YEAR = 0.5;
-const SPARSE_TRADING_PENALTY_WEIGHT = 8000;
-// Fewer than about one switch every three years gives very little evidence for a
-// timing rule. Overlapping rolling windows do not create independent trades.
-// Keep the existing scoring intact above this floor (including the SPX band).
-const LOW_EVIDENCE_TRADES_PER_YEAR = 0.35;
-const LOW_EVIDENCE_PENALTY_WEIGHT = 14000;
-// Saturate the extra surcharge; the original sparse penalty still increases
-// all the way to zero trades. This preference is not a confidence estimate.
-const LOW_EVIDENCE_PENALTY_CAP = 3500;
+const TARGET_TRADES_PER_YEAR = 0.3;
+// Balance real CAGR against limited evidence with one smooth sparse penalty.
+// Overlapping rolling windows do not create independent trades. The target and
+// weights express a preference, not statistical confidence, for both indices.
+const SPARSE_TRADING_PENALTY_WEIGHT = 19500;
 const FREQUENT_TRADING_PENALTY_WEIGHT = 3000;
-const ABOVE_TARGET_PENALTY_WEIGHT = 400;
+const ABOVE_TARGET_PENALTY_WEIGHT = 200;
 
 function tradingFrequencyPenalty(avgTradesPerYear: number): number {
   const frequency = Math.max(0, avgTradesPerYear);
-  // The minimum penalty is at 0.5/year; one switch/year has a modest penalty.
+  // The minimum penalty is at 0.3/year; one switch/year has a modest penalty.
   // A zero-trade strategy has a finite penalty, so this remains a preference
   // rather than excluding buy-and-hold regardless of its other metrics.
   const sparseDistance = Math.max(0, (TARGET_TRADES_PER_YEAR - frequency) / TARGET_TRADES_PER_YEAR);
   const aboveTargetDistance = Math.max(0, frequency - TARGET_TRADES_PER_YEAR);
   const frequentDistance = Math.max(0, frequency - 1);
-  const lowEvidenceDistance = Math.max(0, (LOW_EVIDENCE_TRADES_PER_YEAR - frequency) / LOW_EVIDENCE_TRADES_PER_YEAR);
   const frequencyPenalty = SPARSE_TRADING_PENALTY_WEIGHT * sparseDistance ** 2
-    + Math.min(LOW_EVIDENCE_PENALTY_CAP, LOW_EVIDENCE_PENALTY_WEIGHT * lowEvidenceDistance ** 2)
     + ABOVE_TARGET_PENALTY_WEIGHT * aboveTargetDistance ** 2
     + FREQUENT_TRADING_PENALTY_WEIGHT * frequentDistance ** 2;
   // Retain the existing steep protection against extreme trading frequency,
@@ -43,7 +36,7 @@ function tradingFrequencyPenalty(avgTradesPerYear: number): number {
  * - avgRealCagr / worstRealCagr: average and worst rolling real CAGR (%).
  * Drawdowns are nominal path metrics (not inflation series).
  *
- * Rewards returns and CAGR, penalizes drawdowns and deviations from 0.5 switches/year.
+ * Rewards returns and CAGR, penalizes drawdowns and deviations from 0.3 switches/year.
  */
 function computeScore(
   avgRealCagr: number,

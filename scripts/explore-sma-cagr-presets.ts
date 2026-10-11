@@ -32,6 +32,7 @@ import { presetScoreCache } from "./lib/sma-preset-cache";
 import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
 import { SMA_CALIBRATION_SNAPSHOT_PATH, type SmaCalibrationIndexResult } from "../src/lib/sma-calibration";
 import currentPresets from "../src/lib/tool-snapshots/sma-cagr-presets.json";
+import { SmaSearchBudget, smaBudgetMinutes } from "./lib/sma-search-budget";
 
 interface Candidate extends SmaCombo {
   cagr: number; finalMultiple: number; maxDrawdown: number; trades: number;
@@ -91,6 +92,9 @@ function pickDistinct(candidates: Candidate[], count: number): Candidate[] {
   return selected;
 }
 async function main(): Promise<void> {
+  const budgetMinutes = smaBudgetMinutes(process.argv.slice(2));
+  const totalBudget = new SmaSearchBudget(budgetMinutes * 60_000);
+  const budgetReached = {} as Record<IndexKey, boolean>;
   const startDate = CONSTANT_SP500_SHORTCUT_DATE;
   const endDate = await getLatestSharedTradeDate(["sp500", "nasdaq100", "risk:SGOV"]);
   const selected = {} as Record<IndexKey, Candidate[]>;
@@ -102,11 +106,13 @@ async function main(): Promise<void> {
     fork(fileURLToPath(new URL("./lib/sma-preset-scoring-worker.ts", import.meta.url)), [],
       { execArgv: ["--import", "tsx"], stdio: ["ignore", "ignore", "inherit", "ipc"] }));
   try {
-    for (const index of ["sp500", "nasdaq100"] as const) {
+    const indices = ["sp500", "nasdaq100"] as const;
+    for (const [indexPosition, index] of indices.entries()) {
+      const budget = totalBudget.allocate(indices.length - indexPosition);
       const modernStartDate = index === "sp500" ? startDate : CONSTANT_NASDAQ100_SHORTCUT_DATE;
       const { cache, save } = presetScoreCache(index, endDate);
       console.log(`[${index}] resuming ${cache.size} cached evaluations`);
-      const evaluate = async (combos: SmaCombo[], stage: string) => {
+      const evaluate = async (combos: SmaCombo[], stage: string, required = false) => {
         const pending = [...new Map(combos.filter((combo) => !cache.has(comboKey(combo))).map((combo) => [comboKey(combo), combo])).values()];
         let next = 0;
         let completed = 0;
@@ -114,7 +120,7 @@ async function main(): Promise<void> {
         let lastSave = Date.now();
         console.log(`[${index} ${stage}] ${pending.length} multi-era evaluations`);
         await Promise.all(workers.map(async (child) => {
-          while (next < pending.length) {
+          while (next < pending.length && (required || budget.canRefine())) {
             const offset = next; next += 60;
             const batch = pending.slice(offset, offset + 60);
             for (const row of await scoreInWorker(child, index, endDate, batch)) cache.set(comboKey(row.combo), row);
@@ -126,10 +132,10 @@ async function main(): Promise<void> {
           }
         }));
         if (pending.length) save();
-        return combos.map((combo) => {
+        return combos.flatMap((combo) => {
           const row = cache.get(comboKey(combo));
-          if (!row) throw new Error(`Missing multi-era result ${comboKey(combo)}`);
-          return row;
+          if (!row && required) throw new Error(`Missing multi-era result ${comboKey(combo)}`);
+          return row ? [row] : [];
         });
       };
       const knownCombos = [...currentPresets.presets.map((preset) => preset[index]), calibration[index]].map(snapPresetCombo);
@@ -163,27 +169,50 @@ async function main(): Promise<void> {
         summaries.set(comboKey(row.combo), candidate);
         return candidate;
       };
-      const stability = async (rows: EraEvaluatedCombo[], stage: string): Promise<Candidate[]> => {
+      const stability = async (rows: EraEvaluatedCombo[], stage: string, required = false): Promise<Candidate[]> => {
         const neighborhoods = rows.map((row) => planCombos(planPeriodNeighborhood(row.combo.smaPeriod, 1, {
           minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD,
         }), planBufferNeighborhood(row.combo.smaUpperBuffer, row.combo.smaLowerBuffer, 0.1, 0.1, {
           minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER,
         }), new Set<string>()));
-        await evaluate(neighborhoods.flat(), stage);
-        return rows.map((row, position) => {
+        await evaluate(neighborhoods.flat(), stage, required);
+        return rows.flatMap((row, position) => {
+          if (!required && !budget.canRefine()) return [];
           // Neighborhoods are our own geometry, not engine outputs; score results
           // are always keyed by comboKey, including dropped-result validation.
-          const worst = Math.min(...neighborhoods[position].map((combo) => cache.get(comboKey(combo))!.score));
-          return summarize(row, stabilityAdjustedSmaScore(row.score, worst));
+          const neighbors = neighborhoods[position].map((combo) => cache.get(comboKey(combo)));
+          if (neighbors.some((neighbor) => !neighbor)) return [];
+          const worst = Math.min(...neighbors.map((neighbor) => neighbor!.score));
+          return [summarize(row, stabilityAdjustedSmaScore(row.score, worst))];
         });
       };
-      let candidates = await stability(await evaluate(knownCombos, "saved presets"), "saved stability");
+      let candidates = await stability(await evaluate(knownCombos, "saved presets", true), "saved stability", true);
+      // A new default can overlap two old presets. Find a fully checked sixth
+      // distinct rule before optional refinement, even with a zero-minute budget.
+      const seedScores = new Map(seeds[index].periodSeeds.map((seed) => [comboKey(seed), seed.score]));
+      for (const combo of [...seedCombos].sort((a, b) => (seedScores.get(comboKey(b)) ?? -Infinity) - (seedScores.get(comboKey(a)) ?? -Infinity))) {
+        const proven = pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 6);
+        if (proven.length === 6) break;
+        if (candidates.some((candidate) => comboKey(candidate) === comboKey(combo))) continue;
+        if (!proven.every((candidate) => Math.abs(candidate.smaPeriod - combo.smaPeriod) >= 20
+          || Math.abs(candidate.smaUpperBuffer - combo.smaUpperBuffer) >= 3
+          || Math.abs(candidate.smaLowerBuffer - combo.smaLowerBuffer) >= 3)) continue;
+        const rows = await evaluate([combo], "distinct fallback", true);
+        const preview = summarize(rows[0], rows[0].score);
+        summaries.delete(comboKey(combo));
+        if (!proven.every((candidate) => separated(candidate, preview))) continue;
+        candidates.push(...await stability(rows, "fallback stability", true));
+      }
+      if (pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 6).length < 6) {
+        throw new Error(`Could not establish six fully checked positive ${index} presets within the saved seed space`);
+      }
       const initialFloor = Math.min(...candidates.map((candidate) => candidate.score));
       const seedRows = await evaluate(seedCombos, "every period");
       candidates = [...new Map([...candidates, ...await stability(seedRows.filter((row) => row.score >= initialFloor), "seed stability")]
         .map((row) => [comboKey(row), row])).values()];
       for (const [stage, step, halfWidth] of [["buffer refinement", 0.2, PRESET_BUFFER_HALF_WIDTH],
         ["fine buffers", PRESET_BUFFER_STEP, 0.4]] as const) {
+        if (!budget.canRefine()) break;
         // Search separated basins jointly over period +/-5 and both buffers.
         const basins = pickDistinct(candidates, 9);
         const points = basins.flatMap((basin) => refinePresetGrid(basin, step, halfWidth));
@@ -204,6 +233,7 @@ async function main(): Promise<void> {
       const harvestFineCandidates = (floor: number) => {
         const found: Candidate[] = [];
         for (const row of cache.values()) {
+          if (!budget.canRefine()) break;
           if (row.score < floor || summaries.has(comboKey(row.combo))) continue;
           const local = planCombos(
             planPeriodNeighborhood(row.combo.smaPeriod, 1, { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD }),
@@ -220,7 +250,7 @@ async function main(): Promise<void> {
       // Keep walking joint one-day/0.1% neighborhoods until every leading basin
       // stops improving. A single fixed refinement box can end at its boundary.
       let converged = false;
-      for (let round = 0; round < 50; round++) {
+      for (let round = 0; round < 50 && budget.canRefine(); round++) {
         const leaders = pickDistinct(candidates, 9);
         const signature = leaders.map(comboKey).join(";");
         const rows = await evaluate([...sweepPresetPeriods(leaders), ...leaders.flatMap((leader) => planCombos(
@@ -232,7 +262,9 @@ async function main(): Promise<void> {
         candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 6).map((candidate) => candidate.score))));
         if (pickDistinct(candidates, 9).map(comboKey).join(";") === signature) { converged = true; break; }
       }
-      if (!converged) throw new Error(`${index} joint refinement did not converge`);
+      budgetReached[index] = !budget.canRefine();
+      if (!converged && !budgetReached[index]) throw new Error(`${index} joint refinement did not converge`);
+      if (budgetReached[index]) console.log(`[${index}] refinement budget reached; retaining fully checked candidates`);
       const best = [...candidates].sort((a, b) => b.score - a.score)[0];
       bestFound[index] = { smaPeriod: best.smaPeriod, smaUpperBuffer: best.smaUpperBuffer, smaLowerBuffer: best.smaLowerBuffer, score: best.score };
       const savedDefault = candidates.find((row) => comboKey(row) === comboKey(calibration[index]))!;
@@ -283,6 +315,7 @@ async function main(): Promise<void> {
     selection: "Calibrated default plus five distinct alternatives selected by stability-adjusted weighted multi-era score from per-period search seeds with joint buffer refinement",
     grid: { periodStep: PRESET_PERIOD_STEP, bufferStep: PRESET_BUFFER_STEP, basinBufferHalfWidth: PRESET_BUFFER_HALF_WIDTH },
     ranking: SMA_PRESET_RANKING,
+    searchBudget: { minutes: budgetMinutes, reached: budgetReached },
     eraWeights: Object.fromEntries((["sp500", "nasdaq100"] as const).map((index) => [index,
       Object.fromEntries(SMA_CALIBRATION_ERAS[index].map((era) => [era.key, era.weight]))])),
     distinctness: "At least 5% different risk-on days AND at least 20 days or 3 percentage points of parameter separation",

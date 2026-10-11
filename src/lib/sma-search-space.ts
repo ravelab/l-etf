@@ -52,6 +52,8 @@ export interface SmaSearchSpaceSnapshot {
   generatedAt: string;
   endDate: string;
   windowLength: number;
+  /** A re-score refresh retains seed locations; it does not repeat the coarse grid. */
+  searchMode?: "coarse-grid" | "rescored-known-seeds";
   grid: SmaSearchSpaceGrid;
   sp500: SmaSearchSpaceIndexResult;
   nasdaq100: SmaSearchSpaceIndexResult;
@@ -76,6 +78,7 @@ const smaSearchSpaceSnapshotSchema = z.object({
   generatedAt: z.string(),
   endDate: z.string(),
   windowLength: z.number(),
+  searchMode: z.enum(["coarse-grid", "rescored-known-seeds"]).optional(),
   grid: z.object({
     minPeriod: z.number(),
     maxPeriod: z.number(),
