@@ -8,6 +8,11 @@ type ScoreOptions = {
 // Counts individual risk-on/off switches, not complete exit/re-entry cycles.
 const TARGET_TRADES_PER_YEAR = 0.5;
 const SPARSE_TRADING_PENALTY_WEIGHT = 8000;
+// Fewer than one switch every four years gives very little evidence for a
+// timing rule. Overlapping rolling windows do not create independent trades.
+// Keep the existing scoring intact above this floor (including the SPX band).
+const LOW_EVIDENCE_TRADES_PER_YEAR = 0.25;
+const LOW_EVIDENCE_PENALTY_WEIGHT = 8000;
 const FREQUENT_TRADING_PENALTY_WEIGHT = 3000;
 const ABOVE_TARGET_PENALTY_WEIGHT = 400;
 
@@ -19,7 +24,9 @@ function tradingFrequencyPenalty(avgTradesPerYear: number): number {
   const sparseDistance = Math.max(0, (TARGET_TRADES_PER_YEAR - frequency) / TARGET_TRADES_PER_YEAR);
   const aboveTargetDistance = Math.max(0, frequency - TARGET_TRADES_PER_YEAR);
   const frequentDistance = Math.max(0, frequency - 1);
+  const lowEvidenceDistance = Math.max(0, (LOW_EVIDENCE_TRADES_PER_YEAR - frequency) / LOW_EVIDENCE_TRADES_PER_YEAR);
   const frequencyPenalty = SPARSE_TRADING_PENALTY_WEIGHT * sparseDistance ** 2
+    + LOW_EVIDENCE_PENALTY_WEIGHT * lowEvidenceDistance ** 2
     + ABOVE_TARGET_PENALTY_WEIGHT * aboveTargetDistance ** 2
     + FREQUENT_TRADING_PENALTY_WEIGHT * frequentDistance ** 2;
   // Retain the existing steep protection against extreme trading frequency,

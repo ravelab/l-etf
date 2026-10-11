@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T16:42:29.390Z",
+  "generatedAt": "2026-10-10T23:58:10.120Z",
   "endDate": "2026-10-02",
   "windowLength": 10,
   "sp500": {
@@ -35,21 +35,21 @@
       "start": 95
     },
     "scoresByEra": {
-      "proto": -5524.389175662651,
-      "start": 15859.417249467704
+      "proto": -6970.407319016662,
+      "start": 14427.257125025233
     },
     "smaPeriod": 125,
     "smaUpperBuffer": 19.4,
     "smaLowerBuffer": 17.9,
-    "score": 14790.085648750979,
-    "baseScore": 14790.226928211188,
-    "stabilityPenalty": 0.14127946020926174,
+    "score": 13357.23262336293,
+    "baseScore": 13357.373902823138,
+    "stabilityPenalty": 0.14127946020744275,
     "avgReturn": 31.07348663109914,
     "worstReturn": -4.790593062665449,
     "avgMaxDrawdown": 66.13827360904261,
     "avgTrades": 1.4422310756972112,
-    "evaluatedCombos": 1825,
-    "neighborhoodMinScore": 14789.94436929077,
-    "neighborhoodMedianScore": 14790.226928211188
+    "evaluatedCombos": 1704,
+    "neighborhoodMinScore": 13357.091343902723,
+    "neighborhoodMedianScore": 13357.373902823138
   }
 }

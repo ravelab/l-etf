@@ -14,35 +14,14 @@ import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
+import cagrPresets from "@/lib/tool-snapshots/sma-cagr-presets.json";
 
 const USE_CALIBRATED_DEFAULTS_KEY = "signals-use-calibrated-defaults";
-const DEFAULT_SMA_PRESET = {
-  sp500: {
-    smaPeriod: getDefaultSmaPeriod("sp500"),
-    smaLowerBuffer: getDefaultSmaLowerBuffer("sp500"),
-    smaUpperBuffer: getDefaultSmaUpperBuffer("sp500"),
-  },
-  nasdaq100: {
-    smaPeriod: getDefaultSmaPeriod("nasdaq100"),
-    smaLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
-    smaUpperBuffer: getDefaultSmaUpperBuffer("nasdaq100"),
-  },
-} as const;
-const ALTERNATIVE_SMA_DEFAULTS = [
-  {
-    sp500: { smaPeriod: 31, smaLowerBuffer: 6, smaUpperBuffer: 8 },
-    nasdaq100: { smaPeriod: 31, smaLowerBuffer: 8, smaUpperBuffer: 10 },
-  },
-  {
-    sp500: { smaPeriod: 100, smaLowerBuffer: 8, smaUpperBuffer: 6 },
-    nasdaq100: { smaPeriod: 75, smaLowerBuffer: 10, smaUpperBuffer: 12 },
-  },
-  {
-    sp500: { smaPeriod: 273, smaLowerBuffer: 2, smaUpperBuffer: 4 },
-    nasdaq100: { smaPeriod: 200, smaLowerBuffer: 11.8, smaUpperBuffer: 5 },
-  },
-] as const;
-
+const SMA_PRESETS = cagrPresets.presets.map((preset, index) => ({
+  ...preset,
+  label: preset.isCalibratedDefault ? "Set default"
+    : `Set alternative ${cagrPresets.presets.slice(0, index + 1).filter((row) => !row.isCalibratedDefault).length}`,
+}));
 interface SmaSignalsResponse {
   sp500: SmaSignalResult;
   nasdaq100: SmaSignalResult;
@@ -111,7 +90,7 @@ export default function SignalsPage() {
     setSmaNqLowerBuffer(getDefaultSmaLowerBuffer("nasdaq100"));
   }, []);
 
-  const handleSetAlternative = useCallback((preset: (typeof ALTERNATIVE_SMA_DEFAULTS)[number]) => {
+  const handleSetPreset = useCallback((preset: (typeof cagrPresets.presets)[number]) => {
     setSmaSpPeriod(preset.sp500.smaPeriod);
     setSmaSpUpperBuffer(preset.sp500.smaUpperBuffer);
     setSmaSpLowerBuffer(preset.sp500.smaLowerBuffer);
@@ -230,35 +209,44 @@ export default function SignalsPage() {
               />
             </fieldset>
             <div className="mt-4 flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
-              <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
-                <Button variant="secondary" size="sm" onClick={handleSetDefault} className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs">
-                  Set default
-                </Button>
-                <span className="whitespace-nowrap">
-                  {formatSmaSummary("SPX", DEFAULT_SMA_PRESET.sp500.smaPeriod, DEFAULT_SMA_PRESET.sp500.smaLowerBuffer, DEFAULT_SMA_PRESET.sp500.smaUpperBuffer)}
-                </span>
-                <span className="whitespace-nowrap">
-                  {formatSmaSummary("NDX", DEFAULT_SMA_PRESET.nasdaq100.smaPeriod, DEFAULT_SMA_PRESET.nasdaq100.smaLowerBuffer, DEFAULT_SMA_PRESET.nasdaq100.smaUpperBuffer)}
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                {ALTERNATIVE_SMA_DEFAULTS.map((preset, index) => (
-                  <div key={`alternative-${index + 1}`} className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+              <p className="max-w-3xl leading-relaxed">
+                Alternatives are ranked by each index’s weighted multi-era score, including parameter stability.
+                CAGR is shown for comparison and does not determine rank.
+                SPX era weights: 1885–1926 5%, 1926–1988 25%, 1988 onward 70%; NDX: pre-1985 5%, 1985 onward 95%.
+                CAGRs are after inflation for simulated UPRO (SPX) and TQQQ (NDX), with risk-off BRK.B + GLDM + VGSH.
+                {" "}Modern below uses the default window: {cagrPresets.startDate} to {cagrPresets.endDate}.
+                {" "}CPI is available through {cagrPresets.presets[0].sp500.inflation.endDate.slice(0, 7)}.
+              </p>
+              <div className="flex min-w-0 flex-col gap-2">
+                {SMA_PRESETS.map((preset, index) => (
+                  <div key={`cagr-preset-${index}`} data-sma-preset={index} className="flex min-w-0 flex-col items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums">
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handleSetAlternative(preset)}
+                      onClick={() => preset.isCalibratedDefault ? handleSetDefault() : handleSetPreset(preset)}
                       className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs"
                     >
-                      Set alternative {index + 1}
+                      {preset.label}
                     </Button>
-                    <span className="whitespace-nowrap">
-                      {formatSmaSummary("SPX", preset.sp500.smaPeriod, preset.sp500.smaLowerBuffer, preset.sp500.smaUpperBuffer)}
-                    </span>
-                    <span className="whitespace-nowrap">
-                      {formatSmaSummary("NDX", preset.nasdaq100.smaPeriod, preset.nasdaq100.smaLowerBuffer, preset.nasdaq100.smaUpperBuffer)}
-                    </span>
+                    <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 md:gap-6">
+                      {(["sp500", "nasdaq100"] as const).map((indexKey) => {
+                        const rule = preset[indexKey];
+                        return (
+                          <div key={indexKey} data-index-cagrs={indexKey} className="flex min-w-0 flex-col gap-0.5">
+                            <span className="font-medium text-foreground">
+                              {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
+                            </span>
+                            <span>Multi-era score: {rule.score.toFixed(1)}</span>
+                            <span>Modern: {rule.realCagr.toFixed(2)}% real CAGR · {rule.trades} switches</span>
+                            {Object.entries(rule.eraCagrs).map(([eraKey, era]) => (
+                              <span key={eraKey}>
+                                {eraKey === "proto" ? "Proto" : "Proxy"} ({era.startDate.slice(0, 4)}–{era.endDate.slice(0, 4)}): {era.realCagr.toFixed(2)}% real CAGR
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
               </div>

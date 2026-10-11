@@ -433,7 +433,10 @@ Sharp edges:
 ## SMA calibration: why it is two scripts
 
 `src/lib/simulation/score.ts` prefers 0.5 risk-on/off switches per year
-(each exit or re-entry is one switch). Its two-sided frequency penalty is lowest
+(each exit or re-entry is one switch). The extra penalty below 0.25/year limits
+return advantages supported by very few decisions while preserving current SPX
+rankings. It is a scoring preference, not statistical confidence: overlapping
+rolling windows do not create independent trades. Its two-sided frequency penalty is lowest
 at 0.5/year and modest at 1/year; do not restore a flat 0.5–1 band or the old
 penalty that only discouraged churn.
 Changing its strength or target requires regenerating search seeds and calibration.
@@ -517,8 +520,29 @@ futures-ladder bug above waiting to happen.
 The Signals page's saved `signals-use-calibrated-defaults` preference is for
 push alerts only. `SmaPushAlertsCard` applies the calibration snapshot when it
 builds an alert subscription; loading that preference or the snapshot must not
-replace the page's shared SMA inputs. Only the page's "Set default" button
-should apply the latest calibrated input defaults.
+replace the page's shared SMA inputs. "Set default" explicitly applies the
+latest scored calibration. Five Signals alternatives are selected from the
+multi-era per-period search seeds, refined jointly over five-day periods and
+0.1 percentage-point buffer steps, with the same raw era weights and complete
+±1-day/±0.1% stability neighborhoods as calibration. Keep pre-1988 SPX and
+pre-1985 NDX in selection: a modern-only CAGR winner can fail those eras badly.
+The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
+rank each index by descending stability-adjusted weighted multi-era score and
+pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
+comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
+weakest NDX rule despite its terrible proto era. Preserve the score order through
+selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder
+saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`.
+The search retains distinct trade regimes against the calibrated default and
+centers multi-era score plateaus. The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proto)
+alongside default-window CAGRs; NDX has no proxy era. Each era is independently
+backtested with warm-up and the default risk-off basket, without history wrap.
+Real CAGR deflates the ending multiple by `cpiIndexRatioEndOverStart` before
+annualizing over the actual backtest dates; do not subtract annual inflation
+from nominal CAGR. Preserve nominal CAGR for engine parity and disclose the
+last CPI observation used (which can precede the market-data end date).
+There is no combined 50/50 ranking metric. Refresh only the displayed
+historical CAGRs with `npm run explore-sma-cagr -- --refresh-era-cagrs`.
 
 The asymmetric SMA-buffer heatmap uses `pickTopCell` to highlight a stable
 plateau-center band. That selection must not override `SweepComparisonTable`'s

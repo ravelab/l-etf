@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import cagrPresets from "@/lib/tool-snapshots/sma-cagr-presets.json";
 
 const persist = vi.fn();
 const inputs = {
@@ -52,5 +53,34 @@ describe("Signals page SMA inputs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Set default" }));
     expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("sp500")));
     expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("nasdaq100")));
+  });
+
+  it("applies all six inputs from each multi-era-ranked preset and displays its score and real returns", () => {
+    render(<SignalsPage />);
+    cagrPresets.presets.forEach((preset, index) => {
+      const button = screen.getByRole("button", { name: preset.isCalibratedDefault ? "Set default" : `Set alternative ${cagrPresets.presets.slice(0, index + 1).filter((row) => !row.isCalibratedDefault).length}` });
+      const row = button.closest("[data-sma-preset]")!;
+      for (const indexKey of ["sp500", "nasdaq100"] as const) {
+        const details = row.querySelector(`[data-index-cagrs="${indexKey}"]`)!;
+        expect(details).toHaveTextContent(`Multi-era score: ${preset[indexKey].score.toFixed(1)}`);
+        expect(details).toHaveTextContent(`Modern: ${preset[indexKey].realCagr.toFixed(2)}% real CAGR`);
+        for (const [eraKey, era] of Object.entries(preset[indexKey].eraCagrs)) {
+          expect(details).toHaveTextContent(`${eraKey === "proto" ? "Proto" : "Proxy"} (${era.startDate.slice(0, 4)}–${era.endDate.slice(0, 4)}): ${era.realCagr.toFixed(2)}% real CAGR`);
+        }
+        if (indexKey === "nasdaq100") expect(details).not.toHaveTextContent("Proxy");
+      }
+      expect(screen.queryByText(/50\/50/)).not.toBeInTheDocument();
+      fireEvent.click(button);
+      expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(preset.sp500.smaPeriod));
+      expect(screen.getByLabelText("SPX SMA Buffer lower")).toHaveValue(String(preset.sp500.smaLowerBuffer));
+      expect(screen.getByLabelText("SPX SMA Buffer upper")).toHaveValue(String(preset.sp500.smaUpperBuffer));
+      expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(preset.nasdaq100.smaPeriod));
+      expect(screen.getByLabelText("NDX SMA Buffer lower")).toHaveValue(String(preset.nasdaq100.smaLowerBuffer));
+      expect(screen.getByLabelText("NDX SMA Buffer upper")).toHaveValue(String(preset.nasdaq100.smaUpperBuffer));
+      expect(persist).toHaveBeenLastCalledWith(expect.objectContaining({
+        smaSpPeriod: preset.sp500.smaPeriod, smaSpLowerBuffer: preset.sp500.smaLowerBuffer, smaSpUpperBuffer: preset.sp500.smaUpperBuffer,
+        smaNqPeriod: preset.nasdaq100.smaPeriod, smaNqLowerBuffer: preset.nasdaq100.smaLowerBuffer, smaNqUpperBuffer: preset.nasdaq100.smaUpperBuffer,
+      }));
+    });
   });
 });
