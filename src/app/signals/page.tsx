@@ -210,7 +210,7 @@ export default function SignalsPage() {
             <div className="mt-4 flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
               <div className="flex w-full min-w-0 flex-col gap-2">
                 {SMA_PRESETS.map((preset, index) => (
-                  <div key={`cagr-preset-${index}`} data-sma-preset={index} className="flex min-w-0 flex-col items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums">
+                  <div key={`cagr-preset-${index}`} data-sma-preset={index} className="grid min-w-0 grid-cols-1 items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums md:grid-cols-2 md:gap-6">
                     {(["sp500", "nasdaq100"] as const).map((indexKey) => {
                       const rule = preset[indexKey];
                       return (
@@ -220,11 +220,11 @@ export default function SignalsPage() {
                             size="sm"
                             aria-label={`${indexKey === "sp500" ? "SPX" : "NDX"} ${preset.label}`}
                             onClick={() => handleSetPreset(indexKey, preset)}
-                            className="mr-2 inline-flex px-2 py-0.5 align-middle text-[11px] md:px-2.5 md:py-1 md:text-xs"
+                            className="mr-2 inline-flex px-2 py-0.5 align-middle text-[11px] md:px-2.5 md:py-1"
                           >
                             {preset.label}
                           </Button>
-                          <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5 md:text-xs">
+                          <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5">
                             <span className="font-medium text-foreground">
                               {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
                             </span>

@@ -537,6 +537,7 @@ Signals preset buttons apply only their own index, so SPX and NDX can be mixed
 independently. Keep the compact stats in proxy-before-proto order; scores and
 methodology prose are not displayed. Each button shares its stats row; mobile
 text wraps naturally after the button while desktop keeps one line.
+Desktop pairs each rank in two columns matching the controls: SPX left, NDX right.
 The search retains distinct trade regimes against the calibrated default and
 centers multi-era score plateaus. The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proto)
 alongside default-window CAGRs; NDX has no proxy era. Each era is independently
