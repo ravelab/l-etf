@@ -229,7 +229,7 @@ export default function SignalsPage() {
                               {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
                             </span>
                             <span> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
-                            {Object.entries(rule.eraCagrs).map(([eraKey, era]) => (
+                            {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
                               <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>
                                 {" · "}{eraKey === "proto" ? "Proto" : "Proxy"}: {era.realCagr.toFixed(2)}%
                               </span>
