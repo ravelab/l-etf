@@ -81,22 +81,21 @@ export default function SignalsPage() {
       .then((data) => setCalibration(data))
       .catch(() => setCalibration(null));
   }, []);
-  const handleSetDefault = useCallback(() => {
-    setSmaSpPeriod(getDefaultSmaPeriod("sp500"));
-    setSmaSpUpperBuffer(getDefaultSmaUpperBuffer("sp500"));
-    setSmaSpLowerBuffer(getDefaultSmaLowerBuffer("sp500"));
-    setSmaNqPeriod(getDefaultSmaPeriod("nasdaq100"));
-    setSmaNqUpperBuffer(getDefaultSmaUpperBuffer("nasdaq100"));
-    setSmaNqLowerBuffer(getDefaultSmaLowerBuffer("nasdaq100"));
-  }, []);
-
-  const handleSetPreset = useCallback((preset: (typeof cagrPresets.presets)[number]) => {
-    setSmaSpPeriod(preset.sp500.smaPeriod);
-    setSmaSpUpperBuffer(preset.sp500.smaUpperBuffer);
-    setSmaSpLowerBuffer(preset.sp500.smaLowerBuffer);
-    setSmaNqPeriod(preset.nasdaq100.smaPeriod);
-    setSmaNqUpperBuffer(preset.nasdaq100.smaUpperBuffer);
-    setSmaNqLowerBuffer(preset.nasdaq100.smaLowerBuffer);
+  const handleSetPreset = useCallback((indexKey: "sp500" | "nasdaq100", preset: (typeof cagrPresets.presets)[number]) => {
+    const rule = preset.isCalibratedDefault ? {
+      smaPeriod: getDefaultSmaPeriod(indexKey),
+      smaUpperBuffer: getDefaultSmaUpperBuffer(indexKey),
+      smaLowerBuffer: getDefaultSmaLowerBuffer(indexKey),
+    } : preset[indexKey];
+    if (indexKey === "sp500") {
+      setSmaSpPeriod(rule.smaPeriod);
+      setSmaSpUpperBuffer(rule.smaUpperBuffer);
+      setSmaSpLowerBuffer(rule.smaLowerBuffer);
+    } else {
+      setSmaNqPeriod(rule.smaPeriod);
+      setSmaNqUpperBuffer(rule.smaUpperBuffer);
+      setSmaNqLowerBuffer(rule.smaLowerBuffer);
+    }
   }, []);
 
   useEffect(() => {
@@ -211,20 +210,21 @@ export default function SignalsPage() {
             <div className="mt-4 flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
               <div className="flex w-full min-w-0 flex-col gap-2">
                 {SMA_PRESETS.map((preset, index) => (
-                  <div key={`cagr-preset-${index}`} data-sma-preset={index} className="flex min-w-0 flex-col items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums md:flex-row md:gap-3">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => preset.isCalibratedDefault ? handleSetDefault() : handleSetPreset(preset)}
-                      className="shrink-0 px-2 py-0.5 text-[11px] md:px-2.5 md:py-1 md:text-xs"
-                    >
-                      {preset.label}
-                    </Button>
-                    <div className="w-full min-w-0 overflow-x-auto text-[11px] leading-5 md:text-xs">
-                      {(["sp500", "nasdaq100"] as const).map((indexKey) => {
-                        const rule = preset[indexKey];
-                        return (
-                          <div key={indexKey} data-index-cagrs={indexKey} className="whitespace-nowrap">
+                  <div key={`cagr-preset-${index}`} data-sma-preset={index} className="flex min-w-0 flex-col items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums">
+                    {(["sp500", "nasdaq100"] as const).map((indexKey) => {
+                      const rule = preset[indexKey];
+                      return (
+                        <div key={indexKey} className="w-full min-w-0 leading-7 md:overflow-x-auto md:whitespace-nowrap">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            aria-label={`${indexKey === "sp500" ? "SPX" : "NDX"} ${preset.label}`}
+                            onClick={() => handleSetPreset(indexKey, preset)}
+                            className="mr-2 inline-flex px-2 py-0.5 align-middle text-[11px] md:px-2.5 md:py-1 md:text-xs"
+                          >
+                            {preset.label}
+                          </Button>
+                          <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5 md:text-xs">
                             <span className="font-medium text-foreground">
                               {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
                             </span>
@@ -235,10 +235,10 @@ export default function SignalsPage() {
                               </span>
                             ))}
                             <span> · {rule.trades} switches</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>

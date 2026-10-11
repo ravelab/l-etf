@@ -50,17 +50,21 @@ describe("Signals page SMA inputs", () => {
     expect(screen.getByLabelText("NDX SMA Period")).toHaveValue("111");
     expect(persist).toHaveBeenLastCalledWith(expect.objectContaining(inputs));
 
-    fireEvent.click(screen.getByRole("button", { name: "Set default" }));
+    fireEvent.click(screen.getByRole("button", { name: "SPX Set default" }));
     expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("sp500")));
+    expect(screen.getByLabelText("NDX SMA Period")).toHaveValue("111");
+    fireEvent.click(screen.getByRole("button", { name: "NDX Set default" }));
     expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("nasdaq100")));
   });
 
-  it("applies all six inputs from each multi-era-ranked preset and displays compact real returns", () => {
+  it("applies each index independently from every multi-era-ranked preset and displays compact real returns", () => {
     render(<SignalsPage />);
+    const expected = { ...inputs };
     cagrPresets.presets.forEach((preset, index) => {
-      const button = screen.getByRole("button", { name: preset.isCalibratedDefault ? "Set default" : `Set alternative ${cagrPresets.presets.slice(0, index + 1).filter((row) => !row.isCalibratedDefault).length}` });
-      const row = button.closest("[data-sma-preset]")!;
+      const label = preset.isCalibratedDefault ? "Set default" : `Set alternative ${index}`;
       for (const indexKey of ["sp500", "nasdaq100"] as const) {
+        const button = screen.getByRole("button", { name: `${indexKey === "sp500" ? "SPX" : "NDX"} ${label}` });
+        const row = button.closest("[data-sma-preset]")!;
         const details = row.querySelector(`[data-index-cagrs="${indexKey}"]`)!;
         expect(details).toHaveTextContent(`Real CAGR: ${preset[indexKey].realCagr.toFixed(2)}%`);
         expect(details).not.toHaveTextContent("score");
@@ -69,19 +73,19 @@ describe("Signals page SMA inputs", () => {
         }
         if (indexKey === "nasdaq100") expect(details).not.toHaveTextContent("Proxy");
         else expect(details.textContent!.indexOf("Proxy:")).toBeLessThan(details.textContent!.indexOf("Proto:"));
+        expect(screen.queryByText(/50\/50/)).not.toBeInTheDocument();
+        fireEvent.click(button);
+        const prefix = indexKey === "sp500" ? "smaSp" : "smaNq";
+        expected[`${prefix}Period`] = preset[indexKey].smaPeriod;
+        expected[`${prefix}LowerBuffer`] = preset[indexKey].smaLowerBuffer;
+        expected[`${prefix}UpperBuffer`] = preset[indexKey].smaUpperBuffer;
+        for (const [name, inputPrefix] of [["SPX", "smaSp"], ["NDX", "smaNq"]] as const) {
+          expect(screen.getByLabelText(`${name} SMA Period`)).toHaveValue(String(expected[`${inputPrefix}Period`]));
+          expect(screen.getByLabelText(`${name} SMA Buffer lower`)).toHaveValue(String(expected[`${inputPrefix}LowerBuffer`]));
+          expect(screen.getByLabelText(`${name} SMA Buffer upper`)).toHaveValue(String(expected[`${inputPrefix}UpperBuffer`]));
+        }
+        expect(persist).toHaveBeenLastCalledWith(expect.objectContaining(expected));
       }
-      expect(screen.queryByText(/50\/50/)).not.toBeInTheDocument();
-      fireEvent.click(button);
-      expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(preset.sp500.smaPeriod));
-      expect(screen.getByLabelText("SPX SMA Buffer lower")).toHaveValue(String(preset.sp500.smaLowerBuffer));
-      expect(screen.getByLabelText("SPX SMA Buffer upper")).toHaveValue(String(preset.sp500.smaUpperBuffer));
-      expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(preset.nasdaq100.smaPeriod));
-      expect(screen.getByLabelText("NDX SMA Buffer lower")).toHaveValue(String(preset.nasdaq100.smaLowerBuffer));
-      expect(screen.getByLabelText("NDX SMA Buffer upper")).toHaveValue(String(preset.nasdaq100.smaUpperBuffer));
-      expect(persist).toHaveBeenLastCalledWith(expect.objectContaining({
-        smaSpPeriod: preset.sp500.smaPeriod, smaSpLowerBuffer: preset.sp500.smaLowerBuffer, smaSpUpperBuffer: preset.sp500.smaUpperBuffer,
-        smaNqPeriod: preset.nasdaq100.smaPeriod, smaNqLowerBuffer: preset.nasdaq100.smaLowerBuffer, smaNqUpperBuffer: preset.nasdaq100.smaUpperBuffer,
-      }));
     });
   });
 });

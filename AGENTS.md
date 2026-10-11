@@ -533,6 +533,10 @@ comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
 weakest NDX rule despite its terrible proto era. Preserve the score order through
 selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder
 saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`.
+Signals preset buttons apply only their own index, so SPX and NDX can be mixed
+independently. Keep the compact stats in proxy-before-proto order; scores and
+methodology prose are not displayed. Each button shares its stats row; mobile
+text wraps naturally after the button while desktop keeps one line.
 The search retains distinct trade regimes against the calibrated default and
 centers multi-era score plateaus. The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proto)
 alongside default-window CAGRs; NDX has no proxy era. Each era is independently
