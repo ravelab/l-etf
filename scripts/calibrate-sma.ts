@@ -41,7 +41,6 @@ import { getDefaultWindowLength } from "../src/lib/simulation/defaults";
 import {
   SMA_CALIBRATION_ERAS,
   describeEraWeights,
-  primaryEra,
 } from "../src/lib/simulation/sma-calibration-eras";
 import { buildAxis } from "../src/lib/simulation/grid-axis";
 import {
@@ -81,6 +80,9 @@ import {
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
 import { rankStableSmaCandidates } from "../src/lib/simulation/sma-stability-score";
 import type { IndexKey } from "../src/lib/simulation/types";
+import savedPresets from "../src/lib/tool-snapshots/sma-cagr-presets.json";
+import savedCalibration from "../src/lib/tool-snapshots/sma-calibration.json";
+import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
 
 const PERIOD_BOUNDS = { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD };
 const BUFFER_BOUNDS = { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER };
@@ -169,7 +171,6 @@ async function calibrateIndex(
   windowLength: number,
   searchSpace: SmaSearchSpaceIndexResult | null
 ): Promise<SmaCalibrationIndexResult> {
-  const startDate = primaryEra(indexKey).startDate;
   const eras = await buildSmaEraContexts({
     indexKey,
     endDate,
@@ -192,6 +193,11 @@ async function calibrateIndex(
   if (seeds.length === 0) throw new Error(`[${indexKey}] could not establish any buffer seeds`);
 
   const seededCombos: SmaCombo[] = [];
+  // Preserve finer discoveries made by the manual preset search, including a
+  // stronger stable candidate whose raw score is below the per-period seed.
+  const discoveries = savedPresets as { bestFound?: Partial<Record<IndexKey, SmaCombo>> };
+  seededCombos.push(savedCalibration[indexKey], ...savedPresets.presets.map((preset) => preset[indexKey]));
+  if (discoveries.bestFound?.[indexKey]) seededCombos.push(discoveries.bestFound[indexKey]!);
   for (const smaPeriod of allPeriods()) {
     const seed = seedForPeriod(seeds, smaPeriod);
     if (!seed) continue;
@@ -201,7 +207,9 @@ async function calibrateIndex(
       smaLowerBuffer: seed.smaLowerBuffer,
     });
   }
-  evaluated.push(...evaluateCombosAcrossEras(eras, dedupeCombos(seededCombos, seen)));
+  evaluated.push(...evaluateCombosAcrossEras(eras, dedupeCombos(seededCombos.map((combo) => ({
+    smaPeriod: combo.smaPeriod, smaUpperBuffer: combo.smaUpperBuffer, smaLowerBuffer: combo.smaLowerBuffer,
+  })), seen)));
 
   // Step 2 — open up the best few *separated* periods over a real buffer square.
   const basins = pickTopDistinctPeriods(evaluated, BASIN_COUNT, BASIN_MIN_SEPARATION);
@@ -372,24 +380,7 @@ async function calibrateIndex(
     `  [${indexKey}] neighbourhood: min=${plateau.minScore.toFixed(1)} median=${plateau.medianScore.toFixed(1)} over ${plateau.neighborCount} adjacent combos`
   );
 
-  return {
-    startDate,
-    eraWeights: Object.fromEntries(SMA_CALIBRATION_ERAS[indexKey].map((era) => [era.key, era.weight])),
-    scoresByEra: { ...winner.scoresByEra },
-    smaPeriod: winner.combo.smaPeriod,
-    smaUpperBuffer: winner.combo.smaUpperBuffer,
-    smaLowerBuffer: winner.combo.smaLowerBuffer,
-    score: stableWinner.score,
-    baseScore: winner.score,
-    stabilityPenalty: stableWinner.stabilityPenalty,
-    avgReturn: winner.row.avgReturn,
-    worstReturn: winner.row.worstReturn,
-    avgMaxDrawdown: winner.row.avgMaxDrawdown,
-    avgTrades: winner.row.avgTrades,
-    evaluatedCombos: stable.evaluated.length,
-    neighborhoodMinScore: Number.isFinite(plateau.minScore) ? plateau.minScore : undefined,
-    neighborhoodMedianScore: Number.isFinite(plateau.medianScore) ? plateau.medianScore : undefined,
-  };
+  return buildSmaCalibrationResult(indexKey, winner, stableWinner.score, plateau, stable.evaluated.length);
 }
 
 async function main(): Promise<void> {

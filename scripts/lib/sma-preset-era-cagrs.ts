@@ -55,6 +55,8 @@ export async function withEraCagrs<T extends { sp500: SmaCombo & { finalMultiple
       sp500: { ...preset.sp500, ...await realReturn(preset.sp500.finalMultiple, startDate, endDate),
         realCagrStartDate: startDate, realCagrEndDate: endDate, eraCagrs: sp500 },
       nasdaq100: { ...preset.nasdaq100, ...await realReturn(ndxModern.finalMultiple, ndxModern.startDate, ndxModern.endDate),
+        cagr: ndxModern.cagrPct, finalMultiple: ndxModern.finalMultiple,
+        maxDrawdown: ndxModern.maxDrawdownPct, trades: ndxModern.numTrades,
         realCagrStartDate: ndxModern.startDate, realCagrEndDate: ndxModern.endDate, eraCagrs: nasdaq100,
         switchHistory: { startDate: ndxModern.startDate, endDate: ndxModern.endDate, count: ndxModern.numTrades } } });
   }

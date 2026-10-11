@@ -14,12 +14,12 @@ import { ETF_PRESETS, createPresetEtfConfig } from "../src/lib/simulation/preset
 import { DEFAULT_RISK_OFF_ASSET, getDefaultWindowLength } from "../src/lib/simulation/defaults";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "../src/lib/fetch-market-data";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "../src/lib/mcp/server-data";
-import { comboKey, planBufferNeighborhood, planCombos, planPeriodNeighborhood, type SmaCombo } from "../src/lib/simulation/sma-search";
+import { comboKey, planBufferNeighborhood, planCombos, planPeriodNeighborhood, summarizePlateau, type SmaCombo } from "../src/lib/simulation/sma-search";
 import { SMA_SEARCH_MIN_PERIOD, SMA_SEARCH_MAX_PERIOD, SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER } from "../src/lib/simulation/sma-search-bounds";
 import type { EtfResult, IndexKey } from "../src/lib/simulation/types";
 import seeds from "../src/lib/tool-snapshots/sma-search-space.json";
 import calibration from "../src/lib/tool-snapshots/sma-calibration.json";
-import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE } from "../src/lib/constants";
+import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
 import { findPlateau, PLATEAU_TOLERANCE } from "../src/lib/simulation/plateau";
@@ -27,7 +27,10 @@ import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-s
 import { SMA_CALIBRATION_ERAS } from "../src/lib/simulation/sma-calibration-eras";
 import { type EraEvaluatedCombo } from "./lib/sma-sweep-context";
 import { withEraCagrs } from "./lib/sma-preset-era-cagrs";
-import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapPresetCombo, refinePresetGrid } from "./lib/sma-preset-grid";
+import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapPresetCombo, refinePresetGrid, sweepPresetPeriods, preferStablePresetCenter } from "./lib/sma-preset-grid";
+import { presetScoreCache } from "./lib/sma-preset-cache";
+import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
+import { SMA_CALIBRATION_SNAPSHOT_PATH, type SmaCalibrationIndexResult } from "../src/lib/sma-calibration";
 import currentPresets from "../src/lib/tool-snapshots/sma-cagr-presets.json";
 
 interface Candidate extends SmaCombo {
@@ -93,17 +96,22 @@ async function main(): Promise<void> {
   const selected = {} as Record<IndexKey, Candidate[]>;
   const evaluated = {} as Record<IndexKey, number>;
   const candidatesTested = {} as Record<IndexKey, number>;
+  const bestFound = {} as Record<IndexKey, SmaCombo & { score: number }>;
+  const calibratedDefaults = {} as Record<IndexKey, SmaCalibrationIndexResult>;
   const workers = Array.from({ length: Math.min(4, Math.max(1, availableParallelism() - 1)) }, () =>
     fork(fileURLToPath(new URL("./lib/sma-preset-scoring-worker.ts", import.meta.url)), [],
       { execArgv: ["--import", "tsx"], stdio: ["ignore", "ignore", "inherit", "ipc"] }));
   try {
     for (const index of ["sp500", "nasdaq100"] as const) {
-      const cache = new Map<string, EraEvaluatedCombo>();
+      const modernStartDate = index === "sp500" ? startDate : CONSTANT_NASDAQ100_SHORTCUT_DATE;
+      const { cache, save } = presetScoreCache(index, endDate);
+      console.log(`[${index}] resuming ${cache.size} cached evaluations`);
       const evaluate = async (combos: SmaCombo[], stage: string) => {
         const pending = [...new Map(combos.filter((combo) => !cache.has(comboKey(combo))).map((combo) => [comboKey(combo), combo])).values()];
         let next = 0;
         let completed = 0;
         let lastLog = 0;
+        let lastSave = Date.now();
         console.log(`[${index} ${stage}] ${pending.length} multi-era evaluations`);
         await Promise.all(workers.map(async (child) => {
           while (next < pending.length) {
@@ -114,37 +122,46 @@ async function main(): Promise<void> {
             if (Date.now() - lastLog > 15000 || completed === pending.length) {
               console.log(`[${index} ${stage}] ${completed}/${pending.length}`); lastLog = Date.now();
             }
+            if (Date.now() - lastSave > 60000) { save(); lastSave = Date.now(); }
           }
         }));
+        if (pending.length) save();
         return combos.map((combo) => {
           const row = cache.get(comboKey(combo));
           if (!row) throw new Error(`Missing multi-era result ${comboKey(combo)}`);
           return row;
         });
       };
-      const seedCombos = [...new Map([...seeds[index].periodSeeds.filter((combo) => combo.smaPeriod % PRESET_PERIOD_STEP === 0),
+      const knownCombos = [...currentPresets.presets.map((preset) => preset[index]), calibration[index]].map(snapPresetCombo);
+      const seedCombos = [...new Map([...seeds[index].periodSeeds,
+        ...sweepPresetPeriods(knownCombos),
         ...currentPresets.presets.filter((preset) => !preset.isCalibratedDefault).map((preset) => preset[index])]
         .map(snapPresetCombo).concat(calibration[index]).map((combo) => [comboKey(combo), {
           smaPeriod: combo.smaPeriod, smaUpperBuffer: combo.smaUpperBuffer, smaLowerBuffer: combo.smaLowerBuffer,
         }])).values()];
-      const warmStart = getMarketDataWarmUpStartDate(startDate, SMA_SEARCH_MAX_PERIOD);
+      const warmStart = getMarketDataWarmUpStartDate(modernStartDate, SMA_SEARCH_MAX_PERIOD);
       const [prices, rates, raw] = await Promise.all([
         loadIndexPrices(index, warmStart, endDate), loadBorrowRates(warmStart, endDate),
         loadRiskOffRawSeries(DEFAULT_RISK_OFF_ASSET, warmStart, endDate),
       ]);
       const riskOff = alignRiskOffPriceSeries(prices, raw);
       const preset = ETF_PRESETS[index === "sp500" ? "UPRO" : "TQQQ"];
+      const summaries = new Map<string, Candidate>();
       const summarize = (row: EraEvaluatedCombo, score: number): Candidate => {
+        const cached = summaries.get(comboKey(row.combo));
+        if (cached?.score === score) return cached;
         const config = createPresetEtfConfig(comboKey(row.combo), preset, { ...row.combo,
           riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: "next-day-open" });
-        const result = simulateWithWarmUp(prices, rates, [config], startDate, row.combo.smaPeriod, {
+        const result = simulateWithWarmUp(prices, rates, [config], modernStartDate, row.combo.smaPeriod, {
           riskOffValuesByAsset: riskOff.closeValuesByAsset, riskOffOpenValuesByAsset: riskOff.openValuesByAsset, endDate,
         });
         const etf = findEtfResult(result, `${comboKey(row.combo)}-sma`);
         if (!etf) throw new Error(`Missing backtest ${comboKey(row.combo)}`);
-        return { ...row.combo, cagr: etf.cagr, finalMultiple: etf.finalValue / CONSTANT_INITIAL_INVESTMENT,
+        const candidate = { ...row.combo, cagr: etf.cagr, finalMultiple: etf.finalValue / CONSTANT_INITIAL_INVESTMENT,
           maxDrawdown: etf.maxDrawdownPct, trades: etf.smaSignals.length, riskOn: riskOnBits(etf), days: etf.dates.length,
           score, baseScore: row.score, stabilityPenalty: row.score - score, scoresByEra: row.scoresByEra };
+        summaries.set(comboKey(row.combo), candidate);
+        return candidate;
       };
       const stability = async (rows: EraEvaluatedCombo[], stage: string): Promise<Candidate[]> => {
         const neighborhoods = rows.map((row) => planCombos(planPeriodNeighborhood(row.combo.smaPeriod, 1, {
@@ -160,11 +177,15 @@ async function main(): Promise<void> {
           return summarize(row, stabilityAdjustedSmaScore(row.score, worst));
         });
       };
-      let candidates = await stability(await evaluate(seedCombos, "seeds"), "seed stability");
+      let candidates = await stability(await evaluate(knownCombos, "saved presets"), "saved stability");
+      const initialFloor = Math.min(...candidates.map((candidate) => candidate.score));
+      const seedRows = await evaluate(seedCombos, "every period");
+      candidates = [...new Map([...candidates, ...await stability(seedRows.filter((row) => row.score >= initialFloor), "seed stability")]
+        .map((row) => [comboKey(row), row])).values()];
       for (const [stage, step, halfWidth] of [["buffer refinement", 0.2, PRESET_BUFFER_HALF_WIDTH],
         ["fine buffers", PRESET_BUFFER_STEP, 0.4]] as const) {
         // Search separated basins jointly over period +/-5 and both buffers.
-        const basins = pickDistinct(candidates, 9).filter((row) => comboKey(row) !== comboKey(calibration[index]));
+        const basins = pickDistinct(candidates, 9);
         const points = basins.flatMap((basin) => refinePresetGrid(basin, step, halfWidth));
         const rows = await evaluate(points, stage);
         const defaultRule = candidates.find((row) => comboKey(row) === comboKey(calibration[index]))!;
@@ -180,15 +201,65 @@ async function main(): Promise<void> {
           .map((row) => [comboKey(row.combo), row])).values()], `${stage} stability`);
         candidates = [...new Map([...candidates, ...refined].map((row) => [comboKey(row), row])).values()];
       }
-      const defaultCandidate = candidates.find((row) => comboKey(row) === comboKey(calibration[index]))!;
+      const harvestFineCandidates = (floor: number) => {
+        const found: Candidate[] = [];
+        for (const row of cache.values()) {
+          if (row.score < floor || summaries.has(comboKey(row.combo))) continue;
+          const local = planCombos(
+            planPeriodNeighborhood(row.combo.smaPeriod, 1, { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD }),
+            planBufferNeighborhood(row.combo.smaUpperBuffer, row.combo.smaLowerBuffer, 0.1, 0.1,
+              { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER }), new Set<string>())
+            .map((combo) => cache.get(comboKey(combo)));
+          if (local.some((neighbor) => !neighbor)) continue;
+          const stable = stabilityAdjustedSmaScore(row.score, Math.min(...local.map((neighbor) => neighbor!.score)));
+          if (stable >= floor) found.push(summarize(row, stable));
+        }
+        return found;
+      };
+      candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 6).map((candidate) => candidate.score))));
+      // Keep walking joint one-day/0.1% neighborhoods until every leading basin
+      // stops improving. A single fixed refinement box can end at its boundary.
+      let converged = false;
+      for (let round = 0; round < 50; round++) {
+        const leaders = pickDistinct(candidates, 9);
+        const signature = leaders.map(comboKey).join(";");
+        const rows = await evaluate([...sweepPresetPeriods(leaders), ...leaders.flatMap((leader) => planCombos(
+          planPeriodNeighborhood(leader.smaPeriod, 1, { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD }),
+          planBufferNeighborhood(leader.smaUpperBuffer, leader.smaLowerBuffer, 0.1, 0.1,
+            { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER }), new Set<string>()))], `joint polish ${round}`);
+        const refined = await stability(rows.filter((row) => row.score >= Math.min(...leaders.map((leader) => leader.score))), `polish stability ${round}`);
+        candidates = [...new Map([...candidates, ...refined].map((row) => [comboKey(row), row])).values()];
+        candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 6).map((candidate) => candidate.score))));
+        if (pickDistinct(candidates, 9).map(comboKey).join(";") === signature) { converged = true; break; }
+      }
+      if (!converged) throw new Error(`${index} joint refinement did not converge`);
+      const best = [...candidates].sort((a, b) => b.score - a.score)[0];
+      bestFound[index] = { smaPeriod: best.smaPeriod, smaUpperBuffer: best.smaUpperBuffer, smaLowerBuffer: best.smaLowerBuffer, score: best.score };
+      const savedDefault = candidates.find((row) => comboKey(row) === comboKey(calibration[index]))!;
+      const bestPlateau = findPlateau(candidates.map((item) => ({ item,
+        coords: [item.smaPeriod, item.smaUpperBuffer, item.smaLowerBuffer], score: item.score })),
+      { tolerance: PLATEAU_TOLERANCE, steps: [PRESET_PERIOD_STEP, PRESET_BUFFER_STEP, PRESET_BUFFER_STEP] });
+      const bestCentered = bestPlateau ? preferStablePresetCenter(best, bestPlateau.center.item) : best;
+      const defaultCandidate = savedDefault.score >= best.score - 1e-8 ? savedDefault : bestCentered;
+      const defaultRow = cache.get(comboKey(defaultCandidate))!;
+      const defaultNeighbors = planCombos(
+        planPeriodNeighborhood(defaultCandidate.smaPeriod, 1, { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD }),
+        planBufferNeighborhood(defaultCandidate.smaUpperBuffer, defaultCandidate.smaLowerBuffer, 0.1, 0.1,
+          { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER }), new Set<string>())
+        .map((combo) => cache.get(comboKey(combo))!);
+      calibratedDefaults[index] = buildSmaCalibrationResult(index, defaultRow, defaultCandidate.score,
+        summarizePlateau(defaultRow.combo, defaultNeighbors, 1, 0.1), cache.size);
       const leaders = [defaultCandidate];
       const ranked = [...candidates].sort((a, b) => b.score - a.score || b.cagr - a.cagr);
       for (const candidate of ranked) {
+        if (!leaders.every((previous) => separated(candidate, previous))) continue;
         const plateau = findPlateau(candidates.filter((row) => row.score <= candidate.score + 1e-8).map((row) => ({
           item: row, coords: [row.smaPeriod, row.smaUpperBuffer, row.smaLowerBuffer], score: row.score,
         })), { tolerance: PLATEAU_TOLERANCE, steps: [PRESET_PERIOD_STEP, PRESET_BUFFER_STEP, PRESET_BUFFER_STEP] });
-        const center = plateau?.peak.item === candidate ? plateau.center.item : candidate;
-        if (leaders.every((previous) => separated(center, previous))) leaders.push(center);
+        // Stability is already priced into score. Center exact ties, but never
+        // replace a higher stable score with a weaker point on a broad plateau.
+        const center = plateau?.peak.item === candidate ? preferStablePresetCenter(candidate, plateau.center.item) : candidate;
+        leaders.push(leaders.every((previous) => separated(center, previous)) ? center : candidate);
         if (leaders.length === 6) break;
       }
       if (leaders.length !== 6) throw new Error(`Only ${leaders.length} distinct ${index} rules`);
@@ -216,8 +287,10 @@ async function main(): Promise<void> {
       Object.fromEntries(SMA_CALIBRATION_ERAS[index].map((era) => [era.key, era.weight]))])),
     distinctness: "At least 5% different risk-on days AND at least 20 days or 3 percentage points of parameter separation",
     minRegimeDifferencePct: { sp500: minRegimeDifferencePct("sp500"), nasdaq100: minRegimeDifferencePct("nasdaq100") },
-    evaluated, candidatesTested, presets: await withEraCagrs(presets, startDate, endDate) };
+    evaluated, candidatesTested, bestFound, presets: await withEraCagrs(presets, startDate, endDate) };
   if (process.argv.includes("--write-presets")) {
+    writeFileSync(SMA_CALIBRATION_SNAPSHOT_PATH, JSON.stringify({ generatedAt: payload.generatedAt,
+      endDate, windowLength: getDefaultWindowLength(), ...calibratedDefaults }, null, 2) + "\n");
     const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
     writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
     console.log(`Wrote ${path}`);

@@ -522,7 +522,7 @@ push alerts only. `SmaPushAlertsCard` applies the calibration snapshot when it
 builds an alert subscription; loading that preference or the snapshot must not
 replace the page's shared SMA inputs. "Set default" explicitly applies the
 latest scored calibration. Five Signals alternatives are selected from the
-multi-era per-period search seeds, refined jointly over five-day periods and
+multi-era per-period search seeds, refined jointly over one-day periods and
 0.1 percentage-point buffer steps, with the same raw era weights and complete
 ±1-day/±0.1% stability neighborhoods as calibration. Keep pre-1988 SPX and
 pre-1985 NDX in selection: a modern-only CAGR winner can fail those eras badly.
@@ -533,6 +533,18 @@ comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
 weakest NDX rule despite its terrible proto era. Preserve the score order through
 selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder
 saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`.
+The manual search must visit all 261 integer periods (20–280), both at their
+per-period seeds and at each saved fine buffer pair: restricting to five-day
+periods missed NDX 177/−12.1%/+7.8%, which beats the saved 150-day rule on the
+stable score. Refine separated basins over ±5 days and both buffers, then walk
+joint one-day/0.1% neighborhoods and rescan each leading buffer pair at every
+integer period until leaders stop improving. Reuse temporary
+score checkpoints only for matching scoring code/data. `bestFound` records feed
+the monthly calibrator alongside prior defaults/alternatives so discoveries
+are rescored and shared defaults cannot silently revert to a narrower search.
+The manual search promotes its strongest stable discovery into the same
+`sma-calibration.json` used by defaults/alerts, retaining the prior band on score
+ties. Both search scripts publish through `scripts/lib/sma-calibration-result.ts`.
 Signals preset buttons apply only their own index, so SPX and NDX can be mixed
 independently. Keep the compact stats in proxy-before-proto order; scores and
 methodology prose are not displayed. Each button shares its stats row; mobile
@@ -541,12 +553,15 @@ Desktop pairs each rank in two columns matching the controls: SPX left, NDX righ
 Displayed NDX real CAGR and switches use a separate 1985-01-31 launch backtest,
 so the modern period begins exactly where proto ends. Store real-return dates
 explicitly as `realCagrStartDate`/`realCagrEndDate` and count dates as `switchHistory`.
-The internal nominal `cagr`/`finalMultiple`/`trades` fields preserve the 1988
-search-window engine parity. SPX displayed real CAGR and switches start in 1988.
+The nominal `cagr`/`finalMultiple`/`trades` fields and distinct-regime comparison
+use that same per-index start: 1988 for SPX, 1985 for NDX. Verify the entire
+displayed range against the engine, never mix modern metrics from different starts.
 Count only SMA switches, excluding initial establishment and terminal liquidation.
 The NDX default has six switches since launch, five since 1988.
 The search retains distinct trade regimes against the calibrated default and
-centers multi-era score plateaus. The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proto)
+centers tied stable-score plateaus. After stability scoring, a plateau center
+must not displace a higher stable score (the monthly calibrator follows this
+same ordering). The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proto)
 alongside default-window CAGRs; NDX has no proxy era. Each era is independently
 backtested with warm-up and the default risk-off basket, without history wrap.
 Real CAGR deflates the ending multiple by `cpiIndexRatioEndOverStart` before

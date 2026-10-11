@@ -1,4 +1,4 @@
-import { refinePresetGrid, snapPresetCombo } from "../scripts/lib/sma-preset-grid";
+import { refinePresetGrid, snapPresetCombo, sweepPresetPeriods, preferStablePresetCenter } from "../scripts/lib/sma-preset-grid";
 import test from "node:test";
 import assert from "node:assert/strict";
 import snapshot from "../src/lib/tool-snapshots/sma-cagr-presets.json";
@@ -36,10 +36,18 @@ test("preset ranking pairs each index by multi-era score even when the weakest r
   ]);
 });
 
+test("plateau centering cannot erase a measured stable-score improvement", () => {
+  const better = { smaPeriod: 177, score: 11221.071866983846 };
+  const weaker = { smaPeriod: 150, score: 11149.212749449616 };
+  assert.equal(preferStablePresetCenter(better, weaker), better);
+  const tiedCenter = { smaPeriod: 176, score: better.score };
+  assert.equal(preferStablePresetCenter(better, tiedCenter), tiedCenter);
+});
+
 test("CAGR presets retain their actual engine returns, rank and distinct trade regimes", async () => {
   assert.equal(snapshot.presets.length, 6);
   assert.equal(snapshot.grid.bufferStep, 0.1);
-  assert.equal(snapshot.grid.periodStep, 5);
+  assert.equal(snapshot.grid.periodStep, 1);
   assert.equal(snapshot.riskOffAsset, DEFAULT_RISK_OFF_ASSET);
   assert.equal(snapshot.executionMode, DEFAULT_SMA_EXECUTION_MODE);
   assert.equal(snapshot.ranking, SMA_PRESET_RANKING);
@@ -52,7 +60,8 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
       assert.ok(snapshot.presets[i - 1][index].score >= preset[index].score);
   }
   for (const index of ["sp500", "nasdaq100"] as const) {
-    const dates = (await loadIndexPrices(index, snapshot.startDate, snapshot.endDate)).map((row) => row.date);
+    const modernStartDate = index === "sp500" ? snapshot.startDate : CONSTANT_NASDAQ100_SHORTCUT_DATE;
+    const dates = (await loadIndexPrices(index, modernStartDate, snapshot.endDate)).map((row) => row.date);
     const regimes: boolean[][] = [];
     for (const preset of snapshot.presets) {
       const expected = preset[index];
@@ -63,11 +72,11 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
       }
       const result: FormattedBacktest = await runBacktestCore({
         preset: index === "sp500" ? "UPRO" : "TQQQ",
-        startDate: snapshot.startDate, endDate: snapshot.endDate, smaEnabled: true,
+        startDate: modernStartDate, endDate: snapshot.endDate, smaEnabled: true,
         smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
         riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
       });
-      assert.equal(result.startDate, snapshot.startDate);
+      assert.equal(result.startDate, modernStartDate);
       assert.equal(result.endDate, snapshot.endDate);
       assert.ok(Math.abs(result.cagrPct - expected.cagr) < 1e-9, `${index} CAGR no longer matches the engine — regenerate presets`);
       assert.ok(Math.abs(result.finalMultiple / expected.finalMultiple - 1) < 1e-10);
@@ -76,19 +85,15 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
       let displayedResult = result;
       if (index === "nasdaq100") {
         const history = preset.nasdaq100.switchHistory;
-        const launchResult = await runBacktestCore({
-          preset: "TQQQ", startDate: CONSTANT_NASDAQ100_SHORTCUT_DATE, endDate: snapshot.endDate, smaEnabled: true,
-          smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
-          riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
-        });
+        const launchResult = result;
         assert.equal(history.startDate, CONSTANT_NASDAQ100_SHORTCUT_DATE);
         assert.equal(history.endDate, launchResult.endDate);
         assert.equal(history.count, launchResult.numTrades);
         displayedResult = launchResult;
         assert.equal(expected.realCagrStartDate, expected.eraCagrs.proto.endDate);
-        if (preset.isCalibratedDefault) {
+        if (expected.smaPeriod === 125 && expected.smaLowerBuffer === 17.9 && expected.smaUpperBuffer === 19.4) {
           assert.equal(history.count, 6);
-          assert.equal(result.numTrades, 5);
+          assert.equal(result.numTrades, 6);
           assert.equal(launchResult.trades[0].date, "1987-10-19");
         }
       }
@@ -146,6 +151,8 @@ test("preset selection retains early-era weights, stability penalties and the ca
     assert.deepEqual(snapshot.eraWeights[index], Object.fromEntries(SMA_CALIBRATION_ERAS[index].map((era) => [era.key, era.weight])));
     const expectedDefault = calibration[index];
     const actualDefault = defaults[0][index];
+    assert.ok(actualDefault.score >= snapshot.bestFound[index].score - 1e-8,
+      `${index} calibrated default must include the manual search's strongest discovery`);
     for (const field of ["smaPeriod", "smaUpperBuffer", "smaLowerBuffer"] as const) assert.equal(actualDefault[field], expectedDefault[field]);
     const contexts = await buildSmaEraContexts({ indexKey: index, endDate: snapshot.endDate,
       windowLength: snapshot.windowLength, maxPeriod: SMA_SEARCH_MAX_PERIOD });
@@ -181,19 +188,23 @@ test("preset selection retains early-era weights, stability penalties and the ca
 });
 
 
-test("buffer refinement crosses fractional thresholds with five-day periods and respects search bounds", () => {
+test("joint refinement covers every integer period and fractional buffers within search bounds", () => {
   const center = snapPresetCombo({ smaPeriod: 32, smaUpperBuffer: 8, smaLowerBuffer: 6.2 });
-  assert.equal(center.smaPeriod, 30);
+  assert.equal(center.smaPeriod, 32);
   const points = refinePresetGrid(center);
   const keys = new Set(points.map(comboKey));
-  for (const smaPeriod of [25, 30, 35]) {
+  for (const smaPeriod of Array.from({ length: 11 }, (_, i) => i + 27)) {
     assert.ok(keys.has(comboKey({ smaPeriod, smaUpperBuffer: 7.9, smaLowerBuffer: 6.3 })));
     assert.ok(keys.has(comboKey({ smaPeriod, smaUpperBuffer: 8.1, smaLowerBuffer: 6.1 })));
   }
-  assert.equal(points.length, 3 * 9 * 9);
+  assert.equal(points.length, 11 * 9 * 9);
+  const allPeriods = sweepPresetPeriods([{ smaPeriod: 150, smaUpperBuffer: 7.8, smaLowerBuffer: 12.1 }]);
+  assert.equal(allPeriods.length, 261);
+  assert.deepEqual(allPeriods.map((combo) => combo.smaPeriod), Array.from({ length: 261 }, (_, i) => i + 20));
+  assert.ok(allPeriods.some((combo) => combo.smaPeriod === 177 && combo.smaUpperBuffer === 7.8 && combo.smaLowerBuffer === 12.1));
   for (const combo of refinePresetGrid({ smaPeriod: 20, smaUpperBuffer: 0.1, smaLowerBuffer: 20.9 })) {
     assert.ok(combo.smaPeriod >= 20 && combo.smaPeriod <= 280);
-    assert.equal(combo.smaPeriod % 5, 0);
+    assert.equal(Number.isInteger(combo.smaPeriod), true);
     for (const buffer of [combo.smaUpperBuffer, combo.smaLowerBuffer]) {
       assert.ok(buffer >= 0 && buffer <= 21);
       assert.ok(Math.abs(buffer * 10 - Math.round(buffer * 10)) < 1e-9);
