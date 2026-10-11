@@ -55,17 +55,17 @@ describe("Signals page SMA inputs", () => {
     expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("nasdaq100")));
   });
 
-  it("applies all six inputs from each multi-era-ranked preset and displays its score and real returns", () => {
+  it("applies all six inputs from each multi-era-ranked preset and displays compact real returns", () => {
     render(<SignalsPage />);
     cagrPresets.presets.forEach((preset, index) => {
       const button = screen.getByRole("button", { name: preset.isCalibratedDefault ? "Set default" : `Set alternative ${cagrPresets.presets.slice(0, index + 1).filter((row) => !row.isCalibratedDefault).length}` });
       const row = button.closest("[data-sma-preset]")!;
       for (const indexKey of ["sp500", "nasdaq100"] as const) {
         const details = row.querySelector(`[data-index-cagrs="${indexKey}"]`)!;
-        expect(details).toHaveTextContent(`Multi-era score: ${preset[indexKey].score.toFixed(1)}`);
-        expect(details).toHaveTextContent(`Modern: ${preset[indexKey].realCagr.toFixed(2)}% real CAGR`);
+        expect(details).toHaveTextContent(`Real CAGR: ${preset[indexKey].realCagr.toFixed(2)}%`);
+        expect(details).not.toHaveTextContent("score");
         for (const [eraKey, era] of Object.entries(preset[indexKey].eraCagrs)) {
-          expect(details).toHaveTextContent(`${eraKey === "proto" ? "Proto" : "Proxy"} (${era.startDate.slice(0, 4)}–${era.endDate.slice(0, 4)}): ${era.realCagr.toFixed(2)}% real CAGR`);
+          expect(details).toHaveTextContent(`${eraKey === "proto" ? "Proto" : "Proxy"}: ${era.realCagr.toFixed(2)}%`);
         }
         if (indexKey === "nasdaq100") expect(details).not.toHaveTextContent("Proxy");
       }
