@@ -19,6 +19,27 @@ import type { FormattedBacktest } from "../src/lib/mcp/format";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
 import { CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 
+test("evidence preference keeps NDX 183 narrowly ahead of the previous default and 148 after stability scoring", async () => {
+  const eras = await buildSmaEraContexts({ indexKey: "nasdaq100", endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+  const rules = [
+    { smaPeriod: 183, smaLowerBuffer: 18.1, smaUpperBuffer: 7 },
+    { smaPeriod: 125, smaLowerBuffer: 17.9, smaUpperBuffer: 19.4 },
+    { smaPeriod: 148, smaLowerBuffer: 12.1, smaUpperBuffer: 7.9 },
+  ];
+  const scores = rules.map((rule) => {
+    const points = planCombos(planPeriodNeighborhood(rule.smaPeriod, 1, { minPeriod: 20, maxPeriod: 280 }),
+      planBufferNeighborhood(rule.smaUpperBuffer, rule.smaLowerBuffer, 0.1, 0.1, { minBuffer: 0, maxBuffer: 21 }), new Set<string>());
+    const rows = evaluateCombosAcrossEras(eras, points);
+    assert.equal(rows.length, points.length, "every stability neighbor must be scored");
+    const center = rows.find((row) => comboKey(row.combo) === comboKey(rule))!;
+    return stabilityAdjustedSmaScore(center.score, Math.min(...rows.map((row) => row.score)));
+  });
+  for (const competitor of scores.slice(1)) {
+    assert.ok(scores[0] > competitor);
+    assert.ok((scores[0] - competitor) / competitor < 0.02);
+  }
+});
+
 test("preset ranking pairs each index by multi-era score even when the weakest rule has higher CAGR", () => {
   const calibrated = { isCalibratedDefault: true, sp500: { score: 100, cagr: 10 }, nasdaq100: { score: 100, cagr: 10 } };
   const strongSp = { score: 80, cagr: 15 };

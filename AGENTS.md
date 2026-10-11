@@ -433,13 +433,20 @@ Sharp edges:
 ## SMA calibration: why it is two scripts
 
 `src/lib/simulation/score.ts` prefers 0.5 risk-on/off switches per year
-(each exit or re-entry is one switch). The extra penalty below 0.25/year limits
+(each exit or re-entry is one switch). The extra penalty below 0.35/year limits
 return advantages supported by very few decisions while preserving current SPX
 rankings. It is a scoring preference, not statistical confidence: overlapping
 rolling windows do not create independent trades. Its two-sided frequency penalty is lowest
 at 0.5/year and modest at 1/year; do not restore a flat 0.5–1 band or the old
 penalty that only discouraged churn.
+The evidence surcharge is `min(3500, 14000 * max(0, 1 - switchesPerYear / 0.35)^2)`;
+the original sparse penalty continues increasing after this surcharge saturates.
+It leaves scores above 0.35/year intact and keeps NDX 183/−18.1%/+7%
+narrowly ahead of both 125/−17.9%/+19.4% and 148/−12.1%/+7.9%
+under the weighted stable objective.
 Changing its strength or target requires regenerating search seeds and calibration.
+Before manual recalibration/search, refresh market data with `npm run fetch-data`
+and use the latest complete shared trading day rather than a stale snapshot end.
 
 The shipped SMA band (`src/lib/tool-snapshots/sma-calibration.json`, applied by
 the Signals page and the push-alert cron) comes from a JOINT search over
@@ -557,7 +564,8 @@ The nominal `cagr`/`finalMultiple`/`trades` fields and distinct-regime compariso
 use that same per-index start: 1988 for SPX, 1985 for NDX. Verify the entire
 displayed range against the engine, never mix modern metrics from different starts.
 Count only SMA switches, excluding initial establishment and terminal liquidation.
-The NDX default has six switches since launch, five since 1988.
+NDX 125/−17.9%/+19.4% has six switches since launch through 2026-10-09,
+five since 1988; do not attach that count to a different calibrated default.
 The search retains distinct trade regimes against the calibrated default and
 centers tied stable-score plateaus. After stability scoring, a plateau center
 must not displace a higher stable score (the monthly calibrator follows this
