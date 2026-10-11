@@ -17,6 +17,7 @@ import { DEFAULT_RISK_OFF_ASSET } from "../src/lib/simulation/defaults";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../src/lib/input-normalization";
 import type { FormattedBacktest } from "../src/lib/mcp/format";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
+import { CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 
 test("preset ranking pairs each index by multi-era score even when the weakest rule has higher CAGR", () => {
   const calibrated = { isCalibratedDefault: true, sp500: { score: 100, cagr: 10 }, nasdaq100: { score: 100, cagr: 10 } };
@@ -72,10 +73,31 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
       assert.ok(Math.abs(result.finalMultiple / expected.finalMultiple - 1) < 1e-10);
       assert.ok(Math.abs(result.maxDrawdownPct - expected.maxDrawdown) < 1e-9);
       assert.equal(result.numTrades, expected.trades);
-      const modernCpi = await fetchInflationData(result.startDate, result.endDate);
-      const modernRatio = cpiIndexRatioEndOverStart(modernCpi.monthlyCpi, result.startDate, result.endDate);
+      let displayedResult = result;
+      if (index === "nasdaq100") {
+        const history = preset.nasdaq100.switchHistory;
+        const launchResult = await runBacktestCore({
+          preset: "TQQQ", startDate: CONSTANT_NASDAQ100_SHORTCUT_DATE, endDate: snapshot.endDate, smaEnabled: true,
+          smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
+          riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
+        });
+        assert.equal(history.startDate, CONSTANT_NASDAQ100_SHORTCUT_DATE);
+        assert.equal(history.endDate, launchResult.endDate);
+        assert.equal(history.count, launchResult.numTrades);
+        displayedResult = launchResult;
+        assert.equal(expected.realCagrStartDate, expected.eraCagrs.proto.endDate);
+        if (preset.isCalibratedDefault) {
+          assert.equal(history.count, 6);
+          assert.equal(result.numTrades, 5);
+          assert.equal(launchResult.trades[0].date, "1987-10-19");
+        }
+      }
+      assert.equal(expected.realCagrStartDate, displayedResult.startDate);
+      assert.equal(expected.realCagrEndDate, displayedResult.endDate);
+      const modernCpi = await fetchInflationData(displayedResult.startDate, displayedResult.endDate);
+      const modernRatio = cpiIndexRatioEndOverStart(modernCpi.monthlyCpi, displayedResult.startDate, displayedResult.endDate);
       assert.equal(expected.inflation.ratio, modernRatio);
-      assert.ok(Math.abs(expected.realCagr - calcCagr(1, result.finalMultiple / modernRatio, result.startDate, result.endDate)) < 1e-9);
+      assert.ok(Math.abs(expected.realCagr - calcCagr(1, displayedResult.finalMultiple / modernRatio, displayedResult.startDate, displayedResult.endDate)) < 1e-9);
       const historicalEras = SMA_CALIBRATION_ERAS[index].filter((era) => era.key !== "start");
       assert.deepEqual(Object.keys(expected.eraCagrs), historicalEras.map((era) => era.key));
       for (const era of historicalEras) {

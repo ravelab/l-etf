@@ -68,6 +68,7 @@ describe("Signals page SMA inputs", () => {
         const details = row.querySelector(`[data-index-cagrs="${indexKey}"]`)!;
         expect(details).toHaveTextContent(`Real CAGR: ${preset[indexKey].realCagr.toFixed(2)}%`);
         expect(details).not.toHaveTextContent("score");
+        expect(details).toHaveTextContent(`${indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.count : preset.sp500.trades} switches`);
         for (const [eraKey, era] of Object.entries(preset[indexKey].eraCagrs)) {
           expect(details).toHaveTextContent(`${eraKey === "proto" ? "Proto" : "Proxy"}: ${era.realCagr.toFixed(2)}%`);
         }

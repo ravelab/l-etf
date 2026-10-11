@@ -228,13 +228,15 @@ export default function SignalsPage() {
                             <span className="font-medium text-foreground">
                               {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
                             </span>
-                            <span> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
+                            <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
                             {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
                               <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>
                                 {" · "}{eraKey === "proto" ? "Proto" : "Proxy"}: {era.realCagr.toFixed(2)}%
                               </span>
                             ))}
-                            <span> · {rule.trades} switches</span>
+                            <span title={`${indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.startDate : cagrPresets.startDate}–${cagrPresets.endDate}`}>
+                              {" · "}{indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.count : rule.trades} switches
+                            </span>
                           </span>
                         </div>
                       );

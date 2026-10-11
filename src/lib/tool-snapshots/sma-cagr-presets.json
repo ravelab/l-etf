@@ -84,7 +84,9 @@
           "startDate": "1988-04-01",
           "endDate": "2026-08-01",
           "ratio": 2.8509470989761088
-        }
+        },
+        "realCagrStartDate": "1988-04-06",
+        "realCagrEndDate": "2026-10-02"
       },
       "nasdaq100": {
         "smaPeriod": 125,
@@ -114,12 +116,19 @@
             }
           }
         },
-        "realCagr": 31.331985025118403,
+        "realCagr": 28.076498664975837,
         "inflation": {
-          "startDate": "1988-04-01",
+          "startDate": "1985-01-01",
           "endDate": "2026-08-01",
-          "ratio": 2.8509470989761088
-        }
+          "ratio": 3.161125827814569
+        },
+        "switchHistory": {
+          "startDate": "1985-01-31",
+          "endDate": "2026-10-02",
+          "count": 6
+        },
+        "realCagrStartDate": "1985-01-31",
+        "realCagrEndDate": "2026-10-02"
       }
     },
     {
@@ -169,7 +178,9 @@
           "startDate": "1988-04-01",
           "endDate": "2026-08-01",
           "ratio": 2.8509470989761088
-        }
+        },
+        "realCagrStartDate": "1988-04-06",
+        "realCagrEndDate": "2026-10-02"
       },
       "nasdaq100": {
         "smaPeriod": 180,
@@ -199,12 +210,19 @@
             }
           }
         },
-        "realCagr": 28.269210111684906,
+        "realCagr": 25.315025314945537,
         "inflation": {
-          "startDate": "1988-04-01",
+          "startDate": "1985-01-01",
           "endDate": "2026-08-01",
-          "ratio": 2.8509470989761088
-        }
+          "ratio": 3.161125827814569
+        },
+        "switchHistory": {
+          "startDate": "1985-01-31",
+          "endDate": "2026-10-02",
+          "count": 10
+        },
+        "realCagrStartDate": "1985-01-31",
+        "realCagrEndDate": "2026-10-02"
       }
     },
     {
@@ -254,7 +272,9 @@
           "startDate": "1988-04-01",
           "endDate": "2026-08-01",
           "ratio": 2.8509470989761088
-        }
+        },
+        "realCagrStartDate": "1988-04-06",
+        "realCagrEndDate": "2026-10-02"
       },
       "nasdaq100": {
         "smaPeriod": 150,
@@ -284,12 +304,19 @@
             }
           }
         },
-        "realCagr": 26.417039605060786,
+        "realCagr": 23.513049172611964,
         "inflation": {
-          "startDate": "1988-04-01",
+          "startDate": "1985-01-01",
           "endDate": "2026-08-01",
-          "ratio": 2.8509470989761088
-        }
+          "ratio": 3.161125827814569
+        },
+        "switchHistory": {
+          "startDate": "1985-01-31",
+          "endDate": "2026-10-02",
+          "count": 16
+        },
+        "realCagrStartDate": "1985-01-31",
+        "realCagrEndDate": "2026-10-02"
       }
     },
     {
@@ -339,7 +366,9 @@
           "startDate": "1988-04-01",
           "endDate": "2026-08-01",
           "ratio": 2.8509470989761088
-        }
+        },
+        "realCagrStartDate": "1988-04-06",
+        "realCagrEndDate": "2026-10-02"
       },
       "nasdaq100": {
         "smaPeriod": 115,
@@ -369,12 +398,19 @@
             }
           }
         },
-        "realCagr": 23.536110003944867,
+        "realCagr": 23.27037623865358,
         "inflation": {
-          "startDate": "1988-04-01",
+          "startDate": "1985-01-01",
           "endDate": "2026-08-01",
-          "ratio": 2.8509470989761088
-        }
+          "ratio": 3.161125827814569
+        },
+        "switchHistory": {
+          "startDate": "1985-01-31",
+          "endDate": "2026-10-02",
+          "count": 12
+        },
+        "realCagrStartDate": "1985-01-31",
+        "realCagrEndDate": "2026-10-02"
       }
     },
     {
@@ -424,7 +460,9 @@
           "startDate": "1988-04-01",
           "endDate": "2026-08-01",
           "ratio": 2.8509470989761088
-        }
+        },
+        "realCagrStartDate": "1988-04-06",
+        "realCagrEndDate": "2026-10-02"
       },
       "nasdaq100": {
         "smaPeriod": 30,
@@ -454,12 +492,19 @@
             }
           }
         },
-        "realCagr": 20.578733630271163,
+        "realCagr": 20.425849471789892,
         "inflation": {
-          "startDate": "1988-04-01",
+          "startDate": "1985-01-01",
           "endDate": "2026-08-01",
-          "ratio": 2.8509470989761088
-        }
+          "ratio": 3.161125827814569
+        },
+        "switchHistory": {
+          "startDate": "1985-01-31",
+          "endDate": "2026-10-02",
+          "count": 30
+        },
+        "realCagrStartDate": "1985-01-31",
+        "realCagrEndDate": "2026-10-02"
       }
     },
     {
@@ -509,7 +554,9 @@
           "startDate": "1988-04-01",
           "endDate": "2026-08-01",
           "ratio": 2.8509470989761088
-        }
+        },
+        "realCagrStartDate": "1988-04-06",
+        "realCagrEndDate": "2026-10-02"
       },
       "nasdaq100": {
         "smaPeriod": 105,
@@ -539,12 +586,19 @@
             }
           }
         },
-        "realCagr": 28.5871662431574,
+        "realCagr": 28.935297600740206,
         "inflation": {
-          "startDate": "1988-04-01",
+          "startDate": "1985-01-01",
           "endDate": "2026-08-01",
-          "ratio": 2.8509470989761088
-        }
+          "ratio": 3.161125827814569
+        },
+        "switchHistory": {
+          "startDate": "1985-01-31",
+          "endDate": "2026-10-02",
+          "count": 4
+        },
+        "realCagrStartDate": "1985-01-31",
+        "realCagrEndDate": "2026-10-02"
       }
     }
   ]
