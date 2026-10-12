@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T02:13:41.912Z",
+  "generatedAt": "2026-10-12T02:38:26.769Z",
   "startDate": "1988-04-06",
   "endDate": "2026-10-09",
   "riskOffAsset": "BRK.B+GLDM+VGSH",
@@ -33,28 +33,28 @@
   "distinctness": "At least 5% different risk-on days AND at least 20 days or 3 percentage points of parameter separation",
   "minRegimeDifferencePct": {
     "sp500": 5.576744665498403,
-    "nasdaq100": 7.920792079207921
+    "nasdaq100": 7.882711348057883
   },
   "evaluated": {
-    "sp500": 10733,
-    "nasdaq100": 2327
+    "sp500": 108,
+    "nasdaq100": 123
   },
   "candidatesTested": {
-    "sp500": 6,
-    "nasdaq100": 6
+    "sp500": 4,
+    "nasdaq100": 5
   },
   "bestFound": {
     "sp500": {
       "smaPeriod": 175,
       "smaUpperBuffer": 3.6,
       "smaLowerBuffer": 3.6,
-      "score": 5250.0639034475425
+      "score": 5389.575687944416
     },
     "nasdaq100": {
-      "smaPeriod": 183,
-      "smaUpperBuffer": 7,
+      "smaPeriod": 182,
+      "smaUpperBuffer": 6.9,
       "smaLowerBuffer": 18.1,
-      "score": 14083.412232313489
+      "score": 14190.308933363152
     }
   },
   "presets": [
@@ -68,9 +68,9 @@
         "finalMultiple": 2413.544909958305,
         "maxDrawdown": 50.76065505946789,
         "trades": 35,
-        "score": 5250.0639034475425,
+        "score": 5389.575687944416,
         "baseScore": 5580.471379874928,
-        "stabilityPenalty": 330.4074764273855,
+        "stabilityPenalty": 190.89569193051193,
         "scoresByEra": {
           "proto": -670.1890308337072,
           "proxy": 2428.7701949304824,
@@ -110,21 +110,21 @@
         }
       },
       "nasdaq100": {
-        "smaPeriod": 183,
-        "smaUpperBuffer": 7,
+        "smaPeriod": 182,
+        "smaUpperBuffer": 6.9,
         "smaLowerBuffer": 18.1,
-        "cagr": 28.849776288590647,
-        "finalMultiple": 38815.450630823005,
+        "cagr": 28.916961644380557,
+        "finalMultiple": 39668.16834969459,
         "maxDrawdown": 84.5162379451321,
         "trades": 10,
-        "score": 14083.412232313489,
-        "baseScore": 14083.412232313496,
-        "stabilityPenalty": 7.275957614183426e-12,
+        "score": 14190.308933363152,
+        "baseScore": 14190.308933363152,
+        "stabilityPenalty": 0,
         "scoresByEra": {
-          "proto": -2160.1341359635767,
-          "start": 14938.33572538071
+          "proto": -2160.1341359635585,
+          "start": 15050.858568590875
         },
-        "realCagr": 25.34100660402483,
+        "realCagr": 25.406362403362003,
         "inflation": {
           "startDate": "1985-01-01",
           "endDate": "2026-08-01",
@@ -162,9 +162,9 @@
         "finalMultiple": 1634.80409673451,
         "maxDrawdown": 48.95740271125479,
         "trades": 22,
-        "score": 5168.909652310131,
+        "score": 5268.995265095968,
         "baseScore": 5268.995265095968,
-        "stabilityPenalty": 100.08561278583693,
+        "stabilityPenalty": 0,
         "scoresByEra": {
           "proto": 147.46783954640188,
           "proxy": 3474.5275505750797,
@@ -211,9 +211,9 @@
         "finalMultiple": 95356.68454590361,
         "maxDrawdown": 80.7797666964451,
         "trades": 6,
-        "score": 13507.31933628766,
+        "score": 13507.460615747872,
         "baseScore": 13507.460615747872,
-        "stabilityPenalty": 0.14127946021289972,
+        "stabilityPenalty": 0,
         "scoresByEra": {
           "proto": -6754.533677078982,
           "start": 14573.881368001916
@@ -256,9 +256,9 @@
         "finalMultiple": 2141.4244761277046,
         "maxDrawdown": 53.51500288823515,
         "trades": 27,
-        "score": 4970.2781281044245,
+        "score": 5067.736216691781,
         "baseScore": 5067.736216691781,
-        "stabilityPenalty": 97.45808858735654,
+        "stabilityPenalty": 0,
         "scoresByEra": {
           "proto": 323.48309163736667,
           "proxy": 1900.8363281472966,
@@ -350,9 +350,9 @@
         "finalMultiple": 3214.581166411527,
         "maxDrawdown": 35.65810091282315,
         "trades": 12,
-        "score": 4584.977534268053,
+        "score": 4735.766770525304,
         "baseScore": 6031.569450290016,
-        "stabilityPenalty": 1446.5919160219628,
+        "stabilityPenalty": 1295.8026797647117,
         "scoresByEra": {
           "proto": -551.0684822916043,
           "proxy": -506.83428617324427,
@@ -399,9 +399,9 @@
         "finalMultiple": 20754.01310021264,
         "maxDrawdown": 78.99528269908919,
         "trades": 12,
-        "score": 11403.47594462356,
+        "score": 11616.013278277258,
         "baseScore": 11616.013278277258,
-        "stabilityPenalty": 212.53733365369771,
+        "stabilityPenalty": 0,
         "scoresByEra": {
           "proto": 813.6365226877733,
           "start": 12184.559423308283

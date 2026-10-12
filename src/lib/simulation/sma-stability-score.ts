@@ -7,15 +7,17 @@ import {
   SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER,
 } from "./sma-search-bounds";
 
-/** Preserve half the base-score advantage while penalizing weak immediate neighbors. */
+/** Allow a 5% neighborhood drop; penalize half of any larger loss. */
 export function stabilityAdjustedSmaScore(baseScore: number, worstNeighborScore: number): number {
-  return baseScore - 0.5 * Math.max(0, baseScore - worstNeighborScore);
+  const allowance = 0.05 * Math.max(0, baseScore);
+  return baseScore - 0.5 * Math.max(0, baseScore - worstNeighborScore - allowance);
 }
 
 export function rankStableSmaCandidates<T extends ScoredCombo>(
   candidates: T[],
   center: T,
   evaluate: (combos: SmaCombo[]) => T[],
+  preferred?: SmaCombo,
 ) {
   const cache = new Map(candidates.map((entry) => [comboKey(entry.combo), entry]));
   const neighbors = (combo: SmaCombo) => planCombos(
@@ -57,10 +59,15 @@ export function rankStableSmaCandidates<T extends ScoredCombo>(
   ensure(contenders);
   const ranked = contenders.map(rank).sort((a, b) => {
     if (Math.abs(a.score - b.score) > 1e-8) return b.score - a.score;
+    // Keep the selected default on an exact objective tie, never above a
+    // stronger candidate. Both index families use this same tie rule.
+    const aPreferred = preferred && comboKey(a.entry.combo) === comboKey(preferred);
+    const bPreferred = preferred && comboKey(b.entry.combo) === comboKey(preferred);
     // Preserve the plateau centre only when it shares the highest stable score.
     const aCenter = comboKey(a.entry.combo) === comboKey(center.combo);
     const bCenter = comboKey(b.entry.combo) === comboKey(center.combo);
-    return Number(bCenter) - Number(aCenter)
+    return Number(Boolean(bPreferred)) - Number(Boolean(aPreferred))
+      || Number(bCenter) - Number(aCenter)
       || a.entry.combo.smaPeriod - b.entry.combo.smaPeriod
       || a.entry.combo.smaUpperBuffer - b.entry.combo.smaUpperBuffer
       || a.entry.combo.smaLowerBuffer - b.entry.combo.smaLowerBuffer;

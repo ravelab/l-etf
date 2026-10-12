@@ -357,7 +357,7 @@ async function calibrateIndex(
   // Score complete neighborhoods and rank by the weakest nearby result.
   // The raw search proposes candidates; stability determines the shipped band.
   const stable = rankStableSmaCandidates(evaluated, winner,
-    (combos) => evaluateCombosAcrossEras(eras, combos));
+    (combos) => evaluateCombosAcrossEras(eras, combos), savedCalibration[indexKey]);
   const stableWinner = stable.ranked[0];
   winner = stableWinner.entry;
   const plateau = stableWinner;

@@ -41,7 +41,7 @@ export interface SmaCalibrationIndexResult {
    * 0.1% of buffer away. The score surface is spiky along the period axis, so
    * a winner whose neighbours collapse is a knife edge fitted to this sample
    * rather than a rule worth running forward. The calibration score subtracts
-   * half the gap to its worst neighbor when lower, retaining half the base-score advantage.
+   * half the gap beyond a 5% allowance for positive base scores.
    */
   neighborhoodMinScore?: number;
   neighborhoodMedianScore?: number;

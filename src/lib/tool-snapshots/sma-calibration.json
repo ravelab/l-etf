@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T16:58:12.401Z",
+  "generatedAt": "2026-10-12T02:38:26.769Z",
   "endDate": "2026-10-09",
   "windowLength": 10,
   "sp500": {
@@ -17,14 +17,14 @@
     "smaPeriod": 175,
     "smaUpperBuffer": 3.6,
     "smaLowerBuffer": 3.6,
-    "score": 5250.0639034475425,
+    "score": 5389.575687944416,
     "baseScore": 5580.471379874928,
-    "stabilityPenalty": 330.4074764273855,
+    "stabilityPenalty": 190.89569193051193,
     "avgReturn": 22.067133464898188,
     "worstReturn": -0.34201585593929273,
     "avgMaxDrawdown": 43.56986067181343,
     "avgTrades": 8.82721382289417,
-    "evaluatedCombos": 10733,
+    "evaluatedCombos": 108,
     "neighborhoodMinScore": 4919.656427020157,
     "neighborhoodMedianScore": 5275.439587044152
   },
@@ -35,21 +35,21 @@
       "start": 95
     },
     "scoresByEra": {
-      "proto": -2160.1341359635767,
-      "start": 14938.33572538071
+      "proto": -2160.1341359635585,
+      "start": 15050.858568590875
     },
-    "smaPeriod": 183,
-    "smaUpperBuffer": 7,
+    "smaPeriod": 182,
+    "smaUpperBuffer": 6.9,
     "smaLowerBuffer": 18.1,
-    "score": 14083.412232313489,
-    "baseScore": 14083.412232313496,
-    "stabilityPenalty": 7.275957614183426e-12,
-    "avgReturn": 29.255567203000854,
-    "worstReturn": -10.36818237988486,
+    "score": 14190.308933363152,
+    "baseScore": 14190.308933363152,
+    "stabilityPenalty": 0,
+    "avgReturn": 29.317961649916242,
+    "worstReturn": -10.16768656409095,
     "avgMaxDrawdown": 75.68373868152547,
     "avgTrades": 2.404382470119522,
-    "evaluatedCombos": 2327,
-    "neighborhoodMinScore": 14083.412232313482,
+    "evaluatedCombos": 123,
+    "neighborhoodMinScore": 13536.986453882868,
     "neighborhoodMedianScore": 14083.412232313496
   }
 }

@@ -623,14 +623,20 @@ Two things that look like details and are not:
   valley between them, in neither. The calibrator flood-fills the region by
   evaluating outward from its leader; the sweep pages already hold a dense grid
   and just hand their rows over. The calibrator then ranks proposed bands by
-  `baseScore - 0.5 * max(0, baseScore - worstImmediateNeighborBaseScore)`
-  through
-  `rankStableSmaCandidates` (`sma-stability-score.ts`). It evaluates complete,
+  `baseScore - 0.5 * max(0, baseScore - worstImmediateNeighborBaseScore - 0.05 * max(0, baseScore))`
+  through `rankStableSmaCandidates` (`sma-stability-score.ts`).
+  Small neighbor drops up to 5% of a positive base score are tolerated; larger
+  drops retain the half-loss penalty. This shared rule lets higher raw scores
+  win on reasonably stable neighborhoods without rewarding severe cliffs.
+  It evaluates complete,
   unique neighborhoods (±1 day and ±0.1% on both buffer axes); missing engine
   results fail calibration rather than making a band look safe. Base score is
   an upper bound, so candidates below the center's proven stable score need
-  no neighbor runs. The raw plateau center wins a tie at the highest stable
-  score. Never reintroduce the known-band override: it chose NDX 127 over the
+  no neighbor runs. Preserve the selected default on an exact highest stable-score
+  tie; otherwise prefer the raw plateau center when it ties. This never raises
+  a lower-scoring saved band above a stronger candidate. The selected NDX
+  default is 182/−18.1%/+6.9%, one of the equally highest raw/stable-score bands
+  through 2026-10-09. Never reintroduce the known-band override: it chose NDX 127 over the
   stable 125 center despite 127's worst neighbor losing 61% of the score.
   The snapshot records `baseScore`, `stabilityPenalty` and final `score`
   separately; era scores and exhaustive seeds remain base scores.

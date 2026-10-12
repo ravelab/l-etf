@@ -61,7 +61,29 @@ test("the same scoring formula preserves the previous six SPX rules' order", asy
     return stabilityAdjustedSmaScore(center.score, Math.min(...rows.map((row) => row.score)));
   });
   for (let i = 1; i < scores.length; i++) assert.ok(scores[i - 1] > scores[i]);
-  assert.ok(Math.abs(scores[0] / 5246.785590704165 - 1) < 0.001, "previous default changes by less than 0.1%");
+  assert.ok(Math.abs(scores[0] / 5246.785590704165 - 1) < 0.03, "SPX default score changes by less than 3%");
+});
+
+test("a higher raw-score NDX band wins with modest neighbor losses while a severe cliff still loses", async () => {
+  const eras = await buildSmaEraContexts({ indexKey: "nasdaq100", endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+  const rules = [18, 18.1, 18.2].map((smaLowerBuffer) => ({ smaPeriod: 182, smaLowerBuffer, smaUpperBuffer: 6.9 }));
+  rules.push({ smaPeriod: 183, smaLowerBuffer: 18.1, smaUpperBuffer: 7 },
+    { smaPeriod: 183, smaLowerBuffer: 16.7, smaUpperBuffer: 6.6 });
+  const neighborhoods = rules.map((rule) => planCombos(
+    planPeriodNeighborhood(rule.smaPeriod, 1, { minPeriod: 20, maxPeriod: 280 }),
+    planBufferNeighborhood(rule.smaUpperBuffer, rule.smaLowerBuffer, 0.1, 0.1, { minBuffer: 0, maxBuffer: 21 }), new Set<string>()));
+  const results = new Map(evaluateCombosAcrossEras(eras, [...new Map(neighborhoods.flat().map((point) => [comboKey(point), point])).values()])
+    .map((row) => [comboKey(row.combo), row]));
+  const scores = rules.map((rule, i) => {
+    const base = results.get(comboKey(rule))!.score;
+    const worst = Math.min(...neighborhoods[i].map((point) => results.get(comboKey(point))!.score));
+    return stabilityAdjustedSmaScore(base, worst);
+  });
+  for (const score of scores.slice(0, 3)) {
+    assert.ok(score > scores[3], "the 182-day higher raw-score band must beat the former default");
+    assert.ok(score / scores[3] < 1.01, "the advantage stays below 1%");
+  }
+  assert.ok(scores[4] < 0, "a nearby historical drawdown cliff remains strongly penalized");
 });
 
 test("preset ranking pairs each index by multi-era score even when the weakest rule has higher CAGR", () => {
