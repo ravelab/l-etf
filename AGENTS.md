@@ -459,7 +459,7 @@ watchdog; on timeout the preset search re-scores the saved bands itself.
 `explore-sma-cagr` has a shared 15-minute optional-refinement budget, divided
 between indices, and records when that budget stops the search. Only candidates
 with complete immediate stability neighborhoods may become presets. Establish
-six positive, distinct, fully checked rules before optional refinement, choosing
+four positive, distinct, fully checked rules before optional refinement, choosing
 fallback seeds by score rather than ascending period. A zero-minute budget
 finalizes this checked pool. Worker process groups are stopped on timeouts and
 interruptions. Exhaustive `explore-sma` is a separate, potentially long operation;
@@ -557,7 +557,7 @@ multi-era per-period search seeds, refined jointly over one-day periods and
 0.1 percentage-point buffer steps, with the same raw era weights and complete
 ±1-day/±0.1% stability neighborhoods as calibration. Keep pre-1988 SPX and
 pre-1985 NDX in selection: a modern-only CAGR winner can fail those eras badly.
-The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
+Keep one default and three alternatives per index. The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
 rank each index by descending stability-adjusted weighted multi-era score and
 pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
 comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the

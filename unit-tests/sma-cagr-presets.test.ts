@@ -90,7 +90,7 @@ test("plateau centering cannot erase a measured stable-score improvement", () =>
 });
 
 test("CAGR presets retain their actual engine returns, rank and distinct trade regimes", async () => {
-  assert.equal(snapshot.presets.length, 6);
+  assert.equal(snapshot.presets.length, 4);
   assert.equal(snapshot.grid.bufferStep, 0.1);
   assert.equal(snapshot.grid.periodStep, 1);
   assert.equal(snapshot.riskOffAsset, DEFAULT_RISK_OFF_ASSET);

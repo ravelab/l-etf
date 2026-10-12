@@ -187,12 +187,12 @@ async function main(): Promise<void> {
         });
       };
       let candidates = await stability(await evaluate(knownCombos, "saved presets", true), "saved stability", true);
-      // A new default can overlap two old presets. Find a fully checked sixth
+      // A new default can overlap two old presets. Find a fully checked fourth
       // distinct rule before optional refinement, even with a zero-minute budget.
       const seedScores = new Map(seeds[index].periodSeeds.map((seed) => [comboKey(seed), seed.score]));
       for (const combo of [...seedCombos].sort((a, b) => (seedScores.get(comboKey(b)) ?? -Infinity) - (seedScores.get(comboKey(a)) ?? -Infinity))) {
-        const proven = pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 6);
-        if (proven.length === 6) break;
+        const proven = pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 4);
+        if (proven.length === 4) break;
         if (candidates.some((candidate) => comboKey(candidate) === comboKey(combo))) continue;
         if (!proven.every((candidate) => Math.abs(candidate.smaPeriod - combo.smaPeriod) >= 20
           || Math.abs(candidate.smaUpperBuffer - combo.smaUpperBuffer) >= 3
@@ -203,8 +203,8 @@ async function main(): Promise<void> {
         if (!proven.every((candidate) => separated(candidate, preview))) continue;
         candidates.push(...await stability(rows, "fallback stability", true));
       }
-      if (pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 6).length < 6) {
-        throw new Error(`Could not establish six fully checked positive ${index} presets within the saved seed space`);
+      if (pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 4).length < 4) {
+        throw new Error(`Could not establish four fully checked positive ${index} presets within the saved seed space`);
       }
       const initialFloor = Math.min(...candidates.map((candidate) => candidate.score));
       const seedRows = await evaluate(seedCombos, "every period");
@@ -221,11 +221,11 @@ async function main(): Promise<void> {
         const distinctFloor = [defaultRule];
         for (const row of [...candidates].sort((a, b) => b.score - a.score)) {
           if (distinctFloor.every((previous) => separated(row, previous))) distinctFloor.push(row);
-          if (distinctFloor.length === 6) break;
+          if (distinctFloor.length === 4) break;
         }
         // Base score bounds stable score above. A candidate below an already
-        // proven sixth distinct rule cannot improve the selected six.
-        const floor = distinctFloor.length === 6 ? Math.min(...distinctFloor.map((row) => row.score)) : -Infinity;
+        // proven fourth distinct rule cannot improve the selected four.
+        const floor = distinctFloor.length === 4 ? Math.min(...distinctFloor.map((row) => row.score)) : -Infinity;
         const refined = await stability([...new Map(rows.filter((row) => row.score >= floor)
           .map((row) => [comboKey(row.combo), row])).values()], `${stage} stability`);
         candidates = [...new Map([...candidates, ...refined].map((row) => [comboKey(row), row])).values()];
@@ -246,7 +246,7 @@ async function main(): Promise<void> {
         }
         return found;
       };
-      candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 6).map((candidate) => candidate.score))));
+      candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 4).map((candidate) => candidate.score))));
       // Keep walking joint one-day/0.1% neighborhoods until every leading basin
       // stops improving. A single fixed refinement box can end at its boundary.
       let converged = false;
@@ -259,7 +259,7 @@ async function main(): Promise<void> {
             { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER }), new Set<string>()))], `joint polish ${round}`);
         const refined = await stability(rows.filter((row) => row.score >= Math.min(...leaders.map((leader) => leader.score))), `polish stability ${round}`);
         candidates = [...new Map([...candidates, ...refined].map((row) => [comboKey(row), row])).values()];
-        candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 6).map((candidate) => candidate.score))));
+        candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 4).map((candidate) => candidate.score))));
         if (pickDistinct(candidates, 9).map(comboKey).join(";") === signature) { converged = true; break; }
       }
       budgetReached[index] = !budget.canRefine();
@@ -292,9 +292,9 @@ async function main(): Promise<void> {
         // replace a higher stable score with a weaker point on a broad plateau.
         const center = plateau?.peak.item === candidate ? preferStablePresetCenter(candidate, plateau.center.item) : candidate;
         leaders.push(leaders.every((previous) => separated(center, previous)) ? center : candidate);
-        if (leaders.length === 6) break;
+        if (leaders.length === 4) break;
       }
-      if (leaders.length !== 6) throw new Error(`Only ${leaders.length} distinct ${index} rules`);
+      if (leaders.length !== 4) throw new Error(`Only ${leaders.length} distinct ${index} rules`);
       selected[index] = [defaultCandidate, ...leaders.slice(1).sort((a, b) => b.score - a.score)];
       evaluated[index] = cache.size;
       candidatesTested[index] = candidates.length;
@@ -312,7 +312,7 @@ async function main(): Promise<void> {
     selected[index].slice(i + 1).map((right) => regimeDistance(left, right))));
   const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     executionMode: "next-day-open", windowLength: getDefaultWindowLength(),
-    selection: "Calibrated default plus five distinct alternatives selected by stability-adjusted weighted multi-era score from per-period search seeds with joint buffer refinement",
+    selection: "Calibrated default plus three distinct alternatives selected by stability-adjusted weighted multi-era score from per-period search seeds with joint buffer refinement",
     grid: { periodStep: PRESET_PERIOD_STEP, bufferStep: PRESET_BUFFER_STEP, basinBufferHalfWidth: PRESET_BUFFER_HALF_WIDTH },
     ranking: SMA_PRESET_RANKING,
     searchBudget: { minutes: budgetMinutes, reached: budgetReached },
