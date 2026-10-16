@@ -10,6 +10,7 @@ import {
   calcMonthlyExtremes,
   calcSharpeRatio,
 } from "@/lib/simulation/metrics";
+import { estimateFuturesAfterTaxCagr, type FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { formatMultiple, formatPercent } from "@/lib/format";
 import { SortButton } from "@/components/ui/SortButton";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
@@ -135,6 +136,7 @@ type SortKey =
   | "maxDrawdownPct"
   | "longestDrawdownDays"
   | "realCagr"
+  | "afterTaxRealCagr"
   | "inflationPct"
   | "bestMonth"
   | "worstMonth"
@@ -160,6 +162,7 @@ interface ResultsTableProps {
     primary: { avgActualLeverageRiskOn: number; maxAbsLeverageDeltaRiskOnPct: number };
     secondary: { avgActualLeverageRiskOn: number; maxAbsLeverageDeltaRiskOnPct: number };
   }>;
+  futuresTaxRates?: FuturesTaxRates;
   variant?: ResultsTableVariant;
 }
 
@@ -174,6 +177,7 @@ function ResultsTableImpl({
   avgActualLeverageById,
   maxLeverageDeltaById,
   sleeveLeverageMetricsById,
+  futuresTaxRates,
   variant = "backtest",
 }: ResultsTableProps) {
   const msPerYear = 365.25 * 24 * 60 * 60 * 1000;
@@ -247,6 +251,20 @@ function ResultsTableImpl({
     return colors;
   }, [result.etfResults, underlyingIndexSeries]);
 
+  const afterTaxCagrById = useMemo(() => {
+    const byId: Record<string, number> = {};
+    if (variant !== "futures" || !futuresTaxRates) return byId;
+    for (const row of result.etfResults) {
+      if (!row.id.includes("futures-sma")) continue;
+      const values = [...row.dailyValues];
+      // The final reported value includes liquidation costs.
+      values[values.length - 1] = row.finalValue;
+      const cagr = estimateFuturesAfterTaxCagr(row.dates, values, result.investedValues[0] ?? 0, futuresTaxRates);
+      if (cagr !== undefined) byId[row.id] = cagr;
+    }
+    return byId;
+  }, [result, variant, futuresTaxRates]);
+
   const sorted = useMemo(() => {
     const direction = sortDir === "asc" ? 1 : -1;
     const calcRealReturn = (r: EtfResult) => {
@@ -260,6 +278,13 @@ function ResultsTableImpl({
       }
       if (sortKey === "realCagr") {
         return ((a.cagr - rowInflation(a).rate * 100) - (b.cagr - rowInflation(b).rate * 100)) * direction;
+      }
+      if (sortKey === "afterTaxRealCagr") {
+        const av = afterTaxCagrById[a.id];
+        const bv = afterTaxCagrById[b.id];
+        if (av === undefined) return bv === undefined ? 0 : 1;
+        if (bv === undefined) return -1;
+        return ((av - rowInflation(a).rate * 100) - (bv - rowInflation(b).rate * 100)) * direction;
       }
       if (sortKey === "inflationPct") {
         return (rowInflation(a).rate - rowInflation(b).rate) * direction;
@@ -296,7 +321,7 @@ function ResultsTableImpl({
     });
     // calcRealReturn closes rowInflation + realValueInitialEquity (variant/result); listing all stables is noisy.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortDir, sortKey, rawInflation, monthlyCpi, variant, result]);
+  }, [rows, sortDir, sortKey, rawInflation, monthlyCpi, variant, result, afterTaxCagrById]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -340,6 +365,11 @@ function ResultsTableImpl({
             <th className="pb-2 pr-4 font-medium">
               <SortButton label="Real CAGR" active={sortKey === "realCagr"} dir={sortDir} onClick={() => toggleSort("realCagr")} />
             </th>
+            {variant === "futures" && (
+              <th className="pb-2 pr-4 font-medium" title="Estimated annual mark-to-market tax, then inflation, using the rates above.">
+                <SortButton label="After-Tax Real CAGR" active={sortKey === "afterTaxRealCagr"} dir={sortDir} onClick={() => toggleSort("afterTaxRealCagr")} />
+              </th>
+            )}
             <th className="pb-2 pr-4 font-medium">
               <SortButton label="Max Drawdown" active={sortKey === "maxDrawdownPct"} dir={sortDir} onClick={() => toggleSort("maxDrawdownPct")} />
             </th>
@@ -383,6 +413,8 @@ function ResultsTableImpl({
         <tbody>
           {sorted.map((r) => {
             const rowInflPct = rowInflation(r).rate * 100;
+            const afterTaxCagr = afterTaxCagrById[r.id];
+            const afterTaxRealCagr = afterTaxCagr === undefined ? undefined : afterTaxCagr - rowInflPct;
             return (
             <tr
               key={r.id}
@@ -408,6 +440,11 @@ function ResultsTableImpl({
               >
                 {formatPercent(r.cagr - rowInflPct)}
               </td>
+              {variant === "futures" && (
+                <td className={`py-2.5 pr-4 tabular-nums ${afterTaxRealCagr === undefined ? "text-muted" : afterTaxRealCagr >= 0 ? "text-positive" : "text-negative"}`}>
+                  {afterTaxRealCagr === undefined ? "—" : formatPercent(afterTaxRealCagr)}
+                </td>
+              )}
               <td className="py-2.5 pr-4 text-negative">
                 {formatPercent(r.maxDrawdownPct)}
                 <DateRangeLink

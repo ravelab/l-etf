@@ -157,6 +157,8 @@ type SharedToolInputsProps = {
   reserveRollingSlotsWhenHidden?: boolean;
   /** Page-specific fields rendered in the grid after duration/step. */
   children?: ReactNode;
+  /** Page-specific fields after the shared SMA and risk-off controls. */
+  endFields?: ReactNode;
   /** Footer content rendered below the button. */
   footer?: ReactNode;
 };
@@ -177,6 +179,7 @@ export function SharedToolInputs({
   showRollingFields = true,
   reserveRollingSlotsWhenHidden = false,
   children,
+  endFields,
   footer,
 }: SharedToolInputsProps) {
   const num = (field: keyof SharedFieldValues, current: number) =>
@@ -414,6 +417,7 @@ export function SharedToolInputs({
             onChange={(e) => onChange("riskOffAsset", e.currentTarget.value as EtfConfig["riskOffAsset"])}
           />
         )}
+        {endFields}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-4 min-h-[40px]">

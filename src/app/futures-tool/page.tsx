@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { Input } from "@/components/ui/Input";
+import { FuturesTaxInputs } from "@/components/tools/futures/FuturesTaxInputs";
 import { Button } from "@/components/ui/Button";
 import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
 import { appendSmaBufferUrlParams, parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
@@ -39,6 +40,7 @@ import {
   DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
   type FuturesStrategyResult,
 } from "@/lib/simulation/futures";
+import { DEFAULT_FUTURES_TAX_RATES, type FuturesTaxRates, futuresTaxRate } from "@/lib/simulation/futures-tax";
 import { runParallelFuturesStrategies } from "@/lib/simulation/futures-parallel";
 // (effective start-date helper is used by other pages; futures emulations start at requested sd)
 import { FuturesSmaDetails } from "@/components/tools/futures/FuturesSmaDetails";
@@ -99,12 +101,13 @@ export function FuturesPageContent({
   const { markNextSearchAsInternal, shouldAutoRunFromSearch } = useSearchSyncRunGuard();
 
   const form = useToolForm("futures", {
+    taxRates: DEFAULT_FUTURES_TAX_RATES,
     result: null as BacktestResult | null,
     annualizedInflation: 0,
     monthlyCpi: [] as Array<{ date: string; value: number }>,
     runSummaryInputs: null as RunSummary | null,
   }, {
-    persistKeys: ["runSummaryInputs"],
+    persistKeys: ["runSummaryInputs", "taxRates"],
   });
 
   const {
@@ -122,6 +125,18 @@ export function FuturesPageContent({
   } = form;
 
   const persistedInitial = initial as Record<string, unknown>;
+
+  const [taxRates, setTaxRates] = useState<FuturesTaxRates>(() => {
+    const saved = persistedInitial.taxRates as Partial<FuturesTaxRates> | undefined;
+    return Object.fromEntries(Object.entries(DEFAULT_FUTURES_TAX_RATES).map(([key, fallback]) => [
+      key, normalizeNumberValue(saved?.[key as keyof FuturesTaxRates], fallback, { min: 0, max: 100 }),
+    ])) as FuturesTaxRates;
+  });
+  const changeTaxRate = (key: keyof FuturesTaxRates, value: number) => {
+    const next = { ...taxRates, [key]: normalizeNumberValue(value, taxRates[key], { min: 0, max: 100 }) };
+    setTaxRates(next);
+    save({ ...initial, taxRates: next });
+  };
 
   const [amount, setAmount] = useState<number>(
     normalizeNumberValue(persistedInitial.amount as number | undefined, DEFAULT_FUTURES_AMOUNT, { min: 0 })
@@ -699,6 +714,7 @@ export function FuturesPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         riskOffAsset,
         amount,
+        taxRates,
         result: combined,
         annualizedInflation: market.annualizedInflation,
         monthlyCpi: market.monthlyCpi,
@@ -729,6 +745,7 @@ export function FuturesPageContent({
     endDate,
     riskOffAsset,
     save,
+    taxRates,
     leverageTolerancePct,
     setRunSummary,
     showEmulations,
@@ -787,6 +804,7 @@ export function FuturesPageContent({
           progress={runProgress}
           error={error}
           showRollingFields={false}
+          endFields={<FuturesTaxInputs rates={taxRates} onChange={changeTaxRate} />}
         >
           <Input
             label="Amount"
@@ -811,6 +829,14 @@ export function FuturesPageContent({
             }
           />
         </SharedToolInputs>
+
+        <p className="text-xs text-muted">
+          After-tax estimate: 60% LTCG + 40% STCG + state + Medicare surcharge = {Number((futuresTaxRate(taxRates) * 100).toFixed(2))}%.
+          Taxes are paid from the account at each year-end and at the end of the run, with losses carried forward.
+          Strategy equity gains approximate taxable futures gains; collateral income and risk-off assets are not taxed separately.
+          No loss carrybacks, outside-income offsets, income thresholds, or state deductions are modeled.
+          {" "}<a className="text-accent hover:underline" href="https://www.irs.gov/publications/p550" target="_blank" rel="noreferrer">Section 1256 rules</a>.
+        </p>
 
         {displayResult && runSummary && (
           <SimulationRunSummary
@@ -840,6 +866,7 @@ export function FuturesPageContent({
                 avgActualLeverageById={avgActualLeverageById}
                 maxLeverageDeltaById={maxLeverageDeltaById}
                 sleeveLeverageMetricsById={sleeveLeverageMetricsById}
+                futuresTaxRates={taxRates}
                 variant="futures"
               />
 
