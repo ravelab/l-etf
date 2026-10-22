@@ -248,6 +248,14 @@ never exits, the fund must equal two independent half-size sleeves to the cent.
 
 ## Swap spread: fitted range and the cap above it
 
+ETF calibration and real/simulated backtest comparisons must end on an observed
+close shared by every participating series (`latestCommonCloseDate`). The monthly
+2026-10-05 calibration included a provisional index day while ETF data ended on
+10-02; forward-filling the ETF tail forced a false financing-cost adjustment.
+Calibration excludes provisional closes and fails if a pair cannot be fitted;
+`runParallelBacktest` caps all compared paths together when real ETFs are selected.
+Simulated-only runs can still use the newest index day.
+
 `getSwapSpreadDaily` is a line in the rate level, fitted by `calibrate-etfs.ts`
 against the real ETFs — which only exist from 2006 (SSO/QLD) and 2009-10
 (UPRO/TQQQ), where the benchmark tops out at 5.82%. The slope is genuinely

@@ -5,6 +5,8 @@
 // adj_open = TR-adjusted open (matches `adj_close` scale; used by ETF flows in TR space)
 export interface PricePoint {
   date: string;
+  /** Retained so comparisons can exclude provisional closing prices. */
+  source?: string;
   adj_open?: number;
   open?: number;
   adj_close: number;

@@ -10,6 +10,7 @@ import { ETF_PRESETS } from "../src/lib/simulation/presets";
 import { alignCloseSeriesToDates } from "../src/lib/utils";
 import { CONSTANT_INITIAL_INVESTMENT } from "../src/lib/constants";
 import { getIsoDate } from "../src/lib/date";
+import { latestCommonCloseDate } from "../src/lib/simulation/common-close-date";
 import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
@@ -223,20 +224,23 @@ async function calibrate() {
     ]);
 
     if (indexPrices.length === 0 || etfPrices.length === 0) {
-      console.error(`  Insufficient data for ${pair.actualTicker}`);
-      continue;
+      throw new Error(`Insufficient data for ${pair.actualTicker}`);
     }
 
     const etfFirstDate = etfPrices[0].date;
     const effectiveStartDate = indexPrices[0].date > etfFirstDate ? indexPrices[0].date : etfFirstDate;
-    console.log(`  ETF data from: ${etfFirstDate}, using: ${effectiveStartDate}`);
+    const effectiveEndDate = latestCommonCloseDate([indexPrices, etfPrices], endDate);
+    if (!effectiveEndDate || effectiveEndDate <= effectiveStartDate) {
+      throw new Error(`Not enough shared closing prices for ${pair.actualTicker}`);
+    }
+    console.log(`  Shared closing-price range: ${effectiveStartDate} to ${effectiveEndDate}`);
 
     const filteredIndexPrices: PricePoint[] = filterSimulationReadyPrices(
-      indexPrices.filter((p) => p.date >= effectiveStartDate),
+      indexPrices.filter((p) => p.date >= effectiveStartDate && p.date <= effectiveEndDate),
     );
 
     const filteredEtfPrices: PricePoint[] = filterSimulationReadyPrices(
-      etfPrices.filter((p) => p.date >= effectiveStartDate),
+      etfPrices.filter((p) => p.date >= effectiveStartDate && p.date <= effectiveEndDate),
     );
 
     const etfPricesByName: Record<string, number[]> = {
@@ -484,9 +488,15 @@ async function calibrate() {
     bestMetrics = exactEndpoint.bestLocalMetrics;
 
     // ── Final verification ──
+    // Verify the six-decimal coefficients that will actually ship in engine.ts.
+    bestRS = Number(bestRS.toFixed(6));
+    bestBS = Number(bestBS.toFixed(6));
     const finalRes = trySimFull(bestRS, bestBS);
     const simReturn = (finalRes.simFinal - INITIAL_INVESTMENT) / INITIAL_INVESTMENT;
     const finalMetrics = computeTrackingMetrics(finalRes);
+    if (!Number.isFinite(finalMetrics.finalErrorPct) || finalMetrics.finalErrorPct > 0.005) {
+      throw new Error(`${pair.simulated} calibration failed: endpoint error ${finalMetrics.finalErrorPct}%`);
+    }
 
     console.log(`  Result for ${pair.simulated}:`);
     console.log(`    rateSensitivity: ${bestRS.toFixed(6)}`);
@@ -566,4 +576,7 @@ function updateEngineFile(
   console.log(`\n✓ Updated SWAP_SPREAD_MODEL in engine.ts (calibrated ${calibrationDate})`);
 }
 
-calibrate().catch(console.error);
+calibrate().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});

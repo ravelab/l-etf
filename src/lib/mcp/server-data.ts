@@ -25,6 +25,7 @@ export function coerceToPricePoints(rows: DailyPrice[]): PricePoint[] {
     if (row.adj_close == null) continue;
     points.push({
       date: row.date,
+      source: row.source,
       adj_close: row.adj_close,
       close: row.close ?? row.adj_close,
       ...(row.adj_open != null ? { adj_open: row.adj_open } : {}),

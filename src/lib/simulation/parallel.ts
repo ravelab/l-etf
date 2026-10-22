@@ -29,6 +29,7 @@ import {
   selectEdgeSpreads,
 } from "./window-calculations";
 import { buildDrawdownRangeQuery, type DrawdownRangeQuery } from "./drawdown-range";
+import { latestCommonCloseDate } from "./common-close-date";
 
 /**
  * Prebuilt O(log n) range-drawdown queries for a config's value series, so a
@@ -1533,6 +1534,25 @@ export async function runParallelBacktest({
   pricesByIndex?: Record<string, PricePoint[]>;
   onProgress?: (completedUnits: number, totalUnits: number, label?: string) => void;
 }): Promise<BacktestResult> {
+  // Real overlays must end on the same observed close as their simulated twins.
+  // Carrying the ETF's previous close into a fresh index day fabricates a 0% return.
+  const actualSeries = configs.filter((config) => !config.simulated)
+    .map((config) => etfPricePointsByName?.[config.name.replace(/-real$/, "")])
+    .filter((points): points is PricePoint[] => (points?.length ?? 0) > 0);
+  if (actualSeries.length > 0) {
+    const indexSeries = [...new Set(configs.map((config) => config.smaIndex))]
+      .map((index) => pricesByIndex?.[index] ?? prices);
+    const commonEndDate = latestCommonCloseDate([...indexSeries, ...actualSeries], endDate);
+    if (!commonEndDate || commonEndDate <= startDate) {
+      throw new Error("Not enough shared closing prices for the ETF comparison.");
+    }
+    endDate = commonEndDate;
+    prices = prices.filter((point) => point.date <= endDate);
+    if (pricesByIndex) {
+      pricesByIndex = Object.fromEntries(Object.entries(pricesByIndex)
+        .map(([index, points]) => [index, points.filter((point) => point.date <= endDate)]));
+    }
+  }
   // Group configs by smaIndex so each group runs against its correct index prices
   const groups = new Map<string, EtfConfig[]>();
   for (const config of configs) {

@@ -1,5 +1,6 @@
 import { refinePresetGrid, snapPresetCombo, sweepPresetPeriods, preferStablePresetCenter } from "../scripts/lib/sma-preset-grid";
 import test from "node:test";
+import { getSwapSpreadModel, setSwapSpreadModel } from "../src/lib/simulation/engine";
 import assert from "node:assert/strict";
 import snapshot from "../src/lib/tool-snapshots/sma-cagr-presets.json";
 import calibration from "../src/lib/tool-snapshots/sma-calibration.json";
@@ -19,8 +20,32 @@ import type { FormattedBacktest } from "../src/lib/mcp/format";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
 import { CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 
-test("shared score narrowly ranks NDX's 10-switch rule before 6, then 16", async () => {
-  const eras = await buildSmaEraContexts({ indexKey: "nasdaq100", endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+// These three tests pin the October 9 scoring decision. Monthly financing refits
+// must not change their reference inputs; the artifact tests below use today's model.
+async function withReferenceCalibration(check: () => Promise<void>): Promise<void> {
+  const current = getSwapSpreadModel();
+  setSwapSpreadModel({
+    sp500: {
+      2: { rateSensitivity: 0.727645, baseSpread: 0.002794 },
+      3: { rateSensitivity: 0.825572, baseSpread: 0.003055 },
+    },
+    nasdaq100: {
+      2: { rateSensitivity: 0.892253, baseSpread: -0.001530 },
+      3: { rateSensitivity: 0.946281, baseSpread: -0.000256 },
+    },
+  });
+  try { await check(); } finally { setSwapSpreadModel(current); }
+}
+
+async function buildReferenceEraContexts(indexKey: "sp500" | "nasdaq100") {
+  const eras = await buildSmaEraContexts({ indexKey, endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+  // September CPI was not published when this reference decision was recorded.
+  for (const { ctx } of eras.contexts) ctx.monthlyCpi = ctx.monthlyCpi.filter((point) => point.date < "2026-09");
+  return eras;
+}
+
+test("shared score narrowly ranks NDX's 10-switch rule before 6, then 16", () => withReferenceCalibration(async () => {
+  const eras = await buildReferenceEraContexts("nasdaq100");
   // The shipped rules before this scoring change: 10, 6 and 16 switches.
   // Their real CAGRs differ; frequency alone must not determine their order.
   const rules = [
@@ -40,10 +65,10 @@ test("shared score narrowly ranks NDX's 10-switch rule before 6, then 16", async
     assert.ok(scores[i - 1] > scores[i]);
     assert.ok((scores[i - 1] - scores[i]) / scores[i] < 0.02, "adjacent rules stay within 2%");
   }
-});
+}));
 
-test("the same scoring formula preserves the previous six SPX rules' order", async () => {
-  const eras = await buildSmaEraContexts({ indexKey: "sp500", endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+test("the same scoring formula preserves the previous six SPX rules' order", () => withReferenceCalibration(async () => {
+  const eras = await buildReferenceEraContexts("sp500");
   const rules = [
     { smaPeriod: 175, smaLowerBuffer: 3.6, smaUpperBuffer: 3.6 },
     { smaPeriod: 91, smaLowerBuffer: 7.1, smaUpperBuffer: 6.6 },
@@ -62,10 +87,10 @@ test("the same scoring formula preserves the previous six SPX rules' order", asy
   });
   for (let i = 1; i < scores.length; i++) assert.ok(scores[i - 1] > scores[i]);
   assert.ok(Math.abs(scores[0] / 5246.785590704165 - 1) < 0.03, "SPX default score changes by less than 3%");
-});
+}));
 
-test("a higher raw-score NDX band wins with modest neighbor losses while a severe cliff still loses", async () => {
-  const eras = await buildSmaEraContexts({ indexKey: "nasdaq100", endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
+test("a higher raw-score NDX band wins with modest neighbor losses while a severe cliff still loses", () => withReferenceCalibration(async () => {
+  const eras = await buildReferenceEraContexts("nasdaq100");
   const rules = [18, 18.1, 18.2].map((smaLowerBuffer) => ({ smaPeriod: 182, smaLowerBuffer, smaUpperBuffer: 6.9 }));
   rules.push({ smaPeriod: 183, smaLowerBuffer: 18.1, smaUpperBuffer: 7 },
     { smaPeriod: 183, smaLowerBuffer: 16.7, smaUpperBuffer: 6.6 });
@@ -84,7 +109,7 @@ test("a higher raw-score NDX band wins with modest neighbor losses while a sever
     assert.ok(score / scores[3] < 1.01, "the advantage stays below 1%");
   }
   assert.ok(scores[4] < 0, "a nearby historical drawdown cliff remains strongly penalized");
-});
+}));
 
 test("preset ranking pairs each index by multi-era score even when the weakest rule has higher CAGR", () => {
   const calibrated = { isCalibratedDefault: true, sp500: { score: 100, cagr: 10 }, nasdaq100: { score: 100, cagr: 10 } };
