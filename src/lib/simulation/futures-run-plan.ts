@@ -92,6 +92,7 @@ export function buildFuturesRunPlans(params: {
           kind: "single" as const,
           single: {
             ...sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
+            ...(step.riskOffAsset ? { riskOffAsset: step.riskOffAsset } : {}),
             initialEquity,
             displayName: step.displayName,
           },

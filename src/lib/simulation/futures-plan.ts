@@ -37,7 +37,7 @@ export type FuturesLadderStep = {
   maxLeverage?: number;
   displayName?: string;
   sma: SmaBand;
-  /** Overrides the run's risk-off asset for this sleeve. */
+  /** Overrides the run's risk-off asset for this rung (or primary sleeve). */
   riskOffAsset?: RiskOffAsset;
   /**
    * Present on a two-sleeve fund: this step runs `index` alongside `secondary`,
@@ -72,11 +72,17 @@ export function buildFuturesLadderPlan(params: {
   hasNasdaqData: boolean;
   yearSpan: number;
   bands: SmaBandsByIndex;
-  /** Per-sleeve risk-off assets for the two-sleeve fund; absent, it uses the run's. */
+  /**
+   * Per-index risk-off assets for every rung on that index, single-index or a
+   * sleeve of the two-sleeve fund; absent, they use the run's. Emulation rungs
+   * ignore them so they stay comparable with their LETF twins.
+   */
   dualRiskOffAssets?: DualRiskOffAssets;
 }): FuturesLadderStep[] {
   const { showEmulations, hasNasdaqData, yearSpan, bands, dualRiskOffAssets } = params;
   const bandFor = (index: IndexKey): SmaBand => bands[index as keyof SmaBandsByIndex];
+  const riskOffFor = (index: IndexKey): { riskOffAsset?: RiskOffAsset } =>
+    dualRiskOffAssets ? { riskOffAsset: dualRiskOffAssets[index as keyof DualRiskOffAssets] } : {};
 
   if (showEmulations) {
     return EMULATION_PAIRS.filter((pair) => hasNasdaqData || pair.index !== "nasdaq100").map((pair) => ({
@@ -94,6 +100,7 @@ export function buildFuturesLadderPlan(params: {
     maxLeverage: 4.5,
     displayName: "Max 4.5x SPX SMA",
     sma: sp,
+    ...riskOffFor("sp500"),
   };
 
   /**
@@ -106,12 +113,12 @@ export function buildFuturesLadderPlan(params: {
     maxLeverage: 4.5,
     displayName: "Max 4.5x SPX / Max 3x NDX SMA",
     sma: sp,
-    ...(dualRiskOffAssets ? { riskOffAsset: dualRiskOffAssets.sp500 } : {}),
+    ...riskOffFor("sp500"),
     secondary: {
       index: "nasdaq100",
       leverage: 3,
       sma: nq,
-      ...(dualRiskOffAssets ? { riskOffAsset: dualRiskOffAssets.nasdaq100 } : {}),
+      ...riskOffFor("nasdaq100"),
     },
   };
 
@@ -119,19 +126,19 @@ export function buildFuturesLadderPlan(params: {
     return [
       maxSpx,
       ...(hasNasdaqData ? [maxSpxWithNdx] : []),
-      { index: "sp500", leverage: 3, sma: sp },
+      { index: "sp500", leverage: 3, sma: sp, ...riskOffFor("sp500") },
     ];
   }
 
   return [
     maxSpx,
     ...(hasNasdaqData ? [maxSpxWithNdx] : []),
-    { index: "sp500", leverage: 5, sma: sp },
-    { index: "sp500", leverage: 3, sma: sp },
+    { index: "sp500", leverage: 5, sma: sp, ...riskOffFor("sp500") },
+    { index: "sp500", leverage: 3, sma: sp, ...riskOffFor("sp500") },
     ...(hasNasdaqData
       ? [
-          { index: "nasdaq100" as IndexKey, leverage: 4, sma: nq },
-          { index: "nasdaq100" as IndexKey, leverage: 3, sma: nq },
+          { index: "nasdaq100" as IndexKey, leverage: 4, sma: nq, ...riskOffFor("nasdaq100") },
+          { index: "nasdaq100" as IndexKey, leverage: 3, sma: nq, ...riskOffFor("nasdaq100") },
         ]
       : []),
   ];

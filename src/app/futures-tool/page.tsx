@@ -853,7 +853,7 @@ export function FuturesPageContent({
               <FuturesTaxInputs rates={taxRates} onChange={changeTaxRate} />
               <Select
                 label="SPX Risk-Off Asset Override"
-                info="What the SPX sleeve of Max 4.5x SPX / Max 3x NDX holds while risk-off, in place of Risk-Off Asset. When the two sleeves differ, the fund's 50/50 reset moves holdings between them in kind and sells only what re-entry needs."
+                info="What every SPX rung holds while risk-off, in place of Risk-Off Asset — the single-index SPX rungs and the SPX sleeve of Max 4.5x SPX / Max 3x NDX. When the two sleeves differ, the fund's 50/50 reset moves holdings between them in kind and sells only what re-entry needs. Check Emulations ignores it so each rung stays comparable with its LETF."
                 options={RISK_OFF_ASSET_OPTIONS}
                 value={dualRiskOffAssets.sp500}
                 onChange={(e) => {
@@ -863,7 +863,7 @@ export function FuturesPageContent({
               />
               <Select
                 label="NDX Risk-Off Asset Override"
-                info="What the NDX sleeve of Max 4.5x SPX / Max 3x NDX holds while risk-off, in place of Risk-Off Asset."
+                info="What every NDX rung holds while risk-off, in place of Risk-Off Asset — the single-index NDX rungs and the NDX sleeve of Max 4.5x SPX / Max 3x NDX. Check Emulations ignores it."
                 options={RISK_OFF_ASSET_OPTIONS}
                 value={dualRiskOffAssets.nasdaq100}
                 onChange={(e) => {

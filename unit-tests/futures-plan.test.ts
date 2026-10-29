@@ -5,6 +5,7 @@ import {
   buildFuturesLadderPlan,
   type SmaBandsByIndex,
 } from "@/lib/simulation/futures-plan";
+import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
 
 // Deliberately asymmetric, and deliberately the shape that broke: the exit
 // buffer differs from the re-entry buffer, so a builder that reuses one value
@@ -87,4 +88,29 @@ test("futures plan: long windows trim the mid ladder rungs", () => {
   const long = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, yearSpan: 140, bands: BANDS });
   assert.equal(long.length < short.length, true, "a 140-year window should run fewer sims");
   assert.equal(long.some((s) => s.maxLeverage === 4.5), true, "the capped rung always runs");
+});
+
+test("futures plan: per-index risk-off overrides reach every rung, not just the two-sleeve fund", () => {
+  const dualRiskOffAssets = { sp500: "BRK.B", nasdaq100: "VGSH" } as const;
+  for (const yearSpan of [20, 100]) {
+    const plan = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, yearSpan, bands: BANDS, dualRiskOffAssets });
+    assert.equal(plan.some((s) => !s.secondary), true);
+    for (const step of plan) {
+      assert.equal(step.riskOffAsset, dualRiskOffAssets[step.index as "sp500" | "nasdaq100"], `${step.leverage}x ${step.index}`);
+      if (step.secondary) assert.equal(step.secondary.riskOffAsset, dualRiskOffAssets.nasdaq100);
+    }
+  }
+
+  const emulation = buildFuturesLadderPlan({ showEmulations: true, hasNasdaqData: true, yearSpan: 20, bands: BANDS, dualRiskOffAssets });
+  assert.equal(emulation.every((s) => s.riskOffAsset === undefined), true, "emulation rungs must keep the run's asset");
+});
+
+test("futures run plan: a single rung's risk-off override replaces the run's asset", () => {
+  const [plan] = buildFuturesRunPlans({
+    steps: [{ index: "sp500", leverage: 3, sma: BANDS.sp500, riskOffAsset: "BRK.B" }],
+    initialEquity: 100_000,
+    sleeveParams: () => ({ riskOffAsset: "SGOV" }) as never,
+  });
+  assert.equal(plan.kind, "single");
+  assert.equal(plan.kind === "single" && plan.single.riskOffAsset, "BRK.B");
 });

@@ -331,6 +331,9 @@ test("futures plan: per-sleeve risk-off overrides reach the fund and share one h
   assert.deepEqual(dual.dual.primary.riskOffHeldTickers, ["BRK.B", "VGSH"]);
   assert.deepEqual(dual.dual.secondary.riskOffHeldTickers, ["BRK.B", "VGSH"]);
   for (const plan of plans) {
-    if (plan.kind === "single") assert.equal(plan.single.riskOffAsset, "BRK.B+GLDM+VGSH", "other rungs keep the run's asset");
+    if (plan.kind === "single") {
+      assert.equal(plan.single.riskOffAsset, plan.single.index === "sp500" ? "BRK.B" : "VGSH", "single rungs take their index's override");
+      assert.equal(plan.single.riskOffHeldTickers, undefined);
+    }
   }
 });

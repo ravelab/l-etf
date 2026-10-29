@@ -32,8 +32,9 @@ export function registerCompareFuturesLadder(server: McpServer): void {
         "except when both are risk-off and one is re-entering. Set `emulationMode` to run only the " +
         "rungs that have a leveraged-ETF twin (3x/2x on each index), which is the comparison that " +
         "isolates the futures-vs-swap cost model. Rungs come from the site's own ladder plan. " +
-        "`riskOffAsset` applies to the single-index rungs; the two-sleeve fund's sleeves use " +
-        "`spxRiskOffAsset` and `ndxRiskOffAsset`. " +
+        "Outside `emulationMode`, every SPX rung (single-index or the fund's SPX sleeve) holds " +
+        "`spxRiskOffAsset` while risk-off and every NDX rung holds `ndxRiskOffAsset`; `riskOffAsset` " +
+        "applies only to the emulation rungs. " +
         "NOT investment advice.",
       inputSchema: {
         startDate: isoDate.optional(),
@@ -42,12 +43,12 @@ export function registerCompareFuturesLadder(server: McpServer): void {
         riskOffAsset: riskOffAssetSchema.optional(),
         spxRiskOffAsset: riskOffAssetSchema
           .describe(
-            `What the two-sleeve fund's S&P 500 sleeve holds while risk-off, overriding \`riskOffAsset\`. Default ${DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.sp500}, matching the site.`,
+            `What every S&P 500 rung, including the two-sleeve fund's S&P 500 sleeve, holds while risk-off, overriding \`riskOffAsset\`. Default ${DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.sp500}, matching the site.`,
           )
           .optional(),
         ndxRiskOffAsset: riskOffAssetSchema
           .describe(
-            `What the two-sleeve fund's Nasdaq-100 sleeve holds while risk-off, overriding \`riskOffAsset\`. Default ${DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.nasdaq100}, matching the site.`,
+            `What every Nasdaq-100 rung, including the two-sleeve fund's Nasdaq-100 sleeve, holds while risk-off, overriding \`riskOffAsset\`. Default ${DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.nasdaq100}, matching the site.`,
           )
           .optional(),
         smaVolGate: smaVolGateSchema.optional(),
