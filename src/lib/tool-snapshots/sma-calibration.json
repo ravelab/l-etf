@@ -12,21 +12,21 @@
     "scoresByEra": {
       "proto": -633.8739429528907,
       "proxy": 2549.0410938371438,
-      "start": 7085.475934602293
+      "start": 7085.468974624411
     },
     "smaPeriod": 175,
     "smaUpperBuffer": 3.6,
     "smaLowerBuffer": 3.6,
-    "score": 5376.736836176584,
-    "baseScore": 5565.399730533246,
-    "stabilityPenalty": 188.66289435666204,
-    "avgReturn": 21.99713357668356,
+    "score": 5376.73205712047,
+    "baseScore": 5565.39485854873,
+    "stabilityPenalty": 188.66280142825963,
+    "avgReturn": 21.99712682029818,
     "worstReturn": -0.1027556844947819,
     "avgMaxDrawdown": 43.452488306813066,
     "avgTrades": 8.822894168466522,
     "evaluatedCombos": 1975,
-    "neighborhoodMinScore": 4909.80395529326,
-    "neighborhoodMedianScore": 5260.226423197633
+    "neighborhoodMinScore": 4909.799512764774,
+    "neighborhoodMedianScore": 5260.22166125393
   },
   "nasdaq100": {
     "startDate": "1985-01-31",
@@ -36,20 +36,20 @@
     },
     "scoresByEra": {
       "proto": -1060.1344620608188,
-      "start": 27495.12843558281
+      "start": 27495.111993436825
     },
     "smaPeriod": 136,
     "smaUpperBuffer": 9.6,
     "smaLowerBuffer": 18,
-    "score": 26067.36529070063,
-    "baseScore": 26067.36529070063,
+    "score": 26067.349670661944,
+    "baseScore": 26067.349670661944,
     "stabilityPenalty": 0,
-    "avgReturn": 34.549162501766446,
+    "avgReturn": 34.54915573269206,
     "worstReturn": 0.11616787543831109,
     "avgMaxDrawdown": 67.19625860183147,
     "avgTrades": 5.747011952191235,
     "evaluatedCombos": 1795,
-    "neighborhoodMinScore": 25941.775868019617,
-    "neighborhoodMedianScore": 26067.36529070063
+    "neighborhoodMinScore": 25941.760293519106,
+    "neighborhoodMedianScore": 26067.349670661944
   }
 }
