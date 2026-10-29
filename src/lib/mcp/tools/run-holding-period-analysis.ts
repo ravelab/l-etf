@@ -22,6 +22,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 const DEFAULT_WINDOW_LENGTHS = [1, 3, 5, 10, 15, 20];
@@ -55,6 +56,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         includePercentiles: z.boolean().optional(),
       },
       outputSchema: runHoldingPeriodOutput,

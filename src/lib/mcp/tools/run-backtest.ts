@@ -23,6 +23,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 import { z } from "zod/v4";
 
@@ -95,6 +96,7 @@ export function registerRunBacktest(server: McpServer): void {
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
       },
       outputSchema: runBacktestOutput,
     },
@@ -110,6 +112,7 @@ export function registerRunBacktest(server: McpServer): void {
           smaPeriod: resolved.config.smaPeriod,
           smaUpperBuffer: resolved.config.smaUpperBuffer,
           smaLowerBuffer: resolved.config.smaLowerBuffer,
+          smaVolGate: resolved.config.smaVolGate === true,
           riskOffAsset: resolved.config.riskOffAsset,
         });
         const summary =

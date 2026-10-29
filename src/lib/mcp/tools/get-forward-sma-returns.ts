@@ -23,6 +23,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 export function registerGetForwardSmaReturns(server: McpServer): void {
@@ -48,6 +49,7 @@ export function registerGetForwardSmaReturns(server: McpServer): void {
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         forwardTradingDays: z.number().int().min(5).max(2520).optional(),
       },
       outputSchema: forwardSmaReturnsOutput,

@@ -22,6 +22,9 @@ const DEFAULT_PERIOD_YEARS = 10;
 
 export const DEFAULT_RISK_OFF_ASSET = "BRK.B+GLDM+VGSH" as const;
 
+/** Whether the volatility risk-off gate (`vol-gate.ts`) is on when nobody chose. */
+export const DEFAULT_SMA_VOL_GATE = true;
+
 export const DEFAULT_FUTURES_AMOUNT = 100_000;
 
 /**

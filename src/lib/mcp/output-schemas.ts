@@ -250,6 +250,7 @@ const smaBandSchema = z.object({
   period: z.number(),
   upperBuffer: metric,
   lowerBuffer: metric,
+  volGate: z.boolean().optional(),
 });
 
 const ladderRungSchema = z.object({
@@ -273,6 +274,8 @@ export const compareFuturesLadderOutput = {
   endDate: z.string(),
   initialEquity: metric,
   riskOffAsset: z.string(),
+  /** What each sleeve of the two-sleeve fund holds while risk-off. */
+  dualRiskOffAssets: z.object({ sp500: z.string(), nasdaq100: z.string() }),
   emulationMode: z.boolean(),
   bands: z.object({ sp500: smaBandSchema, nasdaq100: smaBandSchema }),
   rungs: z.array(ladderRungSchema),
@@ -319,6 +322,8 @@ export const listPresetsOutput = {
   riskOffAssets: z.array(z.object({ value: z.string(), label: z.string() })),
   defaults: z.object({
     riskOffAsset: z.string(),
+    futuresDualRiskOffAssets: z.object({ sp500: z.string(), nasdaq100: z.string() }),
+    smaVolGate: z.boolean(),
     sma: z.object({
       sp500: z.object({ period: z.number(), upperBuffer: metric, lowerBuffer: metric }),
       nasdaq100: z.object({ period: z.number(), upperBuffer: metric, lowerBuffer: metric }),
@@ -388,6 +393,9 @@ const smaSignalSchema = z.object({
   percentDiff: metric,
   signalLabel: z.string(),
   signalEmoji: z.string(),
+  /** Present only when the volatility gate is on. */
+  volatility: metric.optional(),
+  volGateRiskOff: z.boolean().optional(),
 });
 
 export const getSmaSignalsOutput = {

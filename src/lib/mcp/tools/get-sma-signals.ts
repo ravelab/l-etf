@@ -10,7 +10,7 @@ import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 import { computeSmaSignalSnapshot, getDefaultSmaSignalConfig } from "@/lib/sma-status";
 import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { getSmaSignalsOutput } from "@/lib/mcp/output-schemas";
-import { smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
+import { smaBufferSchema, smaPeriodSchema, smaVolGateSchema } from "@/lib/mcp/schemas";
 
 const TWO_YEARS_MS = 2 * 365.25 * 24 * 60 * 60 * 1000;
 
@@ -31,6 +31,7 @@ export function registerGetSmaSignals(server: McpServer): void {
         smaNqPeriod: smaPeriodSchema.optional(),
         smaNqUpperBuffer: smaBufferSchema.optional(),
         smaNqLowerBuffer: smaBufferSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
       },
       outputSchema: getSmaSignalsOutput,
     },
@@ -43,7 +44,7 @@ export function registerGetSmaSignals(server: McpServer): void {
           : defaults;
         const config = {
           ...base,
-          smaVolGate: false,
+          ...(args.smaVolGate != null ? { smaVolGate: args.smaVolGate } : {}),
           ...(args.smaSpPeriod != null ? { smaSpPeriod: args.smaSpPeriod } : {}),
           ...(args.smaSpUpperBuffer != null ? { smaSpUpperBuffer: args.smaSpUpperBuffer } : {}),
           ...(args.smaSpLowerBuffer != null ? { smaSpLowerBuffer: args.smaSpLowerBuffer } : {}),

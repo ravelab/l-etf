@@ -6,7 +6,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
 import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 import { getDefaultSmaSignalConfig } from "@/lib/sma-status";
@@ -14,7 +14,7 @@ import { summarizeSignalHistory } from "@/lib/mcp/signal-history-core";
 import { loadIndexPrices } from "@/lib/mcp/server-data";
 import { MAX_SIGNAL_SERIES_ROWS } from "@/lib/mcp/limits";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";
-import { indexSchema, isoDate, smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
+import { indexSchema, isoDate, smaBufferSchema, smaPeriodSchema, smaVolGateSchema } from "@/lib/mcp/schemas";
 
 type IndexKey = "sp500" | "nasdaq100";
 
@@ -68,6 +68,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
         smaPeriod: smaPeriodSchema.optional(),
         smaUpperBuffer: smaBufferSchema.optional(),
         smaLowerBuffer: smaBufferSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
         includeSeries: z.boolean().optional(),
@@ -81,6 +82,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
         const smaPeriod = args.smaPeriod ?? band.period;
         const smaUpperBuffer = args.smaUpperBuffer ?? band.upper;
         const smaLowerBuffer = args.smaLowerBuffer ?? band.lower;
+        const smaVolGate = args.smaVolGate ?? DEFAULT_SMA_VOL_GATE;
 
         const endDate = args.endDate ?? isoToday();
         const startDate = args.startDate ?? defaultStartDate(endDate);
@@ -102,6 +104,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
           smaPeriod,
           smaUpperBuffer,
           smaLowerBuffer,
+          smaVolGate,
           startDate,
           endDate,
           includeSeries: args.includeSeries === true,
@@ -109,7 +112,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
         });
 
         const summary =
-          `${index} SMA ${smaPeriod} (+${smaUpperBuffer}/-${smaLowerBuffer}%): currently ` +
+          `${index} SMA${smaVolGate ? " Vol" : ""} ${smaPeriod} (+${smaUpperBuffer}/-${smaLowerBuffer}%): currently ` +
           `${history.current.regime} since ${history.current.since} (${history.current.tradingDays} trading days). ` +
           `${history.stats.flips} flips over ${history.startDate}..${history.endDate}, ` +
           `${history.stats.timeInMarketPct.toFixed(0)}% time in market.`;
@@ -117,7 +120,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
         return toolSuccess(summary, {
           history: {
             index,
-            config: { smaPeriod, smaUpperBuffer, smaLowerBuffer },
+            config: { smaPeriod, smaUpperBuffer, smaLowerBuffer, smaVolGate },
             ...history,
           },
         });

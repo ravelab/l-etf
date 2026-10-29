@@ -19,6 +19,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 const DEFAULT_PRESETS = ["UPRO", "TQQQ", "SSO", "QLD"];
@@ -43,6 +44,7 @@ export function registerCompareLetfs(server: McpServer): void {
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
       },
@@ -64,6 +66,7 @@ export function registerCompareLetfs(server: McpServer): void {
           smaLowerBuffer: args.smaLowerBuffer,
           riskOffAsset: args.riskOffAsset as never,
           smaExecutionMode: args.smaExecutionMode,
+          smaVolGate: args.smaVolGate,
           windowLength,
           onGroupProgress: (completed, total) =>
             onProgress?.(completed / total, `${completed}/${total} index groups`),

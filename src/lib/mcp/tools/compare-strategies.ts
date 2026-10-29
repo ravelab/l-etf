@@ -30,6 +30,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
@@ -81,6 +82,7 @@ export function registerCompareStrategies(server: McpServer): void {
         windowLength: z.number().min(MIN_WINDOW_YEARS).max(MAX_WINDOW_YEARS).optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         smaPeriod: smaPeriodSchema.optional(),
         smaUpperBuffer: smaBufferSchema.optional(),
         smaLowerBuffer: smaBufferSchema.optional(),
@@ -114,6 +116,7 @@ export function registerCompareStrategies(server: McpServer): void {
           smaLowerBuffer: args.smaLowerBuffer,
           riskOffAsset: args.riskOffAsset as RiskOffAsset | undefined,
           smaExecutionMode: args.smaExecutionMode,
+          smaVolGate: args.smaVolGate,
           startDate: args.startDate,
           endDate: args.endDate,
         });

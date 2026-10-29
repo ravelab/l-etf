@@ -17,6 +17,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 export function registerCompareBacktests(server: McpServer): void {
@@ -37,6 +38,7 @@ export function registerCompareBacktests(server: McpServer): void {
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
       },
@@ -52,6 +54,7 @@ export function registerCompareBacktests(server: McpServer): void {
           smaLowerBuffer: args.smaLowerBuffer,
           riskOffAsset: args.riskOffAsset as never,
           smaExecutionMode: args.smaExecutionMode,
+          smaVolGate: args.smaVolGate,
           startDate: args.startDate,
           endDate: args.endDate,
         });

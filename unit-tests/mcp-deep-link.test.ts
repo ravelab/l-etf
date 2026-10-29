@@ -26,6 +26,7 @@ const SP_CONFIG = {
   smaPeriod: 200,
   smaUpperBuffer: 2,
   smaLowerBuffer: 3,
+  smaVolGate: true,
   riskOffAsset: "SGOV" as const,
 };
 
@@ -102,6 +103,7 @@ const FUTURES_RUN = {
   smaPeriod: 186,
   smaUpperBuffer: 3.6,
   smaLowerBuffer: 3.6,
+  smaVolGate: true,
   riskOffAsset: "SGOV" as const,
   initialEquity: 100_000,
 };
@@ -169,4 +171,13 @@ test("run_futures_backtest attaches a ladder link only for a rung leverage", asy
   assert.notEqual(offRung.isError, true, JSON.stringify(offRung.content));
   assert.equal((offRung.structuredContent as { permalink?: string }).permalink, undefined);
   await client.close();
+});
+
+test("the volatility gate survives the link in both directions", () => {
+  // A link carrying SMA buffers but no `vg` opens with the gate OFF, so an
+  // ungated run must omit it and a gated one must write it.
+  assert.equal(new URL(backtestPermalink(SP_CONFIG)!).searchParams.get("vg"), "1");
+  assert.equal(new URL(backtestPermalink({ ...SP_CONFIG, smaVolGate: false })!).searchParams.get("vg"), null);
+  assert.equal(new URL(futuresLadderPermalink(FUTURES_RUN)!).searchParams.get("vg"), "1");
+  assert.equal(new URL(futuresLadderPermalink({ ...FUTURES_RUN, smaVolGate: false })!).searchParams.get("vg"), null);
 });

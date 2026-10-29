@@ -87,11 +87,42 @@ test("the tool reports the bands it actually used", async () => {
   });
   assert.notEqual(res.isError, true, JSON.stringify(res.content));
   const data = res.structuredContent as {
-    bands: { sp500: { period: number; upperBuffer: number; lowerBuffer: number } };
+    bands: { sp500: { period: number; upperBuffer: number; lowerBuffer: number; volGate?: boolean } };
     rungs: unknown[];
   };
-  assert.deepEqual(data.bands.sp500, { period: 150, upperBuffer: 2, lowerBuffer: 5 });
+  assert.deepEqual(data.bands.sp500, { period: 150, upperBuffer: 2, lowerBuffer: 5, volGate: true });
   assert.ok(data.rungs.length > 0);
+  await client.close();
+});
+
+test("the two-sleeve fund defaults to the site's per-index risk-off assets and gate", async () => {
+  const client = await connectClient();
+  const res = await client.callTool({ name: "compare_futures_ladder", arguments: { ...RANGE } });
+  assert.notEqual(res.isError, true, JSON.stringify(res.content));
+  const data = res.structuredContent as {
+    dualRiskOffAssets: { sp500: string; nasdaq100: string };
+    rungs: Array<{ name: string; dualSleeve: boolean }>;
+  };
+  assert.deepEqual(data.dualRiskOffAssets, { sp500: "BRK.B", nasdaq100: "VGSH" });
+  const fund = data.rungs.find((r) => r.dualSleeve);
+  assert.ok(fund, "the range covers Nasdaq data, so the fund must run");
+  assert.match(fund.name, / SMA Vol$/);
+  await client.close();
+});
+
+test("the sleeve overrides and the gate can each be set", async () => {
+  const client = await connectClient();
+  const res = await client.callTool({
+    name: "compare_futures_ladder",
+    arguments: { ...RANGE, spxRiskOffAsset: "SGOV", ndxRiskOffAsset: "GLDM", smaVolGate: false },
+  });
+  assert.notEqual(res.isError, true, JSON.stringify(res.content));
+  const data = res.structuredContent as {
+    dualRiskOffAssets: { sp500: string; nasdaq100: string };
+    rungs: Array<{ name: string; dualSleeve: boolean }>;
+  };
+  assert.deepEqual(data.dualRiskOffAssets, { sp500: "SGOV", nasdaq100: "GLDM" });
+  assert.ok(data.rungs.every((r) => !/ SMA Vol$/.test(r.name)));
   await client.close();
 });
 

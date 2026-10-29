@@ -13,6 +13,7 @@ import {
   getDefaultSmaUpperBuffer,
   getDefaultSmaLowerBuffer,
   getDefaultWindowLength,
+  DEFAULT_SMA_VOL_GATE,
 } from "@/lib/simulation/defaults";
 import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { getIsoDate } from "@/lib/date";
@@ -84,7 +85,7 @@ const DEFAULTS: SharedInputs = {
   smaNqLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
   smaSpEnabled: true,
   smaNqEnabled: true,
-  smaVolGate: true,
+  smaVolGate: DEFAULT_SMA_VOL_GATE,
   riskOffAsset: DEFAULT_RISK_OFF_ASSET,
   hateDrawdown: false,
   tradeAfterHours: false,
@@ -115,7 +116,7 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     smaNqLowerBuffer: normalizeNumberValue(base.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }),
     smaSpEnabled: normalizeBooleanValue(base.smaSpEnabled, true),
     smaNqEnabled: normalizeBooleanValue(base.smaNqEnabled, true),
-    smaVolGate: normalizeBooleanValue(base.smaVolGate, true),
+    smaVolGate: normalizeBooleanValue(base.smaVolGate, DEFAULT_SMA_VOL_GATE),
     riskOffAsset: normalizeRiskOffAsset(base.riskOffAsset),
     hateDrawdown: normalizeBooleanValue(base.hateDrawdown, false),
     tradeAfterHours: normalizeBooleanValue(base.tradeAfterHours, false),

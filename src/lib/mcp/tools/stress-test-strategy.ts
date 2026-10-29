@@ -21,6 +21,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 export function registerStressTestStrategy(server: McpServer): void {
@@ -46,6 +47,7 @@ export function registerStressTestStrategy(server: McpServer): void {
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
       },
       outputSchema: stressTestOutput,
     },

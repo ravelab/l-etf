@@ -8,14 +8,14 @@ import { z } from "zod/v4";
 import { simulateFuturesSmaStrategy } from "@/lib/simulation/futures";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import type { EtfConfig } from "@/lib/simulation/types";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { loadBorrowRates, loadIndexPrices, loadInflation, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { runFuturesBacktestOutput } from "@/lib/mcp/output-schemas";
 import { futuresLadderPermalink } from "@/lib/mcp/deep-link";
-import { indexSchema, isoDate, riskOffAssetSchema, smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
+import { indexSchema, isoDate, riskOffAssetSchema, smaBufferSchema, smaPeriodSchema, smaVolGateSchema } from "@/lib/mcp/schemas";
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
 
@@ -27,6 +27,7 @@ interface FuturesInput {
   smaPeriod?: number;
   smaBuffer?: number;
   riskOffAsset?: RiskOffAsset;
+  smaVolGate?: boolean;
   maintenanceMarginRate?: number;
   startDate?: string;
   endDate?: string;
@@ -41,6 +42,7 @@ export async function runFuturesBacktestCore(input: FuturesInput) {
   const smaUpperBuffer = input.smaBuffer ?? getDefaultSmaUpperBuffer(index);
   const smaLowerBuffer = input.smaBuffer ?? getDefaultSmaLowerBuffer(index);
   const riskOffAsset = input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET;
+  const smaVolGate = input.smaVolGate ?? DEFAULT_SMA_VOL_GATE;
   const initialEquity = input.initialEquity ?? DEFAULT_FUTURES_AMOUNT;
   const startDate = input.startDate ?? INDEX_DATE_RANGES[index].min;
   const endDate = input.endDate ?? new Date().toISOString().slice(0, 10);
@@ -69,6 +71,7 @@ export async function runFuturesBacktestCore(input: FuturesInput) {
     smaPeriod,
     smaUpperBuffer,
     smaLowerBuffer,
+    smaVolGate,
     riskOffAsset,
     riskOffCloseByTicker: aligned.closeValuesByAsset as Record<string, number[]>,
     riskOffOpenByTicker: aligned.openValuesByAsset as Record<string, number[]>,
@@ -119,6 +122,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
         smaPeriod: smaPeriodSchema.optional(),
         smaBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         maintenanceMarginRate: z.number().min(0).max(1).optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
@@ -138,6 +142,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
           smaPeriod: input.smaPeriod ?? getDefaultSmaPeriod(input.index),
           smaUpperBuffer: input.smaBuffer ?? getDefaultSmaUpperBuffer(input.index),
           smaLowerBuffer: input.smaBuffer ?? getDefaultSmaLowerBuffer(input.index),
+          smaVolGate: input.smaVolGate ?? DEFAULT_SMA_VOL_GATE,
           riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
           initialEquity: out.initialEquity,
         });

@@ -15,6 +15,7 @@ interface SignalHistoryInput {
   smaPeriod: number;
   smaUpperBuffer: number;
   smaLowerBuffer: number;
+  smaVolGate: boolean;
   startDate: string;
   endDate: string;
   includeSeries?: boolean;
@@ -25,6 +26,8 @@ interface Crossover {
   date: string;
   type: "buy" | "sell";
   price: number;
+  /** Which rule flipped it, when the volatility gate is on. */
+  trigger?: "sma" | "vol";
   /** Trading days the previous regime lasted, counted inside the range. */
   tradingDaysHeld: number;
 }
@@ -83,6 +86,7 @@ export function summarizeSignalHistory(input: SignalHistoryInput): SignalHistory
     closes,
     smaPeriod,
     { upper: smaUpperBuffer, lower: smaLowerBuffer },
+    { volGate: input.smaVolGate },
   );
 
   // Warm-up rows shape the SMA and seed the regime, but are not part of the
@@ -127,6 +131,7 @@ export function summarizeSignalHistory(input: SignalHistoryInput): SignalHistory
       date: signal.date,
       type: signal.type,
       price: signal.price,
+      ...(signal.trigger ? { trigger: signal.trigger } : {}),
       tradingDaysHeld: idx - previousIdx,
     });
     previousIdx = idx;

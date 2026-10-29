@@ -14,7 +14,8 @@ import { compareFuturesLadderOutput } from "@/lib/mcp/output-schemas";
 import { makeStepReporter } from "@/lib/mcp/progress";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
 import { toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
-import { isoDate, riskOffAssetSchema, smaBufferSchema, smaPeriodSchema } from "@/lib/mcp/schemas";
+import { isoDate, riskOffAssetSchema, smaBufferSchema, smaPeriodSchema, smaVolGateSchema } from "@/lib/mcp/schemas";
+import { DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS } from "@/lib/simulation/futures-plan";
 
 /** Rungs the plan can produce, so progress has a total before anything runs. */
 const MAX_LADDER_RUNGS = 6;
@@ -31,12 +32,25 @@ export function registerCompareFuturesLadder(server: McpServer): void {
         "except when both are risk-off and one is re-entering. Set `emulationMode` to run only the " +
         "rungs that have a leveraged-ETF twin (3x/2x on each index), which is the comparison that " +
         "isolates the futures-vs-swap cost model. Rungs come from the site's own ladder plan. " +
+        "`riskOffAsset` applies to the single-index rungs; the two-sleeve fund's sleeves use " +
+        "`spxRiskOffAsset` and `ndxRiskOffAsset`. " +
         "NOT investment advice.",
       inputSchema: {
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
         initialEquity: z.number().min(1000).max(1_000_000_000).optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
+        spxRiskOffAsset: riskOffAssetSchema
+          .describe(
+            `What the two-sleeve fund's S&P 500 sleeve holds while risk-off, overriding \`riskOffAsset\`. Default ${DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.sp500}, matching the site.`,
+          )
+          .optional(),
+        ndxRiskOffAsset: riskOffAssetSchema
+          .describe(
+            `What the two-sleeve fund's Nasdaq-100 sleeve holds while risk-off, overriding \`riskOffAsset\`. Default ${DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.nasdaq100}, matching the site.`,
+          )
+          .optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         emulationMode: z.boolean().optional(),
         smaPeriodSp: smaPeriodSchema.optional(),
         smaUpperBufferSp: smaBufferSchema.optional(),
@@ -56,6 +70,11 @@ export function registerCompareFuturesLadder(server: McpServer): void {
           endDate: args.endDate,
           initialEquity: args.initialEquity,
           riskOffAsset: args.riskOffAsset as EtfConfig["riskOffAsset"] | undefined,
+          dualRiskOffAssets: {
+            sp500: args.spxRiskOffAsset as EtfConfig["riskOffAsset"] | undefined,
+            nasdaq100: args.ndxRiskOffAsset as EtfConfig["riskOffAsset"] | undefined,
+          },
+          smaVolGate: args.smaVolGate,
           bands: {
             sp500: {
               period: args.smaPeriodSp,

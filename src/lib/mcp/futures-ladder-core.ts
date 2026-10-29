@@ -9,10 +9,16 @@
 
 import { CONSTANT_SP500_SHORTCUT_DATE } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
-import { buildFuturesLadderPlan, type SmaBand, type SmaBandsByIndex } from "@/lib/simulation/futures-plan";
+import {
+  buildFuturesLadderPlan,
+  DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS,
+  type DualRiskOffAssets,
+  type SmaBand,
+  type SmaBandsByIndex,
+} from "@/lib/simulation/futures-plan";
 import { runParallelFuturesStrategies } from "@/lib/simulation/futures-parallel";
 import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
 import { DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY } from "@/lib/simulation/futures";
 import type { EtfConfig, IndexKey, PricePoint } from "@/lib/simulation/types";
 import {
@@ -48,17 +54,19 @@ interface FuturesLadderResult {
   endDate: string;
   initialEquity: number;
   riskOffAsset: string;
+  dualRiskOffAssets: DualRiskOffAssets;
   emulationMode: boolean;
   bands: SmaBandsByIndex;
   rungs: LadderRungResult[];
   best: LadderRungResult;
 }
 
-function bandFor(index: IndexKey, override?: Partial<SmaBand>): SmaBand {
+function bandFor(index: IndexKey, volGate: boolean, override?: Partial<SmaBand>): SmaBand {
   return {
     period: override?.period ?? getDefaultSmaPeriod(index),
     upperBuffer: override?.upperBuffer ?? getDefaultSmaUpperBuffer(index),
     lowerBuffer: override?.lowerBuffer ?? getDefaultSmaLowerBuffer(index),
+    volGate,
   };
 }
 
@@ -68,6 +76,9 @@ export async function runFuturesLadder(params: {
   endDate?: string;
   initialEquity?: number;
   riskOffAsset?: RiskOffAsset;
+  /** Per-sleeve risk-off assets for the two-sleeve fund; each side defaults like the page's override inputs. */
+  dualRiskOffAssets?: Partial<DualRiskOffAssets>;
+  smaVolGate?: boolean;
   bands?: { sp500?: Partial<SmaBand>; nasdaq100?: Partial<SmaBand> };
   onProgress?: (completed: number, total: number) => void;
   signal?: AbortSignal;
@@ -82,9 +93,14 @@ export async function runFuturesLadder(params: {
 
   const initialEquity = params.initialEquity ?? DEFAULT_FUTURES_AMOUNT;
   const riskOffAsset = params.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET;
+  const dualRiskOffAssets: DualRiskOffAssets = {
+    sp500: params.dualRiskOffAssets?.sp500 ?? DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.sp500,
+    nasdaq100: params.dualRiskOffAssets?.nasdaq100 ?? DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.nasdaq100,
+  };
+  const volGate = params.smaVolGate ?? DEFAULT_SMA_VOL_GATE;
   const bands: SmaBandsByIndex = {
-    sp500: bandFor("sp500", params.bands?.sp500),
-    nasdaq100: bandFor("nasdaq100", params.bands?.nasdaq100),
+    sp500: bandFor("sp500", volGate, params.bands?.sp500),
+    nasdaq100: bandFor("nasdaq100", volGate, params.bands?.nasdaq100),
   };
 
   const warmUpDays = Math.max(bands.sp500.period, bands.nasdaq100.period);
@@ -95,7 +111,11 @@ export async function runFuturesLadder(params: {
     loadIndexPrices("nasdaq100", warmUpStart, endDate),
     loadBorrowRates(warmUpStart, endDate),
     loadInflation(warmUpStart, endDate),
-    loadRiskOffRawSeriesForAssets([riskOffAsset], warmUpStart, endDate),
+    loadRiskOffRawSeriesForAssets(
+      [riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100],
+      warmUpStart,
+      endDate,
+    ),
   ]);
   throwIfAborted(params.signal);
   if (spPrices.length < 2) {
@@ -124,6 +144,7 @@ export async function runFuturesLadder(params: {
     hasNasdaqData,
     yearSpan,
     bands,
+    dualRiskOffAssets,
   });
   if (steps.length === 0) throw new McpToolError("The futures ladder is empty for this range.");
 
@@ -144,6 +165,7 @@ export async function runFuturesLadder(params: {
     smaPeriod: sma.period,
     smaUpperBuffer: sma.upperBuffer,
     smaLowerBuffer: sma.lowerBuffer,
+    smaVolGate: sma.volGate === true,
     riskOffAsset,
     riskOffCloseByTicker: (index === "sp500" ? spRiskOff.closeValuesByAsset : nqRiskOff.closeValuesByAsset) as Record<string, number[]>,
     riskOffOpenByTicker: (index === "sp500" ? spRiskOff.openValuesByAsset : nqRiskOff.openValuesByAsset) as Record<string, number[]>,
@@ -185,6 +207,7 @@ export async function runFuturesLadder(params: {
     endDate,
     initialEquity,
     riskOffAsset,
+    dualRiskOffAssets,
     emulationMode: params.showEmulations,
     bands,
     rungs,

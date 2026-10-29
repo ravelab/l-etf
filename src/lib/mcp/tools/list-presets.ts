@@ -6,7 +6,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
-import { DEFAULT_RISK_OFF_ASSET, getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE, getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
+import { DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS } from "@/lib/simulation/futures-plan";
 import { toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { listPresetsOutput } from "@/lib/mcp/output-schemas";
 
@@ -37,6 +38,8 @@ export function registerListPresets(server: McpServer): void {
           riskOffAssets: RISK_OFF_ASSET_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
           defaults: {
             riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+            futuresDualRiskOffAssets: DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS,
+            smaVolGate: DEFAULT_SMA_VOL_GATE,
             sma: {
               sp500: {
                 period: getDefaultSmaPeriod("sp500"),

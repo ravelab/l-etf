@@ -110,6 +110,7 @@ function buildOptimizationConfigs(base: EtfConfig, cells: GridCell[]): EtfConfig
       smaLowerBuffer: cell.lowerBuffer,
       riskOffAsset: base.riskOffAsset,
       smaExecutionMode: base.smaExecutionMode,
+      smaVolGate: base.smaVolGate,
     }),
   );
 }

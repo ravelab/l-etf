@@ -30,6 +30,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 export function registerOptimizeStrategy(server: McpServer): void {
@@ -52,6 +53,7 @@ export function registerOptimizeStrategy(server: McpServer): void {
         windowLength: z.number().min(MIN_WINDOW_YEARS).max(MAX_WINDOW_YEARS).optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         minPeriod: smaPeriodSchema.optional(),
         maxPeriod: smaPeriodSchema.optional(),
         periodStep: z.number().int().min(1).max(200).optional(),
@@ -76,6 +78,7 @@ export function registerOptimizeStrategy(server: McpServer): void {
           preset: args.preset,
           riskOffAsset: args.riskOffAsset as EtfConfig["riskOffAsset"] | undefined,
           smaExecutionMode: args.smaExecutionMode,
+          smaVolGate: args.smaVolGate,
           startDate: args.startDate,
           endDate: args.endDate,
         });

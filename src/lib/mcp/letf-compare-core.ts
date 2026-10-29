@@ -9,7 +9,7 @@ import { percentile } from "@/lib/strategy-percentiles";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import type { EtfConfig } from "@/lib/simulation/types";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
 import { makeSweepEtfConfig, type SweepPresetDef } from "@/lib/simulation/sweep-items";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
 import { McpToolError } from "@/lib/mcp/tool-result";
@@ -25,6 +25,7 @@ interface LetfCompareInput {
   smaLowerBuffer?: number;
   riskOffAsset?: RiskOffAsset;
   smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
+  smaVolGate?: boolean;
   windowLength: number;
   /** Called after each index group finishes; groups are the natural step here. */
   onGroupProgress?: (completedGroups: number, totalGroups: number) => void;
@@ -102,6 +103,7 @@ export async function runLetfComparison(input: LetfCompareInput): Promise<LetfCo
       smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaLowerBuffer(index),
       riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
       smaExecutionMode: input.smaExecutionMode,
+      smaVolGate: input.smaVolGate ?? DEFAULT_SMA_VOL_GATE,
     });
     const bucket = byIndex.get(index) ?? [];
     bucket.push({ label: key, config });

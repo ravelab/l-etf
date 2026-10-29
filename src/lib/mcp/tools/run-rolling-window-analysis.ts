@@ -23,6 +23,7 @@ import {
   smaBufferSchema,
   smaExecutionModeSchema,
   smaPeriodSchema,
+  smaVolGateSchema,
 } from "@/lib/mcp/schemas";
 
 export function registerRunRollingWindowAnalysis(server: McpServer): void {
@@ -50,6 +51,7 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
         smaLowerBuffer: smaBufferSchema.optional(),
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
+        smaVolGate: smaVolGateSchema.optional(),
         includePercentiles: z.boolean().optional(),
         includeWindows: z.boolean().optional(),
         maxWindows: z.number().int().min(1).max(MAX_RETURNED_WINDOWS).optional(),

@@ -4,7 +4,7 @@
 
 import type { EtfConfig } from "@/lib/simulation/types";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { McpToolError } from "@/lib/mcp/tool-result";
@@ -23,7 +23,7 @@ export interface BacktestInput {
   smaPeriod?: number;
   smaUpperBuffer?: number;
   smaLowerBuffer?: number;
-  /** Not in the MCP tool schema; the SMA preset scripts set it to match calibration. */
+  /** Omitted means `DEFAULT_SMA_VOL_GATE`; the SMA preset scripts pass it explicitly to match calibration. */
   smaVolGate?: boolean;
   riskOffAsset?: RiskOffAsset;
   smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
@@ -88,10 +88,11 @@ export function resolveBacktest(input: BacktestInput): ResolvedBacktest {
   const smaUpperBuffer = input.smaUpperBuffer ?? getDefaultSmaUpperBuffer(index);
   const smaLowerBuffer = input.smaLowerBuffer ?? getDefaultSmaLowerBuffer(index);
   const riskOffAsset = input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET;
+  const smaVolGate = input.smaVolGate ?? DEFAULT_SMA_VOL_GATE;
 
   const config: EtfConfig = {
     id: "mcp",
-    name: smaEnabled ? `${label} SMA ${smaPeriod}` : label,
+    name: smaEnabled ? `${label} SMA${smaVolGate ? " Vol" : ""} ${smaPeriod}` : label,
     leverage,
     expenseRatio,
     simulated: true,
@@ -99,7 +100,7 @@ export function resolveBacktest(input: BacktestInput): ResolvedBacktest {
     smaPeriod,
     smaUpperBuffer,
     smaLowerBuffer,
-    smaVolGate: input.smaVolGate === true,
+    smaVolGate,
     smaIndex: index,
     smaExecutionMode: input.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE,
     riskOffAsset,

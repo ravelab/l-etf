@@ -53,6 +53,7 @@ export function buildSmaOnOffConfigs(base: EtfConfig): EtfConfig[] {
       smaLowerBuffer: base.smaLowerBuffer,
       riskOffAsset: base.riskOffAsset,
       smaExecutionMode: base.smaExecutionMode,
+      smaVolGate: base.smaVolGate,
     }),
   ];
 }
@@ -71,6 +72,7 @@ export function buildRiskOffConfigs(base: EtfConfig, assets?: RiskOffAsset[]): E
     upperBuffer: base.smaUpperBuffer,
     lowerBuffer: base.smaLowerBuffer,
     smaExecutionMode: base.smaExecutionMode,
+    smaVolGate: base.smaVolGate,
   }).map((v) => v.config);
 }
 
@@ -98,6 +100,7 @@ export function buildSmaPeriodConfigs(
     upperBuffer: base.smaUpperBuffer,
     lowerBuffer: base.smaLowerBuffer,
     smaExecutionMode: base.smaExecutionMode,
+    smaVolGate: base.smaVolGate,
   }).map((i) => i.config);
 }
 
@@ -124,6 +127,7 @@ export function buildBufferConfigs(
     maxBuffer,
     fineStep: step,
     smaExecutionMode: base.smaExecutionMode,
+    smaVolGate: base.smaVolGate,
   }).map((i) => i.config);
 }
 
@@ -191,6 +195,7 @@ export function buildAsymmetricBufferConfigs(
       lower: point.lower,
       variant: "coarse",
       smaExecutionMode: base.smaExecutionMode,
+      smaVolGate: base.smaVolGate,
     });
     // A degenerate range can plan the same cell twice; keep one config per id so
     // the sweep rows stay 1:1 with the grid.
