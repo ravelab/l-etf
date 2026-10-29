@@ -159,6 +159,7 @@ export function CompareSmaStrategiesPageContent({
     pageKey: "compare-sma",
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
+    onNoData: () => setPendingRun(true),
     skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareSmaSnapshotState>).runSummaryInputs ||

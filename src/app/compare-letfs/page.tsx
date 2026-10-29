@@ -480,6 +480,7 @@ export function CompareLETFsPageContent({
     pageKey: "compare-letfs",
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
+    onNoData: () => setPendingRun(true),
     skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareLetfsSnapshotState>).runSummaryInputs ||

@@ -147,6 +147,7 @@ export function StatisticalAnalysisPageContent({
     pageKey: "statistical-analysis",
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applyStatSnapshot,
+    onNoData: () => setPendingRun(true),
     skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<StatisticalSnapshotState>).runSummaryInputs ||

@@ -140,6 +140,7 @@ export function CompareRiskOffAssetsPageContent({
     pageKey: "compare-riskoff-assets",
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
+    onNoData: () => setPendingRun(true),
     skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareRiskOffSnapshotState>).runSummaryInputs ||
