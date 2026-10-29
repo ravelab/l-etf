@@ -15,10 +15,14 @@ export async function run(ctx) {
   await gotoUi(ctx.page, url);
   await waitForRunSummaryStable(ctx.page);
 
+  // With the vol gate on by default the page runs live instead of showing the
+  // snapshot, so its end date is the latest market day rather than the snapshot's.
   const text = await normalizedRunSummaryText(ctx.page);
-  if (!text.includes(startDate) || !text.includes(endDate)) {
+  const datesInText = text.match(/\d{4}-\d{2}-\d{2}/g) ?? [];
+  const endsOnOrAfter = datesInText.some((date) => date >= endDate);
+  if (!text.includes(startDate) || !endsOnOrAfter) {
     throw new Error(
-      `Expected run summary to include snapshot start/end (${startDate} … ${endDate}).\n${text.slice(0, 600)}`
+      `Expected run summary to start at ${startDate} and end on or after ${endDate}.\n${text.slice(0, 600)}`
     );
   }
 }
