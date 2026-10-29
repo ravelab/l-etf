@@ -18,10 +18,10 @@ type UseToolSnapshotParams<T> = {
   /** Predicate that decides whether a persisted localStorage blob has enough
    *  content to skip fetching the server-side snapshot. */
   hasPersistedResults?: (state: Record<string, unknown>) => boolean;
-  /** The server snapshot is a canned run of the default inputs; when the form
-   *  asks for something it cannot contain (e.g. the volatility gate), report
-   *  no data instead so the page autoruns with its own inputs. */
-  skipServerSnapshot?: boolean;
+  /** The form's volatility gate. The server snapshot is one canned run, so when
+   *  it was generated with the other setting, report no data instead so the
+   *  page autoruns with its own inputs rather than showing the wrong run. */
+  smaVolGate?: boolean;
 };
 
 type ApiResponse<T> = {
@@ -38,9 +38,10 @@ export function useToolSnapshot<T = Record<string, unknown>>({
   onMetadata,
   onNoData,
   hasPersistedResults,
-  skipServerSnapshot = false,
+  smaVolGate,
 }: UseToolSnapshotParams<T>) {
   const appliedRef = useRef(false);
+  const smaVolGateRef = useRef(smaVolGate);
   const [metadata, setMetadata] = useState<ToolSnapshotMetadata | null>(null);
   const onSnapshotRef = useRef(onSnapshot);
   const onMetadataRef = useRef(onMetadata);
@@ -53,6 +54,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
     onMetadataRef.current = onMetadata;
     onNoDataRef.current = onNoData;
     hasPersistedResultsRef.current = hasPersistedResults;
+    smaVolGateRef.current = smaVolGate;
   });
 
   // Restore from localStorage synchronously so the first paint (and follow-up
@@ -101,13 +103,6 @@ export function useToolSnapshot<T = Record<string, unknown>>({
 
     appliedRef.current = true;
 
-    if (skipServerSnapshot) {
-      // Async like the fetch path: pages queue their own deferred
-      // `setPendingRun(false)` on mount, which would otherwise win.
-      setTimeout(() => onNoDataRef.current?.(), 0);
-      return;
-    }
-
     const controller = new AbortController();
     fetch(`/api/tool-snapshots?pageKey=${pageKey}`, {
       signal: controller.signal,
@@ -125,6 +120,11 @@ export function useToolSnapshot<T = Record<string, unknown>>({
           return;
         }
         if (!payload.pageState) {
+          onNoDataRef.current?.();
+          return;
+        }
+        const formGate = smaVolGateRef.current;
+        if (formGate !== undefined && (payload.sharedInputs?.smaVolGate === true) !== formGate) {
           onNoDataRef.current?.();
           return;
         }
@@ -146,6 +146,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
                   smaNqPeriod: payload.sharedInputs.smaNqPeriod,
                   smaNqUpperBuffer: payload.sharedInputs.smaNqUpperBuffer,
                   smaNqLowerBuffer: payload.sharedInputs.smaNqLowerBuffer,
+                  smaVolGate: payload.sharedInputs.smaVolGate === true,
                   letf: typeof payload.sharedInputs.preset === "string" ? payload.sharedInputs.preset : undefined,
                   riskOffAsset: typeof payload.sharedInputs.riskOffAsset === "string" ? payload.sharedInputs.riskOffAsset : undefined,
                 }
@@ -170,7 +171,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
     return () => {
       // Don't abort - let the fetch complete even if component re-renders
     };
-  }, [pageKey, shouldHydrate, skipServerSnapshot]);
+  }, [pageKey, shouldHydrate]);
 
   const clearMetadata = useCallback(() => {
     setMetadata(null);

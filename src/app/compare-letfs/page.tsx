@@ -481,7 +481,7 @@ export function CompareLETFsPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
-    skipServerSnapshot: smaVolGate,
+    smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareLetfsSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareLetfsSnapshotState>).strategyResults?.length ?? 0) > 0,

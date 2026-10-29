@@ -27,7 +27,7 @@ export function registerGetPrecomputedAnalysis(server: McpServer): void {
         "Return the site's canonical precomputed run for a tool page — no simulation, so it is instant " +
         "and does not consume the heavy-tool rate limit. Call with no arguments to list what is " +
         "available and how fresh each snapshot is. Snapshots use the site's own inputs and are " +
-        "generated with history wrap enabled and the volatility gate off, unlike the live tools; re-run the matching tool when you " +
+        "generated with history wrap enabled, unlike the live tools; re-run the matching tool when you " +
         "need a like-for-like or custom-input number. NOT investment advice.",
       inputSchema: {
         analysis: z.enum(SNAPSHOT_ANALYSES).optional(),

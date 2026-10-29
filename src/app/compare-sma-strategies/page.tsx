@@ -160,7 +160,7 @@ export function CompareSmaStrategiesPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
-    skipServerSnapshot: smaVolGate,
+    smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareSmaSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareSmaSnapshotState>).rows?.length ?? 0) > 0,

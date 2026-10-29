@@ -148,7 +148,7 @@ export function StatisticalAnalysisPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applyStatSnapshot,
     onNoData: () => setPendingRun(true),
-    skipServerSnapshot: smaVolGate,
+    smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<StatisticalSnapshotState>).runSummaryInputs ||
       ((state as Partial<StatisticalSnapshotState>).winRatesByWindow?.length ?? 0) > 0,

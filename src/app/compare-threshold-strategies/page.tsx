@@ -208,7 +208,7 @@ export function CompareBufferStrategiesPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
-    skipServerSnapshot: smaVolGate,
+    smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareThresholdSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareThresholdSnapshotState>).rows?.length ?? 0) > 0,

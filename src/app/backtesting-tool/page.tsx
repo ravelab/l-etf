@@ -502,7 +502,7 @@ export function BacktestingPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applyBacktestSnapshot,
     onNoData: () => setPendingRun(true),
-    skipServerSnapshot: smaVolGate,
+    smaVolGate,
     // Backtesting does not persist `result` to avoid quota issues, so we always
     // fall back to the server snapshot — no localStorage results to restore.
     hasPersistedResults: () => false,

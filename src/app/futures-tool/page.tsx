@@ -473,7 +473,7 @@ export function FuturesPageContent({
       save(snapshot as any);
     },
     onNoData: () => setPendingRun(true),
-    skipServerSnapshot: smaVolGate,
+    smaVolGate,
     hasPersistedResults: (state) => Boolean(state.result),
   });
 

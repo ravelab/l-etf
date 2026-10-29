@@ -55,6 +55,7 @@ import {
   DEFAULT_FUTURES_AMOUNT,
   DEFAULT_LEVERAGE_TOLERANCE_PCT,
   DEFAULT_RISK_OFF_ASSET,
+  DEFAULT_SMA_VOL_GATE,
   getDefaultSmaLowerBuffer,
   getDefaultSmaPeriod,
   getDefaultSmaUpperBuffer,
@@ -221,6 +222,7 @@ type SharedInputs = {
   smaSpLowerBuffer: number;
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
+  smaVolGate: boolean;
   riskOffAsset: RiskOffAsset;
   smaExecutionMode: NonNullable<EtfConfig["smaExecutionMode"]>;
 };
@@ -255,6 +257,7 @@ async function main() {
     smaSpLowerBuffer: calibration?.sp500.smaLowerBuffer ?? getDefaultSmaLowerBuffer("sp500"),
     smaNqUpperBuffer: calibration?.nasdaq100.smaUpperBuffer ?? getDefaultSmaUpperBuffer("nasdaq100"),
     smaNqLowerBuffer: calibration?.nasdaq100.smaLowerBuffer ?? getDefaultSmaLowerBuffer("nasdaq100"),
+    smaVolGate: DEFAULT_SMA_VOL_GATE,
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     smaExecutionMode: "next-day-open",
   } as const;
@@ -368,6 +371,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
       smaEnabled: true,
       smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
       smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
+      smaVolGate: shared.smaVolGate,
       riskOffAsset: shared.riskOffAsset,
     })
   );
@@ -446,6 +450,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
     smaSpLowerBuffer: shared.smaSpLowerBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
     smaMode: 1,
     etfConfigs: [],
@@ -537,11 +542,13 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
         period: shared.smaSpPeriod,
         upperBuffer: shared.smaSpUpperBuffer,
         lowerBuffer: shared.smaSpLowerBuffer,
+        volGate: shared.smaVolGate,
       },
       nasdaq100: {
         period: shared.smaNqPeriod,
         upperBuffer: shared.smaNqUpperBuffer,
         lowerBuffer: shared.smaNqLowerBuffer,
+        volGate: shared.smaVolGate,
       },
     },
     dualRiskOffAssets,
@@ -563,6 +570,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     maxLeverage,
     smaPeriod: sma.period,
     smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
+    smaVolGate: sma.volGate === true,
     riskOffAsset: shared.riskOffAsset,
     riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
     riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
@@ -639,7 +647,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaNqPeriod: shared.smaNqPeriod,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
-    smaVolGate: false,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
     amount,
     leverageTolerance: `${leverageTolerancePct}%`,
@@ -662,6 +670,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaSpLowerBuffer: shared.smaSpLowerBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
     spxRiskOffAsset: dualRiskOffAssets.sp500,
     ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
@@ -711,6 +720,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
       smaEnabled: true,
       smaPeriod: sub.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
       smaUpperBuffer: sub.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: sub.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
+      smaVolGate: shared.smaVolGate,
       riskOffAsset: shared.riskOffAsset,
       smaExecutionMode: shared.smaExecutionMode,
     });
@@ -741,6 +751,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
     smaNqPeriod: shared.smaNqPeriod,
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     annualizedInflation: inflationData.annualizedInflation,
@@ -752,6 +763,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
       smaSpUpperBuffer: shared.smaSpUpperBuffer,
       smaNqPeriod: shared.smaNqPeriod,
       smaNqUpperBuffer: shared.smaNqUpperBuffer,
+      smaVolGate: shared.smaVolGate,
       letf: shared.preset,
       riskOffAsset: shared.riskOffAsset,
     },
@@ -794,7 +806,7 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     smaSpLowerBuffer: shared.smaSpLowerBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
-    smaVolGate: false,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
   });
 
@@ -844,6 +856,7 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     smaNqPeriod: shared.smaNqPeriod,
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     annualizedInflation: inflationData.annualizedInflation,
@@ -901,6 +914,7 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
           smaEnabled: true,
           smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
           smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
+          smaVolGate: shared.smaVolGate,
           riskOffAsset: asset,
           smaExecutionMode: shared.smaExecutionMode,
         });
@@ -956,6 +970,7 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
     smaNqPeriod: shared.smaNqPeriod,
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaVolGate: shared.smaVolGate,
     smaExecutionMode: shared.smaExecutionMode,
     showBaseline: true,
     annualizedInflation: inflationData.annualizedInflation,
@@ -1011,6 +1026,7 @@ async function buildSmaSweepSnapshot(
         smaEnabled: true,
         smaPeriod: sma,
         smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
+        smaVolGate: shared.smaVolGate,
         riskOffAsset: shared.riskOffAsset,
         smaExecutionMode: shared.smaExecutionMode,
       }));
@@ -1056,6 +1072,7 @@ async function buildSmaSweepSnapshot(
     stepSize: params.stepSize,
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     showBaseline: true,
@@ -1133,6 +1150,7 @@ async function buildBufferSweepSnapshot(
         smaEnabled: true,
         smaPeriod: period,
         smaUpperBuffer: roundedBuffer, smaLowerBuffer: roundedBuffer,
+        smaVolGate: shared.smaVolGate,
         riskOffAsset: shared.riskOffAsset,
         smaExecutionMode: shared.smaExecutionMode,
       }));
@@ -1152,6 +1170,7 @@ async function buildBufferSweepSnapshot(
         smaEnabled: true,
         smaPeriod: period,
         smaUpperBuffer: upper, smaLowerBuffer: lower,
+        smaVolGate: shared.smaVolGate,
         riskOffAsset: shared.riskOffAsset,
         smaExecutionMode: shared.smaExecutionMode,
       }));
@@ -1217,6 +1236,7 @@ async function buildBufferSweepSnapshot(
             smaEnabled: true,
             smaPeriod: period,
             smaUpperBuffer: upper, smaLowerBuffer: lower,
+            smaVolGate: shared.smaVolGate,
             riskOffAsset: shared.riskOffAsset,
             smaExecutionMode: shared.smaExecutionMode,
           })
@@ -1263,6 +1283,7 @@ async function buildBufferSweepSnapshot(
     fineStep: params.fineStep,
     coarseStep: params.coarseStep,
     fineHalfWidth: params.fineHalfWidth,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     showBaseline: true,
