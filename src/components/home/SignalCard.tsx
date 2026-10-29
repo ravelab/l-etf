@@ -1,8 +1,10 @@
 import type { SmaSignalResult } from "@/lib/sma-signals";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
+import type { IndexKey } from "@/lib/simulation/types";
 
 interface SignalCardProps {
   indexName: string;
+  indexKey: IndexKey;
   smaPeriod: number;
   result?: SmaSignalResult | null;
   loading?: boolean;
@@ -34,7 +36,8 @@ function SignalIcon({ signal, signalLabel }: { signal?: SmaSignalResult["signal"
   );
 }
 
-export function SignalCard({ indexName, smaPeriod, result, loading = false }: SignalCardProps) {
+export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = false }: SignalCardProps) {
+  const gate = SMA_VOL_GATE[indexKey];
   const placeholderSignal = "No Action";
   const placeholderPercent = "-00.00%";
   const placeholderDate = "Sep 30, 2026";
@@ -119,12 +122,12 @@ export function SignalCard({ indexName, smaPeriod, result, loading = false }: Si
 
         {result?.volatility !== undefined && (
           <div data-testid="vol-gate-status" className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-muted">{SMA_VOL_GATE.windowDays}d volatility</span>
+            <span className="text-muted">{gate.windowDays}d volatility</span>
             <span className={`font-medium tabular-nums ${result.volGateRiskOff ? "text-negative" : "text-muted"}`}>
               {Number.isFinite(result.volatility) ? `${(result.volatility * 100).toFixed(1)}%` : "n/a"}
               {result.volGateRiskOff
-                ? ` · risk off until < ${Math.round(SMA_VOL_GATE.reenterBelow * 100)}%`
-                : ` · risk off > ${Math.round(SMA_VOL_GATE.exitAbove * 100)}%`}
+                ? ` · risk off until < ${Math.round(gate.reenterBelow * 100)}%`
+                : ` · risk off > ${Math.round(gate.exitAbove * 100)}%`}
             </span>
           </div>
         )}

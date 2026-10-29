@@ -7,9 +7,11 @@
 // backtest of the same band would produce — without running the backtest.
 
 import { generateSmaSignals } from "@/lib/simulation/sma";
-import type { PricePoint } from "@/lib/simulation/types";
+import type { IndexKey, PricePoint } from "@/lib/simulation/types";
+import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 
 interface SignalHistoryInput {
+  index: IndexKey;
   /** Prices including SMA warm-up rows before `startDate`. */
   prices: PricePoint[];
   smaPeriod: number;
@@ -86,7 +88,7 @@ export function summarizeSignalHistory(input: SignalHistoryInput): SignalHistory
     closes,
     smaPeriod,
     { upper: smaUpperBuffer, lower: smaLowerBuffer },
-    { volGate: input.smaVolGate },
+    input.smaVolGate ? { volGate: SMA_VOL_GATE[input.index] } : {},
   );
 
   // Warm-up rows shape the SMA and seed the regime, but are not part of the

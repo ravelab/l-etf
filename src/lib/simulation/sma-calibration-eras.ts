@@ -102,11 +102,10 @@ export const SMA_CALIBRATION_ERAS: Record<IndexKey, SmaCalibrationEra[]> = {
 
 /**
  * Whether an index's rules are scored with the volatility risk-off gate
- * (`vol-gate.ts`) layered on. NDX ships with the gate on, so its default and
- * alternatives must be the rules that work best WITH it; SPX's SMA usually
- * exits before the gate would, so it stays scored as a plain band.
+ * (`vol-gate.ts`) layered on. The gate ships on by default for both indices,
+ * so each default and alternative must be the rule that works best WITH it.
  */
-export const SMA_CALIBRATION_VOL_GATE: Record<IndexKey, boolean> = { sp500: false, nasdaq100: true };
+export const SMA_CALIBRATION_VOL_GATE: Record<IndexKey, boolean> = { sp500: true, nasdaq100: true };
 
 /** The era whose per-window metrics the calibration reports alongside the band. */
 export function primaryEra(indexKey: IndexKey): SmaCalibrationEra {

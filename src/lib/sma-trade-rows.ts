@@ -1,7 +1,7 @@
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { formatRiskOffLiquidationAbbrev } from "@/lib/constants";
 import type { EtfConfig, EtfResult, SmaSignal } from "@/lib/simulation/types";
-import { computeRealizedVol } from "@/lib/simulation/vol-gate";
+import { computeRealizedVol, SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 
 export interface SmaTradeRow {
   signalDate: string;
@@ -22,7 +22,7 @@ export interface SmaTradeRow {
 
 interface BuildSmaTradeRowsParams {
   etf: Pick<EtfResult, "smaSignals" | "smaPrices" | "smaStartInvested">;
-  config: Pick<EtfConfig, "name" | "riskOffAsset" | "smaExecutionMode">;
+  config: Pick<EtfConfig, "name" | "riskOffAsset" | "smaExecutionMode" | "smaIndex">;
   etfDates: string[];
   /** Index close prices (synthetic scale) driving the SMA signal. */
   closePrices: number[];
@@ -79,7 +79,9 @@ export function buildSmaTradeRows({
 
   const needsNextDay = executionMode === "next-day-open" || executionMode === "next-day-close";
   const lastIdx = etfDates.length - 1;
-  const triggerVols = etf.smaSignals.some((s) => s.trigger) ? computeRealizedVol(closePrices) : null;
+  const triggerVols = etf.smaSignals.some((s) => s.trigger)
+    ? computeRealizedVol(closePrices, SMA_VOL_GATE[config.smaIndex].windowDays)
+    : null;
   const baseRows = etf.smaSignals.flatMap((signal): SmaTradeRow[] => {
     const signalIdx = dateToIndex.get(signal.date);
     // Hide signals whose next-day execution hasn't happened yet (no data beyond the signal day).

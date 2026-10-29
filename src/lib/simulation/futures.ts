@@ -1,6 +1,7 @@
 import type { PricePoint, RatePoint, IndexKey, EtfResult, RiskOffAsset, SmaSignal } from "@/lib/simulation/types";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { generateSmaSignals } from "@/lib/simulation/sma";
+import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { riskOffCloseMarkPrice, riskOffOpenTradePrice } from "@/lib/simulation/risk-off";
 import { formatRiskOffLiquidationAbbrev, getSymbolSpread, getRiskOffFetchTickers } from "@/lib/constants";
 import { DEFAULT_LEVERAGE_TOLERANCE_PCT } from "@/lib/simulation/defaults";
@@ -1040,7 +1041,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     fullSmaInput,
     params.smaPeriod,
     { upper: params.smaUpperBuffer, lower: params.smaLowerBuffer },
-    { volGate: params.smaVolGate === true }
+    params.smaVolGate === true ? { volGate: SMA_VOL_GATE[params.index] } : {}
   );
   const fullInvestedByDate = new Map<string, boolean>();
   for (let i = 0; i < fullDates.length; i++) {

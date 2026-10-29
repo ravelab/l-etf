@@ -8,7 +8,7 @@ import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE, combineEraScores } from
 import { buildSmaEraContexts, evaluateCombosAcrossEras } from "../scripts/lib/sma-sweep-context";
 import { comboKey, planBufferNeighborhood, planPeriodNeighborhood, planCombos } from "../src/lib/simulation/sma-search";
 import {
-  SMA_REENTRY_PENALTY, SMA_SEARCH_MIN_PERIOD, SMA_SEARCH_MAX_PERIOD, SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER,
+  SMA_LONG_PERIOD_PENALTY, SMA_REENTRY_PENALTY, SMA_SEARCH_MIN_PERIOD, SMA_SEARCH_MAX_PERIOD, SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER,
   smaReentryClimbPct, smaReentryPenaltyFraction,
 } from "../src/lib/simulation/sma-search-bounds";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
@@ -25,14 +25,17 @@ import { CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 
 // These three tests pin the October 9 scoring decision. Monthly financing refits
 // must not change their reference inputs; the artifact tests below use today's model.
-// That decision predates NDX's volatility-gated scoring and the re-entry
-// penalty, so they score without either.
+// That decision predates volatility-gated scoring and the re-entry and
+// long-period penalties, so they score without any of them.
 async function withReferenceCalibration(check: () => Promise<void>): Promise<void> {
   const current = getSwapSpreadModel();
-  const gate = SMA_CALIBRATION_VOL_GATE.nasdaq100;
+  const gate = { ...SMA_CALIBRATION_VOL_GATE };
+  SMA_CALIBRATION_VOL_GATE.sp500 = false;
   SMA_CALIBRATION_VOL_GATE.nasdaq100 = false;
   const freeClimbPct = SMA_REENTRY_PENALTY.freeClimbPct;
   SMA_REENTRY_PENALTY.freeClimbPct = Infinity;
+  const freePeriod = SMA_LONG_PERIOD_PENALTY.freePeriod;
+  SMA_LONG_PERIOD_PENALTY.freePeriod = Infinity;
   setSwapSpreadModel({
     sp500: {
       2: { rateSensitivity: 0.727645, baseSpread: 0.002794 },
@@ -45,7 +48,8 @@ async function withReferenceCalibration(check: () => Promise<void>): Promise<voi
   });
   try { await check(); } finally {
     setSwapSpreadModel(current);
-    SMA_CALIBRATION_VOL_GATE.nasdaq100 = gate;
+    Object.assign(SMA_CALIBRATION_VOL_GATE, gate);
+    SMA_LONG_PERIOD_PENALTY.freePeriod = freePeriod;
     SMA_REENTRY_PENALTY.freeClimbPct = freeClimbPct;
   }
 }
@@ -299,8 +303,7 @@ test("preset selection retains early-era weights, stability penalties and the ca
       SMA_REENTRY_PENALTY.freeClimbPct = Infinity;
       const bad = evaluateCombosAcrossEras(contexts, [{ smaPeriod: 37, smaUpperBuffer: 10.5, smaLowerBuffer: 13.7 }])[0];
       SMA_REENTRY_PENALTY.freeClimbPct = freeClimbPct;
-      assert.ok(bad.score < 0);
-      assert.ok(bad.scoresByEra.start! > 0);
+      assert.ok(bad.scoresByEra.start! > actualDefault.scoresByEra.start!, "it wins the modern era alone");
       assert.ok(bad.scoresByEra.proxy! < 0);
       assert.ok(bad.scoresByEra.proto! < 0);
       assert.ok(bad.score < actualDefault.score);

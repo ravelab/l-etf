@@ -565,16 +565,28 @@ multi-era per-period search seeds, refined jointly over one-day periods and
 0.1 percentage-point buffer steps, with the same raw era weights and complete
 ±1-day/±0.1% stability neighborhoods as calibration. Keep pre-1988 SPX and
 pre-1985 NDX in selection: a modern-only CAGR winner can fail those eras badly.
-NDX is scored, displayed and verified WITH the volatility risk-off gate
-(`SMA_CALIBRATION_VOL_GATE`, `vol-gate.ts`), because the gate ships on by
-default; SPX stays a plain band. Ungated, NDX ranks 182/−18.1%/+6.9% first;
-gated, 115/−20%/+16% wins by a wide margin, so flipping that flag reorders the
-whole NDX preset set. The gate is a constant, not a searched parameter.
-Every era score also pays a re-entry penalty (`SMA_REENTRY_PENALTY`,
-`sma-search-bounds.ts`) for an upper buffer that only a steep steady climb
-reaches: history's recoveries were mostly V-shaped, so unpenalized NDX picked
-107d +16.4% (needs ~106%/yr; sat out 1987–1991 while NDX rose 41%). With it
-136/−18%/+9.6% wins and 107 stays listed as an alternative.
+Both indices are scored, displayed and verified WITH the volatility risk-off
+gate (`SMA_CALIBRATION_VOL_GATE`, `vol-gate.ts`), because the gate ships on by
+default. Ungated, NDX ranks 182/−18.1%/+6.9% first; gated, 115/−20%/+16% wins
+by a wide margin, so flipping that flag reorders the whole NDX preset set.
+Gate parameters are PER INDEX (`SMA_VOL_GATE[index]`), resolved from
+`smaIndex` wherever signals are generated; one UI switch turns both on, so the
+switch itself never shows parameters. Both currently share 11d 49%/31%: a
+window x exit x re-entry grid for SPX, ranked by the worst one-step neighbour,
+found nothing stably better (best robust cell within 0.5% of the score;
+5d/54%/12% peaked, then lost ~27% one step away). Labels collapse to one set
+when they match (`volGateParamsTextFor`). They are constants, not searched by
+the monthly calibration; re-pick them only alongside a band re-search. A
+gate-only rule (no SMA exits) loses badly on both indices in the
+pre-1988/1985 eras.
+Every era score also pays shape penalties (`smaScorePenaltyFraction`,
+`sma-search-bounds.ts`), both general rules rather than per-rule exceptions:
+- Re-entry (`SMA_REENTRY_PENALTY`): an upper buffer that only a steep steady
+ climb reaches. History's recoveries were mostly V-shaped, so unpenalized NDX
+ picked 107d +16.4% (needs ~106%/yr; sat out 1987–1991 while NDX rose 41%).
+- Long period (`SMA_LONG_PERIOD_PENALTY`): 1% per 5 days beyond 200. Under
+ some SPX gates 262/−2.3%/+3.4% otherwise outscored 175/−3.6%/+3.6% on a
+ handful of slow, well-timed exits.
 Keep one default and three alternatives per index. The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
 rank each index by descending stability-adjusted weighted multi-era score and
 pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
@@ -596,8 +608,8 @@ The manual search promotes its strongest stable discovery into the same
 ties. Both search scripts publish through `scripts/lib/sma-calibration-result.ts`.
 Signals preset buttons apply only their own index, so SPX and NDX can be mixed
 independently. Keep the compact stats in proxy-before-proto order; scores and
-methodology prose are not displayed. Each button shares its stats row; mobile
-text wraps naturally after the button while desktop keeps one line.
+methodology prose are not displayed. Each button shares its stats row and the
+text wraps after it at every width — never a horizontal scroll.
 Desktop pairs each rank in two columns matching the controls: SPX left, NDX right.
 Displayed NDX real CAGR and switches use a separate 1985-01-31 launch backtest,
 so the modern period begins exactly where proto ends. Store real-return dates

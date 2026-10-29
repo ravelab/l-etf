@@ -20,12 +20,17 @@ export function VolGateCheckbox({
         <span>Volatility</span>
         <span className="ml-auto inline-flex items-center">
           <InfoPopoverButton label={SMA_VOL_GATE_LABEL}>
-            Adds a second risk-off rule on top of each SMA. At every close the index&apos;s
-            {` ${SMA_VOL_GATE.windowDays}`}-day realized volatility is measured (standard deviation of the
-            last {SMA_VOL_GATE.windowDays} daily log returns × √252). Above {pct(SMA_VOL_GATE.exitAbove)} the
+            Adds a second risk-off rule on top of each SMA. At every close the index&apos;s realized volatility
+            is measured (standard deviation of the last N daily log returns × √252). Above the exit level the
             strategy moves to the risk-off asset even if the SMA says invested; it stays there until volatility
-            closes below {pct(SMA_VOL_GATE.reenterBelow)}, and then the SMA decides again. It never buys on its
-            own. Tested on NDX it fired about once every four years; on SPX the SMA has usually exited already.
+            closes below the re-entry level, and then the SMA decides again. It never buys on its own. Each
+            index has its own window, exit and re-entry, calibrated jointly with its SMA band:
+            {(["sp500", "nasdaq100"] as const).map((index) => (
+              <span key={index} className="block">
+                {index === "sp500" ? "SPX" : "NDX"}: {SMA_VOL_GATE[index].windowDays} days, exit above{" "}
+                {pct(SMA_VOL_GATE[index].exitAbove)}, re-enter below {pct(SMA_VOL_GATE[index].reenterBelow)}.
+              </span>
+            ))}
           </InfoPopoverButton>
         </span>
       </div>

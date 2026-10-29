@@ -26,7 +26,7 @@ import {
 import { buildRollingWindows, summarizeSmaRow, type RollingWindow } from "../../src/lib/simulation/rolling";
 import { scoreRow } from "../../src/lib/simulation/score";
 import { comboKey, type SmaCombo } from "../../src/lib/simulation/sma-search";
-import { smaReentryPenaltyFraction } from "../../src/lib/simulation/sma-search-bounds";
+import { smaScorePenaltyFraction } from "../../src/lib/simulation/sma-search-bounds";
 import {
   SMA_CALIBRATION_ERAS,
   SMA_CALIBRATION_VOL_GATE,
@@ -256,7 +256,7 @@ export function evaluateCombosAcrossEras(
     // Join on the combo key, never on position: `evaluateCombos` drops a combo
     // whose bucket came back empty, and it can drop in one era but not another.
     const key = comboKey(combo);
-    const penalty = smaReentryPenaltyFraction(combo);
+    const penalty = smaScorePenaltyFraction(combo);
     const scoresByEra: Partial<Record<SmaEraKey, number>> = {};
     for (const [era, index] of byEra) {
       const hit = index.get(key);

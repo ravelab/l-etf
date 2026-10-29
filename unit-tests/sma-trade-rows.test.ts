@@ -28,6 +28,7 @@ function makeParams(overrides?: {
     },
     config: {
       name: "UPRO",
+      smaIndex: "sp500" as const,
       riskOffAsset: "BRK.B+GLDM+VGSH" as const,
       smaExecutionMode: overrides?.smaExecutionMode ?? ("trigger-day-close" as const),
     },

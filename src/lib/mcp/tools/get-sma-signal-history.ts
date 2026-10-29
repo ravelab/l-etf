@@ -100,6 +100,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
         }
 
         const history = summarizeSignalHistory({
+          index,
           prices,
           smaPeriod,
           smaUpperBuffer,

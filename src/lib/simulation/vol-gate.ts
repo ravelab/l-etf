@@ -1,3 +1,5 @@
+import type { IndexKey } from "./types";
+
 /**
  * Volatility risk-off gate layered on top of the SMA regime.
  *
@@ -7,31 +9,52 @@
  * `exitAbove` and releases only once it closes below `reenterBelow`; while
  * released, the SMA alone decides. The gate never buys on its own.
  *
- * The parameters were picked on NDX 1985–2026 (146-day SMA, −12.2%/+8.2%) to
- * fire roughly once every four years. Changing them changes every stored
- * result that has the gate on.
+ * Parameters are per index, but both currently share NDX's (11d, 49%/31%),
+ * which fires roughly once every four years. A window x exit x re-entry grid
+ * for SPX found nothing stably better: its most robust cell (7d, 58%/18%)
+ * scored within 0.5% of the shared gate, and higher peaks (5d, 54%/12%) lost
+ * ~27% one step away. Changing either set changes every stored result that
+ * has the gate on.
  */
-export const SMA_VOL_GATE = {
-  windowDays: 11,
-  exitAbove: 0.49,
-  reenterBelow: 0.31,
-} as const;
+export interface VolGateParams {
+  windowDays: number;
+  exitAbove: number;
+  reenterBelow: number;
+}
+
+export const SMA_VOL_GATE: Record<IndexKey, VolGateParams> = {
+  sp500: { windowDays: 11, exitAbove: 0.49, reenterBelow: 0.31 },
+  nasdaq100: { windowDays: 11, exitAbove: 0.49, reenterBelow: 0.31 },
+};
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-export const SMA_VOL_GATE_PARAMS_TEXT =
-  `${SMA_VOL_GATE.windowDays}, ${pct(SMA_VOL_GATE.exitAbove)}, ${pct(SMA_VOL_GATE.reenterBelow)}`;
+function volGateParamsText(index: IndexKey): string {
+  const gate = SMA_VOL_GATE[index];
+  return `${gate.windowDays}, ${pct(gate.exitAbove)}, ${pct(gate.reenterBelow)}`;
+}
+
+const INDEX_SHORT_NAME: Record<IndexKey, string> = { sp500: "SPX", nasdaq100: "NDX" };
+
+/** Parameters for the given indices, written once when they all match. */
+export function volGateParamsTextFor(indices: IndexKey[]): string {
+  const texts = indices.map(volGateParamsText);
+  if (texts.every((text) => text === texts[0])) return texts[0] ?? "";
+  return indices.map((index, i) => `${INDEX_SHORT_NAME[index]} ${texts[i]}`).join("; ");
+}
+
+/** Both indices' parameters, for surfaces where one switch gates both. */
+export const SMA_VOL_GATE_PARAMS_TEXT = volGateParamsTextFor(Object.keys(SMA_VOL_GATE) as IndexKey[]);
 
 export const SMA_VOL_GATE_LABEL = `Volatility risk off (${SMA_VOL_GATE_PARAMS_TEXT})`;
 
-const realizedVolCache = new WeakMap<number[], number[]>();
+const realizedVolCache = new WeakMap<number[], Map<number, number[]>>();
 
 /** Annualized realized volatility per day; NaN until a full window exists. */
-export function computeRealizedVol(prices: number[], windowDays: number = SMA_VOL_GATE.windowDays): number[] {
-  if (windowDays === SMA_VOL_GATE.windowDays) {
-    const cached = realizedVolCache.get(prices);
-    if (cached) return cached;
-  }
+export function computeRealizedVol(prices: number[], windowDays: number): number[] {
+  let byWindow = realizedVolCache.get(prices);
+  const cached = byWindow?.get(windowDays);
+  if (cached) return cached;
 
   const n = prices.length;
   const out = new Array<number>(n).fill(NaN);
@@ -67,25 +90,29 @@ export function computeRealizedVol(prices: number[], windowDays: number = SMA_VO
     }
   }
 
-  if (windowDays === SMA_VOL_GATE.windowDays) realizedVolCache.set(prices, out);
+  if (!byWindow) {
+    byWindow = new Map();
+    realizedVolCache.set(prices, byWindow);
+  }
+  byWindow.set(windowDays, out);
   return out;
 }
 
 /** Advance the gate one close. A NaN reading leaves the state unchanged. */
-export function nextVolGateRiskOff(riskOff: boolean, vol: number): boolean {
+export function nextVolGateRiskOff(riskOff: boolean, vol: number, gate: VolGateParams): boolean {
   if (!isFinite(vol)) return riskOff;
-  if (!riskOff && vol > SMA_VOL_GATE.exitAbove) return true;
-  if (riskOff && vol < SMA_VOL_GATE.reenterBelow) return false;
+  if (!riskOff && vol > gate.exitAbove) return true;
+  if (riskOff && vol < gate.reenterBelow) return false;
   return riskOff;
 }
 
 /** Gate state (true = forced risk-off) at each close. */
-export function computeVolGateRiskOff(prices: number[]): boolean[] {
-  const vol = computeRealizedVol(prices);
+export function computeVolGateRiskOff(prices: number[], gate: VolGateParams): boolean[] {
+  const vol = computeRealizedVol(prices, gate.windowDays);
   const out = new Array<boolean>(prices.length);
   let riskOff = false;
   for (let i = 0; i < prices.length; i++) {
-    riskOff = nextVolGateRiskOff(riskOff, vol[i]);
+    riskOff = nextVolGateRiskOff(riskOff, vol[i], gate);
     out[i] = riskOff;
   }
   return out;

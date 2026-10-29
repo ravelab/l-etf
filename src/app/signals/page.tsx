@@ -11,8 +11,6 @@ import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
 import { getSharedInputs } from "@/lib/hooks/use-shared-inputs";
 import { formatSmaSummary } from "@/lib/buffer-format";
 import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
-import { SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
-import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
 import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
@@ -222,7 +220,7 @@ export default function SignalsPage() {
                     {(["sp500", "nasdaq100"] as const).map((indexKey) => {
                       const rule = preset[indexKey];
                       return (
-                        <div key={indexKey} className="w-full min-w-0 leading-7 md:overflow-x-auto md:whitespace-nowrap">
+                        <div key={indexKey} className="w-full min-w-0 leading-7">
                           <Button
                             variant="secondary"
                             size="sm"
@@ -234,9 +232,7 @@ export default function SignalsPage() {
                           </Button>
                           <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5">
                             <span className="font-medium text-foreground">
-                              {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
-                              {SMA_CALIBRATION_VOL_GATE[indexKey] && ` (${SMA_VOL_GATE_PARAMS_TEXT})`}
-                            </span>
+                              {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}                            </span>
                             <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
                             {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
                               <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>
@@ -257,12 +253,14 @@ export default function SignalsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <SignalCard
               indexName="SPX"
+              indexKey="sp500"
               smaPeriod={smaSpPeriod}
               result={signals?.sp500 ?? null}
               loading={loading}
             />
             <SignalCard
               indexName="NDX"
+              indexKey="nasdaq100"
               smaPeriod={smaNqPeriod}
               result={signals?.nasdaq100 ?? null}
               loading={loading}

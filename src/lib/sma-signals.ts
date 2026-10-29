@@ -1,5 +1,5 @@
 import { computeSma } from "@/lib/simulation/sma";
-import { computeRealizedVol, nextVolGateRiskOff } from "@/lib/simulation/vol-gate";
+import { computeRealizedVol, nextVolGateRiskOff, type VolGateParams } from "@/lib/simulation/vol-gate";
 import { DailyPrice } from "@/lib/data/storage/types";
 
 export type SmaSignal = "buy" | "sell" | "hold";
@@ -31,7 +31,7 @@ export function getSmaSignal(
   prices: DailyPrice[],
   period: number,
   buffer: { upper: number; lower: number },
-  options: { volGate?: boolean } = {}
+  options: { volGate?: VolGateParams } = {}
 ): SmaSignalResult {
   const upperPercent = buffer.upper;
   const lowerPercent = buffer.lower;
@@ -109,9 +109,10 @@ export function getSmaSignal(
     return { signal, indexValue: currentPrice, indexDate, smaValue: currentSma, percentDiff, signalLabel, signalEmoji };
   }
 
-  const vol = computeRealizedVol(priceIndex);
+  const gate = options.volGate;
+  const vol = computeRealizedVol(priceIndex, gate.windowDays);
   let volGateRiskOff = false;
-  for (const v of vol) volGateRiskOff = nextVolGateRiskOff(volGateRiskOff, v);
+  for (const v of vol) volGateRiskOff = nextVolGateRiskOff(volGateRiskOff, v, gate);
   if (volGateRiskOff) {
     signal = "sell";
     signalLabel = "Volatility Risk Off";

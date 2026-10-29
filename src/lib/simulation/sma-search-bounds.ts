@@ -32,3 +32,21 @@ export function smaReentryPenaltyFraction(combo: { smaPeriod: number; smaUpperBu
   const excess = Math.max(0, smaReentryClimbPct(combo) - SMA_REENTRY_PENALTY.freeClimbPct);
   return Math.min(1, excess / SMA_REENTRY_PENALTY.climbPctPerScorePct / 100);
 }
+
+/**
+ * Past 200 days an SMA reacts slowly and has few independent crossings in any
+ * era, so a long period can win on a handful of well-timed exits. Every 5 days
+ * beyond 200 cost 1% of each era's score (262d pays 12.4%), which let SPX
+ * 175d outrank 262d under the 5d gate instead of special-casing either.
+ */
+export const SMA_LONG_PERIOD_PENALTY = { freePeriod: 200, daysPerScorePct: 5 };
+
+function smaLongPeriodPenaltyFraction(combo: { smaPeriod: number }): number {
+  const excess = Math.max(0, combo.smaPeriod - SMA_LONG_PERIOD_PENALTY.freePeriod);
+  return Math.min(1, excess / SMA_LONG_PERIOD_PENALTY.daysPerScorePct / 100);
+}
+
+/** Total share of |score| each era loses for the combo's shape. */
+export function smaScorePenaltyFraction(combo: { smaPeriod: number; smaUpperBuffer: number }): number {
+  return Math.min(1, smaReentryPenaltyFraction(combo) + smaLongPeriodPenaltyFraction(combo));
+}

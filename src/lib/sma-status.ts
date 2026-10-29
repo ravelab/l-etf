@@ -1,7 +1,8 @@
 import storage, { type DailyPrice } from "@/lib/data/storage";
 import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
 import { getSmaSignal, type SmaSignalResult } from "@/lib/sma-signals";
-import { SMA_VOL_GATE_LABEL } from "@/lib/simulation/vol-gate";
+import { SMA_VOL_GATE, volGateParamsTextFor } from "@/lib/simulation/vol-gate";
+import type { IndexKey } from "@/lib/simulation/types";
 
 export type SmaSignalConfig = {
   smaSpPeriod: number;
@@ -113,7 +114,16 @@ export function describeSmaSignalStatus(snapshot: SmaSignalSnapshot, config?: Sm
     parts.push(`NDX: ${formatSmaStatus(snapshot.nasdaq100)}`);
   }
   if (parts.length === 0) return "No alerts enabled";
-  return config?.smaVolGate ? `${parts.join("; ")} · ${SMA_VOL_GATE_LABEL}` : parts.join("; ");
+  return config?.smaVolGate ? `${parts.join("; ")} · ${volGateLabelFor(config)}` : parts.join("; ");
+}
+
+/** The gate label for the indices this config alerts on, each with its own parameters. */
+function volGateLabelFor(config: Pick<SmaSignalConfig, "smaSpEnabled" | "smaNqEnabled">): string {
+  const enabled: IndexKey[] = [
+    ...(config.smaSpEnabled !== false ? (["sp500"] as const) : []),
+    ...(config.smaNqEnabled !== false ? (["nasdaq100"] as const) : []),
+  ];
+  return `Volatility risk off (${volGateParamsTextFor(enabled)})`;
 }
 
 export function describeSmaSignalConfig(config: SmaSignalConfig): string {
@@ -124,7 +134,7 @@ export function describeSmaSignalConfig(config: SmaSignalConfig): string {
   if (config.smaNqEnabled) {
     parts.push(`NDX ${config.smaNqPeriod} SMA, −${formatCompactPercent(config.smaNqLowerBuffer)}/${formatCompactPercent(config.smaNqUpperBuffer)}`);
   }
-  if (parts.length > 0 && config.smaVolGate) parts.push(SMA_VOL_GATE_LABEL);
+  if (parts.length > 0 && config.smaVolGate) parts.push(volGateLabelFor(config));
   return parts.length > 0 ? parts.join("; ") : "None";
 }
 
@@ -188,11 +198,11 @@ export function computeSmaSignalSnapshot(params: {
   timestamp?: string;
 }): SmaSignalSnapshot {
   const { sp500Prices, nasdaqPrices, config, timestamp = new Date().toISOString() } = params;
-  const options = { volGate: config.smaVolGate === true };
+  const options = (index: IndexKey) => (config.smaVolGate === true ? { volGate: SMA_VOL_GATE[index] } : {});
 
   return {
-    sp500: getSmaSignal(sp500Prices, config.smaSpPeriod, { upper: config.smaSpUpperBuffer, lower: config.smaSpLowerBuffer }, options),
-    nasdaq100: getSmaSignal(nasdaqPrices, config.smaNqPeriod, { upper: config.smaNqUpperBuffer, lower: config.smaNqLowerBuffer }, options),
+    sp500: getSmaSignal(sp500Prices, config.smaSpPeriod, { upper: config.smaSpUpperBuffer, lower: config.smaSpLowerBuffer }, options("sp500")),
+    nasdaq100: getSmaSignal(nasdaqPrices, config.smaNqPeriod, { upper: config.smaNqUpperBuffer, lower: config.smaNqLowerBuffer }, options("nasdaq100")),
     timestamp,
   };
 }

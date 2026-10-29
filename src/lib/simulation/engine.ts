@@ -8,6 +8,7 @@ import type {
 import { buildRateLookup } from "./borrowing-rate";
 import { riskOffCloseMarkPrice, riskOffOpenTradePrice } from "./risk-off";
 import { generateSmaSignals } from "./sma";
+import { SMA_VOL_GATE } from "./vol-gate";
 import {
   calcCagr,
   calcMaxDrawdown,
@@ -545,7 +546,7 @@ export function simulateSingleEtf(
         ...(options?.smaInitialInvested !== undefined
           ? { initialInvested: options.smaInitialInvested, seedAtIndex: options?.smaSeedAtIndex }
           : {}),
-        volGate: config.smaVolGate === true,
+        ...(config.smaVolGate === true ? { volGate: SMA_VOL_GATE[config.smaIndex] } : {}),
       }
     );
     const signalInvested = smaResult.invested;
