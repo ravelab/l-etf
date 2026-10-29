@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { FuturesTaxInputs } from "@/components/tools/futures/FuturesTaxInputs";
 import { Button } from "@/components/ui/Button";
 import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
@@ -29,12 +30,14 @@ import { runParallelBacktest } from "@/lib/simulation/parallel";
 import {
   buildEmulationEtfConfigs,
   buildFuturesLadderPlan,
+  DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS,
   showsFuturesTransactions,
+  type DualRiskOffAssets,
   type SmaBandsByIndex,
 } from "@/lib/simulation/futures-plan";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
 import { ResultsTable } from "@/components/tools/backtest/ResultsTable";
-import { getRiskOffFetchTickers } from "@/lib/constants";
+import { getRiskOffFetchTickers, RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
 import { alignCloseSeriesToDates, alignOpenSeriesToDates, validateSimulationReadyPrices } from "@/lib/utils";
 import {
   DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
@@ -117,6 +120,7 @@ export function FuturesPageContent({
     smaSpPeriod,
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+    smaVolGate,
     riskOffAsset,
     handleFieldChange,
     initial,
@@ -157,6 +161,10 @@ export function FuturesPageContent({
       { min: 0 }
     )
   );
+  const [dualRiskOffAssets, setDualRiskOffAssets] = useState<DualRiskOffAssets>(() => ({
+    sp500: normalizeRiskOffAsset(persistedInitial.spxRiskOffAsset, DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.sp500),
+    nasdaq100: normalizeRiskOffAsset(persistedInitial.ndxRiskOffAsset, DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.nasdaq100),
+  }));
   const [showEmulations, setShowEmulations] = useState<boolean>(false);
   const [futuresDetails, setFuturesDetails] = useState<FuturesStrategyResult[] | null>(null);
   const [expandedFuturesSma, setExpandedFuturesSma] = useState<string[]>([]);
@@ -270,10 +278,15 @@ export function FuturesPageContent({
         normalizeNumberValue(smaBuffers.smaNqLowerBuffer, 11.9, { min: 0 })
       );
     }
+    if (smaBuffers.smaVolGate != null) {
+      handleFieldChange("smaVolGate", smaBuffers.smaVolGate);
+    }
     const ro = params.get("ro");
     if (ro != null && ro !== "") {
       handleFieldChange("riskOffAsset", normalizeRiskOffAsset(ro));
     }
+    const ros = params.get("ros");
+    const ron = params.get("ron");
     const amt = params.get("amt");
     const nextAmount =
       amt != null && amt !== ""
@@ -287,6 +300,12 @@ export function FuturesPageContent({
     const emParam = params.get("em");
     const wantsEmulations = emParam === "1" || emParam === "true";
     Promise.resolve().then(() => {
+      if (ros || ron) {
+        setDualRiskOffAssets((current) => ({
+          sp500: ros ? normalizeRiskOffAsset(ros, current.sp500) : current.sp500,
+          nasdaq100: ron ? normalizeRiskOffAsset(ron, current.nasdaq100) : current.nasdaq100,
+        }));
+      }
       if (nextAmount != null) setAmount(nextAmount);
       if (nextLeverageTolerance != null) setLeverageTolerancePct(nextLeverageTolerance);
       if (wantsEmulations) setShowEmulations(true);
@@ -328,8 +347,11 @@ export function FuturesPageContent({
       smaSpLowerBuffer,
       smaNqUpperBuffer,
       smaNqLowerBuffer,
+      smaVolGate,
     });
     params.set("ro", riskOffAsset);
+    params.set("ros", dualRiskOffAssets.sp500);
+    params.set("ron", dualRiskOffAssets.nasdaq100);
     params.set("amt", String(amount));
     params.set("lt", String(leverageTolerancePct));
     if (showEmulations) params.set("em", "1");
@@ -338,6 +360,7 @@ export function FuturesPageContent({
     router.push(buildToolsUrl("futures", params));
   }, [
     amount,
+    dualRiskOffAssets,
     endDate,
     leverageTolerancePct,
     markNextSearchAsInternal,
@@ -350,6 +373,7 @@ export function FuturesPageContent({
     smaSpUpperBuffer,
     smaSpLowerBuffer,
     smaSpPeriod,
+    smaVolGate,
     startDate,
   ]);
 
@@ -411,10 +435,15 @@ export function FuturesPageContent({
         "smaNqLowerBuffer",
         normalizeNumberValue(snapshot.smaNqLowerBuffer, 11.9, { min: 0 })
       );
+      handleFieldChange("smaVolGate", snapshot.smaVolGate === true);
       handleFieldChange(
         "riskOffAsset",
         normalizeRiskOffAsset(snapshot.riskOffAsset as string | undefined)
       );
+      setDualRiskOffAssets({
+        sp500: normalizeRiskOffAsset(snapshot.spxRiskOffAsset, DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.sp500),
+        nasdaq100: normalizeRiskOffAsset(snapshot.ndxRiskOffAsset, DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS.nasdaq100),
+      });
       setAmount(normalizeNumberValue(snapshot.amount as number, DEFAULT_FUTURES_AMOUNT, { min: 0 }));
       setLeverageTolerancePct(
         normalizeNumberValue(
@@ -444,6 +473,7 @@ export function FuturesPageContent({
       save(snapshot as any);
     },
     onNoData: () => setPendingRun(true),
+    skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) => Boolean(state.result),
   });
 
@@ -499,7 +529,10 @@ export function FuturesPageContent({
       // Load risk-off series first (needed for futures SMA transaction details + LETF SMA).
       setRunProgress({ pct: 30, label: "Loading risk-off + ETF history..." });
       const warmUpStartDate = getMarketDataWarmUpStartDate(startDate, warmUpTradingDays);
-      const riskOffTickers = getRiskOffFetchTickers(riskOffAsset);
+      // The two-sleeve fund's sleeves may hold their own baskets, so every price
+      // map carries the union of all three assets' tickers.
+      const riskOffTickers = [...new Set([riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100]
+        .flatMap(getRiskOffFetchTickers))];
       const rawRiskOffSeriesByAsset = await loadAllRiskOffPricePoints(riskOffTickers, signal, undefined, {
         startDate: warmUpStartDate,
         endDate,
@@ -537,14 +570,15 @@ export function FuturesPageContent({
       // One band per index feeds both the ladders and their LETF twins below, so
       // the pair cannot disagree about its own SMA rule (see futures-plan.ts).
       const smaBands: SmaBandsByIndex = {
-        sp500: { period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer },
-        nasdaq100: { period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer },
+        sp500: { period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer, volGate: smaVolGate },
+        nasdaq100: { period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer, volGate: smaVolGate },
       };
       const futuresPlan = buildFuturesLadderPlan({
         showEmulations,
         hasNasdaqData: hasNqData,
         yearSpan,
         bands: smaBands,
+        dualRiskOffAssets,
       });
       /** Everything a sleeve needs that does not depend on which rung asked for it. */
       const sleeveParams = (
@@ -562,6 +596,7 @@ export function FuturesPageContent({
         maxLeverage,
         smaPeriod: sma.period,
         smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
+        smaVolGate: sma.volGate === true,
         riskOffAsset,
         riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
         riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
@@ -699,9 +734,12 @@ export function FuturesPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         riskOffAsset,
         amount,
         leverageTolerance: `${leverageTolerancePct}%`,
+        spxRiskOffAsset: dualRiskOffAssets.sp500,
+        ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
       });
       setRunSummary(nextRunSummary);
 
@@ -712,7 +750,10 @@ export function FuturesPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         riskOffAsset,
+        spxRiskOffAsset: dualRiskOffAssets.sp500,
+        ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
         amount,
         taxRates,
         result: combined,
@@ -742,6 +783,7 @@ export function FuturesPageContent({
     }
   }, [
     amount,
+    dualRiskOffAssets,
     endDate,
     riskOffAsset,
     save,
@@ -753,6 +795,7 @@ export function FuturesPageContent({
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
+    smaVolGate,
     startDate,
     updateUrl,
     windowLength,
@@ -787,6 +830,7 @@ export function FuturesPageContent({
             smaSpPeriod,
             smaNqPeriod,
             smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+            smaVolGate,
             riskOffAsset,
           }}
           onChange={handleFieldChange}
@@ -804,7 +848,31 @@ export function FuturesPageContent({
           progress={runProgress}
           error={error}
           showRollingFields={false}
-          endFields={<FuturesTaxInputs rates={taxRates} onChange={changeTaxRate} />}
+          endFields={
+            <>
+              <FuturesTaxInputs rates={taxRates} onChange={changeTaxRate} />
+              <Select
+                label="SPX Risk-Off Asset Override"
+                info="What the SPX sleeve of Max 4.5x SPX / Max 3x NDX holds while risk-off, in place of Risk-Off Asset. When the two sleeves differ, the fund's 50/50 reset moves holdings between them in kind and sells only what re-entry needs."
+                options={RISK_OFF_ASSET_OPTIONS}
+                value={dualRiskOffAssets.sp500}
+                onChange={(e) => {
+                  const sp500 = normalizeRiskOffAsset(e.currentTarget.value, dualRiskOffAssets.sp500);
+                  setDualRiskOffAssets((current) => ({ ...current, sp500 }));
+                }}
+              />
+              <Select
+                label="NDX Risk-Off Asset Override"
+                info="What the NDX sleeve of Max 4.5x SPX / Max 3x NDX holds while risk-off, in place of Risk-Off Asset."
+                options={RISK_OFF_ASSET_OPTIONS}
+                value={dualRiskOffAssets.nasdaq100}
+                onChange={(e) => {
+                  const nasdaq100 = normalizeRiskOffAsset(e.currentTarget.value, dualRiskOffAssets.nasdaq100);
+                  setDualRiskOffAssets((current) => ({ ...current, nasdaq100 }));
+                }}
+              />
+            </>
+          }
         >
           <Input
             label="Amount"

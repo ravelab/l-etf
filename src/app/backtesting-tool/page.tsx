@@ -132,6 +132,7 @@ export function BacktestingPageContent({
     smaSpPeriod, setSmaSpPeriod, smaNqPeriod, setSmaNqPeriod,
     smaSpUpperBuffer, setSmaSpUpperBuffer, smaSpLowerBuffer, setSmaSpLowerBuffer,
     smaNqUpperBuffer, setSmaNqUpperBuffer, smaNqLowerBuffer, setSmaNqLowerBuffer,
+    smaVolGate, setSmaVolGate,
     riskOffAsset, setRiskOffAsset,
     handleFieldChange, initial, save, restoredFromCache,
   } = form;
@@ -215,13 +216,14 @@ export function BacktestingPageContent({
         smaEnabled: smaMode !== 0 && cfg.smaEnabled,
         smaPeriod: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqPeriod : smaSpPeriod) : 0,
         smaUpperBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer) : 0, smaLowerBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer) : 0,
+        smaVolGate: smaMode !== 0 && smaVolGate,
         riskOffAsset,
       }));
 
       if (smaMode === 0) return baseConfigs;
       return baseConfigs;
     },
-    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, smaMode, checkSimulationDisplayStarts, etfLaunchDates]
+    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, smaMode, checkSimulationDisplayStarts, etfLaunchDates]
   );
 
   type BacktestingSnapshotState = typeof initial;
@@ -257,6 +259,7 @@ export function BacktestingPageContent({
       if (decoded.smaSpLowerBuffer != null) setSmaSpLowerBuffer(normalizeNumberValue(decoded.smaSpLowerBuffer, getDefaultSmaLowerBuffer("sp500"), { min: 0 }));
       if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaUpperBuffer("nasdaq100"), { min: 0 }));
       if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }));
+      if (decoded.smaVolGate != null) setSmaVolGate(decoded.smaVolGate);
       if (decoded.riskOffAsset) setRiskOffAsset(normalizeRiskOffAsset(decoded.riskOffAsset));
       const smaParam = params.get("sma");
       // Use Promise.resolve().then() to defer state updates and avoid cascading render warnings
@@ -313,6 +316,7 @@ export function BacktestingPageContent({
     setSmaSpPeriod,
     setSmaNqPeriod,
     setSmaSpUpperBuffer, setSmaSpLowerBuffer, setSmaNqUpperBuffer, setSmaNqLowerBuffer,
+    setSmaVolGate,
     setRiskOffAsset,
   ]);
 
@@ -498,6 +502,7 @@ export function BacktestingPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applyBacktestSnapshot,
     onNoData: () => setPendingRun(true),
+    skipServerSnapshot: smaVolGate,
     // Backtesting does not persist `result` to avoid quota issues, so we always
     // fall back to the server snapshot — no localStorage results to restore.
     hasPersistedResults: () => false,
@@ -553,6 +558,7 @@ export function BacktestingPageContent({
       smaSpLowerBuffer,
       smaNqUpperBuffer,
       smaNqLowerBuffer,
+      smaVolGate,
     });
     urlParams.set("ro", riskOffAsset);
     if (smaMode === 0) urlParams.set("sma", "0");
@@ -565,7 +571,7 @@ export function BacktestingPageContent({
 
     markNextSearchAsInternal();
     router.push(buildToolsUrl("backtest", urlParams));
-  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, etfConfigs, router, markNextSearchAsInternal]);
+  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, etfConfigs, router, markNextSearchAsInternal]);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -905,6 +911,7 @@ export function BacktestingPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate: smaMode !== 0 && smaVolGate,
         riskOffAsset,
       });
       setRunSummary(nextRunSummary);
@@ -918,6 +925,7 @@ export function BacktestingPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         riskOffAsset,
         etfConfigs,
         result: {
@@ -978,6 +986,7 @@ export function BacktestingPageContent({
           smaSpLowerBuffer,
           smaNqUpperBuffer,
           smaNqLowerBuffer,
+          smaVolGate,
         });
         historyParams.set("ro", riskOffAsset);
         if (smaMode === 0) historyParams.set("sma", "0");
@@ -996,6 +1005,7 @@ export function BacktestingPageContent({
             smaSpUpperBuffer, smaSpLowerBuffer,
             smaNqPeriod,
             smaNqUpperBuffer, smaNqLowerBuffer,
+            smaVolGate: smaMode !== 0 && smaVolGate,
             letf: getValidPresetKey(letf, DEFAULT_COMBO_PRESET),
             riskOffAsset,
             tradeAfterHours: false,
@@ -1035,6 +1045,7 @@ export function BacktestingPageContent({
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
+    smaVolGate,
     smaMode,
     startDate,
     updateUrl,
@@ -1095,7 +1106,7 @@ export function BacktestingPageContent({
     const shownInResult = (cfg: EtfConfig) => {
       if (!displayResult) return false;
       const etf = findEtfResult(displayResult, `${cfg.id}-sma`);
-      return etf != null && shortBacktestAssetLabel(etf.name) === `${cfg.name} SMA`;
+      return etf != null && shortBacktestAssetLabel(etf.name).replace(/ Vol$/, "") === `${cfg.name} SMA`;
     };
     const pick = (indexKey: IndexKey) => {
       const candidates = resolvedEtfConfigs.filter(
@@ -1218,6 +1229,7 @@ export function BacktestingPageContent({
             smaSpPeriod,
             smaNqPeriod,
             smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+            smaVolGate,
             riskOffAsset,
           }}
           onChange={handleFieldChange}

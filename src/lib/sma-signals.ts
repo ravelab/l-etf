@@ -1,4 +1,5 @@
 import { computeSma } from "@/lib/simulation/sma";
+import { computeRealizedVol, nextVolGateRiskOff } from "@/lib/simulation/vol-gate";
 import { DailyPrice } from "@/lib/data/storage/types";
 
 export type SmaSignal = "buy" | "sell" | "hold";
@@ -11,6 +12,9 @@ export interface SmaSignalResult {
   percentDiff: number;
   signalLabel: string;
   signalEmoji: string;
+  /** Present only when the volatility gate was requested. */
+  volatility?: number;
+  volGateRiskOff?: boolean;
 }
 
 /**
@@ -20,11 +24,14 @@ export interface SmaSignalResult {
  * - Buy: Price crosses above SMA × (1 + buffer%)
  * - Sell: Price crosses below SMA × (1 - buffer%)
  * - Hold: Price within buffer zone
+ *
+ * With `volGate`, a tripped volatility gate overrides all three with "sell".
  */
 export function getSmaSignal(
   prices: DailyPrice[],
   period: number,
-  buffer: { upper: number; lower: number }
+  buffer: { upper: number; lower: number },
+  options: { volGate?: boolean } = {}
 ): SmaSignalResult {
   const upperPercent = buffer.upper;
   const lowerPercent = buffer.lower;
@@ -98,6 +105,19 @@ export function getSmaSignal(
     signalEmoji = "🔴";
   }
 
+  if (!options.volGate) {
+    return { signal, indexValue: currentPrice, indexDate, smaValue: currentSma, percentDiff, signalLabel, signalEmoji };
+  }
+
+  const vol = computeRealizedVol(priceIndex);
+  let volGateRiskOff = false;
+  for (const v of vol) volGateRiskOff = nextVolGateRiskOff(volGateRiskOff, v);
+  if (volGateRiskOff) {
+    signal = "sell";
+    signalLabel = "Volatility Risk Off";
+    signalEmoji = "🔴";
+  }
+
   return {
     signal,
     indexValue: currentPrice,
@@ -106,5 +126,7 @@ export function getSmaSignal(
     percentDiff,
     signalLabel,
     signalEmoji,
+    volatility: vol[vol.length - 1],
+    volGateRiskOff,
   };
 }

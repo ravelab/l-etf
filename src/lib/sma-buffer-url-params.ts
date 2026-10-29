@@ -6,11 +6,15 @@ export const SMA_BUFFER_URL_KEYS = {
   nqLower: "smatnqL",
 } as const;
 
+/** Present as "1" only when the volatility risk-off gate is on. */
+export const SMA_VOL_GATE_URL_KEY = "vg";
+
 type SmaBufferUrlFields = {
   smaSpUpperBuffer: number;
   smaSpLowerBuffer: number;
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
+  smaVolGate: boolean;
 };
 
 function parseNumParam(params: URLSearchParams, key: string): number | undefined {
@@ -29,18 +33,33 @@ function urlNumMatchesState(params: URLSearchParams, key: string, stateVal: unkn
   return a === b;
 }
 
-/** Write all four asymmetric SMA buffer params. */
+/** Write all four asymmetric SMA buffer params and the volatility gate flag. */
 export function appendSmaBufferUrlParams(params: URLSearchParams, values: SmaBufferUrlFields): void {
   deleteSmaBufferUrlParams(params);
   params.set(SMA_BUFFER_URL_KEYS.spUpper, String(values.smaSpUpperBuffer));
   params.set(SMA_BUFFER_URL_KEYS.spLower, String(values.smaSpLowerBuffer));
   params.set(SMA_BUFFER_URL_KEYS.nqUpper, String(values.smaNqUpperBuffer));
   params.set(SMA_BUFFER_URL_KEYS.nqLower, String(values.smaNqLowerBuffer));
+  if (values.smaVolGate) params.set(SMA_VOL_GATE_URL_KEY, "1");
 }
 
-/** Remove SMA buffer keys from a URLSearchParams object. */
+/** Remove SMA buffer keys (and the volatility gate flag) from a URLSearchParams object. */
 export function deleteSmaBufferUrlParams(params: URLSearchParams): void {
   for (const key of Object.values(SMA_BUFFER_URL_KEYS)) params.delete(key);
+  params.delete(SMA_VOL_GATE_URL_KEY);
+}
+
+function hasSmaBufferUrlParams(params: URLSearchParams): boolean {
+  return Object.values(SMA_BUFFER_URL_KEYS).some((key) => params.has(key));
+}
+
+/**
+ * The gate flag is written only when on, so a link that carries the SMA
+ * buffers but no flag means "off". A link with neither says nothing.
+ */
+function parseSmaVolGateUrlParam(params: URLSearchParams): boolean | undefined {
+  if (params.has(SMA_VOL_GATE_URL_KEY)) return params.get(SMA_VOL_GATE_URL_KEY) === "1";
+  return hasSmaBufferUrlParams(params) ? false : undefined;
 }
 
 /** Parse SMA buffer fields from URL params. */
@@ -59,6 +78,9 @@ export function parseSmaBufferUrlParams(params: URLSearchParams): Partial<SmaBuf
   const nqLower = parseNumParam(params, SMA_BUFFER_URL_KEYS.nqLower);
   if (nqLower != null) out.smaNqLowerBuffer = nqLower;
 
+  const volGate = parseSmaVolGateUrlParam(params);
+  if (volGate != null) out.smaVolGate = volGate;
+
   return out;
 }
 
@@ -71,5 +93,7 @@ export function urlSmaBuffersMatchState(
   if (!urlNumMatchesState(params, SMA_BUFFER_URL_KEYS.spLower, state.smaSpLowerBuffer)) return false;
   if (!urlNumMatchesState(params, SMA_BUFFER_URL_KEYS.nqUpper, state.smaNqUpperBuffer)) return false;
   if (!urlNumMatchesState(params, SMA_BUFFER_URL_KEYS.nqLower, state.smaNqLowerBuffer)) return false;
+  const volGate = parseSmaVolGateUrlParam(params);
+  if (volGate != null && volGate !== (state.smaVolGate === true)) return false;
   return true;
 }

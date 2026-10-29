@@ -122,6 +122,7 @@ function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: 
     smaSpLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaSpLowerBuffer,
     smaNqUpperBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqUpperBuffer,
     smaNqLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqLowerBuffer,
+    smaVolGate: false,
   });
   params.set("ro", WORST_TIME_BACKTEST_BASE_PARAMS.ro);
   return params;
@@ -144,6 +145,7 @@ function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
     (flags?.showSmaNqBuffer ?? true) ? `−${summary.smaNqLowerBuffer}/${summary.smaNqUpperBuffer}` : null,
   ].filter((p): p is string => p !== null);
   if (ndxParts.length > 0) pieces.push(`NDX ${ndxParts.join("/")}`);
+  if (summary.smaVolGate) pieces.push("Vol risk off");
   return pieces.join(" - ");
 }
 

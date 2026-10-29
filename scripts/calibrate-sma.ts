@@ -196,8 +196,11 @@ async function calibrateIndex(
   // Preserve finer discoveries made by the manual preset search, including a
   // stronger stable candidate whose raw score is below the per-period seed.
   const discoveries = savedPresets as { bestFound?: Partial<Record<IndexKey, SmaCombo>> };
-  seededCombos.push(savedCalibration[indexKey], ...savedPresets.presets.map((preset) => preset[indexKey]));
-  if (discoveries.bestFound?.[indexKey]) seededCombos.push(discoveries.bestFound[indexKey]!);
+  seededCombos.push(...[savedCalibration[indexKey], ...savedPresets.presets.map((preset) => preset[indexKey])]
+    .filter((combo) => combo.smaPeriod >= SMA_SEARCH_MIN_PERIOD));
+  if (discoveries.bestFound?.[indexKey] && discoveries.bestFound[indexKey]!.smaPeriod >= SMA_SEARCH_MIN_PERIOD) {
+    seededCombos.push(discoveries.bestFound[indexKey]!);
+  }
   for (const smaPeriod of allPeriods()) {
     const seed = seedForPeriod(seeds, smaPeriod);
     if (!seed) continue;

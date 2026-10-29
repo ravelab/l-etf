@@ -51,6 +51,7 @@ export function backtestPermalink(params: BacktestLinkParams): string | undefine
     smaPeriod: params.smaPeriod,
     smaUpperBuffer: params.smaUpperBuffer,
     smaLowerBuffer: params.smaLowerBuffer,
+    smaVolGate: false,
     riskOffAsset: params.riskOffAsset,
   })}`;
 }

@@ -175,6 +175,7 @@ export function persistedToolStateMatchesUrl(state: Record<string, unknown>, par
     smaSpLowerBuffer: state.smaSpLowerBuffer as number | undefined,
     smaNqUpperBuffer: state.smaNqUpperBuffer as number | undefined,
     smaNqLowerBuffer: state.smaNqLowerBuffer as number | undefined,
+    smaVolGate: state.smaVolGate as boolean | undefined,
   })) return false;
 
   const ro = params.get("ro");

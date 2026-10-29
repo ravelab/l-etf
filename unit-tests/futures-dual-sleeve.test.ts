@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { simulateFuturesSmaStrategy, type FuturesStrategyParams } from "@/lib/simulation/futures";
 import { simulateDualSleeveFuturesStrategy } from "@/lib/simulation/futures-dual-sleeve";
 import { buildFuturesLadderPlan, type SmaBandsByIndex } from "@/lib/simulation/futures-plan";
+import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
 
 type CsvRow = Record<string, string>;
 
@@ -39,6 +40,7 @@ const rates = parseCsv("rate-borrow.csv").map((r) => ({
   rateValue: Number(r.value),
 }));
 const sgovRows = parseCsv("risk-sgov.csv");
+const vgshRows = parseCsv("risk-vgsh.csv");
 
 function pricesFor(index: "sp500" | "nasdaq100") {
   return parseCsv(index === "sp500" ? "index-sp.csv" : "index-nq.csv").map((r) => {
@@ -261,4 +263,74 @@ test("futures plan: the dual-sleeve rung drops with no NDX data, and survives a 
     false,
     "emulation mode runs only rungs that have an LETF twin"
   );
+});
+
+type SleeveParams = Omit<FuturesStrategyParams, "initialEquity" | "displayName">;
+
+/** Prices VGSH alongside the sleeve's SGOV and lets it hold both, as a mixed-basket fund needs. */
+function holdingBoth(params: SleeveParams, riskOffAsset: "SGOV" | "VGSH"): SleeveParams {
+  const dates = params.prices.filter((p) => p.date >= START).map((p) => p.date);
+  return {
+    ...params,
+    riskOffAsset,
+    riskOffHeldTickers: ["SGOV", "VGSH"],
+    riskOffCloseByTicker: { ...params.riskOffCloseByTicker, VGSH: alignRiskSeries(vgshRows, dates, "adj_close") },
+    riskOffOpenByTicker: { ...params.riskOffOpenByTicker, VGSH: alignRiskSeries(vgshRows, dates, "adj_open") },
+  };
+}
+
+test("dual sleeve: different baskets reset in kind, buying only on risk-off entry", () => {
+  const fund = simulateDualSleeveFuturesStrategy({
+    displayName: "Max 4.5x SPX / Max 3x NDX SMA",
+    initialEquity: 30_000,
+    primary: holdingBoth(sleeve("sp500", 4.5, NORMAL_SP, 4.5), "SGOV"),
+    secondary: holdingBoth(sleeve("nasdaq100", 3, NORMAL_NQ), "VGSH"),
+  });
+  const final = fund.etfResult.dailyValues.at(-1) ?? 0;
+  assert.ok(Number.isFinite(final) && final > 0, "fund must end at a finite positive value");
+
+  // A reset moves holdings without trading, so a basket is only ever bought on a
+  // day some sleeve flattened its futures to go risk-off.
+  const flattenDates = new Set(
+    fund.transactions.filter((r) => r.instrument === "futures" && r.action === "sell").map((r) => r.date)
+  );
+  const buys = fund.transactions.filter((r) => r.instrument === "riskoff" && r.action === "buy");
+  assert.ok(buys.some((r) => r.symbol === "SGOV") && buys.some((r) => r.symbol === "VGSH"));
+  for (const row of buys) {
+    assert.ok(flattenDates.has(row.date) || row.date === fund.etfResult.dates[0], `${row.date}: ${row.symbol} bought without a risk-off entry`);
+  }
+  // Each sleeve buys only its own basket; the other's ticker is only ever sold.
+  const reentrySells = fund.transactions.filter((r) => r.instrument === "riskoff" && r.action === "sell" && !r.isEndLiquidation);
+  for (const ticker of ["SGOV", "VGSH"]) {
+    const bought = buys.filter((r) => r.symbol === ticker).reduce((sum, r) => sum + r.qtyDelta, 0);
+    const sold = reentrySells.filter((r) => r.symbol === ticker).reduce((sum, r) => sum - r.qtyDelta, 0);
+    assert.ok(sold <= bought * (1 + 1e-9), `${ticker}: sold ${sold} of ${bought} bought`);
+  }
+});
+
+test("futures plan: per-sleeve risk-off overrides reach the fund and share one held-ticker list", () => {
+  const steps = buildFuturesLadderPlan({
+    showEmulations: false,
+    hasNasdaqData: true,
+    yearSpan: 20,
+    bands: BANDS,
+    dualRiskOffAssets: { sp500: "BRK.B", nasdaq100: "VGSH" },
+  });
+  const plans = buildFuturesRunPlans({
+    steps,
+    initialEquity: 10_000,
+    sleeveParams: (index, leverage, maxLeverage, sma) => ({
+      ...sleeve(index as "sp500", leverage, { period: sma.period, upper: sma.upperBuffer, lower: sma.lowerBuffer }, maxLeverage),
+      riskOffAsset: "BRK.B+GLDM+VGSH",
+    }),
+  });
+  const dual = plans.find((plan) => plan.kind === "dual");
+  assert.ok(dual && dual.kind === "dual");
+  assert.equal(dual.dual.primary.riskOffAsset, "BRK.B");
+  assert.equal(dual.dual.secondary.riskOffAsset, "VGSH");
+  assert.deepEqual(dual.dual.primary.riskOffHeldTickers, ["BRK.B", "VGSH"]);
+  assert.deepEqual(dual.dual.secondary.riskOffHeldTickers, ["BRK.B", "VGSH"]);
+  for (const plan of plans) {
+    if (plan.kind === "single") assert.equal(plan.single.riskOffAsset, "BRK.B+GLDM+VGSH", "other rungs keep the run's asset");
+  }
 });

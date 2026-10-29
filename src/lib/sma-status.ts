@@ -1,6 +1,7 @@
 import storage, { type DailyPrice } from "@/lib/data/storage";
 import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
 import { getSmaSignal, type SmaSignalResult } from "@/lib/sma-signals";
+import { SMA_VOL_GATE_LABEL } from "@/lib/simulation/vol-gate";
 
 export type SmaSignalConfig = {
   smaSpPeriod: number;
@@ -11,6 +12,8 @@ export type SmaSignalConfig = {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaNqEnabled: boolean;
+  /** Volatility risk-off gate (see vol-gate.ts) on top of both SMAs. Absent on older stored subscriptions. */
+  smaVolGate?: boolean;
   /** If true, deliver a push every market close regardless of whether the SMA signal changed. */
   notifyEveryClose: boolean;
   /** If true, the period/buffer fields above are kept in sync with the latest SMA calibration snapshot. */
@@ -32,6 +35,7 @@ const DEFAULT_SMA_SIGNAL_CONFIG: SmaSignalConfig = {
   smaNqUpperBuffer: getDefaultSmaUpperBuffer("nasdaq100"),
   smaNqLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
   smaNqEnabled: true,
+  smaVolGate: true,
   notifyEveryClose: false,
   useCalibratedDefaults: false,
 };
@@ -56,6 +60,8 @@ export function buildSmaSignalConfigFingerprint(config: SmaSignalConfig): string
     config.smaNqLowerBuffer,
     config.smaNqEnabled ? "1" : "0",
     config.notifyEveryClose ? "1" : "0",
+    // Appended only when on so every existing subscription keeps its fingerprint.
+    ...(config.smaVolGate ? ["vg"] : []),
   ].join("|");
 }
 
@@ -85,7 +91,9 @@ function getSmaRegimeLabel(result: SmaSignalResult): string {
 }
 
 function formatSmaStatus(result: SmaSignalResult): string {
-  return `${getSmaRegimeLabel(result)} (${formatSignedPercent(result.percentDiff)})`;
+  const vol = result.volatility != null && Number.isFinite(result.volatility)
+    ? `, vol ${Math.round(result.volatility * 100)}%` : "";
+  return `${getSmaRegimeLabel(result)} (${formatSignedPercent(result.percentDiff)}${vol})`;
 }
 
 export function buildSmaSignalFingerprint(snapshot: SmaSignalSnapshot, config?: SmaSignalConfig): string {
@@ -104,7 +112,8 @@ export function describeSmaSignalStatus(snapshot: SmaSignalSnapshot, config?: Sm
   if (config?.smaNqEnabled !== false) {
     parts.push(`NDX: ${formatSmaStatus(snapshot.nasdaq100)}`);
   }
-  return parts.length > 0 ? parts.join("; ") : "No alerts enabled";
+  if (parts.length === 0) return "No alerts enabled";
+  return config?.smaVolGate ? `${parts.join("; ")} · ${SMA_VOL_GATE_LABEL}` : parts.join("; ");
 }
 
 export function describeSmaSignalConfig(config: SmaSignalConfig): string {
@@ -115,6 +124,7 @@ export function describeSmaSignalConfig(config: SmaSignalConfig): string {
   if (config.smaNqEnabled) {
     parts.push(`NDX ${config.smaNqPeriod} SMA, −${formatCompactPercent(config.smaNqLowerBuffer)}/${formatCompactPercent(config.smaNqUpperBuffer)}`);
   }
+  if (parts.length > 0 && config.smaVolGate) parts.push(SMA_VOL_GATE_LABEL);
   return parts.length > 0 ? parts.join("; ") : "None";
 }
 
@@ -178,10 +188,11 @@ export function computeSmaSignalSnapshot(params: {
   timestamp?: string;
 }): SmaSignalSnapshot {
   const { sp500Prices, nasdaqPrices, config, timestamp = new Date().toISOString() } = params;
+  const options = { volGate: config.smaVolGate === true };
 
   return {
-    sp500: getSmaSignal(sp500Prices, config.smaSpPeriod, { upper: config.smaSpUpperBuffer, lower: config.smaSpLowerBuffer }),
-    nasdaq100: getSmaSignal(nasdaqPrices, config.smaNqPeriod, { upper: config.smaNqUpperBuffer, lower: config.smaNqLowerBuffer }),
+    sp500: getSmaSignal(sp500Prices, config.smaSpPeriod, { upper: config.smaSpUpperBuffer, lower: config.smaSpLowerBuffer }, options),
+    nasdaq100: getSmaSignal(nasdaqPrices, config.smaNqPeriod, { upper: config.smaNqUpperBuffer, lower: config.smaNqLowerBuffer }, options),
     timestamp,
   };
 }

@@ -22,7 +22,14 @@ export type SmaBand = {
   upperBuffer: number;
   /** Exit threshold, percent below the SMA. */
   lowerBuffer: number;
+  /** Also hold risk-off while the volatility gate (`vol-gate.ts`) is tripped. */
+  volGate?: boolean;
 };
+
+/** What the two-sleeve fund's sleeves hold while risk-off, unless the page overrides them. */
+export const DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS: DualRiskOffAssets = { sp500: "BRK.B", nasdaq100: "VGSH" };
+
+export type DualRiskOffAssets = Record<"sp500" | "nasdaq100", RiskOffAsset>;
 
 export type FuturesLadderStep = {
   index: IndexKey;
@@ -30,12 +37,14 @@ export type FuturesLadderStep = {
   maxLeverage?: number;
   displayName?: string;
   sma: SmaBand;
+  /** Overrides the run's risk-off asset for this sleeve. */
+  riskOffAsset?: RiskOffAsset;
   /**
    * Present on a two-sleeve fund: this step runs `index` alongside `secondary`,
    * each sleeve opening with half the equity and compounding unrebalanced. See
    * `futures-dual-sleeve.ts` for the one exception that moves capital between them.
    */
-  secondary?: { index: IndexKey; leverage: number; maxLeverage?: number; sma: SmaBand };
+  secondary?: { index: IndexKey; leverage: number; maxLeverage?: number; sma: SmaBand; riskOffAsset?: RiskOffAsset };
 };
 
 export type SmaBandsByIndex = {
@@ -63,8 +72,10 @@ export function buildFuturesLadderPlan(params: {
   hasNasdaqData: boolean;
   yearSpan: number;
   bands: SmaBandsByIndex;
+  /** Per-sleeve risk-off assets for the two-sleeve fund; absent, it uses the run's. */
+  dualRiskOffAssets?: DualRiskOffAssets;
 }): FuturesLadderStep[] {
-  const { showEmulations, hasNasdaqData, yearSpan, bands } = params;
+  const { showEmulations, hasNasdaqData, yearSpan, bands, dualRiskOffAssets } = params;
   const bandFor = (index: IndexKey): SmaBand => bands[index as keyof SmaBandsByIndex];
 
   if (showEmulations) {
@@ -95,7 +106,13 @@ export function buildFuturesLadderPlan(params: {
     maxLeverage: 4.5,
     displayName: "Max 4.5x SPX / Max 3x NDX SMA",
     sma: sp,
-    secondary: { index: "nasdaq100", leverage: 3, sma: nq },
+    ...(dualRiskOffAssets ? { riskOffAsset: dualRiskOffAssets.sp500 } : {}),
+    secondary: {
+      index: "nasdaq100",
+      leverage: 3,
+      sma: nq,
+      ...(dualRiskOffAssets ? { riskOffAsset: dualRiskOffAssets.nasdaq100 } : {}),
+    },
   };
 
   if (yearSpan > LONG_WINDOW_YEARS) {
@@ -159,6 +176,7 @@ export function buildEmulationEtfConfigs(params: {
       smaPeriod: band.period,
       smaUpperBuffer: band.upperBuffer,
       smaLowerBuffer: band.lowerBuffer,
+      ...(band.volGate ? { smaVolGate: true } : {}),
       riskOffAsset,
     });
   });

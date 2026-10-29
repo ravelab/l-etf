@@ -68,8 +68,8 @@ export type FuturesStrategyResult = {
 };
 
 /**
- * What one sleeve owns outside its futures position. Sleeves of one fund hold the
- * same risk-off tickers in the same order, so these are directly exchangeable.
+ * What one sleeve owns outside its futures position. Sleeves of one fund share
+ * one held-ticker list in the same order, so these are directly exchangeable.
  */
 export type SleeveHoldings = {
   cash: number;
@@ -917,7 +917,16 @@ export type FuturesStrategyParams = {
   smaPeriod: number;
   smaUpperBuffer: number;
   smaLowerBuffer: number;
+  /** Also hold risk-off while the volatility gate (`vol-gate.ts`) is tripped. */
+  smaVolGate?: boolean;
   riskOffAsset: RiskOffAsset;
+  /**
+   * Every ticker this sleeve may hold, a superset of `riskOffAsset`'s. A two-sleeve
+   * fund whose sleeves use different baskets hands basket shares between them,
+   * so each must be able to mark and sell the other's tickers; it only ever buys
+   * its own. Both price maps must cover all of them.
+   */
+  riskOffHeldTickers?: string[];
   riskOffCloseByTicker?: Record<string, number[]>;
   riskOffOpenByTicker?: Record<string, number[]>;
   cashInterestSpreadAnnual?: number;
@@ -963,13 +972,18 @@ export type FuturesStrategyParams = {
   futuresPriceAnchor?: number;
 };
 
+function futuresStrategyName(params: FuturesStrategyParams, leverageLabel: string): string {
+  const name = params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDX"} SMA`;
+  return params.smaVolGate ? name.replace(/ SMA$/, " SMA Vol") : name;
+}
+
 export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleeve {
   const sliced = params.prices.filter((p) => p.date >= params.startDate && p.date <= params.endDate);
   if (sliced.length < 2) {
     const leverageLabel = formatLeverageLabel(params.targetLeverage);
     const empty: EtfResult = buildEtfResult({
       id: `${params.targetLeverage}x-${params.index}-futures-sma`,
-      name: params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDX"} SMA`,
+      name: futuresStrategyName(params, leverageLabel),
       sourceIndex: params.index,
       dates: [],
       dailyValues: [],
@@ -1025,7 +1039,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     fullDates,
     fullSmaInput,
     params.smaPeriod,
-    { upper: params.smaUpperBuffer, lower: params.smaLowerBuffer }
+    { upper: params.smaUpperBuffer, lower: params.smaLowerBuffer },
+    { volGate: params.smaVolGate === true }
   );
   const fullInvestedByDate = new Map<string, boolean>();
   for (let i = 0; i < fullDates.length; i++) {
@@ -1136,6 +1151,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   let totalSpreadCosts = 0;
 
   const riskOffTickers = getRiskOffFetchTickers(params.riskOffAsset);
+  const heldTickers = params.riskOffHeldTickers ?? riskOffTickers;
+  const ownSlots = riskOffTickers.map((t) => heldTickers.indexOf(t));
   let riskOffShares: number[] | null = null;
   let riskOffCash: number[] | null = null;
   let riskOffLastPrice: number[] | null = null;
@@ -1307,12 +1324,12 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     // day 0 books it at cost and the curve starts flat exactly like the LETF engine.
     const investable = cash;
     const valuePer = investable / riskOffTickers.length;
-    riskOffShares = new Array(riskOffTickers.length).fill(0);
-    riskOffCash = new Array(riskOffTickers.length).fill(0);
-    riskOffLastPrice = new Array(riskOffTickers.length).fill(NaN);
+    riskOffShares = new Array(heldTickers.length).fill(0);
+    riskOffCash = new Array(heldTickers.length).fill(0);
+    riskOffLastPrice = new Array(heldTickers.length).fill(NaN);
     let day0RiskOffBookAtEntry = 0;
-    for (let j = 0; j < riskOffTickers.length; j++) {
-      const t = riskOffTickers[j];
+    for (const [k, t] of riskOffTickers.entries()) {
+      const j = ownSlots[k];
       const closeArr = params.riskOffCloseByTicker?.[t];
       const openPx = riskOffCloseMarkPrice({ closeValues: closeArr, index: 0 });
       if (Number.isFinite(openPx) && (openPx as number) > 0) {
@@ -1358,8 +1375,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
 
     // Mark at the first close (the entry bar): books the basket at cost.
     let day0Equity = 0;
-    for (let j = 0; j < riskOffTickers.length; j++) {
-      const t = riskOffTickers[j];
+    for (let j = 0; j < heldTickers.length; j++) {
+      const t = heldTickers[j];
       const shares = riskOffShares?.[j] ?? 0;
       const closeArr = params.riskOffCloseByTicker?.[t];
       const closePx = riskOffCloseMarkPrice({ closeValues: closeArr, index: 0, lastPrice: riskOffLastPrice?.[j] });
@@ -1499,8 +1516,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     const exitingRiskOff = pendingExitRiskOff && (riskOffShares != null || riskOffCash != null);
     pendingExitRiskOff = false;
     if (exitingRiskOff) {
-      for (let j = 0; j < riskOffTickers.length; j++) {
-        const t = riskOffTickers[j];
+      for (let j = 0; j < heldTickers.length; j++) {
+        const t = heldTickers[j];
         const shares = riskOffShares?.[j] ?? 0;
         const openArr = params.riskOffOpenByTicker?.[t];
         const closeArr = params.riskOffCloseByTicker?.[t];
@@ -1621,15 +1638,15 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       const canEnterRiskOff = riskOffTickers.length > 0;
       const investable = cash;
       const valuePer = canEnterRiskOff ? investable / riskOffTickers.length : 0;
-      const enteredShares = new Array<number>(riskOffTickers.length).fill(0);
-      const enteredCash = new Array<number>(riskOffTickers.length).fill(0);
-      const enteredLastPrice = new Array<number>(riskOffTickers.length).fill(NaN);
+      const enteredShares = new Array<number>(heldTickers.length).fill(0);
+      const enteredCash = new Array<number>(heldTickers.length).fill(0);
+      const enteredLastPrice = new Array<number>(heldTickers.length).fill(NaN);
       riskOffShares = canEnterRiskOff ? enteredShares : null;
       riskOffCash = canEnterRiskOff ? enteredCash : null;
       riskOffLastPrice = canEnterRiskOff ? enteredLastPrice : null;
       let riskOffBookAtOpen = 0;
-      for (let j = 0; j < riskOffTickers.length; j++) {
-        const t = riskOffTickers[j];
+      for (const [k, t] of riskOffTickers.entries()) {
+        const j = ownSlots[k];
         const openArr = params.riskOffOpenByTicker?.[t];
         const closeArr = params.riskOffCloseByTicker?.[t];
         const openPx = riskOffOpenTradePrice({ openValues: openArr, closeValues: closeArr, index: i });
@@ -2318,8 +2335,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     const riskOffCashAccrualDays =
       i > 0 ? Math.max(1, calendarDaysBetweenIso(dates[i - 1] as string, date)) : 1;
     if (riskOffShares || riskOffCash) {
-      for (let j = 0; j < riskOffTickers.length; j++) {
-        const t = riskOffTickers[j];
+      for (let j = 0; j < heldTickers.length; j++) {
+        const t = heldTickers[j];
         const shares = riskOffShares?.[j] ?? 0;
         const closeArr = params.riskOffCloseByTicker?.[t];
         const px = riskOffCloseMarkPrice({ closeValues: closeArr, index: i, lastPrice: riskOffLastPrice?.[j] });
@@ -2563,8 +2580,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       // For risk-off, keep a single terminal ledger row (no per-leg liquidation).
       let totalRiskOffExitFees = 0;
       let totalRiskOffExitSpread = 0;
-      for (let j = 0; j < riskOffTickers.length; j++) {
-        const t = riskOffTickers[j];
+      for (let j = 0; j < heldTickers.length; j++) {
+        const t = heldTickers[j];
         const shares = riskOffShares?.[j] ?? 0;
         if (!(Number.isFinite(shares) && shares > 0)) continue;
         const closeArr = params.riskOffCloseByTicker?.[t];
@@ -2616,7 +2633,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   const totalTradingCostPct = finalEquity > 0 ? ((totalFees + totalSpreadCosts) / finalEquity) * 100 : 0;
 
   const leverageLabel = formatLeverageLabel(params.targetLeverage);
-  const name = params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDX"} SMA`;
+  const name = futuresStrategyName(params, leverageLabel);
   const id = `${params.targetLeverage}x-${params.index}-futures-sma`;
   const etfResult = buildEtfResult({
     id,

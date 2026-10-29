@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { CalendarShortcutIcon } from "@/components/ui/CalendarShortcutIcon";
+import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
 import {
   CONSTANT_NASDAQ100_SHORTCUT_DATE,
   CONSTANT_NASDAQ100_START_DATE,
@@ -126,6 +127,7 @@ export type SharedFieldValues = {
   smaSpLowerBuffer?: number;
   smaNqUpperBuffer?: number;
   smaNqLowerBuffer?: number;
+  smaVolGate?: boolean;
   riskOffAsset?: EtfConfig["riskOffAsset"];
 };
 
@@ -406,6 +408,12 @@ export function SharedToolInputs({
             upperValue={values.smaNqUpperBuffer}
             onLowerChange={(v) => onChange("smaNqLowerBuffer", v as never)}
             onUpperChange={(v) => onChange("smaNqUpperBuffer", v as never)}
+          />
+        )}
+        {values.smaVolGate !== undefined && (
+          <VolGateCheckbox
+            checked={values.smaVolGate}
+            onChange={(v) => onChange("smaVolGate", v)}
           />
         )}
         {values.riskOffAsset !== undefined && (

@@ -333,7 +333,7 @@ function hasInvalidLiveStrategyResults(results: StrategyResult[]): boolean {
 }
 
 function getStrategyColor(label: string): string {
-  const normalized = normalizeStrategyLabel(label);
+  const normalized = normalizeStrategyLabel(label.replace(" SMA Vol", " SMA"));
   if (normalized === "UPRO") return "#16f3ce";
   if (normalized === "UPRO SMA Close") return "#3b82f6";
   if (normalized === "UPRO SMA") return "#1d4ed8";
@@ -412,6 +412,7 @@ export function CompareLETFsPageContent({
     windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+    smaVolGate,
     riskOffAsset,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
@@ -430,6 +431,7 @@ export function CompareLETFsPageContent({
     clearRunSummary,
   } = useRunSummary(initial.runSummaryInputs as RunSummary | null);
   const display = useRunDisplay(runSummary);
+  const volGateShown = runSummary?.smaVolGate === true;
 
   const [loading, setLoading] = useState(false);
   const [pendingRun, setPendingRun] = useState(false);
@@ -478,6 +480,7 @@ export function CompareLETFsPageContent({
     pageKey: "compare-letfs",
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
+    skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareLetfsSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareLetfsSnapshotState>).strategyResults?.length ?? 0) > 0,
@@ -497,6 +500,7 @@ export function CompareLETFsPageContent({
       startDate, endDate, windowLength,
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+      smaVolGate,
       riskOffAsset,
       annualizedInflation,
       monthlyCpi,
@@ -512,6 +516,7 @@ export function CompareLETFsPageContent({
     startDate, endDate, windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+    smaVolGate,
     riskOffAsset,
     annualizedInflation,
     monthlyCpi,
@@ -646,6 +651,7 @@ export function CompareLETFsPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         riskOffAsset,
         tradeAfterHours,
       });
@@ -708,6 +714,7 @@ export function CompareLETFsPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         letf,
         riskOffAsset,
         tradeAfterHours,
@@ -720,6 +727,7 @@ export function CompareLETFsPageContent({
       startDate, endDate, windowLength,
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+      smaVolGate,
       riskOffAsset,
       annualizedInflation: inflationData.annualizedInflation,
       monthlyCpi: inflationData.monthlyCpi,
@@ -762,7 +770,7 @@ export function CompareLETFsPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
+  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -844,7 +852,7 @@ export function CompareLETFsPageContent({
         .map((result, idx) => {
           const row = summaryRows[idx];
           if (!row) return null;
-          const label = formatStrategyLabelForDisplay(result.label, tradeAfterHours);
+          const label = formatStrategyLabelForDisplay(result.label, tradeAfterHours, volGateShown);
           return {
             label,
             color: getStrategyColor(label),
@@ -869,7 +877,7 @@ export function CompareLETFsPageContent({
         monthlyCpi,
       });
     },
-    [displayedStrategyResults, monthlyCpi, tradeAfterHours, summaryRows, windowLength, hateDrawdown]
+    [displayedStrategyResults, monthlyCpi, tradeAfterHours, volGateShown, summaryRows, windowLength, hateDrawdown]
   );
 
   const sp500InflationPctForDisplay = useMemo(
@@ -989,10 +997,11 @@ export function CompareLETFsPageContent({
         smaPeriod: meta.smaPeriod,
         smaUpperBuffer: meta.smaUpperBuffer,
         smaLowerBuffer: meta.smaLowerBuffer,
+        smaVolGate,
         riskOffAsset,
       });
     },
-    [getStrategyLinkMeta, riskOffAsset]
+    [getStrategyLinkMeta, smaVolGate, riskOffAsset]
   );
 
   const liveStrategyDistributionSeries = useMemo(
@@ -1232,6 +1241,7 @@ export function CompareLETFsPageContent({
             startDate, endDate, windowLength,
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer,
             smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
+            smaVolGate,
             riskOffAsset,
           }}
           onChange={(field, val) => {
@@ -1286,10 +1296,10 @@ export function CompareLETFsPageContent({
                 inflationPct={comparisonTableInflationPct}
                 windowYears={windowLength}
                 firstColumnLabel="Strategy"
-                formatFirstColumn={(row) => formatStrategyLabelForDisplay(labelByIdx.get(row.parameterValue) ?? "", tradeAfterHours)}
+                formatFirstColumn={(row) => formatStrategyLabelForDisplay(labelByIdx.get(row.parameterValue) ?? "", tradeAfterHours, volGateShown)}
                 firstColumnInfo={(row) => describeStrategy(labelByIdx.get(row.parameterValue) ?? "")}
                 getBacktestUrl={(row, dates) => buildBacktestUrl(labelByIdx.get(row.parameterValue) ?? "", dates)}
-                colorDot={(row) => getStrategyColor(formatStrategyLabelForDisplay(labelByIdx.get(row.parameterValue) ?? "", tradeAfterHours))}
+                colorDot={(row) => getStrategyColor(formatStrategyLabelForDisplay(labelByIdx.get(row.parameterValue) ?? "", tradeAfterHours, volGateShown))}
                 pagination={false}
                 startDate={display?.summary.startDate}
                 hateDrawdown={hateDrawdown}
@@ -1313,7 +1323,8 @@ export function CompareLETFsPageContent({
             rows={sp500DistributionRows}
             bests={sp500DistributionPercentileBests}
             tradeAfterHours={tradeAfterHours}
-            smaLabel="UPRO SMA"
+            volGateShown={volGateShown}
+            smaLabel={volGateShown ? "UPRO SMA Vol" : "UPRO SMA"}
             nonSmaLabel="UPRO"
             unleveragedLabel="VOO"
           />
@@ -1329,7 +1340,8 @@ export function CompareLETFsPageContent({
             rows={nasdaqDistributionRows}
             bests={nasdaqDistributionPercentileBests}
             tradeAfterHours={tradeAfterHours}
-            smaLabel="TQQQ SMA"
+            volGateShown={volGateShown}
+            smaLabel={volGateShown ? "TQQQ SMA Vol" : "TQQQ SMA"}
             nonSmaLabel="TQQQ"
             unleveragedLabel="QQQ"
           />
@@ -1366,6 +1378,7 @@ function StrategyDistributionCard({
   rows,
   bests,
   tradeAfterHours,
+  volGateShown,
   smaLabel,
   nonSmaLabel,
   unleveragedLabel,
@@ -1378,6 +1391,7 @@ function StrategyDistributionCard({
   rows: RankedDistributionSummaryRow[];
   bests: { p10?: string; p50?: string; avg?: string; p90?: string };
   tradeAfterHours: boolean;
+  volGateShown: boolean;
   smaLabel: string;
   nonSmaLabel: string;
   unleveragedLabel: string;
@@ -1390,19 +1404,19 @@ function StrategyDistributionCard({
     const scaleY = (value: number) => (value / maxY) * DISTRIBUTION_PEAK_PERCENT;
     return {
       datasets: series.series.map((item) => ({
-        label: formatStrategyLabelForDisplay(item.label, tradeAfterHours),
+        label: formatStrategyLabelForDisplay(item.label, tradeAfterHours, volGateShown),
         data: series.x.map((x, i) => ({
           x,
           y: scaleY(item.y[i] ?? 0),
         })),
-        borderColor: getStrategyColor(formatStrategyLabelForDisplay(item.label, tradeAfterHours)),
+        borderColor: getStrategyColor(formatStrategyLabelForDisplay(item.label, tradeAfterHours, volGateShown)),
         borderWidth: item.borderWidth,
         pointRadius: 0,
         tension: 0,
         fill: false,
       })),
     };
-  }, [series, tradeAfterHours]);
+  }, [series, tradeAfterHours, volGateShown]);
 
   const xBounds = useMemo(() => {
     const nonEmptyX = series.x.filter((_, i) =>
@@ -1511,7 +1525,7 @@ function StrategyDistributionCard({
           <tbody>
             {rows.map((row) => (
               <tr key={row.label} className="border-b border-card-border/60 last:border-b-0">
-                <td className="py-2 pr-4 text-muted">{formatStrategyLabelForDisplay(row.label, tradeAfterHours)}</td>
+                <td className="py-2 pr-4 text-muted">{formatStrategyLabelForDisplay(row.label, tradeAfterHours, volGateShown)}</td>
                 <td className={`py-2 pr-4 text-right tabular-nums ${bests.p10 === row.label ? "font-medium text-foreground" : "font-light text-muted"}`}>
                   {formatPercent(row.p10)}
                 </td>
@@ -1586,9 +1600,9 @@ function StrategyDistributionCard({
                 >
                   <td
                     className="py-1.5 pr-2 text-muted truncate max-w-[100px]"
-                    title={formatStrategyLabelForDisplay(row.label, tradeAfterHours)}
+                    title={formatStrategyLabelForDisplay(row.label, tradeAfterHours, volGateShown)}
                   >
-                    {formatStrategyLabelForDisplay(row.label, tradeAfterHours)}
+                    {formatStrategyLabelForDisplay(row.label, tradeAfterHours, volGateShown)}
                   </td>
                   {(
                     [

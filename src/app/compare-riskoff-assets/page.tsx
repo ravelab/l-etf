@@ -78,6 +78,7 @@ export function CompareRiskOffAssetsPageContent({
     letf, setLetf, index, setIndex, startDate, endDate, setEndDate,
     windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+    smaVolGate,
     riskOffAsset,
     isCombo, selectedPreset, comboSubs,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
@@ -139,6 +140,7 @@ export function CompareRiskOffAssetsPageContent({
     pageKey: "compare-riskoff-assets",
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
+    skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareRiskOffSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareRiskOffSnapshotState>).rows?.length ?? 0) > 0,
@@ -154,6 +156,7 @@ export function CompareRiskOffAssetsPageContent({
         endDate: dates.end,
         smaPeriod: p.index === "nasdaq100" ? display.summary.smaNqPeriod : display.summary.smaSpPeriod,
         smaUpperBuffer: p.index === "nasdaq100" ? display.summary.smaNqUpperBuffer : display.summary.smaSpUpperBuffer, smaLowerBuffer: p.index === "nasdaq100" ? display.summary.smaNqLowerBuffer : display.summary.smaSpLowerBuffer,
+        smaVolGate: display.summary.smaVolGate,
         riskOffAsset: row.riskOffAsset,
       });
     },
@@ -239,6 +242,7 @@ export function CompareRiskOffAssetsPageContent({
       smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod,
       upperBuffer: presetDef.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer,
       lowerBuffer: presetDef.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
+      smaVolGate,
     });
 
     const variantResults = await runParallelVariantSummaries({
@@ -261,7 +265,7 @@ export function CompareRiskOffAssetsPageContent({
       });
 
     return { rows: nextRows, baseline: bl };
-  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, windowLength, startDate, endDate, riskOffLabelByAsset]);
+  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, windowLength, startDate, endDate, riskOffLabelByAsset]);
 
   const buildRiskoffUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -328,6 +332,7 @@ export function CompareRiskOffAssetsPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         letf,
         riskOffAsset,
       });
@@ -335,7 +340,7 @@ export function CompareRiskOffAssetsPageContent({
 
       save({
         letf, index, startDate, endDate, windowLength,
-        smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset, showBaseline: true,
+        smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, showBaseline: true,
         annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
         rows: computedRows,
         baseline: computedBaseline,
@@ -374,6 +379,7 @@ export function CompareRiskOffAssetsPageContent({
   }, [
     index, startDate, endDate, windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+    smaVolGate,
     letf, selectedPreset,
     save, updateUrl, clearMetadata,
     riskOffAsset, comboSubs, buildRiskoffUrlParams,
@@ -474,6 +480,7 @@ export function CompareRiskOffAssetsPageContent({
           values={{
             letf: letf as string, startDate, endDate, windowLength,
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
+            smaVolGate,
           }}
           onChange={handleFieldChange}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}

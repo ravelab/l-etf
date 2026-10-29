@@ -7,9 +7,12 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SignalCard } from "@/components/home/SignalCard";
 import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
+import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
 import { getSharedInputs } from "@/lib/hooks/use-shared-inputs";
 import { formatSmaSummary } from "@/lib/buffer-format";
 import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
+import { SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
+import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
 import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
@@ -47,6 +50,7 @@ export default function SignalsPage() {
   const [smaNqUpperBuffer, setSmaNqUpperBuffer] = useState(inputs.smaNqUpperBuffer ?? 12);
   const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(inputs.smaNqLowerBuffer ?? 12);
   const [smaNqEnabled, setSmaNqEnabled] = useState(inputs.smaNqEnabled ?? true);
+  const [smaVolGate, setSmaVolGate] = useState(inputs.smaVolGate ?? true);
   // notifyEveryClose is push-only, persisted under the push alert config blob,
   // so it survives reloads even though it isn't part of the shared input set.
   const [notifyEveryClose, setNotifyEveryClose] = useState(false);
@@ -66,6 +70,7 @@ export default function SignalsPage() {
     smaNqPeriod,
     smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqEnabled,
+    smaVolGate,
     notifyEveryClose,
     useCalibratedDefaults,
   };
@@ -116,8 +121,9 @@ export default function SignalsPage() {
       smaNqPeriod,
       smaNqUpperBuffer, smaNqLowerBuffer,
       smaNqEnabled,
+      smaVolGate,
     });
-  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaSpEnabled, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaNqEnabled, persist]);
+  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaSpEnabled, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaNqEnabled, smaVolGate, persist]);
 
   const fetchSignals = useCallback(async () => {
     setLoading(true);
@@ -132,6 +138,7 @@ export default function SignalsPage() {
         smaNqUpperBuffer: String(smaNqUpperBuffer),
         smaNqLowerBuffer: String(smaNqLowerBuffer),
       });
+      if (smaVolGate) params.set("smaVolGate", "1");
 
       const res = await fetch(`/api/sma-signals?${params}`);
       if (!res.ok) {
@@ -146,7 +153,7 @@ export default function SignalsPage() {
     } finally {
       setLoading(false);
     }
-  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer]);
+  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -206,6 +213,7 @@ export default function SignalsPage() {
                 onLowerChange={setSmaNqLowerBuffer}
                 onUpperChange={setSmaNqUpperBuffer}
               />
+              <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} />
             </fieldset>
             <div className="mt-4 flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
               <div className="flex w-full min-w-0 flex-col gap-2">
@@ -227,6 +235,7 @@ export default function SignalsPage() {
                           <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5">
                             <span className="font-medium text-foreground">
                               {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
+                              {SMA_CALIBRATION_VOL_GATE[indexKey] && ` (${SMA_VOL_GATE_PARAMS_TEXT})`}
                             </span>
                             <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
                             {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (

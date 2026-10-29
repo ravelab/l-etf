@@ -10,6 +10,8 @@ import {
 import { Card } from "@/components/ui/Card";
 import { formatDate, formatCurrency, formatCurrencySigFigs, formatPercentPointsSigFigs } from "@/lib/format";
 import { TablePagination } from "@/components/ui/TablePagination";
+import { SmaTriggerBadge } from "@/components/tools/SmaTriggerBadge";
+import type { SmaSignal } from "@/lib/simulation/types";
 import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
 
 const PAGE_SIZE = 10;
@@ -362,6 +364,20 @@ function FuturesSmaDetailsImpl({
     return consolidated;
   }, [strategy.transactions, frontBackAfterEachTx]);
 
+  /** Regime trades execute the session after their signal close. */
+  const triggerByExecutionDate = useMemo(() => {
+    const dates = strategy.etfResult.dates;
+    const indexByDate = new Map(dates.map((date, i) => [date, i]));
+    const out = new Map<string, NonNullable<SmaSignal["trigger"]>>();
+    for (const signal of strategy.etfResult.smaSignals) {
+      if (!signal.trigger) continue;
+      const idx = indexByDate.get(signal.date);
+      const executionDate = idx == null ? undefined : dates[idx + 1];
+      if (executionDate) out.set(executionDate, signal.trigger);
+    }
+    return out;
+  }, [strategy.etfResult.dates, strategy.etfResult.smaSignals]);
+
   const startDate = strategy.etfResult.dates[0] ?? "";
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages - 1);
@@ -490,6 +506,9 @@ function FuturesSmaDetailsImpl({
                     <td className="py-2.5 pr-4 whitespace-nowrap">{formatDate(row.date)}</td>
                     <td className={`py-2.5 pr-4 whitespace-nowrap ${tone}`}>
                       {actionText}
+                      {!isRoll && !isTerminalBookClose && triggerByExecutionDate.has(row.date) && (
+                        <SmaTriggerBadge trigger={triggerByExecutionDate.get(row.date)!} />
+                      )}
                     </td>
                     <td className={`py-2.5 pr-4 ${isRoll ? "whitespace-normal break-words text-amber-300 font-medium" : "whitespace-nowrap"}`}>{symbolDisplay}</td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums">

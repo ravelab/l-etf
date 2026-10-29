@@ -1,4 +1,4 @@
-import { SMA_CALIBRATION_ERAS } from "../../src/lib/simulation/sma-calibration-eras";
+import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE } from "../../src/lib/simulation/sma-calibration-eras";
 import { DEFAULT_RISK_OFF_ASSET } from "../../src/lib/simulation/defaults";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../../src/lib/input-normalization";
 import { runBacktestCore } from "../../src/lib/mcp/tools/run-backtest";
@@ -32,7 +32,7 @@ async function eraCagrs(index: IndexKey, combo: SmaCombo, endDate: string): Prom
     const result = await runBacktestCore({
       preset: index === "sp500" ? "UPRO" : "TQQQ", smaEnabled: true,
       startDate: era.startDate, endDate: era.endDate ?? endDate, ...combo,
-      riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
+      smaVolGate: SMA_CALIBRATION_VOL_GATE[index], riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
     });
     out[era.key] = { startDate: result.startDate, endDate: result.endDate, cagr: result.cagrPct,
       ...await realReturn(result.finalMultiple, result.startDate, result.endDate) };
@@ -48,7 +48,7 @@ export async function withEraCagrs<T extends { sp500: SmaCombo & { finalMultiple
     const ndxModern = await runBacktestCore({
       preset: "TQQQ", smaEnabled: true, startDate: CONSTANT_NASDAQ100_SHORTCUT_DATE, endDate,
       smaPeriod: preset.nasdaq100.smaPeriod, smaUpperBuffer: preset.nasdaq100.smaUpperBuffer,
-      smaLowerBuffer: preset.nasdaq100.smaLowerBuffer,
+      smaLowerBuffer: preset.nasdaq100.smaLowerBuffer, smaVolGate: SMA_CALIBRATION_VOL_GATE.nasdaq100,
       riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
     });
     out.push({ ...preset,

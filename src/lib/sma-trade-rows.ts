@@ -1,6 +1,7 @@
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { formatRiskOffLiquidationAbbrev } from "@/lib/constants";
-import type { EtfConfig, EtfResult } from "@/lib/simulation/types";
+import type { EtfConfig, EtfResult, SmaSignal } from "@/lib/simulation/types";
+import { computeRealizedVol } from "@/lib/simulation/vol-gate";
 
 export interface SmaTradeRow {
   signalDate: string;
@@ -13,6 +14,10 @@ export interface SmaTradeRow {
   actionToneClass: string;
   isInitialEntry?: boolean;
   isEndLiquidation?: boolean;
+  /** Volatility-gated runs only: what moved the position. */
+  trigger?: SmaSignal["trigger"];
+  /** Gate-window realized volatility at the trigger close (scale-free, so index closes work). */
+  triggerVol?: number | null;
 }
 
 interface BuildSmaTradeRowsParams {
@@ -74,6 +79,7 @@ export function buildSmaTradeRows({
 
   const needsNextDay = executionMode === "next-day-open" || executionMode === "next-day-close";
   const lastIdx = etfDates.length - 1;
+  const triggerVols = etf.smaSignals.some((s) => s.trigger) ? computeRealizedVol(closePrices) : null;
   const baseRows = etf.smaSignals.flatMap((signal): SmaTradeRow[] => {
     const signalIdx = dateToIndex.get(signal.date);
     // Hide signals whose next-day execution hasn't happened yet (no data beyond the signal day).
@@ -113,6 +119,9 @@ export function buildSmaTradeRows({
       triggerSmaPctDiff,
       actionToneClass: isBuy ? "text-positive" : "text-negative",
       action: `${isBuy ? "Buy" : "Sell"} ${config.name}${priceStr}`,
+      ...(signal.trigger
+        ? { trigger: signal.trigger, triggerVol: signalIdx != null ? (triggerVols?.[signalIdx] ?? null) : null }
+        : {}),
     }];
   });
 

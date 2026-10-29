@@ -29,7 +29,7 @@ interface PrecomputedConfigDailyValues {
   configId: string;
   indexKey: EtfConfig["smaIndex"];
   dailyValues: number[];
-  smaSignals?: Array<{ date: string; type: 'buy' | 'sell'; price: number }>;
+  smaSignals?: Array<{ date: string; type: 'buy' | 'sell'; price: number; trigger?: 'sma' | 'vol' }>;
   smaPrices?: number[];
   timestamps: number[];
   riskOffStateByIndex?: Int8Array;

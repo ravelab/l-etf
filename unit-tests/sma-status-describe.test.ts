@@ -60,6 +60,18 @@ test("describeSmaSignalStatus formats both indexes", () => {
   assert.match(text, /NDX: Sell L-ETFs \(-3\.25%\)/);
 });
 
+test("gated push text shows each index's volatility and the gate parameters", () => {
+  const base = snap();
+  const gated = snap({
+    sp500: { ...base.sp500, volatility: 0.18, volGateRiskOff: false },
+    nasdaq100: { ...base.nasdaq100, signalLabel: "Volatility Risk Off", volatility: 0.523, volGateRiskOff: true },
+  });
+  const text = describeSmaSignalStatus(gated, { ...getDefaultSmaSignalConfig(), smaVolGate: true });
+  assert.equal(text, "SPX: Buy L-ETFs (+2.50%, vol 18%); NDX: Volatility Risk Off (-3.25%, vol 52%) · Volatility risk off (11, 49%, 31%)");
+  assert.equal(describeSmaSignalStatus(snap(), { ...getDefaultSmaSignalConfig(), smaVolGate: false }),
+    "SPX: Buy L-ETFs (+2.50%); NDX: Sell L-ETFs (-3.25%)");
+});
+
 test("describeSmaSignalStatus respects disabled indexes", () => {
   const config = { ...getDefaultSmaSignalConfig(), smaSpEnabled: false, smaNqEnabled: true };
   const text = describeSmaSignalStatus(snap(), config);
@@ -74,6 +86,7 @@ test("describeSmaSignalConfig collapses whole-number buffers", () => {
     smaSpUpperBuffer: 3,
     smaSpLowerBuffer: 3,
     smaNqEnabled: false,
+    smaVolGate: false,
   };
   assert.equal(describeSmaSignalConfig(config), "SPX 200 SMA, −3%/3%");
 });

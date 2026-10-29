@@ -51,6 +51,7 @@ export function makeSweepEtfConfig(
     simulated?: boolean;
     /** Left undefined, the engine applies DEFAULT_SMA_EXECUTION_MODE. */
     smaExecutionMode?: SmaExecutionMode;
+    smaVolGate?: boolean;
   },
 ): EtfConfig {
   return {
@@ -66,6 +67,7 @@ export function makeSweepEtfConfig(
     smaIndex: preset.index,
     riskOffAsset: opts.riskOffAsset,
     ...(opts.smaExecutionMode ? { smaExecutionMode: opts.smaExecutionMode } : {}),
+    ...(opts.smaVolGate ? { smaVolGate: true } : {}),
   };
 }
 
@@ -101,6 +103,7 @@ export function buildSmaPeriodSweepItems(p: {
   upperBuffer: number;
   lowerBuffer: number;
   smaExecutionMode?: SmaExecutionMode;
+  smaVolGate?: boolean;
 }): SweepItem[] {
   const items: SweepItem[] = [
     { paramValue: 0, config: defaultPeriodBaseline(p.preset, p.riskOffAsset, p.smaExecutionMode) },
@@ -117,6 +120,7 @@ export function buildSmaPeriodSweepItems(p: {
         smaLowerBuffer: p.lowerBuffer,
         riskOffAsset: p.riskOffAsset,
         smaExecutionMode: p.smaExecutionMode,
+        smaVolGate: p.smaVolGate,
       }),
     });
   }
@@ -135,6 +139,7 @@ export function buildRiskOffVariantConfigs(p: {
   upperBuffer: number;
   lowerBuffer: number;
   smaExecutionMode?: SmaExecutionMode;
+  smaVolGate?: boolean;
 }): LabeledSweepConfig[] {
   const variants: LabeledSweepConfig[] = p.assets.map((asset) => ({
     label: asset,
@@ -147,6 +152,7 @@ export function buildRiskOffVariantConfigs(p: {
       smaLowerBuffer: p.lowerBuffer,
       riskOffAsset: asset,
       smaExecutionMode: p.smaExecutionMode,
+      smaVolGate: p.smaVolGate,
     }),
   }));
   return [
@@ -170,6 +176,7 @@ export function buildSymmetricBufferSweepItems(p: {
   maxBuffer: number;
   fineStep: number;
   smaExecutionMode?: SmaExecutionMode;
+  smaVolGate?: boolean;
 }): SweepItem[] {
   const items: SweepItem[] = [
     {
@@ -200,6 +207,7 @@ export function buildSymmetricBufferSweepItems(p: {
         smaLowerBuffer: rt,
         riskOffAsset: p.riskOffAsset,
         smaExecutionMode: p.smaExecutionMode,
+        smaVolGate: p.smaVolGate,
       }),
     });
   }
@@ -223,6 +231,7 @@ export function makeAsymmetricSweepItem(p: {
   lower: number;
   variant: "coarse" | "fine";
   smaExecutionMode?: SmaExecutionMode;
+  smaVolGate?: boolean;
 }): SweepItem {
   const encoded = encodeAsymBuffer(p.upper, p.lower);
   return {
@@ -236,6 +245,7 @@ export function makeAsymmetricSweepItem(p: {
       smaLowerBuffer: p.lower,
       riskOffAsset: p.riskOffAsset,
       smaExecutionMode: p.smaExecutionMode,
+      smaVolGate: p.smaVolGate,
     }),
   };
 }

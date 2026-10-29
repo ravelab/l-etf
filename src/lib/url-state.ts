@@ -21,6 +21,7 @@ export function decodeBacktestParams(search: string): {
   smaSpLowerBuffer?: number;
   smaNqUpperBuffer?: number;
   smaNqLowerBuffer?: number;
+  smaVolGate?: boolean;
   riskOffAsset?: string;
   etfConfigs?: Partial<EtfConfig>[];
 } | null {
@@ -65,6 +66,7 @@ export function decodeBacktestParams(search: string): {
     smaSpLowerBuffer: smaBuffers.smaSpLowerBuffer,
     smaNqUpperBuffer: smaBuffers.smaNqUpperBuffer,
     smaNqLowerBuffer: smaBuffers.smaNqLowerBuffer,
+    smaVolGate: smaBuffers.smaVolGate,
     riskOffAsset: params.get("ro") || undefined,
     etfConfigs: etfConfigs.length > 0 ? etfConfigs : undefined,
   };

@@ -11,6 +11,7 @@ test("buildPresetBacktestUrl builds correct query params", () => {
     smaPeriod: 185,
     smaUpperBuffer: 3.5,
     smaLowerBuffer: 3.5,
+    smaVolGate: false,
     riskOffAsset: "SGOV"
   });
 
@@ -24,6 +25,21 @@ test("buildPresetBacktestUrl builds correct query params", () => {
   assert.equal(u.searchParams.get("smatspL"), "3.5");
   assert.equal(u.searchParams.get("ro"), "SGOV");
   assert.equal(u.searchParams.get("autorun"), "1");
+  assert.equal(u.searchParams.get("vg"), null);
+});
+
+test("buildPresetBacktestUrl carries the volatility gate", () => {
+  const url = buildPresetBacktestUrl({
+    preset: ETF_PRESETS["UPRO"],
+    startDate: "2020-01-01",
+    endDate: "2021-01-01",
+    smaPeriod: 185,
+    smaUpperBuffer: 3.5,
+    smaLowerBuffer: 3.5,
+    smaVolGate: true,
+    riskOffAsset: "SGOV"
+  });
+  assert.equal(new URL(url, "http://localhost").searchParams.get("vg"), "1");
 });
 
 test("buildPresetBacktestUrl uses nasdaq params for nasdaq index", () => {
@@ -34,6 +50,7 @@ test("buildPresetBacktestUrl uses nasdaq params for nasdaq index", () => {
     smaPeriod: 150,
     smaUpperBuffer: 12,
     smaLowerBuffer: 8,
+    smaVolGate: false,
     riskOffAsset: "SGOV"
   });
 

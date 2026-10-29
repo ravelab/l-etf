@@ -24,7 +24,7 @@ import { getLatestSharedTradeDate } from "./lib/sweep-data";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
 import { findPlateau, PLATEAU_TOLERANCE } from "../src/lib/simulation/plateau";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
-import { SMA_CALIBRATION_ERAS } from "../src/lib/simulation/sma-calibration-eras";
+import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE } from "../src/lib/simulation/sma-calibration-eras";
 import { type EraEvaluatedCombo } from "./lib/sma-sweep-context";
 import { withEraCagrs } from "./lib/sma-preset-era-cagrs";
 import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapPresetCombo, refinePresetGrid, sweepPresetPeriods, preferStablePresetCenter } from "./lib/sma-preset-grid";
@@ -138,13 +138,14 @@ async function main(): Promise<void> {
           return row ? [row] : [];
         });
       };
-      const knownCombos = [...currentPresets.presets.map((preset) => preset[index]), calibration[index]].map(snapPresetCombo);
+      const knownCombos = [...currentPresets.presets.map((preset) => preset[index]), calibration[index]].map(snapPresetCombo)
+        .filter((combo) => combo.smaPeriod >= SMA_SEARCH_MIN_PERIOD);
       const seedCombos = [...new Map([...seeds[index].periodSeeds,
         ...sweepPresetPeriods(knownCombos),
         ...currentPresets.presets.filter((preset) => !preset.isCalibratedDefault).map((preset) => preset[index])]
         .map(snapPresetCombo).concat(calibration[index]).map((combo) => [comboKey(combo), {
           smaPeriod: combo.smaPeriod, smaUpperBuffer: combo.smaUpperBuffer, smaLowerBuffer: combo.smaLowerBuffer,
-        }])).values()];
+        }])).values()].filter((combo) => combo.smaPeriod >= SMA_SEARCH_MIN_PERIOD);
       const warmStart = getMarketDataWarmUpStartDate(modernStartDate, SMA_SEARCH_MAX_PERIOD);
       const [prices, rates, raw] = await Promise.all([
         loadIndexPrices(index, warmStart, endDate), loadBorrowRates(warmStart, endDate),
@@ -157,7 +158,7 @@ async function main(): Promise<void> {
         const cached = summaries.get(comboKey(row.combo));
         if (cached?.score === score) return cached;
         const config = createPresetEtfConfig(comboKey(row.combo), preset, { ...row.combo,
-          riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: "next-day-open" });
+          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: "next-day-open" });
         const result = simulateWithWarmUp(prices, rates, [config], modernStartDate, row.combo.smaPeriod, {
           riskOffValuesByAsset: riskOff.closeValuesByAsset, riskOffOpenValuesByAsset: riskOff.openValuesByAsset, endDate,
         });
@@ -281,18 +282,38 @@ async function main(): Promise<void> {
         .map((combo) => cache.get(comboKey(combo))!);
       calibratedDefaults[index] = buildSmaCalibrationResult(index, defaultRow, defaultCandidate.score,
         summarizePlateau(defaultRow.combo, defaultNeighbors, 1, 0.1), cache.size);
-      const leaders = [defaultCandidate];
-      const ranked = [...candidates].sort((a, b) => b.score - a.score || b.cagr - a.cagr);
-      for (const candidate of ranked) {
-        if (!leaders.every((previous) => separated(candidate, previous))) continue;
-        const plateau = findPlateau(candidates.filter((row) => row.score <= candidate.score + 1e-8).map((row) => ({
-          item: row, coords: [row.smaPeriod, row.smaUpperBuffer, row.smaLowerBuffer], score: row.score,
-        })), { tolerance: PLATEAU_TOLERANCE, steps: [PRESET_PERIOD_STEP, PRESET_BUFFER_STEP, PRESET_BUFFER_STEP] });
-        // Stability is already priced into score. Center exact ties, but never
-        // replace a higher stable score with a weaker point on a broad plateau.
-        const center = plateau?.peak.item === candidate ? preferStablePresetCenter(candidate, plateau.center.item) : candidate;
-        leaders.push(leaders.every((previous) => separated(center, previous)) ? center : candidate);
+      const chooseLeaders = () => {
+        const leaders = [defaultCandidate];
+        const ranked = [...candidates].sort((a, b) => b.score - a.score || b.cagr - a.cagr);
+        for (const candidate of ranked) {
+          if (!leaders.every((previous) => separated(candidate, previous))) continue;
+          const plateau = findPlateau(candidates.filter((row) => row.score <= candidate.score + 1e-8).map((row) => ({
+            item: row, coords: [row.smaPeriod, row.smaUpperBuffer, row.smaLowerBuffer], score: row.score,
+          })), { tolerance: PLATEAU_TOLERANCE, steps: [PRESET_PERIOD_STEP, PRESET_BUFFER_STEP, PRESET_BUFFER_STEP] });
+          // Stability is already priced into score. Center exact ties, but never
+          // replace a higher stable score with a weaker point on a broad plateau.
+          const center = plateau?.peak.item === candidate ? preferStablePresetCenter(candidate, plateau.center.item) : candidate;
+          leaders.push(leaders.every((previous) => separated(center, previous)) ? center : candidate);
+          if (leaders.length === 4) break;
+        }
+        return leaders;
+      };
+      let leaders = chooseLeaders();
+      // The fallback above proved four distinct rules around the best RAW
+      // candidate; a centred default can overlap one of them, so keep adding
+      // seeds distinct from the default's own leaders until a fourth exists.
+      for (const combo of [...seedCombos].sort((a, b) => (seedScores.get(comboKey(b)) ?? -Infinity) - (seedScores.get(comboKey(a)) ?? -Infinity))) {
         if (leaders.length === 4) break;
+        if (candidates.some((candidate) => comboKey(candidate) === comboKey(combo))) continue;
+        if (!leaders.every((leader) => Math.abs(leader.smaPeriod - combo.smaPeriod) >= 20
+          || Math.abs(leader.smaUpperBuffer - combo.smaUpperBuffer) >= 3
+          || Math.abs(leader.smaLowerBuffer - combo.smaLowerBuffer) >= 3)) continue;
+        const rows = await evaluate([combo], "leader fallback", true);
+        const preview = summarize(rows[0], rows[0].score);
+        summaries.delete(comboKey(combo));
+        if (!leaders.every((leader) => separated(leader, preview))) continue;
+        candidates.push(...await stability(rows, "leader fallback stability", true));
+        leaders = chooseLeaders();
       }
       if (leaders.length !== 4) throw new Error(`Only ${leaders.length} distinct ${index} rules`);
       selected[index] = [defaultCandidate, ...leaders.slice(1).sort((a, b) => b.score - a.score)];

@@ -1,6 +1,7 @@
 import type { SmaSignal } from "./types";
 import { CONSTANT_SMA_CHECK_FREQUENCY } from "../constants";
 import { SMA_CACHE_MAX_ENTRIES, boundedCacheGet, boundedCacheSet } from "./bounded-cache";
+import { computeRealizedVol, nextVolGateRiskOff } from "./vol-gate";
 
 /**
  * WeakMap-based SMA cache: same prices array reference + same period → same result.
@@ -59,6 +60,11 @@ export function computeSma(prices: number[], period: number): number[] {
  * Exit when price crosses below SMA * (1 - buffer.lower / 100).
  *
  * checkFrequency: only check every N trading days.
+ *
+ * volGate: additionally hold risk-off while the volatility gate in
+ * `vol-gate.ts` is tripped. `signals` and `invested` describe the combined
+ * position, so a gate exit is a "sell" and a gate release back into an
+ * invested SMA regime is a "buy".
  */
 const signalCache = new WeakMap<number[], Map<string, { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] }>>();
 
@@ -67,12 +73,13 @@ export function generateSmaSignals(
   prices: number[],
   smaPeriod: number,
   buffer: { upper: number; lower: number },
-  options?: { initialInvested?: boolean; seedAtIndex?: number }
+  options?: { initialInvested?: boolean; seedAtIndex?: number; volGate?: boolean }
 ): { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] } {
   const { upper: upperBufferPct, lower: lowerBufferPct } = buffer;
   const initialInvested = options?.initialInvested ?? true;
   const seedAtIndex = options?.seedAtIndex ?? 0;
-  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}`;
+  const volGate = options?.volGate ?? false;
+  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}|${volGate}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
     const cached = boundedCacheGet(byPrices, cacheKey);
@@ -94,12 +101,17 @@ export function generateSmaSignals(
   let isInvested = initialInvested;
   let daysSinceCheck = 0;
   let warmUpSum = 0;
+  const vol = volGate ? computeRealizedVol(prices) : null;
+  let gateRiskOff = false;
+  let position = initialInvested;
 
   for (let i = 0; i < dates.length; i++) {
     warmUpSum += prices[i];
 
     if (i === seedAtIndex) {
       isInvested = initialInvested;
+      gateRiskOff = false;
+      position = initialInvested;
       daysSinceCheck = 0;
     }
 
@@ -111,10 +123,11 @@ export function generateSmaSignals(
         : NaN;
 
     if (i < seedAtIndex || isNaN(effectiveSma)) {
-      invested[i] = isInvested;
+      invested[i] = position;
       continue;
     }
 
+    const wasInvested = isInvested;
     daysSinceCheck++;
     if (daysSinceCheck >= CONSTANT_SMA_CHECK_FREQUENCY) {
       daysSinceCheck = 0;
@@ -124,14 +137,24 @@ export function generateSmaSignals(
 
       if (!isInvested && prices[i] > upperBand) {
         isInvested = true;
-        signals.push({ date: dates[i], type: "buy", price: prices[i] });
       } else if (isInvested && prices[i] < lowerBand) {
         isInvested = false;
-        signals.push({ date: dates[i], type: "sell", price: prices[i] });
       }
     }
 
-    invested[i] = isInvested;
+    if (vol) gateRiskOff = nextVolGateRiskOff(gateRiskOff, vol[i]);
+    const nextPosition = isInvested && !gateRiskOff;
+    if (nextPosition !== position) {
+      position = nextPosition;
+      signals.push({
+        date: dates[i],
+        type: nextPosition ? "buy" : "sell",
+        price: prices[i],
+        ...(vol ? { trigger: isInvested !== wasInvested ? "sma" : "vol" } : {}),
+      });
+    }
+
+    invested[i] = position;
   }
 
   const result = { signals, smaValues, invested };

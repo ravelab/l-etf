@@ -36,10 +36,13 @@ export function toValidRunSummary(value: unknown): RunSummary | null {
     smaNqPeriod: typeof v.smaNqPeriod === "number" ? v.smaNqPeriod : (typeof v.smaPnq === "number" ? v.smaPnq : 150),
     smaNqUpperBuffer: typeof v.smaNqUpperBuffer === "number" ? v.smaNqUpperBuffer : 12,
     smaNqLowerBuffer: typeof v.smaNqLowerBuffer === "number" ? v.smaNqLowerBuffer : 12,
+    smaVolGate: v.smaVolGate === true,
     riskOffAsset: typeof v.riskOffAsset === "string" ? v.riskOffAsset : (typeof v.ro === "string" ? v.ro : "SGOV"),
     tradeAfterHours: typeof v.tradeAfterHours === "boolean" ? v.tradeAfterHours : false,
     amount: typeof v.amount === "number" && Number.isFinite(v.amount) ? v.amount : undefined,
     leverageTolerance: typeof v.leverageTolerance === "string" ? v.leverageTolerance : undefined,
+    spxRiskOffAsset: typeof v.spxRiskOffAsset === "string" ? v.spxRiskOffAsset : undefined,
+    ndxRiskOffAsset: typeof v.ndxRiskOffAsset === "string" ? v.ndxRiskOffAsset : undefined,
   } as RunSummary;
 }
 

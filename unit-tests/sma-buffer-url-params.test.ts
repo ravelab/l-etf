@@ -14,8 +14,10 @@ test("appendSmaBufferUrlParams writes all four asymmetric keys", () => {
     smaSpLowerBuffer: 3.3,
     smaNqUpperBuffer: 20.4,
     smaNqLowerBuffer: 17.6,
+    smaVolGate: false,
   });
   assert.equal(params.get("smatspU"), "3");
+  assert.equal(params.get("vg"), null);
   assert.equal(params.get("smatspL"), "3.3");
   assert.equal(params.get("smatnqU"), "20.4");
   assert.equal(params.get("smatnqL"), "17.6");
@@ -30,7 +32,30 @@ test("parseSmaBufferUrlParams reads canonical keys", () => {
     smaSpLowerBuffer: 3.3,
     smaNqUpperBuffer: 20.4,
     smaNqLowerBuffer: 17.6,
+    smaVolGate: false,
   });
+});
+
+test("volatility gate round-trips through the URL", () => {
+  const params = new URLSearchParams();
+  appendSmaBufferUrlParams(params, {
+    smaSpUpperBuffer: 3,
+    smaSpLowerBuffer: 3.3,
+    smaNqUpperBuffer: 20.4,
+    smaNqLowerBuffer: 17.6,
+    smaVolGate: true,
+  });
+  assert.equal(params.get("vg"), "1");
+  assert.equal(parseSmaBufferUrlParams(params).smaVolGate, true);
+  const buffers = { smaSpUpperBuffer: 3, smaSpLowerBuffer: 3.3, smaNqUpperBuffer: 20.4, smaNqLowerBuffer: 17.6 };
+  assert.equal(urlSmaBuffersMatchState(params, { ...buffers, smaVolGate: true }), true);
+  assert.equal(urlSmaBuffersMatchState(params, { ...buffers, smaVolGate: false }), false);
+  deleteSmaBufferUrlParams(params);
+  assert.equal(params.get("vg"), null);
+});
+
+test("a URL without buffer keys leaves the volatility gate unset", () => {
+  assert.equal(parseSmaBufferUrlParams(new URLSearchParams("sd=2020-01-01")).smaVolGate, undefined);
 });
 
 test("parseSmaBufferUrlParams ignores legacy upper-only keys", () => {

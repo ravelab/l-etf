@@ -565,6 +565,16 @@ multi-era per-period search seeds, refined jointly over one-day periods and
 0.1 percentage-point buffer steps, with the same raw era weights and complete
 ±1-day/±0.1% stability neighborhoods as calibration. Keep pre-1988 SPX and
 pre-1985 NDX in selection: a modern-only CAGR winner can fail those eras badly.
+NDX is scored, displayed and verified WITH the volatility risk-off gate
+(`SMA_CALIBRATION_VOL_GATE`, `vol-gate.ts`), because the gate ships on by
+default; SPX stays a plain band. Ungated, NDX ranks 182/−18.1%/+6.9% first;
+gated, 115/−20%/+16% wins by a wide margin, so flipping that flag reorders the
+whole NDX preset set. The gate is a constant, not a searched parameter.
+Every era score also pays a re-entry penalty (`SMA_REENTRY_PENALTY`,
+`sma-search-bounds.ts`) for an upper buffer that only a steep steady climb
+reaches: history's recoveries were mostly V-shaped, so unpenalized NDX picked
+107d +16.4% (needs ~106%/yr; sat out 1987–1991 while NDX rose 41%). With it
+136/−18%/+9.6% wins and 107 stays listed as an alternative.
 Keep one default and three alternatives per index. The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
 rank each index by descending stability-adjusted weighted multi-era score and
 pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
@@ -572,7 +582,7 @@ comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
 weakest NDX rule despite its terrible proto era. Preserve the score order through
 selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder
 saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`.
-The manual search must visit all 261 integer periods (20–280), both at their
+The manual search must visit all 231 integer periods (50–280; shorter SMAs are excluded), both at their
 per-period seeds and at each saved fine buffer pair: restricting to five-day
 periods missed NDX 177/−12.1%/+7.8%, which beats the saved 150-day rule on the
 stable score. Refine separated basins over ±5 days and both buffers, then walk

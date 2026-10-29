@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer } = parsed.data;
+  const smaVolGate = searchParams.get("smaVolGate") === "1";
 
   try {
     // Fetch latest prices for both indexes (last 2 years of data for SMA calculation)
@@ -93,6 +94,7 @@ export async function GET(request: NextRequest) {
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
       },
     }) satisfies {
       sp500: SmaSignalResult;

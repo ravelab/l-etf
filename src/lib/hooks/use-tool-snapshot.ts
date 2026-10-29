@@ -18,6 +18,10 @@ type UseToolSnapshotParams<T> = {
   /** Predicate that decides whether a persisted localStorage blob has enough
    *  content to skip fetching the server-side snapshot. */
   hasPersistedResults?: (state: Record<string, unknown>) => boolean;
+  /** The server snapshot is a canned run of the default inputs; when the form
+   *  asks for something it cannot contain (e.g. the volatility gate), report
+   *  no data instead so the page autoruns with its own inputs. */
+  skipServerSnapshot?: boolean;
 };
 
 type ApiResponse<T> = {
@@ -34,6 +38,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
   onMetadata,
   onNoData,
   hasPersistedResults,
+  skipServerSnapshot = false,
 }: UseToolSnapshotParams<T>) {
   const appliedRef = useRef(false);
   const [metadata, setMetadata] = useState<ToolSnapshotMetadata | null>(null);
@@ -95,6 +100,13 @@ export function useToolSnapshot<T = Record<string, unknown>>({
     }
 
     appliedRef.current = true;
+
+    if (skipServerSnapshot) {
+      // Async like the fetch path: pages queue their own deferred
+      // `setPendingRun(false)` on mount, which would otherwise win.
+      setTimeout(() => onNoDataRef.current?.(), 0);
+      return;
+    }
 
     const controller = new AbortController();
     fetch(`/api/tool-snapshots?pageKey=${pageKey}`, {
@@ -158,7 +170,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
     return () => {
       // Don't abort - let the fetch complete even if component re-renders
     };
-  }, [pageKey, shouldHydrate]);
+  }, [pageKey, shouldHydrate, skipServerSnapshot]);
 
   const clearMetadata = useCallback(() => {
     setMetadata(null);

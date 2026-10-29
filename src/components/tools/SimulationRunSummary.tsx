@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/Card";
 import type { RunSummary } from "@/lib/run-summary";
+import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
 
 function formatBufferPair(lower: number, upper: number): string {
   if (lower === upper) return `${upper}%`;
@@ -89,9 +90,24 @@ export function SimulationRunSummary({
             NDX Buffer: <span className="text-foreground">{formatBufferPair(summary.smaNqLowerBuffer, summary.smaNqUpperBuffer)}</span>
           </span>
         )}
+        {summary.smaVolGate && (
+          <span className="text-muted min-w-0">
+            Volatility Risk Off: <span className="text-foreground">{SMA_VOL_GATE_PARAMS_TEXT}</span>
+          </span>
+        )}
         {showRiskOffAsset && (
           <span className="text-muted min-w-0">
             Risk-Off: <span className="text-foreground">{formatRiskOffAsset(summary.riskOffAsset)}</span>
+          </span>
+        )}
+        {summary.spxRiskOffAsset && (
+          <span className="text-muted min-w-0">
+            SPX Risk-Off Override: <span className="text-foreground">{formatRiskOffAsset(summary.spxRiskOffAsset)}</span>
+          </span>
+        )}
+        {summary.ndxRiskOffAsset && (
+          <span className="text-muted min-w-0">
+            NDX Risk-Off Override: <span className="text-foreground">{formatRiskOffAsset(summary.ndxRiskOffAsset)}</span>
           </span>
         )}
         {typeof summary.amount === "number" && Number.isFinite(summary.amount) && (

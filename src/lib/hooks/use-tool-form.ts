@@ -12,6 +12,7 @@ import type { IndexKey, EtfConfig } from "@/lib/simulation/types";
 import type { SharedFieldValues } from "@/components/tools/SharedToolInputs";
 import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import {
+  normalizeBooleanValue,
   normalizeDateString,
   normalizeIndexKey,
   normalizeNumberValue,
@@ -39,6 +40,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     smaSpLowerBuffer: shared.smaSpLowerBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
+    smaVolGate: shared.smaVolGate,
     riskOffAsset: shared.riskOffAsset,
   };
 
@@ -81,6 +83,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     next.smaSpLowerBuffer = normalizeNumberValue(next.smaSpLowerBuffer, shared.smaSpLowerBuffer, { min: 0 });
     next.smaNqUpperBuffer = normalizeNumberValue(next.smaNqUpperBuffer, shared.smaNqUpperBuffer, { min: 0 });
     next.smaNqLowerBuffer = normalizeNumberValue(next.smaNqLowerBuffer, shared.smaNqLowerBuffer, { min: 0 });
+    next.smaVolGate = normalizeBooleanValue(next.smaVolGate, shared.smaVolGate);
     next.riskOffAsset = normalizeRiskOffAsset(next.riskOffAsset, shared.riskOffAsset);
     return next;
   })();
@@ -109,6 +112,7 @@ export function useToolForm<T extends Record<string, unknown>>(
   const [smaSpLowerBuffer, setSmaSpLowerBuffer] = useState(sanitizedInitial.smaSpLowerBuffer);
   const [smaNqUpperBuffer, setSmaNqUpperBuffer] = useState(sanitizedInitial.smaNqUpperBuffer);
   const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(sanitizedInitial.smaNqLowerBuffer);
+  const [smaVolGate, setSmaVolGate] = useState<boolean>(sanitizedInitial.smaVolGate === true);
   const [riskOffAsset, setRiskOffAsset] = useState<EtfConfig["riskOffAsset"]>(sanitizedInitial.riskOffAsset as EtfConfig["riskOffAsset"]);
 
   const { isCombo, selectedPreset, comboSubs, comboLabels } = useMemo(
@@ -129,6 +133,7 @@ export function useToolForm<T extends Record<string, unknown>>(
           smaSpLowerBuffer: setSmaSpLowerBuffer,
           smaNqUpperBuffer: setSmaNqUpperBuffer,
           smaNqLowerBuffer: setSmaNqLowerBuffer,
+          smaVolGate: setSmaVolGate,
           riskOffAsset: setRiskOffAsset,
         } as unknown as Parameters<typeof applySharedFieldChange>[2]["setters"],
         onLetf: (nextValue) => {
@@ -154,6 +159,7 @@ export function useToolForm<T extends Record<string, unknown>>(
       smaSpLowerBuffer,
       smaNqUpperBuffer,
       smaNqLowerBuffer,
+      smaVolGate,
     });
     urlParams.set("ro", riskOffAsset);
     return urlParams;
@@ -161,7 +167,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     letf, startDate, endDate, windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    riskOffAsset
+    smaVolGate, riskOffAsset
   ]);
 
   return {
@@ -176,6 +182,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     smaSpLowerBuffer, setSmaSpLowerBuffer,
     smaNqUpperBuffer, setSmaNqUpperBuffer,
     smaNqLowerBuffer, setSmaNqLowerBuffer,
+    smaVolGate, setSmaVolGate,
     riskOffAsset, setRiskOffAsset,
     isCombo, selectedPreset, comboSubs, comboLabels,
     handleFieldChange,

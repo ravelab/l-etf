@@ -1,7 +1,7 @@
 import { type EtfPreset } from "./simulation/presets";
 import type { EtfConfig } from "./simulation/types";
 import { buildToolsUrl } from "./tools-route";
-import { SMA_BUFFER_URL_KEYS } from "./sma-buffer-url-params";
+import { SMA_BUFFER_URL_KEYS, SMA_VOL_GATE_URL_KEY } from "./sma-buffer-url-params";
 
 export function buildPresetBacktestUrl(p: {
   preset: EtfPreset;
@@ -10,6 +10,7 @@ export function buildPresetBacktestUrl(p: {
   smaPeriod: number;
   smaUpperBuffer: number;
   smaLowerBuffer: number;
+  smaVolGate: boolean;
   riskOffAsset: EtfConfig["riskOffAsset"];
 }): string {
   const params = new URLSearchParams();
@@ -25,6 +26,7 @@ export function buildPresetBacktestUrl(p: {
     if (p.smaUpperBuffer != null) params.set(SMA_BUFFER_URL_KEYS.spUpper, String(p.smaUpperBuffer));
     if (p.smaLowerBuffer != null) params.set(SMA_BUFFER_URL_KEYS.spLower, String(p.smaLowerBuffer));
   }
+  if (p.smaVolGate) params.set(SMA_VOL_GATE_URL_KEY, "1");
   if (p.riskOffAsset) params.set("ro", p.riskOffAsset);
   return buildToolsUrl("backtest", params, { autorun: true });
 }

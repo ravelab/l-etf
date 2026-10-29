@@ -1,5 +1,5 @@
 import type { RollingSimulationPoint } from "./rolling";
-import type { EtfConfig, PricePoint, RatePoint, SmaComparisonRow, EtfResult, BacktestResult } from "./types";
+import type { EtfConfig, PricePoint, RatePoint, SmaComparisonRow, EtfResult, BacktestResult, SmaSignal } from "./types";
 import { buildRollingWindows, summarizeSmaRow, type RollingWindow } from "./rolling";
 import { buildRateLookup } from "./borrowing-rate";
 import { simulateSingleEtf, simulateWithWarmUp, computeSimulatedRiskOnReturn } from "./engine";
@@ -455,10 +455,11 @@ export function precomputeAllConfigDailyValues(
       configId: config.id,
       indexKey: config.smaIndex,
       dailyValues: result.dailyValues,
-      smaSignals: result.smaSignals?.map((s: { date: string; type: string; price: number }) => ({
+      smaSignals: result.smaSignals?.map((s: SmaSignal) => ({
         date: s.date,
-        type: s.type as 'buy' | 'sell',
-        price: s.price
+        type: s.type,
+        price: s.price,
+        ...(s.trigger ? { trigger: s.trigger } : {}),
       })),
       smaPrices: result.smaPrices,
       timestamps: context.timestamps,
@@ -567,10 +568,11 @@ async function precomputeAllConfigDailyValuesAsync(
       configId: config.id,
       indexKey: config.smaIndex,
       dailyValues: result.dailyValues,
-      smaSignals: result.smaSignals?.map((s: { date: string; type: string; price: number }) => ({
+      smaSignals: result.smaSignals?.map((s: SmaSignal) => ({
         date: s.date,
-        type: s.type as 'buy' | 'sell',
-        price: s.price
+        type: s.type,
+        price: s.price,
+        ...(s.trigger ? { trigger: s.trigger } : {}),
       })),
       smaPrices: result.smaPrices,
       timestamps: context.timestamps,

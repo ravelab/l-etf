@@ -13,6 +13,13 @@
 // untouched, so nothing is traded and no spread or commission is due — only the
 // internal attribution moves. Splitting the drifted weights any other way, or
 // applying it a day later, would both book real trades.
+//
+// Sleeves with DIFFERENT baskets cannot swap like for like, so the richer sleeve
+// instead hands the poorer a pro-rata slice of everything it holds, in kind. If
+// the re-entering sleeve is the richer one, its surplus basket stays unsold with
+// the sleeve that remains risk-off; if it is the poorer, it receives a slice of
+// the other basket and sells it with its own when it buys back in. Either way the
+// only sales are the ones re-entry needs to reach half the fund.
 
 import { buildEtfResult, createFuturesSleeve } from "@/lib/simulation/futures";
 import type {
@@ -36,6 +43,43 @@ export type DualSleeveFuturesParams = {
   primary: Omit<FuturesStrategyParams, "initialEquity" | "displayName">;
   secondary: Omit<FuturesStrategyParams, "initialEquity" | "displayName">;
 };
+
+function scaled(values: number[] | null, factor: number): number[] | null {
+  return values ? values.map((v) => v * factor) : null;
+}
+
+function sum(a: number[] | null, b: number[] | null): number[] | null {
+  if (!a && !b) return null;
+  const length = Math.max(a?.length ?? 0, b?.length ?? 0);
+  return Array.from({ length }, (_, j) => (a?.[j] ?? 0) + (b?.[j] ?? 0));
+}
+
+/**
+ * Moves the richer sleeve's surplus over half the fund to the poorer one as a
+ * proportional slice of its cash, basket shares and accrued interest.
+ */
+function moveSurplusInKind(sleeves: readonly FuturesSleeve[], cursor: readonly number[]): void {
+  const equity = sleeves.map((sleeve, k) => sleeve.equityAt(cursor[k]));
+  const half = (equity[0] + equity[1]) / 2;
+  const donor = equity[0] >= equity[1] ? 0 : 1;
+  const recipient = 1 - donor;
+  if (!(equity[donor] > 0) || !(equity[donor] > half)) return;
+  const moved = (equity[donor] - half) / equity[donor];
+  const from = sleeves[donor].readHoldings();
+  const to = sleeves[recipient].readHoldings();
+  sleeves[donor].writeHoldings({
+    cash: from.cash * (1 - moved),
+    riskOffShares: scaled(from.riskOffShares, 1 - moved),
+    riskOffCash: scaled(from.riskOffCash, 1 - moved),
+    pendingCashInterest: from.pendingCashInterest * (1 - moved),
+  }, cursor[donor], half);
+  sleeves[recipient].writeHoldings({
+    cash: to.cash + from.cash * moved,
+    riskOffShares: sum(to.riskOffShares, scaled(from.riskOffShares, moved)),
+    riskOffCash: sum(to.riskOffCash, scaled(from.riskOffCash, moved)),
+    pendingCashInterest: to.pendingCashInterest + from.pendingCashInterest * moved,
+  }, cursor[recipient], half);
+}
 
 function halfOfSum(a: number[] | null, b: number[] | null): number[] | null {
   if (!a && !b) return null;
@@ -111,6 +155,7 @@ export function simulateDualSleeveFuturesStrategy(
   );
   const cursor = sleeves.map(() => 0);
   const dailyValues: number[] = [];
+  const sameBasket = params.primary.riskOffAsset === params.secondary.riskOffAsset;
 
   for (const [k, date] of dates.entries()) {
     const nextIdx = dayIndexByDate.map((byDate) => byDate.get(date));
@@ -121,7 +166,10 @@ export function simulateDualSleeveFuturesStrategy(
         const i = nextIdx[s];
         return i !== undefined && investedAt(sleeve, i);
       });
-      if (bothWereRiskOff && oneTurnsRiskOn) resetToHalves(sleeves, cursor);
+      if (bothWereRiskOff && oneTurnsRiskOn) {
+        if (sameBasket) resetToHalves(sleeves, cursor);
+        else moveSurplusInKind(sleeves, cursor);
+      }
     }
 
     for (const [s, sleeve] of sleeves.entries()) {
@@ -190,7 +238,7 @@ export function simulateDualSleeveFuturesStrategy(
 
   const etfResult: EtfResult = buildEtfResult({
     id: "dual-sleeve-futures-sma",
-    name: params.displayName,
+    name: params.primary.smaVolGate ? params.displayName.replace(/ SMA$/, " SMA Vol") : params.displayName,
     sourceIndex: params.primary.index,
     dates,
     dailyValues,

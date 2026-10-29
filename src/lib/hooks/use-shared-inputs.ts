@@ -45,6 +45,7 @@ type SharedInputs = {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaNqEnabled: boolean;
+  smaVolGate: boolean;
   riskOffAsset: EtfConfig["riskOffAsset"];
   hateDrawdown: boolean;
   tradeAfterHours: boolean;
@@ -63,6 +64,7 @@ export const SHARED_KEYS = new Set<string>([
   "smaNqLowerBuffer",
   "smaSpEnabled",
   "smaNqEnabled",
+  "smaVolGate",
   "riskOffAsset",
   "hateDrawdown",
   "tradeAfterHours",
@@ -82,6 +84,7 @@ const DEFAULTS: SharedInputs = {
   smaNqLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
   smaSpEnabled: true,
   smaNqEnabled: true,
+  smaVolGate: true,
   riskOffAsset: DEFAULT_RISK_OFF_ASSET,
   hateDrawdown: false,
   tradeAfterHours: false,
@@ -112,6 +115,7 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     smaNqLowerBuffer: normalizeNumberValue(base.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }),
     smaSpEnabled: normalizeBooleanValue(base.smaSpEnabled, true),
     smaNqEnabled: normalizeBooleanValue(base.smaNqEnabled, true),
+    smaVolGate: normalizeBooleanValue(base.smaVolGate, true),
     riskOffAsset: normalizeRiskOffAsset(base.riskOffAsset),
     hateDrawdown: normalizeBooleanValue(base.hateDrawdown, false),
     tradeAfterHours: normalizeBooleanValue(base.tradeAfterHours, false),
@@ -186,6 +190,7 @@ export function getSharedInputs(urlParams?: URLSearchParams): {
     if (smaBuffers.smaSpLowerBuffer != null) merged.smaSpLowerBuffer = smaBuffers.smaSpLowerBuffer;
     if (smaBuffers.smaNqUpperBuffer != null) merged.smaNqUpperBuffer = smaBuffers.smaNqUpperBuffer;
     if (smaBuffers.smaNqLowerBuffer != null) merged.smaNqLowerBuffer = smaBuffers.smaNqLowerBuffer;
+    if (smaBuffers.smaVolGate != null) merged.smaVolGate = smaBuffers.smaVolGate;
     if (p.has("ro")) {
       merged.riskOffAsset = normalizeRiskOffAsset(p.get("ro"), merged.riskOffAsset);
     }

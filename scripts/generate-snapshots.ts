@@ -80,6 +80,7 @@ import {
 import { buildRunSummary } from "../src/lib/run-summary";
 import {
   buildFuturesLadderPlan,
+  DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS,
   showsFuturesTransactions,
   type SmaBand,
 } from "../src/lib/simulation/futures-plan";
@@ -479,7 +480,9 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
 
   // Load raw risk-off price points + build aligned per-index arrays, mirroring
   // the futures page's runtime risk-off pipeline.
-  const riskOffTickers = getRiskOffFetchTickers(shared.riskOffAsset);
+  const dualRiskOffAssets = DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS;
+  const riskOffTickers = [...new Set([shared.riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100]
+    .flatMap(getRiskOffFetchTickers))];
   const rawRiskOffByTicker: Record<string, PricePoint[]> = {};
   for (const ticker of riskOffTickers) {
     const storageKey =
@@ -541,6 +544,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
         lowerBuffer: shared.smaNqLowerBuffer,
       },
     },
+    dualRiskOffAssets,
   });
 
   /** Everything a sleeve needs that does not depend on which rung asked for it. */
@@ -635,9 +639,12 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaNqPeriod: shared.smaNqPeriod,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
+    smaVolGate: false,
     riskOffAsset: shared.riskOffAsset,
     amount,
     leverageTolerance: `${leverageTolerancePct}%`,
+    spxRiskOffAsset: dualRiskOffAssets.sp500,
+    ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
   });
 
   const annualizedInflation =
@@ -656,6 +663,8 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     riskOffAsset: shared.riskOffAsset,
+    spxRiskOffAsset: dualRiskOffAssets.sp500,
+    ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
     amount,
     leverageTolerancePct,
     result: combinedResult,
@@ -785,6 +794,7 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     smaSpLowerBuffer: shared.smaSpLowerBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
+    smaVolGate: false,
     riskOffAsset: shared.riskOffAsset,
   });
 

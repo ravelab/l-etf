@@ -3,7 +3,8 @@ import { simulateFuturesSmaStrategy } from "@/lib/simulation/futures";
 import type { DualSleeveFuturesParams } from "@/lib/simulation/futures-dual-sleeve";
 import { simulateDualSleeveFuturesStrategy } from "@/lib/simulation/futures-dual-sleeve";
 import type { FuturesLadderStep, SmaBand } from "@/lib/simulation/futures-plan";
-import type { IndexKey } from "@/lib/simulation/types";
+import type { IndexKey, RiskOffAsset } from "@/lib/simulation/types";
+import { getRiskOffFetchTickers } from "@/lib/constants";
 
 /**
  * One entry in the futures ladder: a lone strategy, or a fund holding two sleeves.
@@ -39,6 +40,23 @@ type FuturesSleeveParams = Omit<FuturesStrategyParams, "initialEquity" | "displa
  * Callers supply `sleeveParams` because only they know where the price, rate
  * and risk-off series came from.
  */
+/**
+ * A sleeve's own params with its step's risk-off override applied. Sleeves of one
+ * fund that hold different baskets must each be able to hold the other's
+ * tickers, because the fund's 50/50 reset hands basket shares between them.
+ */
+function withRiskOffAssets(
+  primary: FuturesSleeveParams,
+  secondary: FuturesSleeveParams,
+  assets: { primary?: RiskOffAsset; secondary?: RiskOffAsset }
+): { primary: FuturesSleeveParams; secondary: FuturesSleeveParams } {
+  const a = { ...primary, riskOffAsset: assets.primary ?? primary.riskOffAsset };
+  const b = { ...secondary, riskOffAsset: assets.secondary ?? secondary.riskOffAsset };
+  if (a.riskOffAsset === b.riskOffAsset) return { primary: a, secondary: b };
+  const held = [...new Set([...getRiskOffFetchTickers(a.riskOffAsset), ...getRiskOffFetchTickers(b.riskOffAsset)])];
+  return { primary: { ...a, riskOffHeldTickers: held }, secondary: { ...b, riskOffHeldTickers: held } };
+}
+
 export function buildFuturesRunPlans(params: {
   steps: readonly FuturesLadderStep[];
   /** Whole-rung equity at inception; a two-sleeve fund halves it internally. */
@@ -58,12 +76,15 @@ export function buildFuturesRunPlans(params: {
           dual: {
             displayName: step.displayName ?? "Dual sleeve SMA",
             initialEquity,
-            primary: sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
-            secondary: sleeveParams(
-              step.secondary.index,
-              step.secondary.leverage,
-              step.secondary.maxLeverage,
-              step.secondary.sma
+            ...withRiskOffAssets(
+              sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
+              sleeveParams(
+                step.secondary.index,
+                step.secondary.leverage,
+                step.secondary.maxLeverage,
+                step.secondary.sma
+              ),
+              { primary: step.riskOffAsset, secondary: step.secondary.riskOffAsset }
             ),
           },
         }

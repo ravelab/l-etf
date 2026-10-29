@@ -87,6 +87,7 @@ export function StatisticalAnalysisPageContent({
     windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+    smaVolGate,
     riskOffAsset,
     isCombo, selectedPreset,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
@@ -146,6 +147,7 @@ export function StatisticalAnalysisPageContent({
     pageKey: "statistical-analysis",
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applyStatSnapshot,
+    skipServerSnapshot: smaVolGate,
     hasPersistedResults: (state) =>
       !!(state as Partial<StatisticalSnapshotState>).runSummaryInputs ||
       ((state as Partial<StatisticalSnapshotState>).winRatesByWindow?.length ?? 0) > 0,
@@ -284,9 +286,10 @@ export function StatisticalAnalysisPageContent({
           smaPeriod: sub.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod,
           smaUpperBuffer: sub.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer, smaLowerBuffer: sub.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
           smaIndex: sub.index,
+          ...(smaVolGate ? { smaVolGate: true } : {}),
           riskOffAsset,
         };
-        const noSmaConfig: EtfConfig = { ...smaConfig, id: `${sub.name}-wr-nosma`, smaEnabled: false };
+        const noSmaConfig: EtfConfig = { ...smaConfig, id: `${sub.name}-wr-nosma`, smaEnabled: false, smaVolGate: false };
         const wr = await computeWinRatesByWindowLength({
           label: isCombo ? sub.name : letf,
           prices,
@@ -321,6 +324,7 @@ export function StatisticalAnalysisPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         letf,
         riskOffAsset,
       });
@@ -341,6 +345,7 @@ export function StatisticalAnalysisPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
+        smaVolGate,
         riskOffAsset,
         annualizedInflation: inflationData.annualizedInflation,
         monthlyCpi: inflationData.monthlyCpi,
@@ -406,6 +411,7 @@ export function StatisticalAnalysisPageContent({
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
+    smaVolGate,
     startDate,
     updateUrl,
     setRunProgress,
@@ -432,7 +438,7 @@ export function StatisticalAnalysisPageContent({
         <SharedToolInputs
           values={{
             letf, startDate, endDate, windowLength,
-            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, riskOffAsset,
+            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset,
           }}
           onChange={handleFieldChange}
           showRollingFields={false}
@@ -469,6 +475,7 @@ export function StatisticalAnalysisPageContent({
               key={section.label}
               section={section}
               multipleSections={winRatesByWindow.length > 1}
+              volGate={runSummary?.smaVolGate === true}
               inflationPct={inflationPctForSweepSectionTitle({
                 monthlyCpi,
                 sectionDisplayStartDate: section.earliestStartDate,
@@ -491,19 +498,22 @@ export function StatisticalAnalysisPageContent({
 function WinRateSummaryTable({
   sections,
   multipleSections,
+  volGate,
 }: {
   sections: WinRatesByWindow[];
   multipleSections: boolean;
+  volGate: boolean;
 }) {
   const sectionOrder = new Map(sections.map((section, idx) => [section.label, idx]));
   const rows = sections.flatMap((section) =>
     (section.summaryRows ?? []).map((row) => {
-      let label = row.label;
+      const smaLabel = volGate ? "SMA Vol" : "SMA";
+      let label = row.label === "SMA" ? smaLabel : row.label;
       if (multipleSections) {
         if (row.label === "No SMA") {
           label = section.label;
         } else if (row.label === "SMA") {
-          label = `${section.label} SMA`;
+          label = `${section.label} ${smaLabel}`;
         } else if (row.label !== LABEL_INDEX_SP500_TR && row.label !== LABEL_INDEX_NASDAQ100_TR) {
           label = `${section.label} ${row.label}`;
         }
@@ -570,12 +580,14 @@ function WinRateSummaryTable({
 function StatWinRateCard({
   section,
   multipleSections,
+  volGate,
   inflationPct,
   startDate,
   color,
 }: {
   section: WinRatesByWindow;
   multipleSections: boolean;
+  volGate: boolean;
   inflationPct: number | null;
   startDate?: string;
   color: string;
@@ -704,6 +716,7 @@ function StatWinRateCard({
         <WinRateSummaryTable
           sections={[section]}
           multipleSections={multipleSections}
+          volGate={volGate}
         />
       </div>
     </Card>

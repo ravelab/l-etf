@@ -43,6 +43,7 @@ export function registerGetSmaSignals(server: McpServer): void {
           : defaults;
         const config = {
           ...base,
+          smaVolGate: false,
           ...(args.smaSpPeriod != null ? { smaSpPeriod: args.smaSpPeriod } : {}),
           ...(args.smaSpUpperBuffer != null ? { smaSpUpperBuffer: args.smaSpUpperBuffer } : {}),
           ...(args.smaSpLowerBuffer != null ? { smaSpLowerBuffer: args.smaSpLowerBuffer } : {}),

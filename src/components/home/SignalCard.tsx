@@ -1,4 +1,5 @@
 import type { SmaSignalResult } from "@/lib/sma-signals";
+import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 
 interface SignalCardProps {
   indexName: string;
@@ -115,6 +116,18 @@ export function SignalCard({ indexName, smaPeriod, result, loading = false }: Si
             {result ? getPercentLabel() : <span className="invisible">{placeholderPercent}</span>}
           </span>
         </div>
+
+        {result?.volatility !== undefined && (
+          <div data-testid="vol-gate-status" className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-muted">{SMA_VOL_GATE.windowDays}d volatility</span>
+            <span className={`font-medium tabular-nums ${result.volGateRiskOff ? "text-negative" : "text-muted"}`}>
+              {Number.isFinite(result.volatility) ? `${(result.volatility * 100).toFixed(1)}%` : "n/a"}
+              {result.volGateRiskOff
+                ? ` · risk off until < ${Math.round(SMA_VOL_GATE.reenterBelow * 100)}%`
+                : ` · risk off > ${Math.round(SMA_VOL_GATE.exitAbove * 100)}%`}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

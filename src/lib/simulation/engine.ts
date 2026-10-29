@@ -285,7 +285,7 @@ function expandEtfConfigs(etfConfigs: EtfConfig[]): EtfConfig[] {
     const smaConfig: EtfConfig = {
       ...config,
       id: `${config.id}-sma`,
-      name: `${config.name} (SMA, ${formatRiskOffAsset(config.riskOffAsset)})`,
+      name: `${config.name} (SMA${config.smaVolGate ? " Vol" : ""}, ${formatRiskOffAsset(config.riskOffAsset)})`,
     };
     return [baselineConfig, smaConfig];
   });
@@ -453,6 +453,7 @@ function buildDedupeKey(config: EtfConfig): string {
     smaPeriod: config.smaPeriod,
     smaUpperBuffer: config.smaUpperBuffer,
     smaLowerBuffer: config.smaLowerBuffer,
+    smaVolGate: config.smaVolGate === true,
     riskOffAsset: config.riskOffAsset,
     smaExecutionMode: config.smaExecutionMode,
   });
@@ -540,9 +541,12 @@ export function simulateSingleEtf(
       closePrices,
       config.smaPeriod,
       { upper: config.smaUpperBuffer, lower: config.smaLowerBuffer },
-      options?.smaInitialInvested !== undefined
-        ? { initialInvested: options.smaInitialInvested, seedAtIndex: options?.smaSeedAtIndex }
-        : undefined
+      {
+        ...(options?.smaInitialInvested !== undefined
+          ? { initialInvested: options.smaInitialInvested, seedAtIndex: options?.smaSeedAtIndex }
+          : {}),
+        volGate: config.smaVolGate === true,
+      }
     );
     const signalInvested = smaResult.invested;
     smaSignals = smaResult.signals;

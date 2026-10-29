@@ -23,6 +23,8 @@ export interface BacktestInput {
   smaPeriod?: number;
   smaUpperBuffer?: number;
   smaLowerBuffer?: number;
+  /** Not in the MCP tool schema; the SMA preset scripts set it to match calibration. */
+  smaVolGate?: boolean;
   riskOffAsset?: RiskOffAsset;
   smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
 }
@@ -97,6 +99,7 @@ export function resolveBacktest(input: BacktestInput): ResolvedBacktest {
     smaPeriod,
     smaUpperBuffer,
     smaLowerBuffer,
+    smaVolGate: input.smaVolGate === true,
     smaIndex: index,
     smaExecutionMode: input.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE,
     riskOffAsset,
