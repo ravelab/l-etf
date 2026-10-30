@@ -1,7 +1,7 @@
 import { annualizedInflationForRange } from "@/lib/inflation";
 import type { RollingSimulationPoint } from "@/lib/simulation/rolling";
 
-export type PercentilePoint = {
+type PercentilePoint = {
   x: number;
   y: number;
 };

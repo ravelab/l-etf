@@ -2,7 +2,7 @@ import { computeSma } from "@/lib/simulation/sma";
 import { computeRealizedVol, nextVolGateRiskOff, type VolGateParams } from "@/lib/simulation/vol-gate";
 import { DailyPrice } from "@/lib/data/storage/types";
 
-export type SmaSignal = "buy" | "sell" | "hold";
+type SmaSignal = "buy" | "sell" | "hold";
 
 export interface SmaSignalResult {
   signal: SmaSignal;

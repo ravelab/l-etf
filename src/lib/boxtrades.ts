@@ -36,7 +36,7 @@ const FIDELITY_SPX_FOUR_LEG_COST = {
   estimatedCost: 4 * (0.65 + 0.5),
 };
 
-export type BoxtradesContractApy = {
+type BoxtradesContractApy = {
   expiry: string;
   expFormat: string;
   daysToExpiry: number;

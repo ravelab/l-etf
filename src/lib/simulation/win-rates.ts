@@ -7,7 +7,7 @@ import { CONSTANT_HISTORY_WRAP_ENABLED, CONSTANT_INITIAL_INVESTMENT, LABEL_INDEX
 import { annualizedInflationForRange } from "../inflation";
 import { calcCagr } from "./metrics";
 
-export type WinRateSummaryRow = {
+type WinRateSummaryRow = {
   label: string;
   p10: number;
   avg: number;

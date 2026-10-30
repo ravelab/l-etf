@@ -12,12 +12,12 @@ export default defineConfig({
       provider: "v8",
       // Only files the jsdom suite actually loads. Overall (all-src) fill happens
       // in scripts/unit-coverage-report.mjs so statement maps stay consistent
-      // with the node:test V8 remapping.
-      all: false,
+      // with the node:test V8 remapping. Vitest 4+ dropped `all` and reports unloaded
+      // files whenever `include` is set, so `include` stays unset: the report then
+      // holds only what these tests load. Imported JSON snapshots are not code.
       reportsDirectory: "./coverage/unit-jsdom",
       reporter: ["json", "json-summary", "text-summary"],
-      include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.d.ts"],
+      exclude: ["src/**/*.d.ts", "src/**/*.json"],
       thresholds: undefined,
     },
   },
