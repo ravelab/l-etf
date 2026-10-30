@@ -5,7 +5,7 @@
  * mismatch between them is silent at runtime (the seeds just steer badly).
  */
 
-import { strict as assert } from "node:assert";
+import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readFile } from "node:fs/promises";
 
@@ -17,6 +17,7 @@ import {
   SMA_SEARCH_SPACE_SNAPSHOT_PATH,
   readSmaSearchSpaceSnapshot,
   seedForPeriod,
+  type SmaSeed,
 } from "../src/lib/sma-search-space";
 import { SMA_CALIBRATION_ERAS } from "../src/lib/simulation/sma-calibration-eras";
 import {
@@ -35,7 +36,9 @@ describe("sma-calibration snapshot", () => {
     const snapshot = await readSmaCalibrationSnapshot();
     assert.ok(snapshot, "sma-calibration.json must parse");
     for (const index of INDICES) {
-      const band = snapshot[index];
+      // Annotated: inside a loop narrowed by assert.ok, @types/node 26's assertion
+      // signature otherwise makes this inference circular (TS7022).
+      const band: SmaCalibrationIndexResult = snapshot[index];
       assert.ok(
         band.smaPeriod >= SMA_SEARCH_MIN_PERIOD && band.smaPeriod <= SMA_SEARCH_MAX_PERIOD,
         `${index} period ${band.smaPeriod} outside ${SMA_SEARCH_MIN_PERIOD}..${SMA_SEARCH_MAX_PERIOD}`
@@ -133,7 +136,7 @@ describe("sma-search-space snapshot", () => {
     assert.equal(snapshot.grid.maxBuffer, SMA_SEARCH_MAX_BUFFER);
 
     for (const index of INDICES) {
-      const seeds = snapshot[index].periodSeeds;
+      const seeds: SmaSeed[] = snapshot[index].periodSeeds;
       for (const seed of seeds) {
         assert.ok(seed.smaPeriod >= SMA_SEARCH_MIN_PERIOD && seed.smaPeriod <= SMA_SEARCH_MAX_PERIOD);
         assert.ok(seed.smaUpperBuffer >= SMA_SEARCH_MIN_BUFFER && seed.smaUpperBuffer <= SMA_SEARCH_MAX_BUFFER);

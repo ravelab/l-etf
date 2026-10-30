@@ -5,7 +5,7 @@
   "description": "Next.js app for backtesting leveraged-ETF strategies over long market history with rolling-window analysis, SMA timing rules, risk-off switching, and trade-level detail.",
   "license": "MIT",
   "engines": {
-    "node": ">=22"
+    "node": "26.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -78,7 +78,7 @@
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
-    "@types/node": "^25.9.9",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/web-push": "^3.6.4",

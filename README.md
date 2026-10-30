@@ -15,8 +15,9 @@ A Next.js app for researching leveraged ETF strategies across long market histor
 
 ## Prerequisites
 
-- **Node.js 22 LTS** (see [`.nvmrc`](./.nvmrc)). `nvm use` if you have nvm installed.
-- **npm 10+** (ships with Node 22).
+- **Node.js 26 LTS** (see [`.nvmrc`](./.nvmrc)), the version CI and Vercel run; `engines` pins
+  production to `26.x` so a new Node major never lands unannounced. `nvm use` if you have nvm installed.
+- **npm 10+** (ships with Node).
 
 ## Installation
 

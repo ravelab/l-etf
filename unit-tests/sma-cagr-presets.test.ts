@@ -287,7 +287,14 @@ test("preset selection retains early-era weights, stability penalties and the ca
       const expected = preset[index];
       const actual = results.get(comboKey(expected))!;
       assert.ok(Math.abs(actual.score - expected.baseScore) < 1e-8);
-      assert.deepEqual(actual.scoresByEra, expected.scoresByEra);
+      // Same tolerance as the other score checks: the last bit of a transcendental
+      // differs between Node releases (Node 26 vs 22 moved a proto score by 1e-13).
+      const expectedEraScores: Record<string, number> = expected.scoresByEra;
+      const actualEraScores: Record<string, number> = actual.scoresByEra;
+      assert.deepEqual(Object.keys(actualEraScores).sort(), Object.keys(expectedEraScores).sort());
+      for (const [era, score] of Object.entries(expectedEraScores)) {
+        assert.ok(Math.abs(actualEraScores[era] - score) < 1e-8, `${index} ${era} era score drifted`);
+      }
       assert.ok(Math.abs(combineEraScores(index, expected.scoresByEra) - expected.baseScore) < 1e-8);
       const local = planCombos(planPeriodNeighborhood(expected.smaPeriod, 1, { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD }),
         planBufferNeighborhood(expected.smaUpperBuffer, expected.smaLowerBuffer, 0.1, 0.1,

@@ -38,9 +38,10 @@ run_jsdom_unit() {
 }
 
 if run_node_unit >"$output_file" 2>&1; then
-  pass="$(match '^# pass ' "$output_file" | tail -1 | awk '{print $3}')"
-  fail="$(match '^# fail ' "$output_file" | tail -1 | awk '{print $3}')"
-  tests="$(match '^# tests ' "$output_file" | tail -1 | awk '{print $3}')"
+  # TAP prints "# pass N"; Node 26's default spec reporter prints "ℹ pass N".
+  pass="$(match '^(# |ℹ )pass ' "$output_file" | tail -1 | awk '{print $3}')"
+  fail="$(match '^(# |ℹ )fail ' "$output_file" | tail -1 | awk '{print $3}')"
+  tests="$(match '^(# |ℹ )tests ' "$output_file" | tail -1 | awk '{print $3}')"
   if [ -n "${pass:-}" ] && [ -n "${tests:-}" ]; then
     printf '✓ unit tests (node) · %s passed' "$pass"
     if [ "${fail:-0}" != "0" ]; then
