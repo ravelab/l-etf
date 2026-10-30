@@ -3,6 +3,7 @@ import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "@/lib/constants";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { BacktestResult, EtfConfig } from "@/lib/simulation/types";
+import type { RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
 
 export type StrategyYearlyGrowthSeries = {
   years: string[];
@@ -76,7 +77,7 @@ export function buildStrategyVariants(params: {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaVolGate: boolean;
-  riskOffAsset: EtfConfig["riskOffAsset"];
+  riskOffAssets: RiskOffAssetsByIndex;
   tradeAfterHours?: boolean;
 }): StrategyVariantBuckets {
   const uproPreset = ETF_PRESETS["UPRO"];
@@ -104,7 +105,7 @@ export function buildStrategyVariants(params: {
     smaIndex: preset.index,
     smaExecutionMode: executionMode,
     ...(smaEnabled && params.smaVolGate ? { smaVolGate: true } : {}),
-    riskOffAsset: params.riskOffAsset,
+    riskOffAsset: params.riskOffAssets[preset.index],
   });
 
   const indexConfig = (indexName: typeof LABEL_INDEX_SP500_TR | typeof LABEL_INDEX_NASDAQ100_TR): EtfConfig => ({
@@ -117,7 +118,7 @@ export function buildStrategyVariants(params: {
     smaPeriod: indexName === LABEL_INDEX_SP500_TR ? params.smaSpPeriod : params.smaNqPeriod,
     smaUpperBuffer: 0, smaLowerBuffer: 0,
     smaIndex: indexName === LABEL_INDEX_SP500_TR ? "sp500" : "nasdaq100",
-    riskOffAsset: params.riskOffAsset,
+    riskOffAsset: params.riskOffAssets[indexName === LABEL_INDEX_SP500_TR ? "sp500" : "nasdaq100"],
   });
 
   const buildSmaVariants = (

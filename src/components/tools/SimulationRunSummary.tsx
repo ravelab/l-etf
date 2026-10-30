@@ -97,17 +97,12 @@ export function SimulationRunSummary({
         )}
         {showRiskOffAsset && (
           <span className="text-muted min-w-0">
-            Risk-Off: <span className="text-foreground">{formatRiskOffAsset(summary.riskOffAsset)}</span>
+            SPX Risk-Off: <span className="text-foreground">{formatRiskOffAsset(summary.spxRiskOffAsset)}</span>
           </span>
         )}
-        {summary.spxRiskOffAsset && (
+        {showRiskOffAsset && (
           <span className="text-muted min-w-0">
-            SPX Risk-Off Override: <span className="text-foreground">{formatRiskOffAsset(summary.spxRiskOffAsset)}</span>
-          </span>
-        )}
-        {summary.ndxRiskOffAsset && (
-          <span className="text-muted min-w-0">
-            NDX Risk-Off Override: <span className="text-foreground">{formatRiskOffAsset(summary.ndxRiskOffAsset)}</span>
+            NDX Risk-Off: <span className="text-foreground">{formatRiskOffAsset(summary.ndxRiskOffAsset)}</span>
           </span>
         )}
         {typeof summary.amount === "number" && Number.isFinite(summary.amount) && (

@@ -127,11 +127,25 @@ test("persistedToolStateMatchesUrl requires every present URL field to agree", (
     smaSpLowerBuffer: 3,
     smaNqUpperBuffer: 5,
     smaNqLowerBuffer: 5,
-    riskOffAsset: "SGOV",
+    spxRiskOffAsset: "SGOV",
+    ndxRiskOffAsset: "VGSH",
     leverageTolerancePct: 2,
   };
   assert.equal(
-    persistedToolStateMatchesUrl(state, new URLSearchParams("letf=UPRO&sd=2000-01-01&ed=2020-01-01&py=10&ro=SGOV")),
+    persistedToolStateMatchesUrl(state, new URLSearchParams("letf=UPRO&sd=2000-01-01&ed=2020-01-01&py=10&ros=SGOV&ron=VGSH")),
+    true,
+  );
+  assert.equal(
+    persistedToolStateMatchesUrl(state, new URLSearchParams("sd=2000-01-01&ros=SGOV&ron=GLDM")),
+    false,
+  );
+  // A legacy single `ro` names both indices, so it matches only when both agree.
+  assert.equal(
+    persistedToolStateMatchesUrl(state, new URLSearchParams("sd=2000-01-01&ro=SGOV")),
+    false,
+  );
+  assert.equal(
+    persistedToolStateMatchesUrl({ ...state, ndxRiskOffAsset: "SGOV" }, new URLSearchParams("sd=2000-01-01&ro=SGOV")),
     true,
   );
   assert.equal(

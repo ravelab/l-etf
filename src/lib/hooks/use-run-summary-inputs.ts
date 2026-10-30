@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { resolvePresetContext } from "@/lib/simulation/presets";
 import type { RunSummary } from "@/lib/run-summary";
+import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 
 /** Storage-level key is `runSummaryInputs` (kept for backwards cache compat); hook-level field is `runSummary`. */
 type SnapshotFragment = {
@@ -25,6 +26,9 @@ export function toValidRunSummary(value: unknown): RunSummary | null {
     return null;
   }
 
+  const legacyRiskOffAsset =
+    typeof v.riskOffAsset === "string" ? v.riskOffAsset : typeof v.ro === "string" ? v.ro : undefined;
+
   return {
     letf: typeof v.letf === "string" ? v.letf : (typeof v.preset === "string" ? v.preset : "UPRO"),
     startDate: v.startDate,
@@ -37,12 +41,12 @@ export function toValidRunSummary(value: unknown): RunSummary | null {
     smaNqUpperBuffer: typeof v.smaNqUpperBuffer === "number" ? v.smaNqUpperBuffer : 12,
     smaNqLowerBuffer: typeof v.smaNqLowerBuffer === "number" ? v.smaNqLowerBuffer : 12,
     smaVolGate: v.smaVolGate === true,
-    riskOffAsset: typeof v.riskOffAsset === "string" ? v.riskOffAsset : (typeof v.ro === "string" ? v.ro : "SGOV"),
     tradeAfterHours: typeof v.tradeAfterHours === "boolean" ? v.tradeAfterHours : false,
     amount: typeof v.amount === "number" && Number.isFinite(v.amount) ? v.amount : undefined,
     leverageTolerance: typeof v.leverageTolerance === "string" ? v.leverageTolerance : undefined,
-    spxRiskOffAsset: typeof v.spxRiskOffAsset === "string" ? v.spxRiskOffAsset : undefined,
-    ndxRiskOffAsset: typeof v.ndxRiskOffAsset === "string" ? v.ndxRiskOffAsset : undefined,
+    // Runs saved before the split carry one `riskOffAsset` (or `ro`) that both indices held.
+    spxRiskOffAsset: typeof v.spxRiskOffAsset === "string" ? v.spxRiskOffAsset : legacyRiskOffAsset ?? DEFAULT_RISK_OFF_ASSETS.sp500,
+    ndxRiskOffAsset: typeof v.ndxRiskOffAsset === "string" ? v.ndxRiskOffAsset : legacyRiskOffAsset ?? DEFAULT_RISK_OFF_ASSETS.nasdaq100,
   } as RunSummary;
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { hasMeaningfulSearchParams, persistedToolStateMatchesUrl } from "@/lib/tools-route";
 import { PAGE_CACHE_PREFIX } from "./use-page-cache";
+import type { RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
 
 type ToolSnapshotMetadata = {
   snapshotEndDate: string;
@@ -22,6 +23,8 @@ type UseToolSnapshotParams<T> = {
    *  it was generated with the other setting, report no data instead so the
    *  page autoruns with its own inputs rather than showing the wrong run. */
   smaVolGate?: boolean;
+  /** The form's per-index risk-off assets, held to the snapshot the same way as the gate. */
+  riskOffAssets?: RiskOffAssetsByIndex;
 };
 
 type ApiResponse<T> = {
@@ -31,6 +34,18 @@ type ApiResponse<T> = {
   error?: string;
 };
 
+/** A snapshot's per-index risk-off assets; one generated before the split held one asset for both. */
+function snapshotRiskOffAssets(sharedInputs: Record<string, unknown> | undefined): {
+  sp500: string | undefined;
+  nasdaq100: string | undefined;
+} {
+  const legacy = typeof sharedInputs?.riskOffAsset === "string" ? sharedInputs.riskOffAsset : undefined;
+  return {
+    sp500: typeof sharedInputs?.spxRiskOffAsset === "string" ? sharedInputs.spxRiskOffAsset : legacy,
+    nasdaq100: typeof sharedInputs?.ndxRiskOffAsset === "string" ? sharedInputs.ndxRiskOffAsset : legacy,
+  };
+}
+
 export function useToolSnapshot<T = Record<string, unknown>>({
   pageKey,
   shouldHydrate,
@@ -39,9 +54,11 @@ export function useToolSnapshot<T = Record<string, unknown>>({
   onNoData,
   hasPersistedResults,
   smaVolGate,
+  riskOffAssets,
 }: UseToolSnapshotParams<T>) {
   const appliedRef = useRef(false);
   const smaVolGateRef = useRef(smaVolGate);
+  const riskOffAssetsRef = useRef(riskOffAssets);
   const [metadata, setMetadata] = useState<ToolSnapshotMetadata | null>(null);
   const onSnapshotRef = useRef(onSnapshot);
   const onMetadataRef = useRef(onMetadata);
@@ -55,6 +72,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
     onNoDataRef.current = onNoData;
     hasPersistedResultsRef.current = hasPersistedResults;
     smaVolGateRef.current = smaVolGate;
+    riskOffAssetsRef.current = riskOffAssets;
   });
 
   // Restore from localStorage synchronously so the first paint (and follow-up
@@ -128,6 +146,15 @@ export function useToolSnapshot<T = Record<string, unknown>>({
           onNoDataRef.current?.();
           return;
         }
+        const snapshotRiskOff = snapshotRiskOffAssets(payload.sharedInputs);
+        const formRiskOff = riskOffAssetsRef.current;
+        if (
+          formRiskOff !== undefined &&
+          (snapshotRiskOff.sp500 !== formRiskOff.sp500 || snapshotRiskOff.nasdaq100 !== formRiskOff.nasdaq100)
+        ) {
+          onNoDataRef.current?.();
+          return;
+        }
         if (payload.pageState) {
           const ps = payload.pageState as Record<string, unknown>;
           // Stamp the snapshot's shared inputs as runSummaryInputs so the Run
@@ -148,7 +175,8 @@ export function useToolSnapshot<T = Record<string, unknown>>({
                   smaNqLowerBuffer: payload.sharedInputs.smaNqLowerBuffer,
                   smaVolGate: payload.sharedInputs.smaVolGate === true,
                   letf: typeof payload.sharedInputs.preset === "string" ? payload.sharedInputs.preset : undefined,
-                  riskOffAsset: typeof payload.sharedInputs.riskOffAsset === "string" ? payload.sharedInputs.riskOffAsset : undefined,
+                  spxRiskOffAsset: snapshotRiskOff.sp500,
+                  ndxRiskOffAsset: snapshotRiskOff.nasdaq100,
                 }
               : undefined,
           } as T;

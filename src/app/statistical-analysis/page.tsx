@@ -12,7 +12,7 @@ import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-opt
 import {
   CHART_COLORS,
   INDEX_DATE_RANGES,
-  getRiskOffFetchTickers,
+  getRiskOffFetchTickersForAll,
   LABEL_INDEX_NASDAQ100_TR,
   LABEL_INDEX_SP500_TR,
 } from "@/lib/constants";
@@ -88,7 +88,7 @@ export function StatisticalAnalysisPageContent({
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate,
-    riskOffAsset,
+    spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     isCombo, selectedPreset,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
@@ -149,6 +149,7 @@ export function StatisticalAnalysisPageContent({
     onSnapshot: applyStatSnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<StatisticalSnapshotState>).runSummaryInputs ||
       ((state as Partial<StatisticalSnapshotState>).winRatesByWindow?.length ?? 0) > 0,
@@ -252,7 +253,7 @@ export function StatisticalAnalysisPageContent({
       setMonthlyCpi(inflationData.monthlyCpi);
 
       const rawRiskOffSeriesPromise = loadAllRiskOffPricePoints(
-        getRiskOffFetchTickers(riskOffAsset),
+        getRiskOffFetchTickersForAll(subs.map((sub) => riskOffAssets[sub.index])),
         signal,
         ({ completed, total, label }) => {
           setRunProgress({ pct: 26 + (completed / total) * 8, label });
@@ -288,7 +289,7 @@ export function StatisticalAnalysisPageContent({
           smaUpperBuffer: sub.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer, smaLowerBuffer: sub.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
           smaIndex: sub.index,
           ...(smaVolGate ? { smaVolGate: true } : {}),
-          riskOffAsset,
+          riskOffAsset: riskOffAssets[sub.index],
         };
         const noSmaConfig: EtfConfig = { ...smaConfig, id: `${sub.name}-wr-nosma`, smaEnabled: false, smaVolGate: false };
         const wr = await computeWinRatesByWindowLength({
@@ -327,7 +328,8 @@ export function StatisticalAnalysisPageContent({
         smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
         letf,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
       });
       // A run that was cancelled or superseded must not publish its results over
       // the run that replaced them — state, storage, and the URL are all written
@@ -347,7 +349,8 @@ export function StatisticalAnalysisPageContent({
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
         annualizedInflation: inflationData.annualizedInflation,
         monthlyCpi: inflationData.monthlyCpi,
         runSummaryInputs: nextRunSummary,
@@ -401,7 +404,9 @@ export function StatisticalAnalysisPageContent({
     markNextSearchAsInternal,
     windowLength,
     letf,
-    riskOffAsset,
+    riskOffAssets,
+    spxRiskOffAsset,
+    ndxRiskOffAsset,
     router,
     save,
     setMonthlyCpi,
@@ -439,7 +444,8 @@ export function StatisticalAnalysisPageContent({
         <SharedToolInputs
           values={{
             letf, startDate, endDate, windowLength,
-            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset,
+            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
+            spxRiskOffAsset, ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}
           showRollingFields={false}

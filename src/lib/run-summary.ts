@@ -10,12 +10,11 @@ export type RunSummary = {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaVolGate: boolean;
-  riskOffAsset: string;
+  spxRiskOffAsset: string;
+  ndxRiskOffAsset: string;
   tradeAfterHours: boolean;
   amount?: number;
   leverageTolerance?: string;
-  spxRiskOffAsset?: string;
-  ndxRiskOffAsset?: string;
 };
 
 export function buildRunSummary(summary: {
@@ -30,12 +29,11 @@ export function buildRunSummary(summary: {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaVolGate: boolean;
-  riskOffAsset: string;
+  spxRiskOffAsset: string;
+  ndxRiskOffAsset: string;
   tradeAfterHours?: boolean;
   amount?: number;
   leverageTolerance?: string;
-  spxRiskOffAsset?: string;
-  ndxRiskOffAsset?: string;
 }): RunSummary {
   return {
     ...summary,

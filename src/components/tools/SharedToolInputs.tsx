@@ -23,6 +23,9 @@ import type { EtfConfig } from "@/lib/simulation/types";
 
 type PresetOption = { value: string; label: string };
 
+const RISK_OFF_ASSET_CHOICES_INFO =
+  "Choices: SGOV or VGSH (short-term Treasuries), GLDM (gold), BRK.B, VOO, QQQ, or equal-weight blends of these (e.g. BRK.B + GLDM).";
+
 type DatePresetOption = {
   value: string;
   label: string;
@@ -128,7 +131,8 @@ export type SharedFieldValues = {
   smaNqUpperBuffer?: number;
   smaNqLowerBuffer?: number;
   smaVolGate?: boolean;
-  riskOffAsset?: EtfConfig["riskOffAsset"];
+  spxRiskOffAsset?: EtfConfig["riskOffAsset"];
+  ndxRiskOffAsset?: EtfConfig["riskOffAsset"];
 };
 
 type SharedToolInputsProps = {
@@ -416,13 +420,22 @@ export function SharedToolInputs({
             onChange={(v) => onChange("smaVolGate", v)}
           />
         )}
-        {values.riskOffAsset !== undefined && (
+        {values.spxRiskOffAsset !== undefined && (
           <Select
-            label="Risk-Off Asset"
-            info="What you hold when the strategy is out of the leveraged ETF. Choices: SGOV or VGSH (short-term Treasuries), GLDM (gold), BRK.B, VOO, QQQ, or equal-weight blends of these (e.g. BRK.B + GLDM)."
+            label="SPX Risk-Off Asset"
+            info={`What every SPX strategy holds while risk-off, out of its leveraged position. ${RISK_OFF_ASSET_CHOICES_INFO}`}
             options={RISK_OFF_ASSET_OPTIONS}
-            value={values.riskOffAsset}
-            onChange={(e) => onChange("riskOffAsset", e.currentTarget.value as EtfConfig["riskOffAsset"])}
+            value={values.spxRiskOffAsset}
+            onChange={(e) => onChange("spxRiskOffAsset", e.currentTarget.value as EtfConfig["riskOffAsset"])}
+          />
+        )}
+        {values.ndxRiskOffAsset !== undefined && (
+          <Select
+            label="NDX Risk-Off Asset"
+            info={`What every NDX strategy holds while risk-off, out of its leveraged position. ${RISK_OFF_ASSET_CHOICES_INFO}`}
+            options={RISK_OFF_ASSET_OPTIONS}
+            value={values.ndxRiskOffAsset}
+            onChange={(e) => onChange("ndxRiskOffAsset", e.currentTarget.value as EtfConfig["riskOffAsset"])}
           />
         )}
         {endFields}

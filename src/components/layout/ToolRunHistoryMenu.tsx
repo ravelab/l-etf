@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toValidRunSummary } from "@/lib/hooks/use-run-summary-inputs";
 import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
+import { appendRiskOffUrlParams } from "@/lib/risk-off-url-params";
 import {
   buildToolsUrl,
   canonicalNormalizedToolsHrefKey,
@@ -66,7 +68,8 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
  * the app means by "the default" band — not the compile-time fallbacks in `defaults.ts`. Copied
  * rather than imported so it always matches the band the windows below were measured under: a
  * recalibration that moved these without moving the windows would leave the menu advertising a
- * decline the click no longer reproduces. Regenerate both together.
+ * decline the click no longer reproduces. Regenerate both together. The risk-off assets are the
+ * per-index `DEFAULT_RISK_OFF_ASSETS`, imported, so changing those defaults also means regenerating.
  */
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
   smaPsp: "175",
@@ -76,7 +79,6 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
   smaNqUpperBuffer: 9.6,
   smaNqLowerBuffer: 18,
   smaVolGate: true,
-  ro: "BRK.B+GLDM+VGSH",
 } as const;
 
 /**
@@ -91,17 +93,17 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  *
  * The window is the decline, not the era around it, so an anchor can run well past the event it
  * is named for: TQQQ SMA Vol rode through the 1987 crash and kept sliding into the 1990 bear,
- * so its 1987 window ends in October 1990 at -82.9%, its deepest decline on record.
+ * so its 1987 window ends in August 1990 at -82.2%, its deepest decline on record.
  *
  * Regenerate with `node --import tsx scripts/find-worst-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1935-05-01", days: 2066, drawdown: "-72.5%" },
-  { letf: "UPRO" as const, startDate: "1989-10-09", endDate: "1990-10-11", days: 367, drawdown: "-50.6%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-47.8%" },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-10-11", days: 1102, drawdown: "-82.9%" },
-  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2022-09-26", days: 311, drawdown: "-64.3%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-10-02", days: 1490, drawdown: "-73.4%" },
+  { letf: "UPRO" as const, startDate: "1989-10-09", endDate: "1990-10-11", days: 367, drawdown: "-54.2%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-51.6%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-08-24", days: 1054, drawdown: "-82.2%" },
+  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-04-25", days: 522, drawdown: "-62.1%" },
 ] as const;
 
 /** Years once a window runs a year or longer, then months, then days — "0.16y" reads as a typo. */
@@ -125,7 +127,7 @@ function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: 
     smaNqLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqLowerBuffer,
     smaVolGate: WORST_TIME_BACKTEST_BASE_PARAMS.smaVolGate,
   });
-  params.set("ro", WORST_TIME_BACKTEST_BASE_PARAMS.ro);
+  appendRiskOffUrlParams(params, DEFAULT_RISK_OFF_ASSETS);
   return params;
 }
 
@@ -135,7 +137,6 @@ function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
   const flags = entry.summaryDisplay;
   const pieces = [];
   if (flags?.showLetf ?? true) pieces.push(summary.letf);
-  if (flags?.showRiskOffAsset ?? true) pieces.push(`Risk-Off ${summary.riskOffAsset}`);
   const spxParts = [
     (flags?.showSmaSpPeriod ?? true) ? `${summary.smaSpPeriod}` : null,
     (flags?.showSmaSpBuffer ?? true) ? `−${summary.smaSpLowerBuffer}/${summary.smaSpUpperBuffer}` : null,
@@ -146,6 +147,9 @@ function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
     (flags?.showSmaNqBuffer ?? true) ? `−${summary.smaNqLowerBuffer}/${summary.smaNqUpperBuffer}` : null,
   ].filter((p): p is string => p !== null);
   if (ndxParts.length > 0) pieces.push(`NDX ${ndxParts.join("/")}`);
+  if (flags?.showRiskOffAsset ?? true) {
+    pieces.push(`SPX Risk-Off ${summary.spxRiskOffAsset}`, `NDX Risk-Off ${summary.ndxRiskOffAsset}`);
+  }
   if (summary.smaVolGate) pieces.push(`Vol ${SMA_VOL_GATE_PARAMS_TEXT}`);
   return pieces.join(" - ");
 }

@@ -32,6 +32,7 @@ import { useRunSummary, useRunDisplay } from "@/lib/hooks/use-run-summary-inputs
 import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { buildToolsUrl, shouldQueueToolAutorun } from "@/lib/tools-route";
 import { recordSuccessfulToolRun } from "@/lib/tool-run-history";
+import { deleteRiskOffUrlParams } from "@/lib/risk-off-url-params";
 
 type RiskOffComparisonRow = {
   riskOffAsset: RiskOffAsset;
@@ -79,7 +80,7 @@ export function CompareRiskOffAssetsPageContent({
     windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate,
-    riskOffAsset,
+    spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     isCombo, selectedPreset, comboSubs,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
@@ -238,7 +239,7 @@ export function CompareRiskOffAssetsPageContent({
     // (shared item builder).
     const variants = buildRiskOffVariantConfigs({
       preset: presetDef,
-      baselineRiskOffAsset: riskOffAsset as RiskOffAsset,
+      baselineRiskOffAsset: riskOffAssets[presetDef.index],
       assets: RISK_OFF_ASSET_OPTIONS.map((opt) => opt.value as RiskOffAsset),
       smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod,
       upperBuffer: presetDef.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer,
@@ -266,11 +267,11 @@ export function CompareRiskOffAssetsPageContent({
       });
 
     return { rows: nextRows, baseline: bl };
-  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, windowLength, startDate, endDate, riskOffLabelByAsset]);
+  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, windowLength, startDate, endDate, riskOffLabelByAsset]);
 
   const buildRiskoffUrlParams = useCallback(() => {
     const params = getUrlParams();
-    params.delete("ro");
+    deleteRiskOffUrlParams(params);
     return params;
   }, [getUrlParams]);
 
@@ -335,13 +336,14 @@ export function CompareRiskOffAssetsPageContent({
         smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
         letf,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
       });
       setRunSummary(nextRunSummary);
 
       save({
         letf, index, startDate, endDate, windowLength,
-        smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, showBaseline: true,
+        smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, spxRiskOffAsset, ndxRiskOffAsset, showBaseline: true,
         annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
         rows: computedRows,
         baseline: computedBaseline,
@@ -356,7 +358,7 @@ export function CompareRiskOffAssetsPageContent({
       if (computedRows.length > 0 || computedRows2.length > 0) {
         recordSuccessfulToolRun({
           tab: "riskoff",
-          tabLabel: "SMA Risk-Off Assets",
+          tabLabel: "Risk-Off Assets",
           href: buildToolsUrl("riskoff", buildRiskoffUrlParams()),
           summary: nextRunSummary,
           summaryDisplay: { showRiskOffAsset: false },
@@ -383,7 +385,7 @@ export function CompareRiskOffAssetsPageContent({
     smaVolGate,
     letf, selectedPreset,
     save, updateUrl, clearMetadata,
-    riskOffAsset, comboSubs, buildRiskoffUrlParams,
+    spxRiskOffAsset, ndxRiskOffAsset, comboSubs, buildRiskoffUrlParams,
     loading, runRiskOffForPreset, setRunSummary, setRunProgress
   ]);
 
@@ -475,7 +477,7 @@ export function CompareRiskOffAssetsPageContent({
     <div className="min-h-screen bg-background text-foreground p-3 md:p-6">
       <RunSpinnerOverlay active={loading} label={runProgress?.label} pct={runProgress?.pct} />
       <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
-        <h1 className="text-3xl md:text-4xl font-bold">SMA Risk-Off Assets</h1>
+        <h1 className="text-3xl md:text-4xl font-bold">Risk-Off Assets</h1>
 
         <SharedToolInputs
           values={{

@@ -209,7 +209,7 @@ e2e-tests/            Puppeteer E2E browser tests
 
 The main workflow lives under `/tools` with tabs:
 
-- `Strategies`, `SMA Period`, `SMA Buffer`, `SMA Risk-Off Assets`, `Statistics`, `Backtest`, `Futures`.
+- `Strategies`, `SMA Period`, `SMA Buffer`, `Risk-Off Assets`, `Statistics`, `Backtest`, `Futures`.
 
 Additional pages:
 

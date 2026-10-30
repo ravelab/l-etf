@@ -54,7 +54,7 @@ import type {
 import {
   DEFAULT_FUTURES_AMOUNT,
   DEFAULT_LEVERAGE_TOLERANCE_PCT,
-  DEFAULT_RISK_OFF_ASSET,
+  DEFAULT_RISK_OFF_ASSETS,
   DEFAULT_SMA_VOL_GATE,
   getDefaultSmaLowerBuffer,
   getDefaultSmaPeriod,
@@ -81,7 +81,6 @@ import {
 import { buildRunSummary } from "../src/lib/run-summary";
 import {
   buildFuturesLadderPlan,
-  DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS,
   showsFuturesTransactions,
   type SmaBand,
 } from "../src/lib/simulation/futures-plan";
@@ -223,9 +222,15 @@ type SharedInputs = {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaVolGate: boolean;
-  riskOffAsset: RiskOffAsset;
+  spxRiskOffAsset: RiskOffAsset;
+  ndxRiskOffAsset: RiskOffAsset;
   smaExecutionMode: NonNullable<EtfConfig["smaExecutionMode"]>;
 };
+
+/** What `shared` holds while risk-off on this index, as the pages resolve it per config. */
+function riskOffAssetFor(shared: SharedInputs, index: IndexKey): RiskOffAsset {
+  return index === "nasdaq100" ? shared.ndxRiskOffAsset : shared.spxRiskOffAsset;
+}
 
 type PageSnapshot = {
   generatedAt: string;
@@ -258,7 +263,8 @@ async function main() {
     smaNqUpperBuffer: calibration?.nasdaq100.smaUpperBuffer ?? getDefaultSmaUpperBuffer("nasdaq100"),
     smaNqLowerBuffer: calibration?.nasdaq100.smaLowerBuffer ?? getDefaultSmaLowerBuffer("nasdaq100"),
     smaVolGate: DEFAULT_SMA_VOL_GATE,
-    riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+    spxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.sp500,
+    ndxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.nasdaq100,
     smaExecutionMode: "next-day-open",
   } as const;
 
@@ -372,7 +378,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
       smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
       smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
       smaVolGate: shared.smaVolGate,
-      riskOffAsset: shared.riskOffAsset,
+      riskOffAsset: riskOffAssetFor(shared, preset.index),
     })
   );
 
@@ -407,7 +413,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
   const etfPricePointsByName = Object.fromEntries(
     etfRows.filter(([, points]) => points.length > 0)
   ) as Record<string, PricePoint[]>;
-  const primitiveRiskOffAssets = getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]);
+  const primitiveRiskOffAssets = getUniquePrimitiveRiskOffAssets([shared.spxRiskOffAsset, shared.ndxRiskOffAsset]);
   const riskOffPricesByAsset = Object.fromEntries(
     await Promise.all(
       primitiveRiskOffAssets.map(async (asset) => {
@@ -451,7 +457,8 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
+    spxRiskOffAsset: shared.spxRiskOffAsset,
+    ndxRiskOffAsset: shared.ndxRiskOffAsset,
     smaMode: 1,
     etfConfigs: [],
     result: canonicalRun as BacktestResult,
@@ -485,8 +492,8 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
 
   // Load raw risk-off price points + build aligned per-index arrays, mirroring
   // the futures page's runtime risk-off pipeline.
-  const dualRiskOffAssets = DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS;
-  const riskOffTickers = [...new Set([shared.riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100, "SGOV", "VGSH"]
+  const dualRiskOffAssets = { sp500: shared.spxRiskOffAsset, nasdaq100: shared.ndxRiskOffAsset };
+  const riskOffTickers = [...new Set([dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100, "SGOV", "VGSH"]
     .flatMap(getRiskOffFetchTickers))];
   const rawRiskOffByTicker: Record<string, PricePoint[]> = {};
   for (const ticker of riskOffTickers) {
@@ -572,7 +579,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaPeriod: sma.period,
     smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
     smaVolGate: sma.volGate === true,
-    riskOffAsset: shared.riskOffAsset,
+    riskOffAsset: riskOffAssetFor(shared, index),
     riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
     riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
     leverageTolerancePct,
@@ -651,11 +658,10 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
-    amount,
-    leverageTolerance: `${leverageTolerancePct}%`,
     spxRiskOffAsset: dualRiskOffAssets.sp500,
     ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
+    amount,
+    leverageTolerance: `${leverageTolerancePct}%`,
   });
 
   const annualizedInflation =
@@ -674,7 +680,6 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
     spxRiskOffAsset: dualRiskOffAssets.sp500,
     ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
     amount,
@@ -702,13 +707,13 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
   ]);
   const [riskOffSp500, riskOffNasdaq] = await Promise.all([
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.spxRiskOffAsset]),
       sp500Prices,
       expandedStartDate,
       shared.endDate
     ),
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.ndxRiskOffAsset]),
       nasdaqPrices,
       expandedStartDate,
       shared.endDate
@@ -724,7 +729,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
       smaPeriod: sub.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
       smaUpperBuffer: sub.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: sub.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
       smaVolGate: shared.smaVolGate,
-      riskOffAsset: shared.riskOffAsset,
+      riskOffAsset: riskOffAssetFor(shared, sub.index),
       smaExecutionMode: shared.smaExecutionMode,
     });
     const noSmaConfig: EtfConfig = { ...smaConfig, id: `${sub.name}-wr-nosma`, smaEnabled: false };
@@ -755,7 +760,8 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
+    spxRiskOffAsset: shared.spxRiskOffAsset,
+    ndxRiskOffAsset: shared.ndxRiskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     annualizedInflation: inflationData.annualizedInflation,
     monthlyCpi: inflationData.monthlyCpi,
@@ -768,7 +774,8 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
       smaNqUpperBuffer: shared.smaNqUpperBuffer,
       smaVolGate: shared.smaVolGate,
       letf: shared.preset,
-      riskOffAsset: shared.riskOffAsset,
+      spxRiskOffAsset: shared.spxRiskOffAsset,
+      ndxRiskOffAsset: shared.ndxRiskOffAsset,
     },
     winRatesByWindow,
   };
@@ -789,13 +796,13 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
 
   const [riskOffForSp500, riskOffForNasdaq] = await Promise.all([
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.spxRiskOffAsset]),
       sp500Prices,
       expandedStartDate,
       DATA_LATEST_END
     ),
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.ndxRiskOffAsset]),
       nasdaqPrices,
       expandedStartDate,
       DATA_LATEST_END
@@ -810,7 +817,7 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
+    riskOffAssets: { sp500: shared.spxRiskOffAsset, nasdaq100: shared.ndxRiskOffAsset },
   });
 
   const [sp500Results, nasdaqResults] = await Promise.all([
@@ -860,7 +867,8 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
+    spxRiskOffAsset: shared.spxRiskOffAsset,
+    ndxRiskOffAsset: shared.ndxRiskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     annualizedInflation: inflationData.annualizedInflation,
     monthlyCpi: inflationData.monthlyCpi,
@@ -928,7 +936,7 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
         smaEnabled: false,
         smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
         smaUpperBuffer: 0, smaLowerBuffer: 0,
-        riskOffAsset: shared.riskOffAsset,
+        riskOffAsset: riskOffAssetFor(shared, preset.index),
         smaExecutionMode: shared.smaExecutionMode,
       });
       allConfigs.push(baselineConfig);
@@ -999,13 +1007,13 @@ async function buildSmaSweepSnapshot(
   ]);
   const [riskOffSp500, riskOffNasdaq] = await Promise.all([
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.spxRiskOffAsset]),
       sp500Prices,
       expandedStartDate,
       shared.endDate
     ),
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.ndxRiskOffAsset]),
       nasdaqPrices,
       expandedStartDate,
       shared.endDate
@@ -1030,7 +1038,7 @@ async function buildSmaSweepSnapshot(
         smaPeriod: sma,
         smaUpperBuffer: preset.index === "nasdaq100" ? shared.smaNqUpperBuffer : shared.smaSpUpperBuffer, smaLowerBuffer: preset.index === "nasdaq100" ? shared.smaNqLowerBuffer : shared.smaSpLowerBuffer,
         smaVolGate: shared.smaVolGate,
-        riskOffAsset: shared.riskOffAsset,
+        riskOffAsset: riskOffAssetFor(shared, preset.index),
         smaExecutionMode: shared.smaExecutionMode,
       }));
     }
@@ -1040,7 +1048,7 @@ async function buildSmaSweepSnapshot(
       smaEnabled: false,
       smaPeriod: getDefaultSmaPeriod(preset.index),
       smaUpperBuffer: 0, smaLowerBuffer: 0,
-      riskOffAsset: shared.riskOffAsset,
+      riskOffAsset: riskOffAssetFor(shared, preset.index),
       smaExecutionMode: shared.smaExecutionMode,
     });
     allConfigs.push(baselineConfig);
@@ -1076,7 +1084,8 @@ async function buildSmaSweepSnapshot(
     smaSpUpperBuffer: shared.smaSpUpperBuffer,
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
+    spxRiskOffAsset: shared.spxRiskOffAsset,
+    ndxRiskOffAsset: shared.ndxRiskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     showBaseline: true,
     annualizedInflation: inflationData.annualizedInflation,
@@ -1112,13 +1121,13 @@ async function buildBufferSweepSnapshot(
   ]);
   const [riskOffSp500, riskOffNasdaq] = await Promise.all([
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.spxRiskOffAsset]),
       sp500Prices,
       expandedStartDate,
       shared.endDate
     ),
     loadRiskOffValuesForReference(
-      getUniquePrimitiveRiskOffAssets([shared.riskOffAsset]),
+      getUniquePrimitiveRiskOffAssets([shared.ndxRiskOffAsset]),
       nasdaqPrices,
       expandedStartDate,
       shared.endDate
@@ -1154,7 +1163,7 @@ async function buildBufferSweepSnapshot(
         smaPeriod: period,
         smaUpperBuffer: roundedBuffer, smaLowerBuffer: roundedBuffer,
         smaVolGate: shared.smaVolGate,
-        riskOffAsset: shared.riskOffAsset,
+        riskOffAsset: riskOffAssetFor(shared, preset.index),
         smaExecutionMode: shared.smaExecutionMode,
       }));
     }
@@ -1164,7 +1173,7 @@ async function buildBufferSweepSnapshot(
       smaEnabled: false,
       smaPeriod: period,
       smaUpperBuffer: 0, smaLowerBuffer: 0,
-      riskOffAsset: shared.riskOffAsset,
+      riskOffAsset: riskOffAssetFor(shared, preset.index),
       smaExecutionMode: shared.smaExecutionMode,
     }));
     for (const { upper, lower } of coarsePoints) {
@@ -1174,7 +1183,7 @@ async function buildBufferSweepSnapshot(
         smaPeriod: period,
         smaUpperBuffer: upper, smaLowerBuffer: lower,
         smaVolGate: shared.smaVolGate,
-        riskOffAsset: shared.riskOffAsset,
+        riskOffAsset: riskOffAssetFor(shared, preset.index),
         smaExecutionMode: shared.smaExecutionMode,
       }));
     }
@@ -1240,7 +1249,7 @@ async function buildBufferSweepSnapshot(
             smaPeriod: period,
             smaUpperBuffer: upper, smaLowerBuffer: lower,
             smaVolGate: shared.smaVolGate,
-            riskOffAsset: shared.riskOffAsset,
+            riskOffAsset: riskOffAssetFor(shared, preset.index),
             smaExecutionMode: shared.smaExecutionMode,
           })
         );
@@ -1287,7 +1296,8 @@ async function buildBufferSweepSnapshot(
     coarseStep: params.coarseStep,
     fineHalfWidth: params.fineHalfWidth,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
+    spxRiskOffAsset: shared.spxRiskOffAsset,
+    ndxRiskOffAsset: shared.ndxRiskOffAsset,
     smaExecutionMode: shared.smaExecutionMode,
     showBaseline: true,
     annualizedInflation: inflationData.annualizedInflation,

@@ -27,7 +27,7 @@ test("futures plan: every emulation rung matches its LETF twin's SMA rule", () =
   const configs = buildEmulationEtfConfigs({
     hasNasdaqData: true,
     bands: BANDS,
-    riskOffAsset: "SGOV",
+    riskOffAssets: { sp500: "SGOV", nasdaq100: "VGSH" },
   });
 
   assert.equal(plan.length, configs.length, "each ladder rung needs exactly one LETF twin");
@@ -39,6 +39,7 @@ test("futures plan: every emulation rung matches its LETF twin's SMA rule", () =
     assert.equal(twin.smaPeriod, step.sma.period, `${twin.name}: SMA period drifted`);
     assert.equal(twin.smaUpperBuffer, step.sma.upperBuffer, `${twin.name}: re-entry buffer drifted`);
     assert.equal(twin.smaLowerBuffer, step.sma.lowerBuffer, `${twin.name}: exit buffer drifted`);
+    assert.equal(twin.riskOffAsset, step.index === "nasdaq100" ? "VGSH" : "SGOV", `${twin.name}: risk-off drifted`);
   }
 });
 
@@ -76,7 +77,7 @@ test("futures plan: Nasdaq rungs and twins both drop when NDX data is missing", 
   const configs = buildEmulationEtfConfigs({
     hasNasdaqData: false,
     bands: BANDS,
-    riskOffAsset: "SGOV",
+    riskOffAssets: { sp500: "SGOV", nasdaq100: "VGSH" },
   });
   assert.equal(plan.every((s) => s.index === "sp500"), true);
   assert.equal(configs.every((c) => c.smaIndex === "sp500"), true);

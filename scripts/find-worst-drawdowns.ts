@@ -24,7 +24,7 @@ import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "@/lib/mcp/server-data";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
-import { DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import { readSmaCalibrationSnapshot, type SmaCalibrationResult } from "@/lib/sma-calibration";
 import { SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
@@ -134,7 +134,7 @@ async function simulateStrategy(presetKey: PresetKey, calibration: SmaCalibratio
     smaIndex: index,
     smaVolGate: SMA_CALIBRATION_VOL_GATE[index],
     smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
-    riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+    riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index],
   };
 
   const [prices, rates, rawRiskOff] = await Promise.all([

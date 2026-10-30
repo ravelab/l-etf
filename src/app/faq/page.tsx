@@ -407,7 +407,7 @@ const FAQ_DATA: FAQItem[] = [
         </p>
         <p className="mb-3">
           On the <strong className="text-accent">SMA Period</strong>, <strong className="text-accent">SMA Buffer</strong>,
-          <strong className="text-accent"> SMA Risk-Off Assets</strong>, and <strong className="text-accent">Holding Period</strong>{" "}
+          <strong className="text-accent"> Risk-Off Assets</strong>, and <strong className="text-accent">Holding Period</strong>{" "}
           pages, the app can still include those recent starting months.
         </p>
         <p className="mb-3">

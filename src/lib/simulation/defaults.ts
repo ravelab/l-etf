@@ -1,4 +1,5 @@
 import calibration from "../tool-snapshots/sma-calibration.json";
+import type { IndexKey, RiskOffAsset } from "./types";
 
 /**
  * Default SMA rule per index, as an ASYMMETRIC band — upper governs re-entry,
@@ -21,6 +22,16 @@ const DEFAULT_SMA_BANDS = {
 const DEFAULT_PERIOD_YEARS = 10;
 
 export const DEFAULT_RISK_OFF_ASSET = "BRK.B+GLDM+VGSH" as const;
+
+/**
+ * What each index's strategies hold while risk-off on the tool pages, and the futures
+ * ladder's sleeves, unless the visitor picks otherwise. The SMA calibration and the MCP
+ * tools' single `riskOffAsset` still default to `DEFAULT_RISK_OFF_ASSET`.
+ */
+export const DEFAULT_RISK_OFF_ASSETS = {
+  sp500: "BRK.B+GLDM",
+  nasdaq100: "VGSH",
+} as const satisfies Record<IndexKey, RiskOffAsset>;
 
 /** Whether the volatility risk-off gate (`vol-gate.ts`) is on when nobody chose. */
 export const DEFAULT_SMA_VOL_GATE = true;

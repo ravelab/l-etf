@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { simulateWithWarmUp } from "../src/lib/simulation/engine";
 import { findEtfResult } from "../src/lib/simulation/result-lookup";
 import { ETF_PRESETS, createPresetEtfConfig } from "../src/lib/simulation/presets";
-import { DEFAULT_RISK_OFF_ASSET, getDefaultWindowLength } from "../src/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSET, DEFAULT_RISK_OFF_ASSETS, getDefaultWindowLength } from "../src/lib/simulation/defaults";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "../src/lib/fetch-market-data";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "../src/lib/mcp/server-data";
 import { comboKey, planBufferNeighborhood, planCombos, planPeriodNeighborhood, summarizePlateau, type SmaCombo } from "../src/lib/simulation/sma-search";
@@ -332,6 +332,7 @@ async function main(): Promise<void> {
   const minRegimeDifferencePct = (index: IndexKey) => 100 * Math.min(...selected[index].flatMap((left, i) =>
     selected[index].slice(i + 1).map((right) => regimeDistance(left, right))));
   const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+    cagrRiskOffAssets: DEFAULT_RISK_OFF_ASSETS,
     executionMode: "next-day-open", windowLength: getDefaultWindowLength(),
     selection: "Calibrated default plus three distinct alternatives selected by stability-adjusted weighted multi-era score from per-period search seeds with joint buffer refinement",
     grid: { periodStep: PRESET_PERIOD_STEP, bufferStep: PRESET_BUFFER_STEP, basinBufferHalfWidth: PRESET_BUFFER_HALF_WIDTH },
@@ -351,7 +352,7 @@ async function main(): Promise<void> {
   }
 }
 async function refreshEraCagrs(): Promise<void> {
-  const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING,
+  const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, cagrRiskOffAssets: DEFAULT_RISK_OFF_ASSETS,
     presets: await withEraCagrs(rankSmaPresetSets(currentPresets.presets), currentPresets.startDate, currentPresets.endDate) };
   const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");

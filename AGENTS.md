@@ -108,6 +108,19 @@ also verify they've become reachable.
 load already has the new build but retains the previous visit's id, and other
 tabs can overwrite it. Storage events are hints to re-check the server only.
 
+## Tool pages: risk-off assets are per index
+
+The tool pages hold one SPX and one NDX risk-off asset (`spxRiskOffAsset` /
+`ndxRiskOffAsset`, URL `ros` / `ron`, defaults `DEFAULT_RISK_OFF_ASSETS`), shared
+across pages by `use-shared-inputs.ts`; every config takes its own `smaIndex`'s
+asset, futures rungs and their Check Emulations twins included. Read and write
+the URL through `risk-off-url-params.ts`: it still reads the legacy single `ro`
+as both, which old history links and MCP permalinks carry. The SMA calibration
+and the MCP tools' single `riskOffAsset` keep `DEFAULT_RISK_OFF_ASSET`. Canned
+snapshots load only into a form whose pair matches, so changing the defaults
+means `npm run snapshots:generate` and re-measuring the worst-time windows
+(`scripts/find-worst-drawdowns.ts`).
+
 ## Tool pages: cancellation and run races
 
 Every tool page runs a long simulation behind an `AbortController`, and the same
@@ -644,7 +657,9 @@ centers tied stable-score plateaus. After stability scoring, a plateau center
 must not displace a higher stable score (the monthly calibrator follows this
 same ordering). The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proto)
 alongside default-window CAGRs; NDX has no proxy era. Each era is independently
-backtested with warm-up and the default risk-off basket, without history wrap.
+backtested with warm-up and that index's `DEFAULT_RISK_OFF_ASSETS` entry (the
+basket a visitor's backtest holds, recorded as `cagrRiskOffAssets`), without
+history wrap. The search itself still scores on `DEFAULT_RISK_OFF_ASSET`.
 Real CAGR deflates the ending multiple by `cpiIndexRatioEndOverStart` before
 annualizing over the actual backtest dates; do not subtract annual inflation
 from nominal CAGR. Preserve nominal CAGR for engine parity and disclose the

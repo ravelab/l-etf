@@ -1,7 +1,8 @@
-import type { EtfConfig } from "./simulation/types";
+import type { EtfConfig, RiskOffAsset } from "./simulation/types";
 import { ETF_PRESETS } from "./simulation/presets";
 
 import { parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
+import { parseRiskOffUrlParams } from "@/lib/risk-off-url-params";
 
 /**
  * Encode backtest parameters into URL search params for sharing.
@@ -22,7 +23,8 @@ export function decodeBacktestParams(search: string): {
   smaNqUpperBuffer?: number;
   smaNqLowerBuffer?: number;
   smaVolGate?: boolean;
-  riskOffAsset?: string;
+  spxRiskOffAsset?: RiskOffAsset;
+  ndxRiskOffAsset?: RiskOffAsset;
   etfConfigs?: Partial<EtfConfig>[];
 } | null {
   const params = new URLSearchParams(search);
@@ -55,6 +57,7 @@ export function decodeBacktestParams(search: string): {
   }
 
   const smaBuffers = parseSmaBufferUrlParams(params);
+  const riskOffAssets = parseRiskOffUrlParams(params);
 
   return {
     index: params.get("idx") || undefined,
@@ -67,7 +70,8 @@ export function decodeBacktestParams(search: string): {
     smaNqUpperBuffer: smaBuffers.smaNqUpperBuffer,
     smaNqLowerBuffer: smaBuffers.smaNqLowerBuffer,
     smaVolGate: smaBuffers.smaVolGate,
-    riskOffAsset: params.get("ro") || undefined,
+    spxRiskOffAsset: riskOffAssets.sp500,
+    ndxRiskOffAsset: riskOffAssets.nasdaq100,
     etfConfigs: etfConfigs.length > 0 ? etfConfigs : undefined,
   };
 }

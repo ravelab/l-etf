@@ -413,7 +413,7 @@ export function CompareLETFsPageContent({
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate,
-    riskOffAsset,
+    spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
 
@@ -482,6 +482,7 @@ export function CompareLETFsPageContent({
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareLetfsSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareLetfsSnapshotState>).strategyResults?.length ?? 0) > 0,
@@ -502,7 +503,8 @@ export function CompareLETFsPageContent({
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
       smaVolGate,
-      riskOffAsset,
+      spxRiskOffAsset,
+      ndxRiskOffAsset,
       annualizedInflation,
       monthlyCpi,
       strategyResults: [],
@@ -518,7 +520,8 @@ export function CompareLETFsPageContent({
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate,
-    riskOffAsset,
+    spxRiskOffAsset,
+    ndxRiskOffAsset,
     annualizedInflation,
     monthlyCpi,
     save,
@@ -616,9 +619,9 @@ export function CompareLETFsPageContent({
       setRunProgress({ pct: 20, label: "Loading risk-off prices..." });
 
       // Fetch risk-off prices (composite assets need multiple fetches)
-      const riskSeriesForSp500 = await loadRiskOffPriceSeries(riskOffAsset, sp500Prices, startDate, endDate, signal);
+      const riskSeriesForSp500 = await loadRiskOffPriceSeries(riskOffAssets.sp500, sp500Prices, startDate, endDate, signal);
       const riskSeriesForNasdaq = hasNasdaqPrices
-        ? await loadRiskOffPriceSeries(riskOffAsset, nasdaqPrices, startDate, endDate, signal)
+        ? await loadRiskOffPriceSeries(riskOffAssets.nasdaq100, nasdaqPrices, startDate, endDate, signal)
         : {
             closeValuesByAsset: {} as Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
             openValuesByAsset: {} as Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
@@ -653,7 +656,7 @@ export function CompareLETFsPageContent({
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
-        riskOffAsset,
+        riskOffAssets,
         tradeAfterHours,
       });
       const effectiveNasdaqVariants = hasNasdaqPrices ? nasdaqVariants : [];
@@ -717,7 +720,8 @@ export function CompareLETFsPageContent({
         smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
         letf,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
         tradeAfterHours,
       });
       setRunSummary(nextRunSummary);
@@ -729,7 +733,8 @@ export function CompareLETFsPageContent({
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
       smaVolGate,
-      riskOffAsset,
+      spxRiskOffAsset,
+      ndxRiskOffAsset,
       annualizedInflation: inflationData.annualizedInflation,
       monthlyCpi: inflationData.monthlyCpi,
         strategyResults: allResults,
@@ -771,7 +776,7 @@ export function CompareLETFsPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
+  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -999,10 +1004,10 @@ export function CompareLETFsPageContent({
         smaUpperBuffer: meta.smaUpperBuffer,
         smaLowerBuffer: meta.smaLowerBuffer,
         smaVolGate,
-        riskOffAsset,
+        riskOffAsset: riskOffAssets[meta.preset.index],
       });
     },
-    [getStrategyLinkMeta, smaVolGate, riskOffAsset]
+    [getStrategyLinkMeta, smaVolGate, riskOffAssets]
   );
 
   const liveStrategyDistributionSeries = useMemo(
@@ -1243,7 +1248,8 @@ export function CompareLETFsPageContent({
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer,
             smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
             smaVolGate,
-            riskOffAsset,
+            spxRiskOffAsset,
+            ndxRiskOffAsset,
           }}
           onChange={(field, val) => {
             handleFieldChange(field, val);

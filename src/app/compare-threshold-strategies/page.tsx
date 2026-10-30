@@ -12,7 +12,7 @@ import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
 import { SweepComparisonTable } from "@/components/tools/compare/SweepComparisonTable";
 import { useHateDrawdown } from "@/components/tools/compare/HateDrawdownToggle";
-import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, getRiskOffFetchTickers } from "@/lib/constants";
+import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, getRiskOffFetchTickersForAll } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoints } from "@/lib/fetch-market-data";
 import { formatMultiple, formatPercent } from "@/lib/format";
 import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
@@ -106,7 +106,8 @@ export function CompareBufferStrategiesPageContent({
   const {
     letf, setLetf, index, setIndex, startDate, endDate, setEndDate,
     windowLength,
-    smaSpPeriod, setSmaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, setSmaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset,
+    smaSpPeriod, setSmaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, setSmaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
+    spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     isCombo, selectedPreset, comboSubs,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
@@ -209,6 +210,7 @@ export function CompareBufferStrategiesPageContent({
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareThresholdSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareThresholdSnapshotState>).rows?.length ?? 0) > 0,
@@ -292,7 +294,7 @@ export function CompareBufferStrategiesPageContent({
         smaPeriod: p.index === "nasdaq100" ? display.summary.smaNqPeriod : display.summary.smaSpPeriod,
         smaUpperBuffer: row.parameterValue, smaLowerBuffer: row.parameterValue,
         smaVolGate: display.summary.smaVolGate,
-        riskOffAsset: display.summary.riskOffAsset as RiskOffAsset,
+        riskOffAsset: (p.index === "nasdaq100" ? display.summary.ndxRiskOffAsset : display.summary.spxRiskOffAsset) as RiskOffAsset,
       });
     },
     [display]
@@ -393,7 +395,7 @@ export function CompareBufferStrategiesPageContent({
     // Baseline first + symmetric buffer sweep (shared item builder).
     const items = buildSymmetricBufferSweepItems({
       preset: presetDef,
-      riskOffAsset,
+      riskOffAsset: riskOffAssets[presetDef.index],
       smaPeriod: period,
       minBuffer,
       maxBuffer,
@@ -409,7 +411,7 @@ export function CompareBufferStrategiesPageContent({
       items.push(
         makeAsymmetricSweepItem({
           preset: presetDef,
-          riskOffAsset,
+          riskOffAsset: riskOffAssets[presetDef.index],
           smaPeriod: period,
           upper: p.upper,
           lower: p.lower,
@@ -461,7 +463,7 @@ export function CompareBufferStrategiesPageContent({
     });
 
     return { rows: symRows, baseline: bl };
-  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, windowLength, startDate, endDate, setRunProgress]);
+  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, windowLength, startDate, endDate, setRunProgress]);
 
   const buildSmaBufferUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -555,7 +557,7 @@ export function CompareBufferStrategiesPageContent({
     const fineItems = finePoints.map((p) =>
       makeAsymmetricSweepItem({
         preset: presetDef,
-        riskOffAsset,
+        riskOffAsset: riskOffAssets[presetDef.index],
         smaPeriod: period,
         upper: p.upper,
         lower: p.lower,
@@ -588,7 +590,7 @@ export function CompareBufferStrategiesPageContent({
       return { ...row, upperBuffer: u / 100, lowerBuffer: l / 100, stage: "fine" };
     });
     return { rows: [...coarseRows, ...fineRows], fineWindow };
-  }, [riskOffAsset, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, windowLength, startDate, endDate, setRunProgress]);
+  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, windowLength, startDate, endDate, setRunProgress]);
 
   const handleRun = useCallback(async () => {
     setLoading(true);
@@ -621,7 +623,7 @@ export function CompareBufferStrategiesPageContent({
 
     try {
       const rawRiskOffSeriesPromise = loadAllRiskOffPricePoints(
-        getRiskOffFetchTickers(riskOffAsset),
+        getRiskOffFetchTickersForAll(Object.values(riskOffAssets)),
         signal,
         ({ completed, total, label }) => {
           setRunProgress({ pct: 16 + (completed / total) * 4, label });
@@ -665,7 +667,8 @@ export function CompareBufferStrategiesPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
         letf,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
       });
       setRunSummary(nextRunSummary);
 
@@ -674,7 +677,7 @@ export function CompareBufferStrategiesPageContent({
         smaSpPeriod, smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
-        minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, riskOffAsset,
+        minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, spxRiskOffAsset, ndxRiskOffAsset,
         showBaseline: true, annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
         rows: computedRows,
         baseline: computedBaseline,
@@ -755,7 +758,7 @@ export function CompareBufferStrategiesPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaBufferUrlParams, runBufferSweepForPreset, runAsymmetricFineForPreset, setRunSummary, save, clearMetadata, fineStep, coarseStep, fineHalfWidth, maxBuffer, minBuffer, updateUrl, setRunProgress]);
+  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaBufferUrlParams, runBufferSweepForPreset, runAsymmetricFineForPreset, setRunSummary, save, clearMetadata, fineStep, coarseStep, fineHalfWidth, maxBuffer, minBuffer, updateUrl, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -777,7 +780,8 @@ export function CompareBufferStrategiesPageContent({
         <SharedToolInputs
           values={{
             letf, startDate, endDate, windowLength,
-            smaSpPeriod, smaNqPeriod, smaVolGate, riskOffAsset,
+            smaSpPeriod, smaNqPeriod, smaVolGate,
+            spxRiskOffAsset, ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}

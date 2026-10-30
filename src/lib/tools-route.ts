@@ -1,4 +1,5 @@
 import { urlSmaBuffersMatchState } from "@/lib/sma-buffer-url-params";
+import { riskOffUrlParamsMatchState } from "@/lib/risk-off-url-params";
 
 export const TOOL_TABS = [
   "strategies",
@@ -178,10 +179,7 @@ export function persistedToolStateMatchesUrl(state: Record<string, unknown>, par
     smaVolGate: state.smaVolGate as boolean | undefined,
   })) return false;
 
-  const ro = params.get("ro");
-  if (ro != null && ro !== "") {
-    if (state.riskOffAsset == null || String(state.riskOffAsset) !== ro) return false;
-  }
+  if (!riskOffUrlParamsMatchState(params, state)) return false;
 
   if (!urlNumMatchesState(params, "lt", state.leverageTolerancePct)) return false;
 

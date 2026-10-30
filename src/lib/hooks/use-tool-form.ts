@@ -11,6 +11,8 @@ import {
 import type { IndexKey, EtfConfig } from "@/lib/simulation/types";
 import type { SharedFieldValues } from "@/components/tools/SharedToolInputs";
 import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
+import { appendRiskOffUrlParams, type RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
+import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import {
   normalizeBooleanValue,
   normalizeDateString,
@@ -41,7 +43,8 @@ export function useToolForm<T extends Record<string, unknown>>(
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     smaVolGate: shared.smaVolGate,
-    riskOffAsset: shared.riskOffAsset,
+    spxRiskOffAsset: shared.spxRiskOffAsset,
+    ndxRiskOffAsset: shared.ndxRiskOffAsset,
   };
 
   const defaultState = {
@@ -84,7 +87,8 @@ export function useToolForm<T extends Record<string, unknown>>(
     next.smaNqUpperBuffer = normalizeNumberValue(next.smaNqUpperBuffer, shared.smaNqUpperBuffer, { min: 0 });
     next.smaNqLowerBuffer = normalizeNumberValue(next.smaNqLowerBuffer, shared.smaNqLowerBuffer, { min: 0 });
     next.smaVolGate = normalizeBooleanValue(next.smaVolGate, shared.smaVolGate);
-    next.riskOffAsset = normalizeRiskOffAsset(next.riskOffAsset, shared.riskOffAsset);
+    next.spxRiskOffAsset = normalizeRiskOffAsset(next.spxRiskOffAsset, shared.spxRiskOffAsset);
+    next.ndxRiskOffAsset = normalizeRiskOffAsset(next.ndxRiskOffAsset, shared.ndxRiskOffAsset);
     return next;
   })();
 
@@ -113,7 +117,16 @@ export function useToolForm<T extends Record<string, unknown>>(
   const [smaNqUpperBuffer, setSmaNqUpperBuffer] = useState(sanitizedInitial.smaNqUpperBuffer);
   const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(sanitizedInitial.smaNqLowerBuffer);
   const [smaVolGate, setSmaVolGate] = useState<boolean>(sanitizedInitial.smaVolGate === true);
-  const [riskOffAsset, setRiskOffAsset] = useState<EtfConfig["riskOffAsset"]>(sanitizedInitial.riskOffAsset as EtfConfig["riskOffAsset"]);
+  const [spxRiskOffAsset, setSpxRiskOffAsset] = useState<EtfConfig["riskOffAsset"]>(
+    normalizeRiskOffAsset(sanitizedInitial.spxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.sp500)
+  );
+  const [ndxRiskOffAsset, setNdxRiskOffAsset] = useState<EtfConfig["riskOffAsset"]>(
+    normalizeRiskOffAsset(sanitizedInitial.ndxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.nasdaq100)
+  );
+  const riskOffAssets = useMemo<RiskOffAssetsByIndex>(
+    () => ({ sp500: spxRiskOffAsset, nasdaq100: ndxRiskOffAsset }),
+    [spxRiskOffAsset, ndxRiskOffAsset]
+  );
 
   const { isCombo, selectedPreset, comboSubs, comboLabels } = useMemo(
     () => resolvePresetContext(letf),
@@ -134,7 +147,8 @@ export function useToolForm<T extends Record<string, unknown>>(
           smaNqUpperBuffer: setSmaNqUpperBuffer,
           smaNqLowerBuffer: setSmaNqLowerBuffer,
           smaVolGate: setSmaVolGate,
-          riskOffAsset: setRiskOffAsset,
+          spxRiskOffAsset: setSpxRiskOffAsset,
+          ndxRiskOffAsset: setNdxRiskOffAsset,
         } as unknown as Parameters<typeof applySharedFieldChange>[2]["setters"],
         onLetf: (nextValue) => {
           const nextPreset = getValidPresetKey(nextValue as string, DEFAULT_COMBO_PRESET) as keyof typeof ETF_PRESETS;
@@ -161,13 +175,13 @@ export function useToolForm<T extends Record<string, unknown>>(
       smaNqLowerBuffer,
       smaVolGate,
     });
-    urlParams.set("ro", riskOffAsset);
+    appendRiskOffUrlParams(urlParams, riskOffAssets);
     return urlParams;
   }, [
     letf, startDate, endDate, windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate, riskOffAsset
+    smaVolGate, riskOffAssets
   ]);
 
   return {
@@ -183,7 +197,9 @@ export function useToolForm<T extends Record<string, unknown>>(
     smaNqUpperBuffer, setSmaNqUpperBuffer,
     smaNqLowerBuffer, setSmaNqLowerBuffer,
     smaVolGate, setSmaVolGate,
-    riskOffAsset, setRiskOffAsset,
+    spxRiskOffAsset, setSpxRiskOffAsset,
+    ndxRiskOffAsset, setNdxRiskOffAsset,
+    riskOffAssets,
     isCombo, selectedPreset, comboSubs, comboLabels,
     handleFieldChange,
     getUrlParams,

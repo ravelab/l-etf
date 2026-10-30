@@ -182,6 +182,11 @@ export function getRiskOffFetchTickers(asset: string): string[] {
   return [asset];
 }
 
+/** Every underlying ticker the given (possibly composite) risk-off assets need, once each. */
+export function getRiskOffFetchTickersForAll(assets: readonly string[]): string[] {
+  return [...new Set(assets.flatMap(getRiskOffFetchTickers))];
+}
+
 /**
  * Short label for liquidation copy on composite risk-off (e.g. BRK.B+GLDM+VGSH → B+G+V).
  * Single-ticker presets return the ticker unchanged.

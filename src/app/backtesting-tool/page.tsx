@@ -52,6 +52,7 @@ import { buildBacktestChartSeries } from "@/lib/backtest-chart-series";
 import { buildBacktestYearlyGrowthSeries, collectBacktestGrowthSeries } from "@/lib/backtest-yearly-growth";
 import { displayedAnnualizedInflationPct } from "@/lib/inflation";
 import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
+import { appendRiskOffUrlParams } from "@/lib/risk-off-url-params";
 import { buildToolsUrl, shouldQueueToolAutorun } from "@/lib/tools-route";
 import { recordSuccessfulToolRun } from "@/lib/tool-run-history";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
@@ -60,7 +61,7 @@ import { fetchJsonCached, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoint
 import { validateSimulationReadyPrices } from "@/lib/utils";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
-import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
+import { normalizeDateString, normalizeNumberValue } from "@/lib/input-normalization";
 import { alignCloseSeriesToDates } from "@/lib/utils";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
 
@@ -133,7 +134,7 @@ export function BacktestingPageContent({
     smaSpUpperBuffer, setSmaSpUpperBuffer, smaSpLowerBuffer, setSmaSpLowerBuffer,
     smaNqUpperBuffer, setSmaNqUpperBuffer, smaNqLowerBuffer, setSmaNqLowerBuffer,
     smaVolGate, setSmaVolGate,
-    riskOffAsset, setRiskOffAsset,
+    spxRiskOffAsset, setSpxRiskOffAsset, ndxRiskOffAsset, setNdxRiskOffAsset, riskOffAssets,
     handleFieldChange, initial, save, restoredFromCache,
   } = form;
 
@@ -217,13 +218,13 @@ export function BacktestingPageContent({
         smaPeriod: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqPeriod : smaSpPeriod) : 0,
         smaUpperBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer) : 0, smaLowerBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer) : 0,
         smaVolGate: smaMode !== 0 && smaVolGate,
-        riskOffAsset,
+        riskOffAsset: riskOffAssets[cfg.smaIndex],
       }));
 
       if (smaMode === 0) return baseConfigs;
       return baseConfigs;
     },
-    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, smaMode, checkSimulationDisplayStarts, etfLaunchDates]
+    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, smaMode, checkSimulationDisplayStarts, etfLaunchDates]
   );
 
   type BacktestingSnapshotState = typeof initial;
@@ -260,7 +261,8 @@ export function BacktestingPageContent({
       if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaUpperBuffer("nasdaq100"), { min: 0 }));
       if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }));
       if (decoded.smaVolGate != null) setSmaVolGate(decoded.smaVolGate);
-      if (decoded.riskOffAsset) setRiskOffAsset(normalizeRiskOffAsset(decoded.riskOffAsset));
+      if (decoded.spxRiskOffAsset) setSpxRiskOffAsset(decoded.spxRiskOffAsset);
+      if (decoded.ndxRiskOffAsset) setNdxRiskOffAsset(decoded.ndxRiskOffAsset);
       const smaParam = params.get("sma");
       // Use Promise.resolve().then() to defer state updates and avoid cascading render warnings
       Promise.resolve().then(() => {
@@ -317,7 +319,8 @@ export function BacktestingPageContent({
     setSmaNqPeriod,
     setSmaSpUpperBuffer, setSmaSpLowerBuffer, setSmaNqUpperBuffer, setSmaNqLowerBuffer,
     setSmaVolGate,
-    setRiskOffAsset,
+    setSpxRiskOffAsset,
+    setNdxRiskOffAsset,
   ]);
 
   const shouldHydrateSnapshot = !hasCachedResults && !restoredFromCache;
@@ -412,10 +415,10 @@ export function BacktestingPageContent({
         const rates = ratesRes.data ?? [];
         if (rates.length === 0) return;
 
-        const riskOffAssets = Array.from(new Set(effectiveConfigs.flatMap((cfg) => getRiskOffFetchTickers(cfg.riskOffAsset))));
+        const riskOffTickers = Array.from(new Set(effectiveConfigs.flatMap((cfg) => getRiskOffFetchTickers(cfg.riskOffAsset))));
         const riskOffSeriesByAsset: Partial<Record<RiskOffAsset, PricePoint[]>> = {};
-        if (riskOffAssets.length > 0 && smaMode !== 0) {
-          const rawRiskOffSeriesByAsset = await loadAllRiskOffPricePoints(riskOffAssets, signal, undefined, {
+        if (riskOffTickers.length > 0 && smaMode !== 0) {
+          const rawRiskOffSeriesByAsset = await loadAllRiskOffPricePoints(riskOffTickers, signal, undefined, {
             startDate: expandedStartDate,
             endDate,
           });
@@ -503,6 +506,7 @@ export function BacktestingPageContent({
     onSnapshot: applyBacktestSnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    riskOffAssets,
     // Backtesting does not persist `result` to avoid quota issues, so we always
     // fall back to the server snapshot — no localStorage results to restore.
     hasPersistedResults: () => false,
@@ -560,7 +564,7 @@ export function BacktestingPageContent({
       smaNqLowerBuffer,
       smaVolGate,
     });
-    urlParams.set("ro", riskOffAsset);
+    appendRiskOffUrlParams(urlParams, riskOffAssets);
     if (smaMode === 0) urlParams.set("sma", "0");
 
     // Add etfConfigs as additional cards
@@ -571,7 +575,7 @@ export function BacktestingPageContent({
 
     markNextSearchAsInternal();
     router.push(buildToolsUrl("backtest", urlParams));
-  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, etfConfigs, router, markNextSearchAsInternal]);
+  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, etfConfigs, router, markNextSearchAsInternal]);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -699,7 +703,7 @@ export function BacktestingPageContent({
         );
       }
 
-      const riskOffAssets = Array.from(
+      const riskOffTickers = Array.from(
         new Set(
           effectiveConfigs
             .flatMap((cfg) => getRiskOffFetchTickers(cfg.riskOffAsset))
@@ -707,9 +711,9 @@ export function BacktestingPageContent({
       );
       // Keep raw PricePoint[] so each index group can align them to its own date range.
       const riskOffSeriesByAsset: Partial<Record<RiskOffAsset, PricePoint[]>> = {};
-      if (riskOffAssets.length > 0 && smaMode !== 0) {
+      if (riskOffTickers.length > 0 && smaMode !== 0) {
         setRunProgress({ pct: 40, label: "Loading risk-off prices..." });
-        const rawRiskOffSeriesByAsset = await loadAllRiskOffPricePoints(riskOffAssets, signal, ({ completed, total, label }) => {
+        const rawRiskOffSeriesByAsset = await loadAllRiskOffPricePoints(riskOffTickers, signal, ({ completed, total, label }) => {
           setRunProgress({ pct: 40 + (completed / total) * 12, label });
         }, {
           startDate: expandedStartDate,
@@ -912,7 +916,8 @@ export function BacktestingPageContent({
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate: smaMode !== 0 && smaVolGate,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
       });
       setRunSummary(nextRunSummary);
 
@@ -926,7 +931,8 @@ export function BacktestingPageContent({
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
         etfConfigs,
         result: {
           dates: datesSlice,
@@ -988,7 +994,7 @@ export function BacktestingPageContent({
           smaNqLowerBuffer,
           smaVolGate,
         });
-        historyParams.set("ro", riskOffAsset);
+        appendRiskOffUrlParams(historyParams, riskOffAssets);
         if (smaMode === 0) historyParams.set("sma", "0");
         etfConfigs.forEach((cfg, i) => {
           historyParams.set(`e${i}_n`, cfg.name);
@@ -1007,7 +1013,8 @@ export function BacktestingPageContent({
             smaNqUpperBuffer, smaNqLowerBuffer,
             smaVolGate: smaMode !== 0 && smaVolGate,
             letf: getValidPresetKey(letf, DEFAULT_COMBO_PRESET),
-            riskOffAsset,
+            spxRiskOffAsset,
+            ndxRiskOffAsset,
             tradeAfterHours: false,
             } satisfies RunSummary,
         });
@@ -1038,7 +1045,9 @@ export function BacktestingPageContent({
     initialInvestment,
     letf,
     resolvedEtfConfigs,
-    riskOffAsset,
+    riskOffAssets,
+    spxRiskOffAsset,
+    ndxRiskOffAsset,
     save,
     setRunSummary,
     smaNqUpperBuffer, smaNqLowerBuffer,
@@ -1126,7 +1135,7 @@ export function BacktestingPageContent({
     smaSpLowerBuffer,
     smaNqUpperBuffer,
     smaNqLowerBuffer,
-    riskOffAsset,
+    riskOffAssets,
     // Enabled for any displayed result, not just one with an SMA config: the growth
     // table needs this loader's CPI even when the forward chart has nothing to plot.
     enabled: displayResult !== null,
@@ -1230,7 +1239,8 @@ export function BacktestingPageContent({
             smaNqPeriod,
             smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
             smaVolGate,
-            riskOffAsset,
+            spxRiskOffAsset,
+            ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}

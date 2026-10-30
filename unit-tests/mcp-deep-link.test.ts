@@ -42,7 +42,7 @@ test("the permalink carries the config the run actually used", () => {
   assert.equal(params.get("letf"), "UPRO");
   assert.equal(params.get("sd"), "1990-01-01");
   assert.equal(params.get("ed"), "2020-01-01");
-  assert.equal(params.get("ro"), "SGOV");
+  assert.equal(params.get("ros"), "SGOV");
   assert.equal(params.get("tab"), "backtest");
   assert.equal(params.get("autorun"), "1", "the link must run, not just prefill");
 });
@@ -59,6 +59,8 @@ test("SMA params are written on the axis matching the preset's index", () => {
   assert.equal(nq.get("smatnqU"), "2");
   assert.equal(nq.get("smatnqL"), "3");
   assert.equal(nq.get("smaPsp"), null);
+  assert.equal(nq.get("ron"), "SGOV", "the risk-off asset follows the preset's index too");
+  assert.equal(nq.get("ros"), null);
 });
 
 test("backtestPermalink declines rather than guessing for an unknown preset", () => {
@@ -116,7 +118,7 @@ test("futuresLadderPermalink links a leverage that is an actual ladder rung", ()
   assert.equal(params.get("autorun"), "1");
   assert.equal(params.get("sd"), "1990-01-01");
   assert.equal(params.get("ed"), "2020-01-01");
-  assert.equal(params.get("ro"), "SGOV");
+  assert.equal(params.get("ros"), "SGOV");
   assert.equal(params.get("amt"), "100000");
   assert.equal(params.get("smaPsp"), "186");
   assert.equal(params.get("smatspU"), "3.6");
@@ -129,6 +131,8 @@ test("a Nasdaq run writes the nq SMA keys, not the sp ones", () => {
   ).searchParams;
   assert.equal(params.get("smaPnq"), "150");
   assert.equal(params.get("smaPsp"), null);
+  assert.equal(params.get("ron"), "SGOV");
+  assert.equal(params.get("ros"), null);
 });
 
 test("a 2x rung only exists in emulation mode, so the link asks for it", () => {

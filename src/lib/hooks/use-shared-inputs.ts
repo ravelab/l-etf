@@ -1,7 +1,7 @@
 /**
  * Shared input state persisted to localStorage across all tool pages.
  *
- * When a user changes a field (e.g. riskOffAsset) on any page,
+ * When a user changes a field (e.g. spxRiskOffAsset) on any page,
  * it persists and is picked up by all other pages on next visit.
  *
  * URL params take priority over stored values (so shared links work).
@@ -19,7 +19,8 @@ import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { getIsoDate } from "@/lib/date";
 import type { EtfConfig } from "@/lib/simulation/types";
 import { CONSTANT_SP500_SHORTCUT_DATE } from "../constants";
-import { DEFAULT_RISK_OFF_ASSET } from "../simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSETS } from "../simulation/defaults";
+import { parseRiskOffUrlParams } from "@/lib/risk-off-url-params";
 import { hasMeaningfulSearchParams } from "@/lib/tools-route";
 import { parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import {
@@ -47,7 +48,8 @@ type SharedInputs = {
   smaNqLowerBuffer: number;
   smaNqEnabled: boolean;
   smaVolGate: boolean;
-  riskOffAsset: EtfConfig["riskOffAsset"];
+  spxRiskOffAsset: EtfConfig["riskOffAsset"];
+  ndxRiskOffAsset: EtfConfig["riskOffAsset"];
   hateDrawdown: boolean;
   tradeAfterHours: boolean;
 };
@@ -66,7 +68,8 @@ export const SHARED_KEYS = new Set<string>([
   "smaSpEnabled",
   "smaNqEnabled",
   "smaVolGate",
-  "riskOffAsset",
+  "spxRiskOffAsset",
+  "ndxRiskOffAsset",
   "hateDrawdown",
   "tradeAfterHours",
 ]);
@@ -86,7 +89,8 @@ const DEFAULTS: SharedInputs = {
   smaSpEnabled: true,
   smaNqEnabled: true,
   smaVolGate: DEFAULT_SMA_VOL_GATE,
-  riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+  spxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.sp500,
+  ndxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.nasdaq100,
   hateDrawdown: false,
   tradeAfterHours: false,
 };
@@ -117,7 +121,8 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     smaSpEnabled: normalizeBooleanValue(base.smaSpEnabled, true),
     smaNqEnabled: normalizeBooleanValue(base.smaNqEnabled, true),
     smaVolGate: normalizeBooleanValue(base.smaVolGate, DEFAULT_SMA_VOL_GATE),
-    riskOffAsset: normalizeRiskOffAsset(base.riskOffAsset),
+    spxRiskOffAsset: normalizeRiskOffAsset(base.spxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.sp500),
+    ndxRiskOffAsset: normalizeRiskOffAsset(base.ndxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.nasdaq100),
     hateDrawdown: normalizeBooleanValue(base.hateDrawdown, false),
     tradeAfterHours: normalizeBooleanValue(base.tradeAfterHours, false),
   };
@@ -192,9 +197,9 @@ export function getSharedInputs(urlParams?: URLSearchParams): {
     if (smaBuffers.smaNqUpperBuffer != null) merged.smaNqUpperBuffer = smaBuffers.smaNqUpperBuffer;
     if (smaBuffers.smaNqLowerBuffer != null) merged.smaNqLowerBuffer = smaBuffers.smaNqLowerBuffer;
     if (smaBuffers.smaVolGate != null) merged.smaVolGate = smaBuffers.smaVolGate;
-    if (p.has("ro")) {
-      merged.riskOffAsset = normalizeRiskOffAsset(p.get("ro"), merged.riskOffAsset);
-    }
+    const riskOffAssets = parseRiskOffUrlParams(p);
+    if (riskOffAssets.sp500) merged.spxRiskOffAsset = riskOffAssets.sp500;
+    if (riskOffAssets.nasdaq100) merged.ndxRiskOffAsset = riskOffAssets.nasdaq100;
   }
 
   return {

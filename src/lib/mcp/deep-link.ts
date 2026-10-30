@@ -17,6 +17,7 @@ import { buildPresetBacktestUrl } from "@/lib/url-builders";
 import { buildToolsUrl } from "@/lib/tools-route";
 import { buildFuturesLadderPlan, type SmaBand } from "@/lib/simulation/futures-plan";
 import { SMA_BUFFER_URL_KEYS, SMA_VOL_GATE_URL_KEY } from "@/lib/sma-buffer-url-params";
+import { RISK_OFF_URL_KEYS } from "@/lib/risk-off-url-params";
 import type { EtfConfig, IndexKey } from "@/lib/simulation/types";
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
@@ -135,7 +136,7 @@ export function futuresLadderPermalink(params: FuturesLinkParams): string | unde
     search.set(SMA_BUFFER_URL_KEYS.spLower, String(params.smaLowerBuffer));
   }
   if (params.smaVolGate) search.set(SMA_VOL_GATE_URL_KEY, "1");
-  search.set("ro", params.riskOffAsset);
+  search.set(RISK_OFF_URL_KEYS[params.index], params.riskOffAsset);
   search.set("amt", String(params.initialEquity));
   if (showEmulations) search.set("em", "1");
 

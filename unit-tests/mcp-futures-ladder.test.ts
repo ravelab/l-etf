@@ -5,6 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { registerAll } from "@/lib/mcp/register";
 import { runFuturesLadder } from "@/lib/mcp/futures-ladder-core";
+import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 
 async function connectClient(): Promise<Client> {
   const server = new McpServer({ name: "l-etf", version: "1.0.0" });
@@ -103,7 +104,7 @@ test("the two-sleeve fund defaults to the site's per-index risk-off assets and g
     dualRiskOffAssets: { sp500: string; nasdaq100: string };
     rungs: Array<{ name: string; dualSleeve: boolean }>;
   };
-  assert.deepEqual(data.dualRiskOffAssets, { sp500: "BRK.B", nasdaq100: "VGSH" });
+  assert.deepEqual(data.dualRiskOffAssets, DEFAULT_RISK_OFF_ASSETS);
   const fund = data.rungs.find((r) => r.dualSleeve);
   assert.ok(fund, "the range covers Nasdaq data, so the fund must run");
   assert.match(fund.name, / SMA Vol$/);

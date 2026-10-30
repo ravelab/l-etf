@@ -12,7 +12,7 @@ import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
 import { SweepComparisonTable } from "@/components/tools/compare/SweepComparisonTable";
 import { useHateDrawdown } from "@/components/tools/compare/HateDrawdownToggle";
-import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, getRiskOffFetchTickers } from "@/lib/constants";
+import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, getRiskOffFetchTickersForAll } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoints } from "@/lib/fetch-market-data";
 import { formatMultiple, formatPercent } from "@/lib/format";
 import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
@@ -92,7 +92,8 @@ export function CompareSmaStrategiesPageContent({
   const {
     letf, setLetf, index, setIndex, startDate, endDate, setEndDate,
     windowLength,
-    smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset,
+    smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
+    spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     isCombo, selectedPreset, comboSubs,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
@@ -161,6 +162,7 @@ export function CompareSmaStrategiesPageContent({
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareSmaSnapshotState>).runSummaryInputs ||
       ((state as Partial<CompareSmaSnapshotState>).rows?.length ?? 0) > 0,
@@ -238,7 +240,7 @@ export function CompareSmaStrategiesPageContent({
         smaPeriod: row.parameterValue,
         smaUpperBuffer: p.index === "nasdaq100" ? display.summary.smaNqUpperBuffer : display.summary.smaSpUpperBuffer, smaLowerBuffer: p.index === "nasdaq100" ? display.summary.smaNqLowerBuffer : display.summary.smaSpLowerBuffer,
         smaVolGate: display.summary.smaVolGate,
-        riskOffAsset: display.summary.riskOffAsset as RiskOffAsset,
+        riskOffAsset: (p.index === "nasdaq100" ? display.summary.ndxRiskOffAsset : display.summary.spxRiskOffAsset) as RiskOffAsset,
       });
     },
     [display]
@@ -338,7 +340,7 @@ export function CompareSmaStrategiesPageContent({
     // Baseline first, then one SMA config per period (shared item builder).
     const items = buildSmaPeriodSweepItems({
       preset: presetDef,
-      riskOffAsset,
+      riskOffAsset: riskOffAssets[presetDef.index],
       minSmaPeriod,
       maxSmaPeriod,
       stepSize,
@@ -368,7 +370,7 @@ export function CompareSmaStrategiesPageContent({
     const sweepRows = allSweepRows.slice(1);
 
     return { rows: sweepRows, baseline: bl };
-  }, [riskOffAsset, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, minSmaPeriod, maxSmaPeriod, stepSize, windowLength, startDate, endDate, setRunProgress]);
+  }, [riskOffAssets, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, minSmaPeriod, maxSmaPeriod, stepSize, windowLength, startDate, endDate, setRunProgress]);
 
   const buildSmaPeriodUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -409,7 +411,7 @@ export function CompareSmaStrategiesPageContent({
 
     try {
       const rawRiskOffSeriesPromise = loadAllRiskOffPricePoints(
-        getRiskOffFetchTickers(riskOffAsset),
+        getRiskOffFetchTickersForAll(Object.values(riskOffAssets)),
         signal,
         ({ completed, total, label }) => {
           setRunProgress({ pct: 16 + (completed / total) * 4, label });
@@ -450,14 +452,15 @@ export function CompareSmaStrategiesPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
         letf,
-        riskOffAsset,
+        spxRiskOffAsset,
+        ndxRiskOffAsset,
       });
       setRunSummary(nextRunSummary);
 
       save({
         letf, index, startDate, endDate, windowLength,
         minSmaPeriod, maxSmaPeriod, stepSize, smaSpPeriod: form.smaSpPeriod, smaNqPeriod: form.smaNqPeriod,
-        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset,
+        smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, spxRiskOffAsset, ndxRiskOffAsset,
         showBaseline: true, annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
         rows: computedRows,
         baseline: computedBaseline,
@@ -497,7 +500,7 @@ export function CompareSmaStrategiesPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaPeriodUrlParams, runSweepForPreset, setRunSummary, save, clearMetadata, form.smaSpPeriod, form.smaNqPeriod, minSmaPeriod, maxSmaPeriod, stepSize, updateUrl, setRunProgress]);
+  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaPeriodUrlParams, runSweepForPreset, setRunSummary, save, clearMetadata, form.smaSpPeriod, form.smaNqPeriod, minSmaPeriod, maxSmaPeriod, stepSize, updateUrl, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -519,7 +522,8 @@ export function CompareSmaStrategiesPageContent({
         <SharedToolInputs
           values={{
             letf, startDate, endDate, windowLength,
-            smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAsset,
+            smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
+            spxRiskOffAsset, ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}

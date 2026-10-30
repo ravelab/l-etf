@@ -93,7 +93,7 @@ export default function Home() {
 
             <Link href={buildToolsUrl("riskoff")}>
               <div className="border border-card-border rounded-lg p-6 hover:border-accent transition h-full flex flex-col">
-                <h2 className="text-2xl font-bold mb-2">SMA Risk-Off Assets</h2>
+                <h2 className="text-2xl font-bold mb-2">Risk-Off Assets</h2>
                 <p className="text-muted mb-4 flex-1">
                   Compare defensive assets and equal-weight mixes for SMA strategies
                 </p>

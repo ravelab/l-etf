@@ -23,7 +23,9 @@ test("buildPresetBacktestUrl builds correct query params", () => {
   assert.equal(u.searchParams.get("smaPsp"), "185");
   assert.equal(u.searchParams.get("smatspU"), "3.5");
   assert.equal(u.searchParams.get("smatspL"), "3.5");
-  assert.equal(u.searchParams.get("ro"), "SGOV");
+  assert.equal(u.searchParams.get("ros"), "SGOV");
+  assert.equal(u.searchParams.get("ron"), null);
+  assert.equal(u.searchParams.get("ro"), null);
   assert.equal(u.searchParams.get("autorun"), "1");
   assert.equal(u.searchParams.get("vg"), null);
 });

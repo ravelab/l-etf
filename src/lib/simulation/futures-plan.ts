@@ -14,6 +14,7 @@
 
 import type { EtfConfig, IndexKey, RiskOffAsset } from "@/lib/simulation/types";
 import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
+import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 
 /** SMA rule for one index: period plus the asymmetric re-entry/exit band. */
 export type SmaBand = {
@@ -26,8 +27,8 @@ export type SmaBand = {
   volGate?: boolean;
 };
 
-/** What the two-sleeve fund's sleeves hold while risk-off, unless the page overrides them. */
-export const DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS: DualRiskOffAssets = { sp500: "BRK.B", nasdaq100: "VGSH" };
+/** What each index's rungs and sleeves hold while risk-off: the site-wide per-index default. */
+export const DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS: DualRiskOffAssets = DEFAULT_RISK_OFF_ASSETS;
 
 export type DualRiskOffAssets = Record<"sp500" | "nasdaq100", RiskOffAsset>;
 
@@ -174,9 +175,10 @@ export function showsFuturesTransactions(
 export function buildEmulationEtfConfigs(params: {
   hasNasdaqData: boolean;
   bands: SmaBandsByIndex;
-  riskOffAsset: RiskOffAsset;
+  /** Each twin holds its own index's asset, the same one its ladder rung holds. */
+  riskOffAssets: DualRiskOffAssets;
 }): EtfConfig[] {
-  const { hasNasdaqData, bands, riskOffAsset } = params;
+  const { hasNasdaqData, bands, riskOffAssets } = params;
   return EMULATION_PAIRS.filter((pair) => hasNasdaqData || pair.index !== "nasdaq100").map((pair) => {
     const band = bands[pair.index as keyof SmaBandsByIndex];
     return createPresetEtfConfig(pair.configId, ETF_PRESETS[pair.presetKey], {
@@ -185,7 +187,7 @@ export function buildEmulationEtfConfigs(params: {
       smaUpperBuffer: band.upperBuffer,
       smaLowerBuffer: band.lowerBuffer,
       ...(band.volGate ? { smaVolGate: true } : {}),
-      riskOffAsset,
+      riskOffAsset: riskOffAssets[pair.index as keyof DualRiskOffAssets],
     });
   });
 }

@@ -49,7 +49,8 @@ export function buildCompareLetfsParams(pageState) {
       smaPsp: pageState.smaSpPeriod,
       smaPnq: pageState.smaNqPeriod,
       ...smaBufferUrlEntries(pageState),
-      ro: pageState.riskOffAsset,
+      ros: pageState.spxRiskOffAsset,
+      ron: pageState.ndxRiskOffAsset,
       smaExec: pageState.smaExecutionMode,
     },
     pageState
@@ -85,7 +86,8 @@ export function buildCompareSmaParams(pageState) {
       maxP: pageState.maxSmaPeriod,
       step: pageState.stepSize,
       ...smaBufferUrlEntries(pageState),
-      ro: pageState.riskOffAsset,
+      ros: pageState.spxRiskOffAsset,
+      ron: pageState.ndxRiskOffAsset,
       smaExec: pageState.smaExecutionMode,
     },
     pageState
@@ -118,7 +120,8 @@ export function buildCompareThresholdParams(pageState) {
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
       smaPnq: pageState.smaNqPeriod,
-      ro: pageState.riskOffAsset,
+      ros: pageState.spxRiskOffAsset,
+      ron: pageState.ndxRiskOffAsset,
       minT: pageState.minBuffer,
       maxT: pageState.maxBuffer,
       stepT: pageState.fineStep,
@@ -153,7 +156,8 @@ export function buildStatisticalAnalysisParams(pageState) {
       smaPsp: pageState.smaSpPeriod,
       smaPnq: pageState.smaNqPeriod,
       ...smaBufferUrlEntries(pageState),
-      ro: pageState.riskOffAsset,
+      ros: pageState.spxRiskOffAsset,
+      ron: pageState.ndxRiskOffAsset,
       smaExec: pageState.smaExecutionMode,
     },
     pageState
@@ -169,7 +173,8 @@ export function buildBacktestParams(pageState) {
     smaPsp: pageState.smaSpPeriod,
     smaPnq: pageState.smaNqPeriod,
     ...smaBufferUrlEntries(pageState),
-    ro: pageState.riskOffAsset,
+    ros: pageState.spxRiskOffAsset,
+    ron: pageState.ndxRiskOffAsset,
   };
   if (pageState.smaMode === 0) {
     entries.sma = "0";

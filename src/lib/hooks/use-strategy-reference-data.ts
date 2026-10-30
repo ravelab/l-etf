@@ -7,6 +7,7 @@ import {
   MARKET_DATA_EARLIEST_START,
 } from "@/lib/fetch-market-data";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
+import type { RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
 import type { EtfConfig, PricePoint, RatePoint } from "@/lib/simulation/types";
 
 /** Risk-off close/open series, keyed by the asset the config asks for. */
@@ -48,7 +49,7 @@ interface StrategyReferenceParams {
   smaSpLowerBuffer: number;
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
-  riskOffAsset: EtfConfig["riskOffAsset"];
+  riskOffAssets: RiskOffAssetsByIndex;
   /** Skip the fetch entirely while the sections consuming it are off screen. */
   enabled?: boolean;
 }
@@ -69,7 +70,7 @@ export function useStrategyReferenceData({
   smaSpLowerBuffer,
   smaNqUpperBuffer,
   smaNqLowerBuffer,
-  riskOffAsset,
+  riskOffAssets,
   enabled = true,
 }: StrategyReferenceParams): StrategyReferenceData | null {
   const [data, setData] = useState<StrategyReferenceData | null>(null);
@@ -99,9 +100,9 @@ export function useStrategyReferenceData({
         const ndxPrices = md.pricesByIndex["nasdaq100"] ?? [];
         const hasNdxPrices = ndxPrices.length >= 2;
         const [spxRiskOff, ndxRiskOff] = await Promise.all([
-          loadRiskOffPriceSeries(riskOffAsset, spxPrices, startDate, endDate, controller.signal),
+          loadRiskOffPriceSeries(riskOffAssets.sp500, spxPrices, startDate, endDate, controller.signal),
           hasNdxPrices
-            ? loadRiskOffPriceSeries(riskOffAsset, ndxPrices, startDate, endDate, controller.signal)
+            ? loadRiskOffPriceSeries(riskOffAssets.nasdaq100, ndxPrices, startDate, endDate, controller.signal)
             : Promise.resolve(EMPTY_RISK_OFF_SERIES),
         ]);
         if (cancelled) return;
@@ -147,7 +148,7 @@ export function useStrategyReferenceData({
     smaSpLowerBuffer,
     smaNqUpperBuffer,
     smaNqLowerBuffer,
-    riskOffAsset,
+    riskOffAssets,
   ]);
 
   return data;

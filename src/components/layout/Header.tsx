@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { tab: "statistics" as ToolTab, label: "Holding Period" },
   { tab: "sma-buffer" as ToolTab, label: "SMA Buffer" },
   { tab: "sma-period" as ToolTab, label: "SMA Period" },
-  { tab: "riskoff" as ToolTab, label: "SMA Risk-Off Assets" },
+  { tab: "riskoff" as ToolTab, label: "Risk-Off Assets" },
   ...(process.env.NEXT_PUBLIC_DISPLAY_BOX_TRADES === "true"
     ? [{ href: "/box-trades", label: "Box Trades" }]
     : []),
