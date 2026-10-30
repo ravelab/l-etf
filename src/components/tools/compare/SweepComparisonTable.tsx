@@ -214,7 +214,9 @@ export function SweepComparisonTable({
                     {formatPercent(row.biggestMaxDrawdown)}
                     {row.biggestMaxDrawdownDates && (
                       ddUrl ? (
-                        <Link href={ddUrl} className="text-[10px] text-accent hover:underline block">
+                        // Row links are never prefetched: each is a dynamic backtest route, so
+                        // prefetching cost a server request per visible link.
+                        <Link href={ddUrl} prefetch={false} className="text-[10px] text-accent hover:underline block">
                           {formatDateSpan(row.biggestMaxDrawdownDates)}
                         </Link>
                       ) : (
@@ -232,7 +234,7 @@ export function SweepComparisonTable({
                     {formatPercent(best)}
                     {row.bestReturnDates && (
                       bestUrl ? (
-                        <Link href={bestUrl} className="text-[10px] text-accent hover:underline block">
+                        <Link href={bestUrl} prefetch={false} className="text-[10px] text-accent hover:underline block">
                           {formatDateSpan(row.bestReturnDates)}
                         </Link>
                       ) : (
@@ -246,7 +248,7 @@ export function SweepComparisonTable({
                     {formatPercent(worst)}
                     {row.worstReturnDates && (
                       worstUrl ? (
-                        <Link href={worstUrl} className="text-[10px] text-accent hover:underline block">
+                        <Link href={worstUrl} prefetch={false} className="text-[10px] text-accent hover:underline block">
                           {formatDateSpan(row.worstReturnDates)}
                         </Link>
                       ) : (
@@ -294,7 +296,7 @@ export function SweepComparisonTable({
                     {formatPercent(baseline.biggestMaxDrawdown)}
                     {baseline.biggestMaxDrawdownDates && (
                       baselineDdUrl ? (
-                        <Link href={baselineDdUrl} className="text-[10px] text-accent hover:underline block">
+                        <Link href={baselineDdUrl} prefetch={false} className="text-[10px] text-accent hover:underline block">
                           {formatDateSpan(baseline.biggestMaxDrawdownDates)}
                         </Link>
                       ) : (
@@ -312,7 +314,7 @@ export function SweepComparisonTable({
                     {formatPercent(blBest)}
                     {baseline.bestReturnDates && (
                       baselineBestUrl ? (
-                        <Link href={baselineBestUrl} className="text-[10px] text-accent hover:underline block">
+                        <Link href={baselineBestUrl} prefetch={false} className="text-[10px] text-accent hover:underline block">
                           {formatDateSpan(baseline.bestReturnDates)}
                         </Link>
                       ) : (
@@ -326,7 +328,7 @@ export function SweepComparisonTable({
                     {formatPercent(blWorst)}
                     {baseline.worstReturnDates && (
                       baselineWorstUrl ? (
-                        <Link href={baselineWorstUrl} className="text-[10px] text-accent hover:underline block">
+                        <Link href={baselineWorstUrl} prefetch={false} className="text-[10px] text-accent hover:underline block">
                           {formatDateSpan(baseline.worstReturnDates)}
                         </Link>
                       ) : (

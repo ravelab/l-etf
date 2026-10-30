@@ -112,8 +112,10 @@ function DateRangeLink({
   if (!href) {
     return <span className="text-[10px] text-muted block">{text}</span>;
   }
+  // Not prefetched: every row links to a dynamic backtest route, so prefetching cost one
+  // server request per visible link (32 on Strategies) for links that are rarely followed.
   return (
-    <Link href={href} className="text-[10px] text-accent hover:underline block">
+    <Link href={href} prefetch={false} className="text-[10px] text-accent hover:underline block">
       {text}
     </Link>
   );

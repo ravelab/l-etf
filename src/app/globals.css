@@ -50,6 +50,9 @@ html.dark {
 
 html {
   overflow-x: hidden;
+  /* The styled scrollbar below takes layout width, so reserve it even on a page shorter
+     than the window; otherwise the centered header shifts sideways as content comes and goes. */
+  scrollbar-gutter: stable;
 }
 
 body {
