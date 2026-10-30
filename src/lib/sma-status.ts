@@ -123,7 +123,7 @@ function volGateLabelFor(config: Pick<SmaSignalConfig, "smaSpEnabled" | "smaNqEn
     ...(config.smaSpEnabled !== false ? (["sp500"] as const) : []),
     ...(config.smaNqEnabled !== false ? (["nasdaq100"] as const) : []),
   ];
-  return `risk off ${volGateParamsTextFor(enabled)}`;
+  return `vol ${volGateParamsTextFor(enabled)}`;
 }
 
 export function describeSmaSignalConfig(config: SmaSignalConfig): string {

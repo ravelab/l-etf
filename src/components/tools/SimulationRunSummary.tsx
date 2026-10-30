@@ -92,7 +92,7 @@ export function SimulationRunSummary({
         )}
         {summary.smaVolGate && (
           <span className="text-muted min-w-0">
-            Volatility Risk Off: <span className="text-foreground">{SMA_VOL_GATE_PARAMS_TEXT}</span>
+            Volatility: <span className="text-foreground">{SMA_VOL_GATE_PARAMS_TEXT}</span>
           </span>
         )}
         {showRiskOffAsset && (

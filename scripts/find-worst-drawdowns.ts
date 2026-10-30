@@ -1,6 +1,6 @@
 /**
  * The "Worst time to invest" windows in `ToolRunHistoryMenu.tsx`, measured on the **strategy**
- * equity curve (UPRO-SMA / TQQQ-SMA) rather than the index. The index's worst stretches are not
+ * equity curve (UPRO SMA Vol / TQQQ SMA Vol) rather than the index. The index's worst stretches are not
  * the strategy's: the SMA exits sidestep some of them and whipsaw through others, and the menu
  * backtests the strategy.
  *
@@ -13,7 +13,8 @@
  * back to eras nobody has heard of.
  *
  * The band comes from `sma-calibration.json` — the monthly Signals calibration, which is what
- * the app means by "the default" — not the compile-time fallbacks in `defaults.ts`. It emits
+ * the app means by "the default" — not the compile-time fallbacks in `defaults.ts` — and runs with
+ * the volatility gate exactly as the calibration scored it (`SMA_CALIBRATION_VOL_GATE`). It emits
  * those parameters alongside the windows because the two have to be pasted together: a window
  * is only the strategy's worst under the band it was measured with.
  *
@@ -25,6 +26,7 @@ import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "@/lib/mc
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import { DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { readSmaCalibrationSnapshot, type SmaCalibrationResult } from "@/lib/sma-calibration";
+import { SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { EtfConfig } from "@/lib/simulation/types";
@@ -42,9 +44,9 @@ interface EraWindow {
 
 const ERAS: readonly EraWindow[] = [
   { letf: "UPRO", peakYear: "1929" },
+  { letf: "UPRO", peakYear: "1989" },
   { letf: "UPRO", peakYear: "2007" },
-  { letf: "UPRO", peakYear: "1976" },
-  { letf: "TQQQ", peakYear: "2000" },
+  { letf: "TQQQ", peakYear: "1987" },
   { letf: "TQQQ", peakYear: "2021" },
 ];
 
@@ -121,7 +123,7 @@ async function simulateStrategy(presetKey: PresetKey, calibration: SmaCalibratio
 
   const config: EtfConfig = {
     id: presetKey.toLowerCase(),
-    name: `${presetKey} SMA ${smaPeriod}`,
+    name: `${presetKey} SMA Vol ${smaPeriod}`,
     leverage: preset.leverage,
     expenseRatio: preset.expenseRatio,
     simulated: true,
@@ -130,6 +132,7 @@ async function simulateStrategy(presetKey: PresetKey, calibration: SmaCalibratio
     smaUpperBuffer,
     smaLowerBuffer,
     smaIndex: index,
+    smaVolGate: SMA_CALIBRATION_VOL_GATE[index],
     smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
     riskOffAsset: DEFAULT_RISK_OFF_ASSET,
   };
@@ -194,7 +197,7 @@ async function main(): Promise<void> {
     const { smaPeriod, smaUpperBuffer, smaLowerBuffer, curve } = await simulateStrategy(presetKey, calibration);
     curves.set(presetKey, curve);
     console.log(
-      `\n${presetKey} SMA ${smaPeriod} (-${smaLowerBuffer}%/+${smaUpperBuffer}%) — ` +
+      `\n${presetKey} SMA Vol ${smaPeriod} (-${smaLowerBuffer}%/+${smaUpperBuffer}%) — ` +
         `${curve.dates[0]} .. ${curve.dates[curve.dates.length - 1]} (${curve.dates.length} sessions)`,
     );
     console.log("Deepest peak-to-bottom declines:");

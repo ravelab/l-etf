@@ -46,8 +46,6 @@ export function volGateParamsTextFor(indices: IndexKey[]): string {
 /** Both indices' parameters, for surfaces where one switch gates both. */
 export const SMA_VOL_GATE_PARAMS_TEXT = volGateParamsTextFor(Object.keys(SMA_VOL_GATE) as IndexKey[]);
 
-export const SMA_VOL_GATE_LABEL = `risk off ${SMA_VOL_GATE_PARAMS_TEXT}`;
-
 const realizedVolCache = new WeakMap<number[], Map<number, number[]>>();
 
 /** Annualized realized volatility per day; NaN until a full window exists. */

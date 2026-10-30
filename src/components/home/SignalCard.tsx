@@ -126,8 +126,8 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
             <span className={`font-medium tabular-nums ${result.volGateRiskOff ? "text-negative" : "text-muted"}`}>
               {Number.isFinite(result.volatility) ? `${(result.volatility * 100).toFixed(1)}%` : "n/a"}
               {result.volGateRiskOff
-                ? ` · risk off until < ${Math.round(gate.reenterBelow * 100)}%`
-                : ` · risk off > ${Math.round(gate.exitAbove * 100)}%`}
+                ? ` · re-enter < ${Math.round(gate.reenterBelow * 100)}%`
+                : ` · exit > ${Math.round(gate.exitAbove * 100)}%`}
             </span>
           </div>
         )}

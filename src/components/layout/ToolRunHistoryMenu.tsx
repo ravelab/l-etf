@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } f
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toValidRunSummary } from "@/lib/hooks/use-run-summary-inputs";
 import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
+import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
 import {
   buildToolsUrl,
   canonicalNormalizedToolsHrefKey,
@@ -68,39 +69,39 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
  * decline the click no longer reproduces. Regenerate both together.
  */
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
-  smaPsp: "186",
-  smaPnq: "150",
-  smaSpUpperBuffer: 3,
-  smaSpLowerBuffer: 3.3,
-  smaNqUpperBuffer: 20.4,
-  smaNqLowerBuffer: 17.6,
+  smaPsp: "175",
+  smaPnq: "136",
+  smaSpUpperBuffer: 3.6,
+  smaSpLowerBuffer: 3.6,
+  smaNqUpperBuffer: 9.6,
+  smaNqLowerBuffer: 18,
+  smaVolGate: true,
   ro: "BRK.B+GLDM+VGSH",
 } as const;
 
 /**
  * Famous "worst time to invest" anchors, measured on the **strategy** rather than on the
- * index: the SMA exits sidestep some index bears and whipsaw through others, so UPRO-SMA and
- * TQQQ-SMA set their records on their own dates.
+ * index: the SMA exits and the volatility gate sidestep some index bears and whipsaw through
+ * others, so UPRO SMA Vol and TQQQ SMA Vol set their records on their own dates.
  *
  * Each window runs peak to bottom — it opens at a record high and closes at the lowest close
  * before the strategy takes that high back — so the backtest buys on the worst possible day
  * and sells on the worst possible day, with none of the recovery to soften it. `drawdown` is
  * that peak-to-bottom decline, so it is what the window itself returns.
  *
- * The window is the decline, not the era around it, so an anchor can end long before the era it
- * belongs to does: TQQQ-SMA gave up 84.4% in the six and a half months after the dot-com peak
- * and never traded below that low in the decade it took to win the peak back, so that window
- * stops in 2000 rather than running to the 2002 bottom.
+ * The window is the decline, not the era around it, so an anchor can run well past the event it
+ * is named for: TQQQ SMA Vol rode through the 1987 crash and kept sliding into the 1990 bear,
+ * so its 1987 window ends in October 1990 at -82.9%, its deepest decline on record.
  *
  * Regenerate with `node --import tsx scripts/find-worst-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-04-21", days: 1326, drawdown: "-89.5%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-49.9%" },
-  { letf: "UPRO" as const, startDate: "1976-09-21", endDate: "1980-04-15", days: 1302, drawdown: "-44.6%" },
-  { letf: "TQQQ" as const, startDate: "2000-03-27", endDate: "2000-10-11", days: 198, drawdown: "-84.4%" },
-  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-10-26", days: 706, drawdown: "-69.9%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1935-05-01", days: 2066, drawdown: "-72.5%" },
+  { letf: "UPRO" as const, startDate: "1989-10-09", endDate: "1990-10-11", days: 367, drawdown: "-50.6%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-47.8%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-10-11", days: 1102, drawdown: "-82.9%" },
+  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2022-09-26", days: 311, drawdown: "-64.3%" },
 ] as const;
 
 /** Years once a window runs a year or longer, then months, then days — "0.16y" reads as a typo. */
@@ -122,7 +123,7 @@ function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: 
     smaSpLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaSpLowerBuffer,
     smaNqUpperBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqUpperBuffer,
     smaNqLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqLowerBuffer,
-    smaVolGate: false,
+    smaVolGate: WORST_TIME_BACKTEST_BASE_PARAMS.smaVolGate,
   });
   params.set("ro", WORST_TIME_BACKTEST_BASE_PARAMS.ro);
   return params;
@@ -145,7 +146,7 @@ function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
     (flags?.showSmaNqBuffer ?? true) ? `−${summary.smaNqLowerBuffer}/${summary.smaNqUpperBuffer}` : null,
   ].filter((p): p is string => p !== null);
   if (ndxParts.length > 0) pieces.push(`NDX ${ndxParts.join("/")}`);
-  if (summary.smaVolGate) pieces.push("Vol risk off");
+  if (summary.smaVolGate) pieces.push(`Vol ${SMA_VOL_GATE_PARAMS_TEXT}`);
   return pieces.join(" - ");
 }
 
@@ -357,7 +358,7 @@ export function ToolRunHistoryMenu() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-foreground">
-                            {item.letf} SMA · {item.drawdown} peak to bottom
+                            {item.letf} SMA Vol · {item.drawdown} peak to bottom
                           </span>
                           <span className="block text-xs text-muted">
                             {formatWindowSpan(item.days)} · {item.startDate} to {item.endDate}

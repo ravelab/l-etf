@@ -115,7 +115,7 @@ export function getSmaSignal(
   for (const v of vol) volGateRiskOff = nextVolGateRiskOff(volGateRiskOff, v, gate);
   if (volGateRiskOff) {
     signal = "sell";
-    signalLabel = "Volatility Risk Off";
+    signalLabel = "Sell L-ETFs: High Vol";
     signalEmoji = "🔴";
   }
 

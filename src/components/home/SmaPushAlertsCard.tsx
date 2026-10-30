@@ -48,7 +48,7 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
     parts.push(`NDX: ${config.smaNqPeriod}/−${config.smaNqLowerBuffer}/${config.smaNqUpperBuffer}%`);
   }
   if (parts.length === 0) return " (Disabled)";
-  if (config.smaVolGate) parts.push(`vol risk off (${SMA_VOL_GATE_PARAMS_TEXT})`);
+  if (config.smaVolGate) parts.push(`vol ${SMA_VOL_GATE_PARAMS_TEXT}`);
   return ` (${parts.join(", ")})`;
 }
 

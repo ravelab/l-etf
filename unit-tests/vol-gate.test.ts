@@ -133,7 +133,7 @@ test("getSmaSignal reports a tripped gate as a sell only when the gate is reques
 
   const gated = getSmaSignal(daily, 20, { upper: 0, lower: 0 }, { volGate: GATE });
   assert.equal(gated.signal, "sell");
-  assert.equal(gated.signalLabel, "Volatility Risk Off");
+  assert.equal(gated.signalLabel, "Sell L-ETFs: High Vol");
   assert.equal(gated.volGateRiskOff, true);
   assert.ok((gated.volatility ?? 0) > GATE.reenterBelow);
 });

@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { InfoPopoverButton } from "@/components/ui/InfoPopoverButton";
-import { SMA_VOL_GATE, SMA_VOL_GATE_LABEL } from "@/lib/simulation/vol-gate";
+import { SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -19,7 +19,7 @@ export function VolGateCheckbox({
       <div className="text-xs text-muted font-medium flex items-center gap-1.5">
         <span>Volatility</span>
         <span className="ml-auto inline-flex items-center">
-          <InfoPopoverButton label={SMA_VOL_GATE_LABEL}>
+          <InfoPopoverButton label="Volatility">
             Adds a second risk-off rule on top of each SMA. At every close the index&apos;s realized volatility
             is measured (standard deviation of the last N daily log returns × √252). Above the exit level the
             strategy moves to the risk-off asset even if the SMA says invested; it stays there until volatility
@@ -46,7 +46,7 @@ export function VolGateCheckbox({
           checked={checked}
           onChange={(e) => onChange(e.currentTarget.checked)}
         />
-        <span className="truncate">{SMA_VOL_GATE_LABEL}</span>
+        <span className="truncate">{SMA_VOL_GATE_PARAMS_TEXT}</span>
       </label>
     </div>
   );
