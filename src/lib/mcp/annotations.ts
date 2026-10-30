@@ -5,7 +5,7 @@
 // Nothing on this server mutates anything, so saying so plainly is what lets an
 // agent actually use it without interrupting its user on every call.
 
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import type { ToolAnnotations } from "@modelcontextprotocol/server";
 
 /**
  * A tool that only reads this server's own bundled market data and re-runs the

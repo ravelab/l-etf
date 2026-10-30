@@ -3,7 +3,7 @@
 // symmetric buffer sweep, and a 2-D (upper, lower) buffer grid. All variants run
 // on the preset's own index.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import type { EtfConfig } from "@/lib/simulation/types";
@@ -68,7 +68,7 @@ export function registerCompareStrategies(server: McpServer): void {
         "`asymmetric_buffers` (2-D grid over the re-entry `upper` and exit `lower` buffers, ranked by " +
         "`objective`, since the two sides of the band do different jobs). " +
         "All variants use the preset's index. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         preset: presetSchema,
         mode: z.enum([
           "sma_on_off",
@@ -99,13 +99,13 @@ export function registerCompareStrategies(server: McpServer): void {
         maxLowerBuffer: smaBufferSchema.optional(),
         gridStep: z.number().min(0.1).max(30).optional(),
         objective: z.enum(["score", "avgRealCagr", "worstReturn", "sharpeLike"]).optional(),
-      },
+      }),
       outputSchema: compareStrategiesOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const windowLength = args.windowLength ?? getDefaultWindowLength();
-        const onProgress = makeProgressReporter(extra);
+        const onProgress = makeProgressReporter(ctx);
         // Resolve a clean base (no SMA suffix in the name) — the per-mode
         // builders append their own "SMA <period>"/asset labels and set
         // smaEnabled per variant, so the base name must stay unadorned.
@@ -127,7 +127,7 @@ export function registerCompareStrategies(server: McpServer): void {
           const grid = await runAsymmetricBufferGrid({
             base,
             index,
-            signal: extra.signal,
+            signal: ctx.mcpReq.signal,
             spec: {
               minUpperBuffer: args.minUpperBuffer ?? 1,
               maxUpperBuffer: args.maxUpperBuffer ?? 4,
@@ -175,7 +175,7 @@ export function registerCompareStrategies(server: McpServer): void {
           startDate,
           endDate,
           onProgress,
-          signal: extra.signal,
+          signal: ctx.mcpReq.signal,
         });
         const { rows } = sweep;
         if (rows.length === 0) {

@@ -2,7 +2,7 @@
 // (ES/NQ) instead of ETFs: target leverage, optional leverage cap, quarterly
 // rolls, per-contract fees, and cash-sweep interest. Mirrors /futures-tool.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { simulateFuturesSmaStrategy } from "@/lib/simulation/futures";
@@ -115,7 +115,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
         "Backtest an SMA timing strategy using index futures (ES/NQ) at a chosen target leverage, with " +
         "optional leverage cap, quarterly rolls, per-contract fees, and SGOV/VGSH Treasury collateral. No core equities or box loans. Daily opens proxy 10am execution; margin and funding spreads are estimates. Returns CAGR, " +
         "drawdown, final equity, realized leverage, and trade counts. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         index: indexSchema,
         targetLeverage: z.number().min(1).max(6),
         maxLeverage: z.number().min(1).max(10).optional(),
@@ -127,7 +127,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
         maintenanceMarginRate: z.number().min(0).max(1).optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
-      },
+      }),
       outputSchema: runFuturesBacktestOutput,
     },
     async (args) => {

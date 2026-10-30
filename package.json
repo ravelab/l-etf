@@ -39,7 +39,7 @@
     "e2e-tests": "npm run --silent test:e2e"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@upstash/redis": "^1.40.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/functions": "^3.10.5",
@@ -49,7 +49,7 @@
     "chartjs-plugin-zoom": "^2.2.0",
     "date-fns": "^4.4.0",
     "dotenv": "^18.0.9",
-    "mcp-handler": "^1.1.0",
+    "mcp-handler": "^2.3.0",
     "next": "16.4.3",
     "react": "19.3.1",
     "react-chartjs-2": "^5.3.1",
@@ -72,6 +72,7 @@
   },
   "devDependencies": {
     "@jridgewell/sourcemap-codec": "^1.6.0",
+    "@modelcontextprotocol/client": "^2.4.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/typography": "^0.5.20",
     "@testing-library/dom": "^10.4.2",
@@ -107,12 +108,6 @@
     },
     "@tailwindcss/typography": {
       "postcss-selector-parser": "^6.1.5"
-    },
-    "mcp-handler": {
-      "@modelcontextprotocol/sdk": "$@modelcontextprotocol/sdk"
-    },
-    "@modelcontextprotocol/sdk": {
-      "@hono/node-server": "^2.1.5"
     }
   }
 }

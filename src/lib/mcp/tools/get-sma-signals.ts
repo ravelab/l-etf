@@ -2,7 +2,7 @@
 // Nasdaq-100, given an SMA period/buffer config. Mirrors the server-side logic
 // of `src/app/api/sma-signals/route.ts` but reads data directly (no self-HTTP).
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { getPrices } from "@/lib/db/queries";
 import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
@@ -11,6 +11,7 @@ import { computeSmaSignalSnapshot, getDefaultSmaSignalConfig } from "@/lib/sma-s
 import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { getSmaSignalsOutput } from "@/lib/mcp/output-schemas";
 import { smaBufferSchema, smaPeriodSchema, smaVolGateSchema } from "@/lib/mcp/schemas";
+import { z } from "zod/v4";
 
 const TWO_YEARS_MS = 2 * 365.25 * 24 * 60 * 60 * 1000;
 
@@ -24,7 +25,7 @@ export function registerGetSmaSignals(server: McpServer): void {
         "Compute the current SMA timing signal (buy/sell/hold) for the S&P 500 and Nasdaq-100 " +
         "using the given SMA periods and buffers. When omitted, defaults to the latest SMA " +
         "calibration snapshot (falling back to hardcoded defaults if unavailable).",
-      inputSchema: {
+      inputSchema: z.object({
         smaSpPeriod: smaPeriodSchema.optional(),
         smaSpUpperBuffer: smaBufferSchema.optional(),
         smaSpLowerBuffer: smaBufferSchema.optional(),
@@ -32,7 +33,7 @@ export function registerGetSmaSignals(server: McpServer): void {
         smaNqUpperBuffer: smaBufferSchema.optional(),
         smaNqLowerBuffer: smaBufferSchema.optional(),
         smaVolGate: smaVolGateSchema.optional(),
-      },
+      }),
       outputSchema: getSmaSignalsOutput,
     },
     async (args) => {

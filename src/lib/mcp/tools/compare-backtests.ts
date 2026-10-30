@@ -2,7 +2,7 @@
 // index) through ONE backtest over a shared date range and report per-preset
 // metrics. Covers real-vs-simulated comparison and multi-ETF backtests.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { runCompareBacktests } from "@/lib/mcp/backtest-compare-core";
@@ -30,7 +30,7 @@ export function registerCompareBacktests(server: McpServer): void {
         "Backtest several presets over ONE shared date range and compare their metrics. Presets may be " +
         "simulated (UPRO) or real ETFs (UPRO-real) and may span both indexes — ideal for real-vs-simulated " +
         "checks or multi-ETF comparisons. Set `smaEnabled` to gate all with SMA timing. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         presets: z.array(presetSchema).min(1).max(MAX_COMPARE_PRESETS),
         smaEnabled: z.boolean().optional(),
         smaPeriod: smaPeriodSchema.optional(),
@@ -41,7 +41,7 @@ export function registerCompareBacktests(server: McpServer): void {
         smaVolGate: smaVolGateSchema.optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
-      },
+      }),
       outputSchema: compareBacktestsOutput,
     },
     async (args) => {

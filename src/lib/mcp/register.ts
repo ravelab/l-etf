@@ -1,7 +1,7 @@
 // Central wiring: register every l-etf MCP tool, resource, and prompt on a
 // server instance. Imported by the route handler and by tests.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { registerListPresets } from "@/lib/mcp/tools/list-presets";
 import { registerGetMarketData } from "@/lib/mcp/tools/get-market-data";
 import { registerGetSmaSignals } from "@/lib/mcp/tools/get-sma-signals";

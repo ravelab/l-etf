@@ -6,11 +6,8 @@
 // silence. Per the MCP spec this is opt-in: without a `progressToken` on the
 // request we build no reporter at all and do no work.
 
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
+import type { ServerContext } from "@modelcontextprotocol/server";
 import type { SweepProgress } from "@/lib/mcp/sweep-core";
-
-type McpRequestExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
 /** Minimum advance, as a fraction of the whole job, worth a notification. */
 const MIN_FRACTION_DELTA = 0.02;
@@ -27,10 +24,10 @@ const MIN_INTERVAL_MS = 500;
  * client can render them as a percentage directly.
  */
 export function makeProgressReporter(
-  extra: McpRequestExtra,
+  ctx: ServerContext,
   options?: { label?: string },
 ): SweepProgress | undefined {
-  const progressToken = extra._meta?.progressToken;
+  const progressToken = ctx.mcpReq._meta?.progressToken;
   if (progressToken == null) return undefined;
 
   let lastFraction = -1;
@@ -50,8 +47,8 @@ export function makeProgressReporter(
     lastFraction = clamped;
     lastSentAt = now;
 
-    void extra
-      .sendNotification({
+    void ctx.mcpReq
+      .notify({
         method: "notifications/progress",
         params: {
           progressToken,
@@ -73,10 +70,10 @@ export function makeProgressReporter(
  * the client didn't ask for progress.
  */
 export function makeStepReporter(
-  extra: McpRequestExtra,
+  ctx: ServerContext,
   totalSteps: number,
 ): ((completedSteps: number, label?: string) => void) | undefined {
-  const report = makeProgressReporter(extra);
+  const report = makeProgressReporter(ctx);
   if (!report || totalSteps <= 0) return undefined;
   return (completedSteps: number, label?: string) => report(completedSteps / totalSteps, label);
 }

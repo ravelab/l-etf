@@ -304,10 +304,16 @@ properties.
 ## MCP server (AI-agent API)
 
 The remote MCP endpoint lives at `src/app/[transport]/route.ts` (served at
-`/mcp` over stateless Streamable HTTP; SSE disabled, so no Redis needed) with
-all tools/resources/prompts under `src/lib/mcp/`. Wiring is centralized in
-`register.ts`; the in-memory-transport test (`unit-tests/mcp-server.test.ts`)
-is the fastest way to exercise the whole surface.
+`/mcp`) with all tools/resources/prompts under `src/lib/mcp/`. It runs on
+`mcp-handler` 2 and MCP SDK v2 (`@modelcontextprotocol/server`; tests use
+`@modelcontextprotocol/client`), which serves the 2026-07-28 protocol natively
+and 2025-era Streamable HTTP clients statelessly, with no session store and
+`maxSubscriptions: 0`. mcp-handler 2 answers every request it is handed, so the
+route itself 404s any `[transport]` segment other than `mcp`. Input, args and
+output schemas are full `z.object(...)` schemas (v2 dropped raw shapes), and
+handlers read the request through `ctx.mcpReq` (`signal`, `_meta`, `notify`).
+Wiring is centralized in `register.ts`; the in-memory-transport test
+(`unit-tests/mcp-server.test.ts`) is the fastest way to exercise the whole surface.
 
 Sharp edges:
 - MCP tools run inside a serverless function, so they load market data via the

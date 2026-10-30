@@ -2,7 +2,7 @@
 // every buy/sell crossover, the current regime and how long it has held, and
 // whipsaw statistics. `get_sma_signals` answers only "what is the signal today".
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
@@ -63,7 +63,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
         "and how long it has held, time in market, and whipsaw stats (flips per year, median days " +
         "between flips). Answers 'when did it last flip' and 'how much does this band whipsaw' without " +
         "running a backtest. Defaults to the calibrated band and the last 10 years. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         index: indexSchema,
         smaPeriod: smaPeriodSchema.optional(),
         smaUpperBuffer: smaBufferSchema.optional(),
@@ -73,7 +73,7 @@ export function registerGetSmaSignalHistory(server: McpServer): void {
         endDate: isoDate.optional(),
         includeSeries: z.boolean().optional(),
         maxSeriesRows: z.number().int().min(1).max(MAX_SIGNAL_SERIES_ROWS).optional(),
-      },
+      }),
     },
     async (args) => {
       try {

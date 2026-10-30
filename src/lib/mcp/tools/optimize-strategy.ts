@@ -10,7 +10,7 @@
 // decoration: an unguarded optimizer over one price history reliably produces
 // parameters that look excellent and mean nothing.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { EtfConfig } from "@/lib/simulation/types";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
@@ -46,7 +46,7 @@ export function registerOptimizeStrategy(server: McpServer): void {
         "immediate grid neighbours score — a winner whose neighbours fall away is a fitting artifact, " +
         "not a finding. Results are in-sample by construction; present them as hypotheses. " +
         "NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         preset: presetSchema,
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
@@ -65,10 +65,10 @@ export function registerOptimizeStrategy(server: McpServer): void {
         objective: z.enum(["score", "avgRealCagr", "worstReturn", "sharpeLike"]).optional(),
         splitSample: z.boolean().optional(),
         topN: z.number().int().min(1).max(50).optional(),
-      },
+      }),
       outputSchema: optimizeStrategyOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const windowLength = args.windowLength ?? getDefaultWindowLength();
         const splitSample = args.splitSample ?? true;
@@ -110,8 +110,8 @@ export function registerOptimizeStrategy(server: McpServer): void {
           endDate,
           splitSample,
           topN: args.topN ?? 5,
-          onProgress: makeProgressReporter(extra),
-          signal: extra.signal,
+          onProgress: makeProgressReporter(ctx),
+          signal: ctx.mcpReq.signal,
         });
 
         const b = result.best;

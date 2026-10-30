@@ -49,14 +49,14 @@ const backtestSchema = z.object({
     .optional(),
 });
 
-export const runBacktestOutput = {
+export const runBacktestOutput = z.object({
   backtest: backtestSchema,
   /** Opens this exact run in the site's backtesting tool. Preset runs only. */
   permalink: z.string().optional(),
   disclaimer,
-};
+});
 
-export const runFuturesBacktestOutput = {
+export const runFuturesBacktestOutput = z.object({
   futures: z.object({
     name: z.string(),
     index: z.string(),
@@ -80,7 +80,7 @@ export const runFuturesBacktestOutput = {
   /** Opens the site's futures ladder with this configuration. Rung leverages only. */
   permalink: z.string().optional(),
   disclaimer,
-};
+});
 
 const sweepRowSchema = z.object({
   id: z.string(),
@@ -136,14 +136,14 @@ const distributionSchema = z.object({
     .optional(),
 });
 
-export const runRollingWindowOutput = {
+export const runRollingWindowOutput = z.object({
   windowLengthYears: z.number(),
   startDate: z.string(),
   endDate: z.string(),
   analysis: sweepRowSchema,
   distribution: distributionSchema.optional(),
   disclaimer,
-};
+});
 
 const bufferGridRowSchema = sweepRowSchema.extend({
   upperBuffer: metric,
@@ -158,7 +158,7 @@ const bufferGridRowSchema = sweepRowSchema.extend({
  * optional, because the SDK normalizes an output schema to a single object —
  * a top-level union would not survive that. `mode` says which branch you got.
  */
-export const compareStrategiesOutput = {
+export const compareStrategiesOutput = z.object({
   mode: z.string(),
   windowLengthYears: z.number(),
   startDate: z.string(),
@@ -176,7 +176,7 @@ export const compareStrategiesOutput = {
   best: bufferGridRowSchema.optional(),
   baseline: sweepRowSchema.optional(),
   disclaimer,
-};
+});
 
 const scoredCellSchema = sweepRowSchema.extend({
   smaPeriod: z.number(),
@@ -186,7 +186,7 @@ const scoredCellSchema = sweepRowSchema.extend({
   rank: z.number(),
 });
 
-export const optimizeStrategyOutput = {
+export const optimizeStrategyOutput = z.object({
   objective: z.string(),
   windowLengthYears: z.number(),
   gridCells: z.number(),
@@ -220,7 +220,7 @@ export const optimizeStrategyOutput = {
   /** Says plainly that these parameters were chosen on the data they are scored on. */
   caveat: z.string(),
   disclaimer,
-};
+});
 
 const episodeSchema = z.object({
   name: z.string(),
@@ -236,7 +236,7 @@ const episodeSchema = z.object({
   startedInvested: z.boolean().nullable(),
 });
 
-export const stressTestOutput = {
+export const stressTestOutput = z.object({
   strategy: z.string(),
   index: z.string(),
   windowsTested: z.number(),
@@ -244,7 +244,7 @@ export const stressTestOutput = {
   worstEpisode: episodeSchema,
   skipped: z.array(z.object({ name: z.string(), reason: z.string() })),
   disclaimer,
-};
+});
 
 const smaBandSchema = z.object({
   period: z.number(),
@@ -269,7 +269,7 @@ const ladderRungSchema = z.object({
   futuresTransactions: z.number(),
 });
 
-export const compareFuturesLadderOutput = {
+export const compareFuturesLadderOutput = z.object({
   startDate: z.string(),
   endDate: z.string(),
   initialEquity: metric,
@@ -281,9 +281,9 @@ export const compareFuturesLadderOutput = {
   rungs: z.array(ladderRungSchema),
   best: ladderRungSchema,
   disclaimer,
-};
+});
 
-export const forwardSmaReturnsOutput = {
+export const forwardSmaReturnsOutput = z.object({
   strategy: z.string(),
   index: z.string(),
   startDate: z.string(),
@@ -305,9 +305,9 @@ export const forwardSmaReturnsOutput = {
   ),
   note: z.string(),
   disclaimer,
-};
+});
 
-export const listPresetsOutput = {
+export const listPresetsOutput = z.object({
   presets: z.array(
     z.object({
       key: z.string(),
@@ -329,14 +329,14 @@ export const listPresetsOutput = {
       nasdaq100: z.object({ period: z.number(), upperBuffer: metric, lowerBuffer: metric }),
     }),
   }),
-};
+});
 
 /**
  * `get_market_data` answers on three row shapes — price bars carry OHLC, rates
  * and CPI carry a single value — so `rows` is a union rather than three
  * separate tools. `dataType` says which one came back.
  */
-export const getMarketDataOutput = {
+export const getMarketDataOutput = z.object({
   dataType: z.string(),
   index: z.string().optional(),
   truncated: z.boolean(),
@@ -358,16 +358,16 @@ export const getMarketDataOutput = {
       z.object({ date: z.string(), value: metric }),
     ]),
   ),
-};
+});
 
-export const compareBacktestsOutput = {
+export const compareBacktestsOutput = z.object({
   backtests: z.array(backtestSchema),
   disclaimer,
-};
+});
 
 const percentileTripleSchema = z.object({ p10: metric, p50: metric, p90: metric });
 
-export const compareLetfsOutput = {
+export const compareLetfsOutput = z.object({
   windowLengthYears: z.number(),
   smaEnabled: z.boolean(),
   results: z.array(
@@ -383,7 +383,7 @@ export const compareLetfsOutput = {
     }),
   ),
   disclaimer,
-};
+});
 
 const smaSignalSchema = z.object({
   signal: z.string(),
@@ -398,16 +398,16 @@ const smaSignalSchema = z.object({
   volGateRiskOff: z.boolean().optional(),
 });
 
-export const getSmaSignalsOutput = {
+export const getSmaSignalsOutput = z.object({
   config: z.object({}).loose(),
   signals: z.object({
     sp500: smaSignalSchema,
     nasdaq100: smaSignalSchema,
     timestamp: z.string(),
   }),
-};
+});
 
-export const runHoldingPeriodOutput = {
+export const runHoldingPeriodOutput = z.object({
   strategy: z.string(),
   startDate: z.string(),
   endDate: z.string(),
@@ -418,4 +418,4 @@ export const runHoldingPeriodOutput = {
     }),
   ),
   disclaimer,
-};
+});

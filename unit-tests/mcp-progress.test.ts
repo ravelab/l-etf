@@ -5,10 +5,8 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { Progress } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { Client, InMemoryTransport, type Progress } from "@modelcontextprotocol/client";
 import { registerAll } from "@/lib/mcp/register";
 import { makeProgressReporter } from "@/lib/mcp/progress";
 
@@ -24,25 +22,27 @@ async function connectClient(): Promise<Client> {
   return client;
 }
 
-function fakeExtra(progressToken?: string | number) {
+function fakeContext(progressToken?: string | number) {
   const sent: Array<Record<string, unknown>> = [];
-  const extra = {
-    _meta: progressToken == null ? undefined : { progressToken },
-    sendNotification: async (notification: { params: Record<string, unknown> }) => {
-      sent.push(notification.params);
+  const ctx = {
+    mcpReq: {
+      _meta: progressToken == null ? undefined : { progressToken },
+      notify: async (notification: { params: Record<string, unknown> }) => {
+        sent.push(notification.params);
+      },
     },
   };
-  return { extra, sent };
+  return { ctx, sent };
 }
 
 test("no progressToken means no reporter and no work", () => {
-  const { extra } = fakeExtra();
-  assert.equal(makeProgressReporter(extra as never), undefined);
+  const { ctx } = fakeContext();
+  assert.equal(makeProgressReporter(ctx as never), undefined);
 });
 
 test("reporter throttles, stays monotonic, and never exceeds total", async () => {
-  const { extra, sent } = fakeExtra("tok");
-  const report = makeProgressReporter(extra as never)!;
+  const { ctx, sent } = fakeContext("tok");
+  const report = makeProgressReporter(ctx as never)!;
 
   report(0.5, "half");
   report(0.5001, "barely moved");
@@ -61,13 +61,15 @@ test("reporter throttles, stays monotonic, and never exceeds total", async () =>
 });
 
 test("a failing notification never breaks the caller", () => {
-  const extra = {
-    _meta: { progressToken: 1 },
-    sendNotification: async () => {
-      throw new Error("transport closed");
+  const ctx = {
+    mcpReq: {
+      _meta: { progressToken: 1 },
+      notify: async () => {
+        throw new Error("transport closed");
+      },
     },
   };
-  const report = makeProgressReporter(extra as never)!;
+  const report = makeProgressReporter(ctx as never)!;
   assert.doesNotThrow(() => report(0.5, "half"));
 });
 
@@ -79,8 +81,7 @@ test("run_rolling_window_analysis streams progress when a token is supplied", as
       name: "run_rolling_window_analysis",
       arguments: { preset: "UPRO", startDate: "1990-01-02", endDate: "2020-01-02", windowLength: 10 },
     },
-    undefined,
-    { onprogress: (progress) => seen.push(progress) },
+    { onprogress: (progress: Progress) => seen.push(progress) },
   );
 
   assert.notEqual(res.isError, true, JSON.stringify(res.content));
@@ -104,8 +105,7 @@ test("compare_strategies streams progress for both the flat and grid modes", asy
         name: "compare_strategies",
         arguments: { ...args, startDate: "1990-01-02", endDate: "2020-01-02", windowLength: 10 },
       },
-      undefined,
-      { onprogress: (progress) => seen.push(progress) },
+      { onprogress: (progress: Progress) => seen.push(progress) },
     );
     assert.notEqual(res.isError, true, JSON.stringify(res.content));
     assert.ok(seen.length > 0, `expected progress for mode ${args.mode}`);
@@ -126,8 +126,7 @@ test("run_holding_period_analysis reports one step per holding period", async ()
         windowLengths: [5, 10, 15],
       },
     },
-    undefined,
-    { onprogress: (progress) => seen.push(progress) },
+    { onprogress: (progress: Progress) => seen.push(progress) },
   );
   assert.notEqual(res.isError, true, JSON.stringify(res.content));
   assert.ok(seen.length > 0);

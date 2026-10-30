@@ -2,7 +2,7 @@
 // return prices, LETF borrowing rates, or CPI/inflation, over a bounded date
 // range. Returns are capped to keep payloads manageable.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getBorrowRate, getInflation, getPrices } from "@/lib/db/queries";
@@ -28,12 +28,12 @@ export function registerGetMarketData(server: McpServer): void {
         "Fetch raw market data over a date range: index total-return prices (`prices`, requires " +
         "`index`), LETF borrowing rates (`borrowRates`), or CPI inflation (`inflation`). " +
         `Up to ${MAX_ROWS} rows are returned (most recent kept); narrow the range for finer detail.`,
-      inputSchema: {
+      inputSchema: z.object({
         dataType: z.enum(["prices", "borrowRates", "inflation"]),
         index: indexSchema.optional(),
         startDate: isoDate,
         endDate: isoDate,
-      },
+      }),
       outputSchema: getMarketDataOutput,
     },
     async (args) => {

@@ -3,7 +3,7 @@
 // Routes through `simulateWithWarmUp` → `simulateBacktest`, so the entry/exit
 // spread contract in AGENTS.md is preserved (no hand-rolled renormalization).
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
@@ -83,7 +83,7 @@ export function registerRunBacktest(server: McpServer): void {
         "Sharpe, final multiple, trade log, and a 1x benchmark. Specify a `preset` (e.g. UPRO, TQQQ) " +
         "or a custom `leverage`+`index`. Enable `smaEnabled` for SMA timing with risk-off switching. " +
         "For educational research only — NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         preset: presetSchema.optional(),
         leverage: z.number().min(1).max(3).optional(),
         index: indexSchema.optional(),
@@ -97,7 +97,7 @@ export function registerRunBacktest(server: McpServer): void {
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
         smaVolGate: smaVolGateSchema.optional(),
-      },
+      }),
       outputSchema: runBacktestOutput,
     },
     async (args) => {

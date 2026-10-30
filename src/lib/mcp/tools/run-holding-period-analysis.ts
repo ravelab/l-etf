@@ -2,7 +2,7 @@
 // with the holding period. Runs the rolling-window sweep at several window
 // lengths and returns the stats per length (mirrors /statistical-analysis).
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { resolveBacktest, type BacktestInput } from "@/lib/mcp/backtest-config";
@@ -39,7 +39,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
         "Set `includePercentiles` to attach each period's outcome distribution (p5..p95 plus a CAGR " +
         "histogram); the raw per-window rows are available from run_rolling_window_analysis, one " +
         "holding period at a time. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         preset: presetSchema.optional(),
         leverage: z.number().min(1).max(3).optional(),
         index: indexSchema.optional(),
@@ -58,10 +58,10 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
         smaExecutionMode: smaExecutionModeSchema.optional(),
         smaVolGate: smaVolGateSchema.optional(),
         includePercentiles: z.boolean().optional(),
-      },
+      }),
       outputSchema: runHoldingPeriodOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const lengths = Array.from(new Set(args.windowLengths ?? DEFAULT_WINDOW_LENGTHS)).sort(
           (a, b) => a - b,
@@ -70,7 +70,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
 
         // Each holding period is its own sweep, so progress advances a step at
         // a time rather than tracking any single sweep's internal fraction.
-        const reportStep = makeStepReporter(extra, lengths.length);
+        const reportStep = makeStepReporter(ctx, lengths.length);
         let completed = 0;
 
         const byLength = await Promise.all(
@@ -81,7 +81,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
               windowLength,
               startDate,
               endDate,
-              signal: extra.signal,
+              signal: ctx.mcpReq.signal,
             });
             if (rows.length === 0) return null;
             const summary = {
@@ -98,7 +98,7 @@ export function registerRunHoldingPeriodAnalysis(server: McpServer): void {
               windowLength,
               startDate,
               endDate,
-              signal: extra.signal,
+              signal: ctx.mcpReq.signal,
             });
             reportStep?.(++completed, `${completed}/${lengths.length} holding periods`);
             return { ...summary, distribution: summarizeWindowPoints(points, {}) };

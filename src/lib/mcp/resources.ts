@@ -1,7 +1,7 @@
 // Read-only MCP resources that ground an agent's answers in the app's own
 // methodology and data freshness, rather than invented finance lore.
 
-import { ResourceTemplate, type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ResourceTemplate, type McpServer } from "@modelcontextprotocol/server";
 import { getPriceDateBounds } from "@/lib/db/queries";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { DISCLAIMER } from "@/lib/mcp/disclaimer";

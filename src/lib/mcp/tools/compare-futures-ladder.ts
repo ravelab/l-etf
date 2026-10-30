@@ -5,7 +5,7 @@
 // "which rung should I be on", which is the question the page exists for and
 // the only way to reach the dual-sleeve fund over MCP at all.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { runFuturesLadder } from "@/lib/mcp/futures-ladder-core";
@@ -36,7 +36,7 @@ export function registerCompareFuturesLadder(server: McpServer): void {
         "`spxRiskOffAsset` while risk-off and every NDX rung holds `ndxRiskOffAsset`; `riskOffAsset` " +
         "applies only to the emulation rungs. " +
         "NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
         initialEquity: z.number().min(1000).max(1_000_000_000).optional(),
@@ -59,12 +59,12 @@ export function registerCompareFuturesLadder(server: McpServer): void {
         smaPeriodNq: smaPeriodSchema.optional(),
         smaUpperBufferNq: smaBufferSchema.optional(),
         smaLowerBufferNq: smaBufferSchema.optional(),
-      },
+      }),
       outputSchema: compareFuturesLadderOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
-        const reportStep = makeStepReporter(extra, MAX_LADDER_RUNGS);
+        const reportStep = makeStepReporter(ctx, MAX_LADDER_RUNGS);
         const result = await runFuturesLadder({
           showEmulations: args.emulationMode ?? false,
           startDate: args.startDate,
@@ -90,7 +90,7 @@ export function registerCompareFuturesLadder(server: McpServer): void {
           },
           onProgress: (completed, total) =>
             reportStep?.(completed, `${completed}/${total} futures rungs`),
-          signal: extra.signal,
+          signal: ctx.mcpReq.signal,
         });
 
         const best = result.best;

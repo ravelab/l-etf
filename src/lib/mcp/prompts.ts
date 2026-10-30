@@ -1,8 +1,7 @@
 // A canned workflow prompt that chains the l-etf tools into a structured
 // strategy analysis.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
+import { completable, type McpServer } from "@modelcontextprotocol/server";
 import { completeSimulatedPresetName } from "@/lib/mcp/resources";
 import { z } from "zod/v4";
 
@@ -13,14 +12,14 @@ export function registerPrompts(server: McpServer): void {
       title: "Analyze a leveraged-ETF strategy",
       description:
         "Guide the agent to analyze a leveraged-ETF strategy end-to-end using the l-etf tools.",
-      argsSchema: {
+      argsSchema: z.object({
         preset: completable(
           z.string().describe("ETF preset to analyze, e.g. UPRO or TQQQ"),
           completeSimulatedPresetName,
         ),
         startDate: z.string().optional().describe("Optional ISO start date (YYYY-MM-DD)"),
         endDate: z.string().optional().describe("Optional ISO end date (YYYY-MM-DD)"),
-      },
+      }),
     },
     (args) => {
       const range =

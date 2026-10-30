@@ -2,7 +2,7 @@
 // TQQQ, SSO, QLD) across historical rolling windows, returning percentile
 // outcome distributions. Mirrors /compare-letfs.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getDefaultWindowLength } from "@/lib/simulation/defaults";
@@ -35,7 +35,7 @@ export function registerCompareLetfs(server: McpServer): void {
         "window and return percentile outcome distributions (p10/p50/p90 CAGR and final multiple, win " +
         "rate vs 1x, median drawdown). Set `smaEnabled` to gate each with SMA timing + risk-off. " +
         "Simulated series only. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         presets: z.array(presetSchema).min(1).max(MAX_COMPARE_PRESETS).optional(),
         smaEnabled: z.boolean().optional(),
         windowLength: z.number().min(MIN_WINDOW_YEARS).max(MAX_WINDOW_YEARS).optional(),
@@ -47,12 +47,12 @@ export function registerCompareLetfs(server: McpServer): void {
         smaVolGate: smaVolGateSchema.optional(),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
-      },
+      }),
       outputSchema: compareLetfsOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
-        const onProgress = makeProgressReporter(extra);
+        const onProgress = makeProgressReporter(ctx);
         const presets = args.presets ?? DEFAULT_PRESETS;
         if (presets.length > MAX_COMPARE_PRESETS) {
           throw new McpToolError(`Too many presets (${presets.length}); limit is ${MAX_COMPARE_PRESETS}.`);

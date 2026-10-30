@@ -2,7 +2,7 @@
 // (best-performing SMA period/buffer per index from the last offline
 // calibration run). This is a cached lookup, not a live sweep.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
 import { McpToolError, toolError, toolSuccess } from "@/lib/mcp/tool-result";

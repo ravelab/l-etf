@@ -5,7 +5,7 @@
 // wins") are answerable instantly and the strict per-IP budget on the heavy
 // sweep tools stays free for genuinely novel configurations.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
@@ -29,9 +29,9 @@ export function registerGetPrecomputedAnalysis(server: McpServer): void {
         "available and how fresh each snapshot is. Snapshots use the site's own inputs and are " +
         "generated with history wrap enabled, unlike the live tools; re-run the matching tool when you " +
         "need a like-for-like or custom-input number. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         analysis: z.enum(SNAPSHOT_ANALYSES).optional(),
-      },
+      }),
     },
     async (args) => {
       try {

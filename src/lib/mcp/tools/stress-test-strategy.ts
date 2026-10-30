@@ -6,7 +6,7 @@
 // point of a timing rule is what it does in the specific episodes that ruin
 // un-timed leverage. Cheap, too — each episode is a short backtest.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { runStressTest } from "@/lib/mcp/stress-core";
@@ -37,7 +37,7 @@ export function registerStressTestStrategy(server: McpServer): void {
         "the index's data are reported as skipped rather than partially run. Each episode is warmed up " +
         "beforehand, so `startedInvested` says whether the rule was already out when it began. " +
         "NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         preset: presetSchema.optional(),
         leverage: z.number().min(1).max(3).optional(),
         index: indexSchema.optional(),
@@ -48,12 +48,12 @@ export function registerStressTestStrategy(server: McpServer): void {
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
         smaVolGate: smaVolGateSchema.optional(),
-      },
+      }),
       outputSchema: stressTestOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
-        const result = await runStressTest(args as BacktestInput, { signal: extra.signal });
+        const result = await runStressTest(args as BacktestInput, { signal: ctx.mcpReq.signal });
         const worst = result.worstEpisode;
         const worstBuyHold =
           worst.buyAndHoldReturnPct != null

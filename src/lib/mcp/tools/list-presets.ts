@@ -2,7 +2,7 @@
 // presets, risk-off assets, and simulation defaults before calling the other
 // tools. Read-only; no market data touched.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";

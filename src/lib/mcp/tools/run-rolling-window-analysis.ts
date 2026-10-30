@@ -2,7 +2,7 @@
 // rolling window of a chosen length, returning the distribution of outcomes
 // (avg/best/worst return, drawdowns, win rate) rather than a single path.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { getDefaultWindowLength } from "@/lib/simulation/defaults";
@@ -38,7 +38,7 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
         "drawdown, and win rate. Use `smaEnabled` for SMA timing. Set `includePercentiles` for the " +
         "outcome distribution (p5..p95 plus a CAGR histogram) or `includeWindows` to also get the " +
         "per-window rows, so you can run your own statistics. NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         preset: presetSchema.optional(),
         leverage: z.number().min(1).max(3).optional(),
         index: indexSchema.optional(),
@@ -55,14 +55,14 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
         includePercentiles: z.boolean().optional(),
         includeWindows: z.boolean().optional(),
         maxWindows: z.number().int().min(1).max(MAX_RETURNED_WINDOWS).optional(),
-      },
+      }),
       outputSchema: runRollingWindowOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const windowLength = args.windowLength ?? getDefaultWindowLength();
         const { config, index, startDate, endDate } = resolveBacktest(args as BacktestInput);
-        const onProgress = makeProgressReporter(extra);
+        const onProgress = makeProgressReporter(ctx);
         const { rows } = await runRollingSweep({
           index,
           configs: [config],
@@ -70,7 +70,7 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
           startDate,
           endDate,
           onProgress,
-          signal: extra.signal,
+          signal: ctx.mcpReq.signal,
         });
         if (rows.length === 0) {
           throw new McpToolError("No valid rolling windows for this strategy and range.");
@@ -88,7 +88,7 @@ export function registerRunRollingWindowAnalysis(server: McpServer): void {
                 windowLength,
                 startDate,
                 endDate,
-                signal: extra.signal,
+                signal: ctx.mcpReq.signal,
               }),
               { includeWindows: args.includeWindows === true, maxWindows: args.maxWindows },
             )

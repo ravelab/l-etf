@@ -7,7 +7,7 @@
 // buy or to run?"). It matches the raincloud chart on the compare page, sharing
 // its bin geometry rather than restating it.
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
 import { z } from "zod/v4";
 import { runForwardSmaReturns } from "@/lib/mcp/forward-returns-core";
@@ -38,7 +38,7 @@ export function registerGetForwardSmaReturns(server: McpServer): void {
         "and range. Answers what followed a given distance from the line, rather than what a window " +
         "averaged. Observations overlap, so read the spread within a bucket, not just its median. " +
         "NOT investment advice.",
-      inputSchema: {
+      inputSchema: z.object({
         preset: presetSchema.optional(),
         leverage: z.number().min(1).max(3).optional(),
         index: indexSchema.optional(),
@@ -51,14 +51,14 @@ export function registerGetForwardSmaReturns(server: McpServer): void {
         smaExecutionMode: smaExecutionModeSchema.optional(),
         smaVolGate: smaVolGateSchema.optional(),
         forwardTradingDays: z.number().int().min(5).max(2520).optional(),
-      },
+      }),
       outputSchema: forwardSmaReturnsOutput,
     },
-    async (args, extra) => {
+    async (args, ctx) => {
       try {
         const result = await runForwardSmaReturns(args as BacktestInput, {
           forwardTradingDays: args.forwardTradingDays,
-          signal: extra.signal,
+          signal: ctx.mcpReq.signal,
         });
         const deepest = result.bins[0];
         const richest = result.bins[result.bins.length - 1];
