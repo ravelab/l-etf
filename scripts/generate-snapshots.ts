@@ -486,7 +486,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   // Load raw risk-off price points + build aligned per-index arrays, mirroring
   // the futures page's runtime risk-off pipeline.
   const dualRiskOffAssets = DEFAULT_FUTURES_DUAL_RISK_OFF_ASSETS;
-  const riskOffTickers = [...new Set([shared.riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100]
+  const riskOffTickers = [...new Set([shared.riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100, "SGOV", "VGSH"]
     .flatMap(getRiskOffFetchTickers))];
   const rawRiskOffByTicker: Record<string, PricePoint[]> = {};
   for (const ticker of riskOffTickers) {
@@ -567,6 +567,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     startDate,
     endDate,
     targetLeverage: leverage,
+    treasuryCollateral: true,
     maxLeverage,
     smaPeriod: sma.period,
     smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
@@ -626,6 +627,8 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   //    cannot silently change what is kept). The other entries still need to be
   //    present in futuresDetails because the page derives scalar metrics
   //    (avgActualLeverageById, maxLeverageDeltaById) from them.
+  // Treasury maintenance is included in equity/cost metrics but omitted from
+  // canned ledgers (the UI discloses this); a fresh run includes every trade.
   // 3. Round what is left: the raw floats carry 17 significant digits and every
   //    cell that renders them is formatted to at most 2 decimals or 2 significant
   //    figures, so the extra digits are ~20% of the file and change no pixel.
@@ -633,7 +636,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   const downsampledFuturesRuns: FuturesStrategyResult[] = futuresRuns.map((run) => ({
     ...run,
     etfResult: downsampleEtfResult(run.etfResult, FUTURES_SNAPSHOT_TARGET_POINTS),
-    transactions: showsFuturesTransactions(run, showEmulations) ? roundTransactions(run.transactions) : [],
+    transactions: showsFuturesTransactions(run, showEmulations) ? roundTransactions(run.transactions.filter(tx => !tx.symbol.endsWith("(COLLATERAL)"))) : [],
   }));
 
   const runSummaryInputs = buildRunSummary({

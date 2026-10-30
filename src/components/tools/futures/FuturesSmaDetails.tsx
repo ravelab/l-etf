@@ -433,6 +433,7 @@ function FuturesSmaDetailsImpl({
             {formatQty(tradeDays)} trade days ({riskOffPct.toFixed(1)}% risk-off) · {formatQty(contractsTraded)}{" "}
             contracts traded
           </div>
+          <div>Treasury returns and costs are included. Default snapshots omit individual collateral trades; rerun for the full ledger.</div>
         </div>
       </div>
 

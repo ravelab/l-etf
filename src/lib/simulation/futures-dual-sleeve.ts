@@ -32,7 +32,7 @@ import type {
 import type { EtfResult } from "@/lib/simulation/types";
 
 export type DualSleeveFuturesParams = {
-  /** Row name in the results table, e.g. "Max 4.5x SPX / Max 3x NDX SMA". */
+  /** Row name in the results table, e.g. "Max 4.5x SPX / Max 3.5x NDX SMA". */
   displayName: string;
   /** Whole-fund equity at inception; each sleeve opens with half. */
   initialEquity: number;
@@ -58,6 +58,12 @@ function sum(a: number[] | null, b: number[] | null): number[] | null {
  * Moves the richer sleeve's surplus over half the fund to the poorer one as a
  * proportional slice of its cash, basket shares and accrued interest.
  */
+function combineTreasuries(a: SleeveHoldings, b: SleeveHoldings, aWeight: number, bWeight: number) {
+  if (!a.treasuryHoldings && !b.treasuryHoldings) return undefined;
+  return { SGOV: (a.treasuryHoldings?.SGOV ?? 0) * aWeight + (b.treasuryHoldings?.SGOV ?? 0) * bWeight,
+    VGSH: (a.treasuryHoldings?.VGSH ?? 0) * aWeight + (b.treasuryHoldings?.VGSH ?? 0) * bWeight };
+}
+
 function moveSurplusInKind(sleeves: readonly FuturesSleeve[], cursor: readonly number[]): void {
   const equity = sleeves.map((sleeve, k) => sleeve.equityAt(cursor[k]));
   const half = (equity[0] + equity[1]) / 2;
@@ -69,12 +75,14 @@ function moveSurplusInKind(sleeves: readonly FuturesSleeve[], cursor: readonly n
   const to = sleeves[recipient].readHoldings();
   sleeves[donor].writeHoldings({
     cash: from.cash * (1 - moved),
+    treasuryHoldings: combineTreasuries(from, to, 1 - moved, 0),
     riskOffShares: scaled(from.riskOffShares, 1 - moved),
     riskOffCash: scaled(from.riskOffCash, 1 - moved),
     pendingCashInterest: from.pendingCashInterest * (1 - moved),
   }, cursor[donor], half);
   sleeves[recipient].writeHoldings({
     cash: to.cash + from.cash * moved,
+    treasuryHoldings: combineTreasuries(from, to, moved, 1),
     riskOffShares: sum(to.riskOffShares, scaled(from.riskOffShares, moved)),
     riskOffCash: sum(to.riskOffCash, scaled(from.riskOffCash, moved)),
     pendingCashInterest: to.pendingCashInterest + from.pendingCashInterest * moved,
@@ -95,6 +103,7 @@ function resetToHalves(sleeves: readonly FuturesSleeve[], cursor: readonly numbe
   const [a, b] = sleeves.map((sleeve) => sleeve.readHoldings());
   const half: SleeveHoldings = {
     cash: (a.cash + b.cash) / 2,
+    treasuryHoldings: combineTreasuries(a, b, 0.5, 0.5),
     riskOffShares: halfOfSum(a.riskOffShares, b.riskOffShares),
     riskOffCash: halfOfSum(a.riskOffCash, b.riskOffCash),
     pendingCashInterest: (a.pendingCashInterest + b.pendingCashInterest) / 2,

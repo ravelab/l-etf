@@ -31,7 +31,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 function volGateParamsText(index: IndexKey): string {
   const gate = SMA_VOL_GATE[index];
-  return `${gate.windowDays}, ${pct(gate.exitAbove)}, ${pct(gate.reenterBelow)}`;
+  return `${gate.windowDays}d ${pct(gate.exitAbove)} ${pct(gate.reenterBelow)}`;
 }
 
 const INDEX_SHORT_NAME: Record<IndexKey, string> = { sp500: "SPX", nasdaq100: "NDX" };
@@ -46,7 +46,7 @@ export function volGateParamsTextFor(indices: IndexKey[]): string {
 /** Both indices' parameters, for surfaces where one switch gates both. */
 export const SMA_VOL_GATE_PARAMS_TEXT = volGateParamsTextFor(Object.keys(SMA_VOL_GATE) as IndexKey[]);
 
-export const SMA_VOL_GATE_LABEL = `Volatility risk off (${SMA_VOL_GATE_PARAMS_TEXT})`;
+export const SMA_VOL_GATE_LABEL = `risk off ${SMA_VOL_GATE_PARAMS_TEXT}`;
 
 const realizedVolCache = new WeakMap<number[], Map<number, number[]>>();
 

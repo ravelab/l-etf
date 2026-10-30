@@ -531,7 +531,7 @@ export function FuturesPageContent({
       const warmUpStartDate = getMarketDataWarmUpStartDate(startDate, warmUpTradingDays);
       // The two-sleeve fund's sleeves may hold their own baskets, so every price
       // map carries the union of all three assets' tickers.
-      const riskOffTickers = [...new Set([riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100]
+      const riskOffTickers = [...new Set([riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100, "SGOV", "VGSH"]
         .flatMap(getRiskOffFetchTickers))];
       const rawRiskOffSeriesByAsset = await loadAllRiskOffPricePoints(riskOffTickers, signal, undefined, {
         startDate: warmUpStartDate,
@@ -593,6 +593,7 @@ export function FuturesPageContent({
         startDate,
         endDate,
         targetLeverage: leverage,
+        treasuryCollateral: true,
         maxLeverage,
         smaPeriod: sma.period,
         smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
@@ -897,6 +898,13 @@ export function FuturesPageContent({
             }
           />
         </SharedToolInputs>
+
+        <p className="text-xs text-muted">
+          Standalone futures account: spare securities cash is parked in SGOV/VGSH, with a 200-share-equivalent trading band.
+          No fixed cash reserve is held for futures margin. No core equity holdings or box loans are included.
+          Daily opens approximate 10:00 a.m. execution; closes approximate pre-close Treasury maintenance.
+          Futures margin, Treasury haircuts and the 0.35% annual funding premium are estimates, not historical broker quotes.
+        </p>
 
         <p className="text-xs text-muted">
           After-tax estimate: 60% LTCG + 40% STCG + state + Medicare surcharge = {Number((futuresTaxRate(taxRates) * 100).toFixed(2))}%.

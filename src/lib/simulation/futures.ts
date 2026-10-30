@@ -1,3 +1,4 @@
+import { createFuturesCollateral, collateralCashInterest, type CollateralTrade, isTreasuryTicker, planRiskOffPurchases, type TreasuryHoldings } from "./futures-collateral";
 import type { PricePoint, RatePoint, IndexKey, EtfResult, RiskOffAsset, SmaSignal } from "@/lib/simulation/types";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { generateSmaSignals } from "@/lib/simulation/sma";
@@ -78,6 +79,8 @@ export type SleeveHoldings = {
   riskOffCash: number[] | null;
   /** Swept interest already earned but not yet posted to cash; equity counts it. */
   pendingCashInterest: number;
+  /** Marked Treasury pool, already included in cash; transfers are in kind. */
+  treasuryHoldings?: TreasuryHoldings;
 };
 
 /**
@@ -930,6 +933,8 @@ export type FuturesStrategyParams = {
   riskOffHeldTickers?: string[];
   riskOffCloseByTicker?: Record<string, number[]>;
   riskOffOpenByTicker?: Record<string, number[]>;
+  /** Enable the standalone Treasury collateral model; requires SGOV/VGSH price arrays. */
+  treasuryCollateral?: boolean;
   cashInterestSpreadAnnual?: number;
   cashInterestFreeCash?: number;
   /**
@@ -1151,6 +1156,25 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   let totalFees = 0;
   let totalSpreadCosts = 0;
 
+  // `cash` is consolidated marked capital in this engine, including Treasury
+  // holdings. Only their P&L/costs change it; purchases are an internal transfer.
+  const collateral = params.treasuryCollateral ? createFuturesCollateral({
+    close: params.riskOffCloseByTicker ?? {}, open: params.riskOffOpenByTicker ?? {},
+    dollarScale: feeDollarScaleForDate,
+  }) : null;
+  collateral?.mark(0, dates[0], false);
+  let collateralMarginRequirement = 0;
+  const bookCollateralTrades = (trades: CollateralTrade[], date: string) => {
+    for (const tx of trades) {
+      cash -= tx.fees + tx.spread;
+      totalFees += tx.fees;
+      totalSpreadCosts += tx.spread;
+      transactions.push({ date, action: tx.quantity > 0 ? "buy" : "sell", instrument: "riskoff",
+        symbol: `${tx.symbol} (COLLATERAL)`, qtyDelta: tx.quantity, qtyAfter: tx.quantityAfter,
+        fillPrice: tx.price, fees: tx.fees, spread: tx.spread, cashInterestEarned: 0,
+        excessLiquidity: cash - collateralMarginRequirement, leverageDeltaPct: 0, equity: cash });
+    }
+  };
   const riskOffTickers = getRiskOffFetchTickers(params.riskOffAsset);
   const heldTickers = params.riskOffHeldTickers ?? riskOffTickers;
   const ownSlots = riskOffTickers.map((t) => heldTickers.indexOf(t));
@@ -1169,6 +1193,10 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     pendingMonthlyCashInterest += amount;
     pendingMonthlyCashInterestDays += days;
   };
+  const accrueCollateralInterest = (amount: number, days: number) => {
+    if (amount >= 0) accrueCashInterest(amount, days);
+    else cash += amount; // Debit interest reduces available equity; never earns interest itself.
+  };
   const creditPendingCashInterest = () => {
     if (!Number.isFinite(pendingMonthlyCashInterest) || pendingMonthlyCashInterest <= 0) return 0;
     const amount = pendingMonthlyCashInterest;
@@ -1178,6 +1206,47 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     pendingMonthlyCashInterest = 0;
     pendingMonthlyCashInterestDays = 0;
     return amount;
+  };
+
+  const enterPooledRiskOff = (i: number, date: string, atOpen: boolean) => {
+    if (!collateral || riskOffTickers.length === 0) return;
+    const treasuryWeight = riskOffTickers.filter(isTreasuryTicker).length / riskOffTickers.length;
+    bookCollateralTrades(collateral.fundRiskOff(cash * treasuryWeight, date), date);
+    const targets = Object.fromEntries(riskOffTickers.map(t => [t, cash / riskOffTickers.length]));
+    const budgets = planRiskOffPurchases(targets, collateral.value(), cash - collateral.value());
+    riskOffShares = new Array(heldTickers.length).fill(0);
+    riskOffCash = new Array(heldTickers.length).fill(0);
+    riskOffLastPrice = new Array(heldTickers.length).fill(NaN);
+    for (const [k, t] of riskOffTickers.entries()) {
+      const budget = budgets[t] ?? 0;
+      if (!(budget > 0)) continue;
+      if (isTreasuryTicker(t)) {
+        bookCollateralTrades(collateral.buy(t, budget, date), date);
+        continue;
+      }
+      const px = atOpen
+        ? riskOffOpenTradePrice({ openValues: params.riskOffOpenByTicker?.[t], closeValues: params.riskOffCloseByTicker?.[t], index: i })
+        : riskOffCloseMarkPrice({ closeValues: params.riskOffCloseByTicker?.[t], index: i });
+      if (!(px && Number.isFinite(px) && px > 0)) continue; // Unfilled budget stays cash.
+      const spread = getTransactionSpreadCost({ instrument: "riskoff", symbol: t, qtyDelta: budget / px, fillPrice: px });
+      const fees = getRiskOffCommission({ qtyDelta: budget / px, fillPrice: px, dollarScale: feeDollarScaleForDate(date) });
+      const shares = Math.max(0, budget - spread - fees) / px;
+      const j = ownSlots[k];
+      riskOffShares[j] = shares;
+      riskOffLastPrice[j] = px;
+      cash -= budget;
+      totalFees += fees;
+      totalSpreadCosts += spread;
+      transactions.push({ date, action: "buy", instrument: "riskoff", symbol: t,
+        qtyDelta: shares, qtyAfter: shares, fillPrice: px, fees, spread,
+        cashInterestEarned: 0, excessLiquidity: 0, leverageDeltaPct: 0,
+        equity: cash + riskOffShares.reduce((sum, qty, slot) => sum + qty * (riskOffLastPrice?.[slot] || 0), 0) });
+    }
+    if (!riskOffShares.some(qty => qty > 0)) {
+      riskOffShares = null;
+      riskOffCash = null;
+      riskOffLastPrice = null;
+    }
   };
 
   const capQtyForPostTradeMaintenance = (params: {
@@ -1288,7 +1357,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       const notional = Math.abs(initialQty) * getContractMultiplier(initialContract) * initialFillPrice;
       const maintenanceMarginUsed = notional * maintMarginRate;
       const equity = cash;
-      const excessLiquidity = equity - maintenanceMarginUsed;
+      const excessLiquidity = equity - maintenanceMarginUsed - (collateral?.value() ?? 0) * 0.25;
       const actualLeverage = equity > 0 ? notional / equity : 0;
       const leverageDeltaPct = computeLeverageDeltaPct(actualLeverage, params.targetLeverage);
       transactions.push({
@@ -1320,6 +1389,11 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     dailyEquity[0] = cash;
     // No futures opened on day 0 leaves the whole balance free.
     if (initialQty <= 0) dailyExcessLiquidity[0] = cash;
+  } else if (collateral && riskOffTickers.length > 0) {
+    enterPooledRiskOff(0, firstDate, false);
+    const basket = (riskOffShares as number[] | null)?.reduce((sum, qty, j) => sum + qty * (riskOffLastPrice?.[j] || 0), 0) ?? 0;
+    dailyEquity[0] = cash + basket;
+    dailyExcessLiquidity[0] = dailyEquity[0] - collateral.value() * 0.25;
   } else if (riskOffTickers.length > 0) {
     // Starts in risk-off: establish the basket at the first close (see above), so
     // day 0 books it at cost and the curve starts flat exactly like the LETF engine.
@@ -1401,6 +1475,17 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
    * Wiped out: every remaining day is already zeroed, so no later day may run.
    * Stands in for the `break` this was before it became a per-day step.
    */
+  if (collateral) {
+    collateral.mark(0, dates[0], false);
+    if (invested[0] && contract) {
+      collateralMarginRequirement = totalFuturesNotionalAtMark({ lots, contract,
+        mark: sym => futuresBasisFillPrice({ spotPrice: smaInput[0], symbol: sym,
+          tradeDate: dates[0], rateDaily: rateLookup.getRate(dates[0]), dividendDaily: 0 }) }) * maintMarginRate;
+      bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, dates[0]), dates[0]);
+      dailyEquity[0] = cash;
+      dailyExcessLiquidity[0] = cash - collateralMarginRequirement - collateral.value() * 0.25;
+    }
+  }
   let ruined = false;
 
   /** One trading day for this sleeve. Was the body of the day loop; `continue` is now `return`. */
@@ -1422,7 +1507,11 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     // balance frozen at prior session close (before today's overnight futures cash). Uses prior session SOFR.
     const gapCalendarDays = calendarDaysBetweenIso(dates[i - 1] as string, dates[i] as string);
     const extraSweepDays = Math.max(0, gapCalendarDays - 1);
-    if (extraSweepDays > 0) {
+    if (collateral && extraSweepDays > 0) {
+      accrueCollateralInterest(collateralCashInterest({ equity: cash, treasuryValue: collateral.value(),
+        rateDaily: rateLookup.getRate(dates[i - 1]), dollarScale: feeDollarScaleForDate(dates[i - 1]), days: extraSweepDays }), extraSweepDays);
+    }
+    if (!collateral && extraSweepDays > 0) {
       const ratePrev = rateLookup.getRate(dates[i - 1] as string);
       const spreadDailyGap = spreadAnnual / 360;
       const cashRateGap = Math.max(0, ratePrev - spreadDailyGap);
@@ -1444,6 +1533,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       // First trading row of a new month: prior-month sweep is now posted cash.
       creditPendingCashInterest();
     }
+
+    if (collateral) cash += collateral.mark(i, date, true);
 
     // SMA uses prior close; regime trades execute next session shortly after the open (opens for fills).
     if (invested[i] !== invested[i - 1]) {
@@ -1569,6 +1660,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     }
 
     if (pendingEnterRiskOff) {
+      collateralMarginRequirement = 0;
       // Flatten futures at index open, then buy risk-off legs at their opens (same-time book).
       if (sumLots(lots) > 0 && contract) {
         const totalBefore = sumLots(lots);
@@ -1632,6 +1724,9 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         accruedInterestSinceLastTx = 0;
       }
 
+      if (collateral) {
+        enterPooledRiskOff(i, date, true);
+      } else {
       // With no risk-off components configured there is nothing to allocate into, so stay
       // in cash — exactly what the day-0 risk-off path does. Booking an empty basket and
       // zeroing `cash` below would mark the account at 0 and trip the bankruptcy branch
@@ -1695,6 +1790,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       // Any unpriceable components are held as riskOffCash; do NOT also keep them in `cash`
       // or we'd double-count equity (cash + riskOffCash).
       if (canEnterRiskOff) cash = 0;
+      }
       pendingEnterRiskOff = false;
     }
 
@@ -2315,19 +2411,22 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       }
     }
 
-    // Cash interest (sweep) on the whole posted cash balance, less the broker's
-    // un-swept buffer. Margin is a *requirement*, not a payment: collateral held
-    // against an open futures position stays in the cash balance and keeps
-    // earning, so it must not be netted out here (`maintMarginRate` still governs
-    // capacity and excess liquidity below). Deducting it charged a phantom
-    // `maintMarginRate x leverage x rate` per year -- 1.7%/yr at 3x on 1970s
-    // rates -- and, being leverage-scaled, it tilted the ladder against the
-    // higher rungs it is meant to compare.
-    const cashYieldBase = Math.max(0, cash - freeCashAt(date));
-    const spreadDaily = spreadAnnual / 360;
-    const cashRateDaily = Math.max(0, rateDaily - spreadDaily);
-    const interestEarned = cashYieldBase * cashRateDaily;
-    accrueCashInterest(interestEarned, 1);
+    if (collateral) {
+      cash += collateral.mark(i, date, false);
+      collateralMarginRequirement = contract && sumLots(lots) > 0
+        ? totalFuturesNotionalAtMark({ lots, contract, mark: markFuturesClose }) * maintMarginRate : 0;
+      // Close is the daily-data proxy for the bot's five-minutes-before-close maintenance.
+      if (wantsRiskOn) bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, date), date);
+      accrueCollateralInterest(collateralCashInterest({ equity: cash, treasuryValue: collateral.value(),
+        rateDaily, dollarScale: feeDollarScaleForDate(date), days: 1 }), 1);
+    } else {
+      // Legacy analytical cash-sweep mode for callers that do not request the
+      // Treasury account model. This is not IBKR commodities cash eligibility.
+      const cashYieldBase = Math.max(0, cash - freeCashAt(date));
+      const spreadDaily = spreadAnnual / 360;
+      const cashRateDaily = Math.max(0, rateDaily - spreadDaily);
+      accrueCashInterest(cashYieldBase * cashRateDaily, 1);
+    }
 
     // Total equity includes any risk-off holdings marked to today's close.
     let riskOffValueAtClose = 0;
@@ -2378,7 +2477,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         : 0;
     const maintenanceMarginUsed = notional * maintMarginRate;
     const equity = cash + riskOffValueAtClose;
-    const excessLiquidity = equity - maintenanceMarginUsed;
+    const excessLiquidity = equity - maintenanceMarginUsed - (collateral?.value() ?? 0) * 0.25;
     const actualLeverage = equity > 0 ? notional / equity : 0;
     const leverageDeltaPct = computeLeverageDeltaPct(actualLeverage, targetLev);
     if (
@@ -2448,6 +2547,13 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     // Post the final month's sweep to cash for the ledger. No equity adjustment:
     // `dailyEquity` already carries the accrued balance day by day.
     creditPendingCashInterest();
+  }
+  if (collateral && lastIdx >= 0 && collateral.value() > 0) {
+    const before = cash;
+    const start = transactions.length;
+    bookCollateralTrades(collateral.liquidate(dates[lastIdx]), dates[lastIdx]);
+    for (let j = start; j < transactions.length; j++) transactions[j].isEndLiquidation = true;
+    dailyEquity[lastIdx] += cash - before;
   }
   const windowFinalEquity = dailyEquity[lastIdx] ?? 0;
   if (transactions.length > 0 && lastIdx >= 0 && windowFinalEquity > 0) {
@@ -2678,9 +2784,11 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       riskOffShares: riskOffShares ? [...riskOffShares] : null,
       riskOffCash: riskOffCash ? [...riskOffCash] : null,
       pendingCashInterest: pendingMonthlyCashInterest,
+      ...(collateral ? { treasuryHoldings: collateral.readHoldings() } : {}),
     }),
     writeHoldings: (holdings: SleeveHoldings, i: number, equity: number) => {
       cash = holdings.cash;
+      if (collateral && holdings.treasuryHoldings) collateral.writeHoldings(holdings.treasuryHoldings);
       riskOffShares = holdings.riskOffShares ? [...holdings.riskOffShares] : null;
       riskOffCash = holdings.riskOffCash ? [...holdings.riskOffCash] : null;
       pendingMonthlyCashInterest = holdings.pendingCashInterest;
@@ -2692,7 +2800,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       // no futures position and nothing is encumbered: excess liquidity is the whole
       // balance. Leaving the old figure here would leave the day's ledger rows
       // claiming more free cash than the restated equity behind them.
-      dailyExcessLiquidity[i] = equity;
+      dailyExcessLiquidity[i] = equity - (collateral?.value() ?? 0) * 0.25;
     },
     finish,
   };

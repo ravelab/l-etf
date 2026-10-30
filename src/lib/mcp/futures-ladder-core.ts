@@ -112,7 +112,7 @@ export async function runFuturesLadder(params: {
     loadBorrowRates(warmUpStart, endDate),
     loadInflation(warmUpStart, endDate),
     loadRiskOffRawSeriesForAssets(
-      [riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100],
+      [riskOffAsset, dualRiskOffAssets.sp500, dualRiskOffAssets.nasdaq100, "SGOV", "VGSH"],
       warmUpStart,
       endDate,
     ),
@@ -161,6 +161,7 @@ export async function runFuturesLadder(params: {
     startDate,
     endDate,
     targetLeverage: leverage,
+    treasuryCollateral: true,
     maxLeverage,
     smaPeriod: sma.period,
     smaUpperBuffer: sma.upperBuffer,

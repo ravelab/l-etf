@@ -104,19 +104,20 @@ export function buildFuturesLadderPlan(params: {
   };
 
   /**
-   * One fund, two sleeves: SPX capped at 4.5x and NDX at 3x, never rebalanced
+   * One fund, two sleeves: SPX capped at 4.5x and NDX at 3.5x, never rebalanced
    * against each other except when both sit in risk-off and one re-enters.
    */
   const maxSpxWithNdx: FuturesLadderStep = {
     index: "sp500",
     leverage: 4.5,
     maxLeverage: 4.5,
-    displayName: "Max 4.5x SPX / Max 3x NDX SMA",
+    displayName: "Max 4.5x SPX / Max 3.5x NDX SMA",
     sma: sp,
     ...riskOffFor("sp500"),
     secondary: {
       index: "nasdaq100",
-      leverage: 3,
+      leverage: 3.5,
+      maxLeverage: 3.5,
       sma: nq,
       ...riskOffFor("nasdaq100"),
     },

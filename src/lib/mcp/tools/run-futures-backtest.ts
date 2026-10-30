@@ -53,7 +53,7 @@ export async function runFuturesBacktestCore(input: FuturesInput) {
     loadIndexPrices(index, warmUpStart, endDate),
     loadBorrowRates(warmUpStart, endDate),
     loadInflation(warmUpStart, endDate),
-    loadRiskOffRawSeriesForAssets([riskOffAsset], warmUpStart, endDate),
+    loadRiskOffRawSeriesForAssets([riskOffAsset, "SGOV", "VGSH"], warmUpStart, endDate),
   ]);
   if (prices.length < 2) throw new McpToolError(`Not enough price data for ${index} in ${startDate}..${endDate}.`);
 
@@ -75,6 +75,7 @@ export async function runFuturesBacktestCore(input: FuturesInput) {
     riskOffAsset,
     riskOffCloseByTicker: aligned.closeValuesByAsset as Record<string, number[]>,
     riskOffOpenByTicker: aligned.openValuesByAsset as Record<string, number[]>,
+    treasuryCollateral: true,
     maintenanceMarginRate: input.maintenanceMarginRate,
     monthlyCpi,
   });
@@ -112,7 +113,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
       annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Backtest an SMA timing strategy using index futures (ES/NQ) at a chosen target leverage, with " +
-        "optional leverage cap, quarterly rolls, per-contract fees, and cash-sweep interest. Returns CAGR, " +
+        "optional leverage cap, quarterly rolls, per-contract fees, and SGOV/VGSH Treasury collateral. No core equities or box loans. Daily opens proxy 10am execution; margin and funding spreads are estimates. Returns CAGR, " +
         "drawdown, final equity, realized leverage, and trade counts. NOT investment advice.",
       inputSchema: {
         index: indexSchema,

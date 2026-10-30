@@ -67,9 +67,9 @@ test("gated push text shows each index's volatility and the gate parameters", ()
     nasdaq100: { ...base.nasdaq100, signalLabel: "Volatility Risk Off", volatility: 0.523, volGateRiskOff: true },
   });
   const text = describeSmaSignalStatus(gated, { ...getDefaultSmaSignalConfig(), smaVolGate: true });
-  assert.equal(text, "SPX: Buy L-ETFs (+2.50%, vol 18%); NDX: Volatility Risk Off (-3.25%, vol 52%) · Volatility risk off (11, 49%, 31%)");
+  assert.equal(text, "SPX: Buy L-ETFs (+2.50%, vol 18%); NDX: Volatility Risk Off (-3.25%, vol 52%) · risk off 11d 49% 31%");
   assert.equal(describeSmaSignalStatus(gated, { ...getDefaultSmaSignalConfig(), smaVolGate: true, smaSpEnabled: false }),
-    "NDX: Volatility Risk Off (-3.25%, vol 52%) · Volatility risk off (11, 49%, 31%)");
+    "NDX: Volatility Risk Off (-3.25%, vol 52%) · risk off 11d 49% 31%");
   assert.equal(describeSmaSignalStatus(snap(), { ...getDefaultSmaSignalConfig(), smaVolGate: false }),
     "SPX: Buy L-ETFs (+2.50%); NDX: Sell L-ETFs (-3.25%)");
 });

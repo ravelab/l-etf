@@ -54,12 +54,12 @@ test("futures run plans: a step with a second sleeve runs as a fund, not as its 
 
   const dual = plans.filter((plan) => plan.kind === "dual");
   assert.equal(dual.length, 1);
-  assert.equal(dual[0].kind === "dual" && dual[0].dual.displayName, "Max 4.5x SPX / Max 3x NDX SMA");
+  assert.equal(dual[0].kind === "dual" && dual[0].dual.displayName, "Max 4.5x SPX / Max 3.5x NDX SMA");
   assert.equal(dual[0].kind === "dual" && dual[0].dual.initialEquity, 100_000);
   assert.equal(dual[0].kind === "dual" && dual[0].dual.primary.index, "sp500");
   assert.equal(dual[0].kind === "dual" && dual[0].dual.primary.targetLeverage, 4.5);
   assert.equal(dual[0].kind === "dual" && dual[0].dual.secondary.index, "nasdaq100");
-  assert.equal(dual[0].kind === "dual" && dual[0].dual.secondary.targetLeverage, 3);
+  assert.equal(dual[0].kind === "dual" && dual[0].dual.secondary.targetLeverage, 3.5);
   // Each sleeve keeps its own index's band; sharing one would re-open the bug
   // futures-plan.ts exists to prevent.
   assert.equal(dual[0].kind === "dual" && dual[0].dual.secondary.smaPeriod, BANDS.nasdaq100.period);
@@ -97,7 +97,7 @@ test("futures transactions filter: the snapshot keeps exactly what the page list
   );
   assert.deepEqual(
     listed.map((step) => step.displayName ?? `${step.leverage}x ${step.index}`),
-    ["Max 4.5x SPX SMA", "Max 4.5x SPX / Max 3x NDX SMA", "3x nasdaq100"],
+    ["Max 4.5x SPX SMA", "Max 4.5x SPX / Max 3.5x NDX SMA", "3x nasdaq100"],
     "the two-sleeve fund is SPX at 4.5x, so it is listed alongside the plain rung"
   );
 

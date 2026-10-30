@@ -198,10 +198,29 @@ at the seam (the Nasdaq-100 did not exist yet) and carry their own dividend-yiel
 table in `fetch-data.ts`. Display labels say NDX everywhere; only the data layer
 keeps the distinction.
 
-Margin is a requirement, not a payment: `maintMarginRate` governs capacity and
-excess liquidity, never the cash-sweep base. Netting it out of the interest base
-charges a phantom `maintMarginRate × leverage × rate` that scales with leverage
-and so tilts the ladder against its own higher rungs.
+Margin is a requirement, not an expense, but interest eligibility depends on the
+broker and collateral. Production futures callers enable `treasuryCollateral`:
+`futures-collateral.ts` models a separate SGOV/VGSH pool without a fixed cash
+reserve. The user holds no margin cash reserve: margin constrains capacity and
+excess liquidity, never subtract it from investable capital or the interest base. Never credit cash interest on Treasury holdings as well.
+The engine's `cash` variable remains consolidated marked capital including that
+pool; purchases are internal transfers, and only P&L/costs change it. Low-level
+callers omitting the option retain the legacy analytical cash-sweep model.
+
+The live-policy reference is `~/futures/src/treasury/sleeve.ts` and its execution
+code (some config/README comments lag). Scope deliberately excludes core equities
+and box loans. See `docs/futures-collateral-model.md` for broker sources and the
+remaining approximations: daily execution proxies, estimated margin requirements/haircuts,
+share-equivalent order bands and per-sleeve
+rather than account-netted Treasury management. Do not tune these costs to match
+LETF returns. Both Treasury series must be loaded even when neither is risk-off.
+Snapshot ledgers omit collateral maintenance rows to stay within the download
+budget; costs and equity include them, and the UI directs users to rerun for the
+full ledger. SGOV/VGSH jointly cover Treasury targets and survive re-entry; a
+non-Treasury risk-off target must sell enough collateral to fund its full
+allocation (100% BRK.B for an all-BRK.B sleeve). Never restrict that purchase to
+residual cash. Treasury values are already included in `cash`; carry their
+ownership through the dual-sleeve in-kind reset without adding equity twice.
 
 Day 0 establishes the starting position at the first *close* in both regimes —
 the bar `dailyEquity[0]` marks, and what `simulateSingleEtf` books — so the
