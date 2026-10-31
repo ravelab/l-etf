@@ -213,43 +213,6 @@ export default function SignalsPage() {
               />
               <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} />
             </fieldset>
-            <div className="mt-4 flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
-              <div className="flex w-full min-w-0 flex-col gap-2">
-                {SMA_PRESETS.map((preset, index) => (
-                  <div key={`cagr-preset-${index}`} data-sma-preset={index} className="grid min-w-0 grid-cols-1 items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums md:grid-cols-2 md:gap-6">
-                    {(["sp500", "nasdaq100"] as const).map((indexKey) => {
-                      const rule = preset[indexKey];
-                      return (
-                        <div key={indexKey} className="w-full min-w-0 leading-7">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            aria-label={`${indexKey === "sp500" ? "SPX" : "NDX"} ${preset.label}`}
-                            onClick={() => handleSetPreset(indexKey, preset)}
-                            className="mr-2 inline-flex px-2 py-0.5 align-middle text-[11px] md:px-2.5 md:py-1"
-                          >
-                            {preset.label}
-                          </Button>
-                          <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5">
-                            <span className="font-medium text-foreground">
-                              {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}                            </span>
-                            <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
-                            {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
-                              <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>
-                                {" · "}{eraKey === "proto" ? "Proto" : "Proxy"}: {era.realCagr.toFixed(2)}%
-                              </span>
-                            ))}
-                            <span title={`${indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.startDate : cagrPresets.startDate}–${cagrPresets.endDate}`}>
-                              {" · "}{indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.count : rule.trades} switches
-                            </span>
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <SignalCard
               indexName="SPX"
@@ -299,6 +262,51 @@ export default function SignalsPage() {
             )}
           </div>
         )}
+
+        <Card>
+          <h2 className="text-lg font-semibold mb-4">SMA defaults and alternatives</h2>
+          <p className="text-sm text-muted mb-4">
+            Apply the calibrated default or choose an alternative SMA rule for either index.
+          </p>
+          <div className="flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
+            <div className="flex w-full min-w-0 flex-col gap-2">
+              {SMA_PRESETS.map((preset, index) => (
+                <div key={`cagr-preset-${index}`} data-sma-preset={index} className="grid min-w-0 grid-cols-1 items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums md:grid-cols-2 md:gap-6">
+                  {(["sp500", "nasdaq100"] as const).map((indexKey) => {
+                    const rule = preset[indexKey];
+                    return (
+                      <div key={indexKey} className="w-full min-w-0 leading-7">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          aria-label={`${indexKey === "sp500" ? "SPX" : "NDX"} ${preset.label}`}
+                          onClick={() => handleSetPreset(indexKey, preset)}
+                          className="mr-2 inline-flex px-2 py-0.5 align-middle text-[11px] md:px-2.5 md:py-1"
+                        >
+                          {preset.label}
+                        </Button>
+                        <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5">
+                          <span className="font-medium text-foreground">
+                            {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
+                          </span>
+                          <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
+                          {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
+                            <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>
+                              {" · "}{eraKey === "proto" ? "Proto" : "Proxy"}: {era.realCagr.toFixed(2)}%
+                            </span>
+                          ))}
+                          <span title={`${indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.startDate : cagrPresets.startDate}–${cagrPresets.endDate}`}>
+                            {" · "}{indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.count : rule.trades} switches
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );

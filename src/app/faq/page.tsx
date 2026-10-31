@@ -97,6 +97,33 @@ const FAQ_DATA: FAQItem[] = [
     ),
   },
   {
+    question: "What is the volatility gate?",
+    answer: (
+      <>
+        <p className="mb-3">
+          The volatility gate is an optional second risk-off rule layered on top of the SMA rule.
+          It measures the index&apos;s realized volatility from the last 11 daily log returns,
+          annualized by the square root of 252.
+        </p>
+        <p className="mb-3">
+          When volatility closes above the exit threshold, the strategy moves to its selected
+          risk-off asset even if the SMA still says to stay invested. It remains risk-off until
+          volatility closes below the lower re-entry threshold; after that, the SMA decides whether
+          to re-enter. The gate never buys on its own.
+        </p>
+        <ul className="list-disc list-inside space-y-1 ml-4">
+          <li><strong className="text-foreground">SPX:</strong> exit above 49% volatility; re-enter below 31%.</li>
+          <li><strong className="text-foreground">NDX:</strong> exit above 49% volatility; re-enter below 31%.</li>
+        </ul>
+        <p className="mt-3">
+          It is enabled by default on the site, but you can turn it off with the Volatility checkbox.
+          The thresholds were selected for stable historical behavior and are separate from the SMA
+          period and buffer.
+        </p>
+      </>
+    ),
+  },
+  {
     question: "Why consider holding leveraged ETFs long term?",
     answer: (
       <>
@@ -186,50 +213,6 @@ const FAQ_DATA: FAQItem[] = [
     ),
   },
   {
-    question: "How are expense ratios and borrowing costs handled?",
-    answer: (
-      <>
-        <p className="mb-3">
-          The app tries to avoid showing fantasy returns. It subtracts costs where they matter:
-        </p>
-        <ul className="list-disc list-inside space-y-2 ml-4">
-          <li>
-            <strong className="text-foreground">VOO and QQQ:</strong> The benchmark rows include ETF
-            expense ratios, so they are closer to owning the real funds.
-          </li>
-          <li>
-            <strong className="text-foreground">Simulated leveraged ETFs:</strong> The engine subtracts
-            the fund fee every day and estimates borrowing costs from market interest-rate data plus
-            a swap-spread estimate.
-          </li>
-          <li>
-            <strong className="text-foreground">Real ETF presets:</strong> These use historical fund
-            prices, which already include the fund&apos;s internal costs.
-          </li>
-        </ul>
-      </>
-    ),
-  },
-  {
-    question: "What is a drawdown?",
-    answer: (
-      <>
-        <p className="mb-3">
-          A drawdown is how far your portfolio falls after reaching a high point. It is measured from
-          the peak to the lowest point before recovery.
-        </p>
-        <p className="mb-3">
-          <strong className="text-foreground">Example:</strong> If your portfolio drops from $100,000
-          to $40,000 before recovering, that&apos;s a 60% drawdown.
-        </p>
-        <p>
-          Drawdowns matter because big losses are hard to live through and hard to recover from. A
-          50% loss needs a 100% gain just to get back to even.
-        </p>
-      </>
-    ),
-  },
-  {
     question: "What are risk-off assets?",
     answer: (
       <>
@@ -255,39 +238,17 @@ const FAQ_DATA: FAQItem[] = [
           <li><strong className="text-foreground">QQQ</strong> — Nasdaq 100 exposure.</li>
         </ul>
         <p className="mt-3">
+          Tool pages choose a risk-off asset separately for SPX and NDX, so each sleeve can use the
+          defensive asset that matches its index. The current tool-page defaults are
+          <strong className="text-foreground"> BRK.B + GLDM</strong> for SPX and
+          <strong className="text-foreground"> VGSH</strong> for NDX. The calibration and MCP
+          analysis use their own three-asset default where noted by those tools.
+        </p>
+        <p className="mt-3">
           For long backtests, the app extends these series backward with historical proxy data when
           the ETF did not exist yet. You can also use equal-weight mixes such as
           <strong className="text-foreground"> VGSH + GLDM</strong> or
           <strong className="text-foreground"> BRK.B + GLDM + VGSH</strong>.
-        </p>
-      </>
-    ),
-  },
-  {
-    id: "monthly-interpolation",
-    question: "Some risk-off proxy data is only monthly. How does the app turn that into daily prices?",
-    answer: (
-      <>
-        <p className="mb-3">
-          Before some risk-off assets existed as ETFs, the app extends them with historical proxy
-          data (see <strong className="text-foreground">What are risk-off assets?</strong> above)
-          — for example gold before GLDM launched in 2018, or early segments of the SGOV/VGSH
-          Treasury proxies. Some of that historical source data only reports one price per month,
-          but backtests need a price for every trading day.
-        </p>
-        <p className="mb-3">
-          To fill the gap, the app spreads each month&apos;s total return smoothly across that
-          month&apos;s trading days instead of dumping the whole move onto a single day. This
-          avoids an artificial, one-day volatility spike that a naive fill would create.
-        </p>
-        <p>
-          The tradeoff: each mid-month daily price during these proxy-only stretches is partly
-          shaped by the following month-end price, so the proxy&apos;s real intra-month swings and
-          drawdowns are smoothed out, and an SMA crossing that lands mid-month in one of these
-          periods uses a mildly smoothed fill price rather than that day&apos;s actual close. This
-          is a deliberate, bounded look-ahead confined to filling in gaps within a single month of
-          early proxy history — it does not affect modern daily data, and it is not used anywhere
-          else in the simulation.
         </p>
       </>
     ),
@@ -375,29 +336,6 @@ const FAQ_DATA: FAQItem[] = [
     ),
   },
   {
-    question: "What are Best Real CAGR and Worst Real CAGR?",
-    answer: (
-      <>
-        <p className="mb-3">
-          These show the best and worst periods found in the rolling-window tests.
-        </p>
-        <ul className="list-disc list-inside space-y-1 ml-4">
-          <li>
-            <strong className="text-foreground">Best Real CAGR:</strong> the best inflation-adjusted
-            yearly return in any tested period.
-          </li>
-          <li>
-            <strong className="text-foreground">Worst Real CAGR:</strong> the worst inflation-adjusted
-            yearly return in any tested period.
-          </li>
-        </ul>
-        <p className="mt-3">
-          A strategy with a great best case but a terrible worst case may be harder to stick with.
-        </p>
-      </>
-    ),
-  },
-  {
     question: "How do simulations extend into the future when a full rolling window needs more data?",
     answer: (
       <>
@@ -428,63 +366,43 @@ const FAQ_DATA: FAQItem[] = [
     answer: (
       <>
         <p className="mb-3">
-          The shortcut buttons choose practical starts for the modern index regimes. They are not
-          the earliest dates available in the app, and the S&amp;P 500 is not mechanically the 500
-          biggest U.S. companies—it is a committee-selected index of leading large-cap companies.
+          The shortcut buttons choose practical starts for modern index regimes. They are not the
+          earliest dates available in the app.
         </p>
-        <ul className="ml-4 list-disc space-y-3">
+        <ul className="ml-4 list-disc space-y-2">
           <li>
-            <strong className="text-foreground">April 6, 1988 — SPX shortcut.</strong>{" "}On this date,
-            S&amp;P removed the fixed numerical limits for its four major industry groups. Companies
-            could then be added and removed across those categories, allowing the index to adapt
-            more quickly as the market&apos;s sector mix changed. L-ETF uses this as a clean start for
-            the more flexible, modern S&amp;P 500 composition regime.
+            <strong className="text-foreground">April 6, 1988 — SPX.</strong>{" "}The S&amp;P 500
+            moved away from fixed industry quotas, making this a cleaner start for its modern
+            composition regime.
           </li>
           <li>
-            <strong className="text-foreground">January 31, 1985 — NDX shortcut.</strong>{" "}The
-            Nasdaq-100&apos;s launch date, and the first day of its own published history, at a base
-            of 125. L-ETF takes 1985-01-31 through 1985-09-30 from Nasdaq&apos;s Global Index Watch
-            feed, then Yahoo&apos;s <code>^NDX</code> from October 1 onward — so the whole shortcut
-            range is actual Nasdaq-100 history rather than the earlier Composite proxy. Nasdaq
-            publishes closes only for the early window (its start-of-day series is just the prior
-            close), so opens there are the previous close carried forward — as they largely are in
-            Yahoo&apos;s own early <code>^NDX</code> rows too.
+            <strong className="text-foreground">January 31, 1985 — NDX.</strong>{" "}This is the
+            Nasdaq-100 launch date. L-ETF uses Nasdaq&apos;s history through September 1985, then
+            Yahoo&apos;s <code>^NDX</code>, so this shortcut uses actual NDX history. Early Nasdaq
+            data has closes only; opens are carried forward from the prior close.
           </li>
           <li>
-            <strong className="text-foreground">February 5, 1971 — NDX proto.</strong>{" "}This
-            is the launch and base date of the Nasdaq Composite. For 1971 through January 30, 1985,
-            L-ETF uses Composite price moves scaled to meet NDX at its launch, then adds
-            estimated dividends and QQQ&apos;s expense drag. It provides useful older market regimes,
-            but it is not actual Nasdaq-100 history.
+            <strong className="text-foreground">February 5, 1971 — NDX proto.</strong>{" "}Before
+            1985, Composite returns are scaled to the NDX launch and combined with estimated
+            dividends and QQQ expense drag. This is not actual Nasdaq-100 history.
           </li>
           <li>
-            <strong className="text-foreground">July 1, 1926 — SPX proxy.</strong>{" "}This is
-            where the rules-based stand-in for the S&amp;P 500 begins, and it runs through April 5,
-            1988: Ken French&apos;s cap-weighted basket of every U.S. stock above the NYSE
-            70th-percentile size breakpoint — the market&apos;s biggest 30% by size, dividends
-            included. It is also the earliest date the underlying stock-level records support. See{" "}
-            <strong className="text-foreground">
-              &ldquo;What is the benchmark before 1988?&rdquo;
-            </strong>{" "}
-            below.
+            <strong className="text-foreground">July 1, 1926 — SPX proxy.</strong>{" "}Through
+            April 5, 1988, L-ETF uses a cap-weighted portfolio of roughly the largest 30% of U.S.
+            stocks by market capitalization, built from Ken French&apos;s data. It is not the actual
+            S&amp;P 500, but it is a closer large-cap proxy than the older reconstructed S&amp;P
+            history. Dividends are included.
           </li>
           <li>
-            <strong className="text-foreground">March 20, 1885 — SPX proto.</strong>{" "}This
-            is where L-ETF&apos;s stitched long-history U.S. equity series begins. The S&amp;P 500 itself
-            did not launch until March 4, 1957, so the older portion is a historical reconstruction,
-            not live S&amp;P 500 performance. Before July 1, 1926 it is the Cowles-era reconstruction,
-            rescaled to join the series smoothly — the least reliable stretch in the app. It is
-            useful for very long stress tests, but conclusions should be treated more cautiously
-            than results from the modern-index period.
+            <strong className="text-foreground">March 20, 1885 — SPX proto.</strong>{" "}Before
+            July 1926, the series is a rescaled Cowles-era reconstruction—the least reliable
+            historical stretch in the app.
           </li>
         </ul>
         <p className="mt-3">
-          In short: use the <strong className="text-foreground">1988 SPX</strong> and
-          <strong className="text-foreground"> 1985 NDX</strong> shortcuts for cleaner index-specific
-          comparisons; use <strong className="text-foreground">1971</strong>,
-          <strong className="text-foreground"> 1926</strong> or
-          <strong className="text-foreground"> 1885</strong> when the extra historical regimes are
-          worth accepting more proxy uncertainty.
+          Use <strong className="text-foreground">1988 SPX</strong> and
+          <strong className="text-foreground"> 1985 NDX</strong> for cleaner index comparisons.
+          Earlier starts add useful regimes but also add proxy uncertainty.
         </p>
         <p className="mt-3 text-sm text-muted">
           Historical references:{" "}
@@ -523,80 +441,16 @@ const FAQ_DATA: FAQItem[] = [
           >
             Nasdaq Composite history
           </a>
-          .
-        </p>
-      </>
-    ),
-  },
-  {
-    id: "pre-1988-benchmark",
-    question: "What is the benchmark before 1988?",
-    answer: (
-      <>
-        <p className="mb-3">
-          For <strong className="text-foreground">July 1, 1926 through April 5, 1988</strong>, L-ETF
-          does not use the S&amp;P 500. It uses a rules-based, cap-weighted large-cap index built
-          from Ken French&apos;s public data library — every U.S. stock above the NYSE 70th-percentile
-          size breakpoint, weighted by market value, dividends included. From April 6, 1988 onward the
-          benchmark is the actual S&amp;P 500.
-        </p>
-        <p className="mb-3">
-          The reason is that the older S&amp;P 500 is a weaker yardstick than it looks:
-        </p>
-        <ul className="ml-4 list-disc space-y-3">
-          <li>
-            <strong className="text-foreground">Before April 6, 1988</strong> the index ran under
-            fixed industry quotas — 425 industrials, 25 railroads, 25 utilities, 50 financials. Which
-            companies got in depended on filling those slots, not purely on size.
-          </li>
-          <li>
-            <strong className="text-foreground">Before March 1957</strong> there was no 500-stock
-            index at all. That era is backfilled from a 90-stock composite, and it compounds about
-            0.65% per year <em>faster than the entire U.S. stock market</em> over 1926–1957. A
-            large-cap index cannot really outrun the whole market it is drawn from, so that gap is a
-            sign of reconstruction bias rather than real return.
-          </li>
-        </ul>
-        <p className="mt-3">
-          The replacement is a close structural match: about 403 companies holding 80.7% of U.S.
-          market value over 1957–1988, against the S&amp;P&apos;s 500 names and roughly 80% of value.
-          Day-to-day the two move almost identically (daily correlation 0.989), and over 1957–1988
-          their volatility differs by only 0.13 percentage points — which matters most here, because
-          leveraged decay is driven by volatility. The main difference is level: the rules-based index
-          compounds about 0.30% per year slower than the old S&amp;P series.
-        </p>
-        <p className="mt-3">
-          Rows before July 1, 1926 are still the older Cowles-era reconstruction, rescaled to join the
-          series smoothly. That data cannot be rebuilt this way — the underlying stock-level records
-          simply do not exist before 1926 — so treat the pre-1926 stretch as the least reliable part
-          of the history.
-        </p>
-        <p className="mt-3 text-sm text-muted">
-          Source:{" "}
+          ,{" "}
           <a
             href="https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html"
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent underline hover:opacity-80"
           >
-            Kenneth R. French Data Library
-          </a>{" "}
-          — &ldquo;Portfolios Formed on ME&rdquo;, daily value-weighted returns.
-        </p>
-      </>
-    ),
-  },
-  {
-    question: "How do I compare different SMA periods?",
-    answer: (
-      <>
-        <p className="mb-3">
-          Use the <strong className="text-accent">SMA Period</strong> tool. It runs the same strategy
-          with many moving-average lengths and compares the results.
-        </p>
-        <p>
-          Short moving averages react quickly, which can help in crashes but can also cause too many
-          false switches. Long moving averages are smoother, but they can react late.
+            Kenneth French data
+          </a>
+          .
         </p>
       </>
     ),
@@ -767,7 +621,7 @@ NAV(t) = NAV(t-1) × (1 + R_LETF(t))      (floored at 0)`}
           their real counterparts to within roughly a few basis points of final return over
           15-20 years. You can verify this yourself on the{" "}
           <Link
-            href="/tools?tab=backtest&letf=UPRO%2BTQQQ&sd=2006-06-21&ed=2026-05-22&sma=0&e0_n=QLD&e1_n=SSO&e2_n=UPRO-real&e3_n=TQQQ-real&e4_n=QLD-real&e5_n=SSO-real"
+            href="/tools?tab=backtest&letf=UPRO%2BTQQQ&sd=2006-06-21&sma=0&e0_n=QLD&e1_n=SSO&e2_n=UPRO-real&e3_n=TQQQ-real&e4_n=QLD-real&e5_n=SSO-real"
             className="text-accent underline hover:opacity-80"
           >
             backtest with simulated and real ETFs side-by-side
@@ -860,7 +714,7 @@ export default function FAQPage() {
               <h2 className="text-lg font-semibold mb-3 text-accent">
                 {item.question}
               </h2>
-              <div className="text-muted">
+              <div className="text-sm leading-6 text-muted">
                 {item.answer}
               </div>
             </Card>

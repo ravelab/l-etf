@@ -14,6 +14,7 @@ import { appendRiskOffUrlParams, parseRiskOffUrlParams } from "@/lib/risk-off-ur
 import { buildToolsUrl, shouldQueueToolAutorun } from "@/lib/tools-route";
 import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
+import { useRefreshEndDateOnInitialVisit } from "@/lib/hooks/use-refresh-end-date";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
 import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, INDEX_DATE_RANGES } from "@/lib/constants";
@@ -218,6 +219,14 @@ export function FuturesPageContent({
     max: INDEX_DATE_RANGES.sp500.max < INDEX_DATE_RANGES.nasdaq100.max ? INDEX_DATE_RANGES.sp500.max : INDEX_DATE_RANGES.nasdaq100.max,
   }), []);
 
+  useRefreshEndDateOnInitialVisit({
+    active: true,
+    hasCachedResults,
+    shouldHydrateSnapshot,
+    endDate,
+    setEndDate: (value) => handleFieldChange("endDate", value),
+  });
+
   // URL hydration: apply explicit query params without clobbering cached values when
   // a parameter is absent.
   const searchStr = searchParams.toString();
@@ -390,10 +399,6 @@ export function FuturesPageContent({
       handleFieldChange(
         "startDate",
         normalizeDateString(snapshot.startDate as string | undefined, dateRange.min)
-      );
-      handleFieldChange(
-        "endDate",
-        normalizeDateString(snapshot.endDate as string | undefined, dateRange.max)
       );
       handleFieldChange(
         "smaSpPeriod",

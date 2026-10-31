@@ -17,7 +17,7 @@ import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import { annualizedInflationForRange, cpiIndexRatioEndOverStart } from "@/lib/inflation";
 import { getSymbolSpread } from "@/lib/constants";
 import { buildToolsUrl } from "@/lib/tools-route";
-import { formatDateSpan } from "@/lib/utils";
+import { formatFullDateSpan } from "@/lib/utils";
 
 function indexBuyAndHoldTradingCostPct(initialInvestment: number, finalValue: number, symbol: string): number {
   if (!Number.isFinite(initialInvestment) || initialInvestment <= 0) return 0;
@@ -108,7 +108,7 @@ function DateRangeLink({
   label?: string;
 }) {
   if (!dates) return null;
-  const text = label ?? formatDateSpan(dates);
+  const text = label ?? formatFullDateSpan(dates);
   if (!href) {
     return <span className="text-[10px] text-muted block">{text}</span>;
   }

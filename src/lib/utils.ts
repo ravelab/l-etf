@@ -253,6 +253,11 @@ export function formatDateSpan(dates?: { start: string; end: string }): string {
   return `${fmt(dates.start)} – ${fmt(dates.end)}`;
 }
 
+export function formatFullDateSpan(dates?: { start: string; end: string }): string {
+  if (!dates) return "";
+  return `${dates.start} – ${dates.end}`;
+}
+
 /**
  * Validates that price rows are ready for simulation (have finite, positive adj_close).
  * Filters out rows after requestedEndDate and rows with missing/invalid adjusted data.
