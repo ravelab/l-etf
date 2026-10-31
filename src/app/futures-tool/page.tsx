@@ -17,6 +17,7 @@ import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
 import { useRefreshEndDateOnInitialVisit } from "@/lib/hooks/use-refresh-end-date";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
+import { getIsoDate } from "@/lib/date";
 import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, INDEX_DATE_RANGES } from "@/lib/constants";
 import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT, DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import type { BacktestResult, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
@@ -399,6 +400,15 @@ export function FuturesPageContent({
       handleFieldChange(
         "startDate",
         normalizeDateString(snapshot.startDate as string | undefined, dateRange.min)
+      );
+      const snapshotRunInputs = snapshot.runSummaryInputs as Record<string, unknown> | undefined;
+      handleFieldChange(
+        "endDate",
+        normalizeDateString(
+          (snapshot.endDate as string | undefined) ??
+            (snapshotRunInputs?.endDate as string | undefined),
+          getIsoDate(new Date())
+        )
       );
       handleFieldChange(
         "smaSpPeriod",
