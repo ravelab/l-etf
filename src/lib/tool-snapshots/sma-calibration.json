@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T22:02:26.471Z",
+  "generatedAt": "2026-11-02T23:23:13.344Z",
   "endDate": "2026-10-30",
   "windowLength": 10,
   "sp500": {
@@ -10,23 +10,23 @@
       "start": 70
     },
     "scoresByEra": {
-      "proto": 142.09827352620334,
-      "proxy": 3214.218144988584,
-      "start": 6379.42881348288
+      "proto": 337.05802808034275,
+      "proxy": 4097.47191110161,
+      "start": 6074.0258459090355
     },
-    "smaPeriod": 179,
+    "smaPeriod": 185,
     "smaUpperBuffer": 3.5,
     "smaLowerBuffer": 5.5,
-    "score": 5276.259619361472,
-    "baseScore": 5276.259619361472,
-    "stabilityPenalty": 0,
-    "avgReturn": 21.302173505985323,
-    "worstReturn": 3.645897650429797,
-    "avgMaxDrawdown": 47.14643583748316,
-    "avgTrades": 6.228941684665227,
-    "evaluatedCombos": 1943,
-    "neighborhoodMinScore": 5037.516808787671,
-    "neighborhoodMedianScore": 5213.92956856134
+    "score": 5289.424458456599,
+    "baseScore": 5293.038971315745,
+    "stabilityPenalty": 3.614512859146089,
+    "avgReturn": 21.00080322861092,
+    "worstReturn": 3.224711969676508,
+    "avgMaxDrawdown": 47.67600922431703,
+    "avgTrades": 6.23110151187905,
+    "evaluatedCombos": 20292,
+    "neighborhoodMinScore": 5021.157997031666,
+    "neighborhoodMedianScore": 5244.992439900297
   },
   "nasdaq100": {
     "startDate": "1985-01-31",
@@ -48,7 +48,7 @@
     "worstReturn": 0.11179643584002807,
     "avgMaxDrawdown": 67.19520431783641,
     "avgTrades": 5.745019920318725,
-    "evaluatedCombos": 1802,
+    "evaluatedCombos": 20347,
     "neighborhoodMinScore": 25462.15210961923,
     "neighborhoodMedianScore": 25586.35959768116
   }
