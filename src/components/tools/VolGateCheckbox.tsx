@@ -2,9 +2,16 @@
 
 import { useId } from "react";
 import { InfoPopoverButton } from "@/components/ui/InfoPopoverButton";
-import { SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+import { SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT, volGateParamsTextFor } from "@/lib/simulation/vol-gate";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+const GATE_INDICES = ["sp500", "nasdaq100"] as const;
+const GATE_LINE_LABEL = { sp500: "SPX", nasdaq100: "NDX" } as const;
+const gateLinesDiffer = new Set(GATE_INDICES.map((index) => volGateParamsTextFor([index]))).size > 1;
+const GATE_LINES = gateLinesDiffer
+  ? GATE_INDICES.map((index) => `${GATE_LINE_LABEL[index]} ${volGateParamsTextFor([index])}`)
+  : [SMA_VOL_GATE_PARAMS_TEXT];
 
 export function VolGateCheckbox({
   checked,
@@ -46,7 +53,17 @@ export function VolGateCheckbox({
           checked={checked}
           onChange={(e) => onChange(e.currentTarget.checked)}
         />
-        <span className="truncate">{SMA_VOL_GATE_PARAMS_TEXT}</span>
+        {GATE_LINES.length === 1 ? (
+          <span className="truncate">{SMA_VOL_GATE_PARAMS_TEXT}</span>
+        ) : (
+          // Per-index gates differ: one short line each fits the fixed-height box
+          // on a phone, where the joined text would truncate away NDX entirely.
+          <span className="flex min-w-0 flex-col text-xs leading-tight">
+            {GATE_LINES.map((line) => (
+              <span key={line} className="truncate">{line}</span>
+            ))}
+          </span>
+        )}
       </label>
     </div>
   );

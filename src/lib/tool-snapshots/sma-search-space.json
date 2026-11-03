@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-03T08:13:57.288Z",
-  "endDate": "2026-10-30",
-  "windowLength": 38.56536618754278,
+  "generatedAt": "2026-11-03T08:41:59.422Z",
+  "endDate": "2026-11-02",
+  "windowLength": 38.573579739904176,
   "searchMode": "rescored-known-seeds",
   "grid": {
     "minPeriod": 50,
@@ -21,2079 +21,2079 @@
         "smaPeriod": 50,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 258.9365318918585,
+        "score": 463.7966974279931,
         "scoresByEra": {
-          "start": 258.9365318918585
+          "start": 463.796697427993
         }
       },
       {
         "smaPeriod": 51,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 267.14820887263886,
+        "score": 478.50512283326566,
         "scoresByEra": {
-          "start": 267.14820887263886
+          "start": 478.50512283326566
         }
       },
       {
         "smaPeriod": 52,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 274.91633891146284,
+        "score": 492.4190848025347,
         "scoresByEra": {
-          "start": 274.91633891146284
+          "start": 492.4190848025347
         }
       },
       {
         "smaPeriod": 53,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 282.27508410991334,
+        "score": 505.59977311761884,
         "scoresByEra": {
-          "start": 282.27508410991334
+          "start": 505.59977311761884
         }
       },
       {
         "smaPeriod": 54,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 341.933138889515,
+        "score": 585.1088148123927,
         "scoresByEra": {
-          "start": 341.933138889515
+          "start": 585.1088148123927
         }
       },
       {
         "smaPeriod": 55,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 349.7698843802402,
+        "score": 598.5188893110394,
         "scoresByEra": {
-          "start": 349.7698843802402
+          "start": 598.5188893110394
         }
       },
       {
         "smaPeriod": 56,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 357.2218313943702,
+        "score": 611.2705047281436,
         "scoresByEra": {
-          "start": 357.22183139437027
+          "start": 611.2705047281436
         }
       },
       {
         "smaPeriod": 57,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": -1120.1576727325594,
+        "score": -791.2044217115479,
         "scoresByEra": {
-          "start": -1120.1576727325594
+          "start": -791.2044217115479
         }
       },
       {
         "smaPeriod": 58,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 531.2313738195274,
+        "score": 883.1824424598236,
         "scoresByEra": {
-          "start": 531.2313738195274
+          "start": 883.1824424598236
         }
       },
       {
         "smaPeriod": 59,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": -663.4922680308293,
+        "score": -302.4788529755265,
         "scoresByEra": {
-          "start": -663.4922680308293
+          "start": -302.4788529755265
         }
       },
       {
         "smaPeriod": 60,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": -659.5048186176315,
+        "score": -300.6610184913634,
         "scoresByEra": {
-          "start": -659.5048186176316
+          "start": -300.6610184913634
         }
       },
       {
         "smaPeriod": 61,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": -748.9584862686547,
+        "score": -341.48615788255614,
         "scoresByEra": {
-          "start": -748.9584862686547
+          "start": -341.48615788255614
         }
       },
       {
         "smaPeriod": 62,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 646.3689777139524,
+        "score": 1125.944001125013,
         "scoresByEra": {
-          "start": 646.3689777139524
+          "start": 1125.944001125013
         }
       },
       {
         "smaPeriod": 63,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": -408.5847346869006,
+        "score": 48.35054762501892,
         "scoresByEra": {
-          "start": -408.5847346869006
+          "start": 48.35054762501892
         }
       },
       {
         "smaPeriod": 64,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": -529.6750045995761,
+        "score": -75.72797715792514,
         "scoresByEra": {
-          "start": -529.6750045995761
+          "start": -75.72797715792514
         }
       },
       {
         "smaPeriod": 65,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 251.0049539587019,
+        "score": 750.223148294011,
         "scoresByEra": {
-          "start": 251.0049539587019
+          "start": 750.223148294011
         }
       },
       {
         "smaPeriod": 66,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 266.67280208609907,
+        "score": 320.81891929907596,
         "scoresByEra": {
-          "start": 266.67280208609907
+          "start": 320.81891929907596
         }
       },
       {
         "smaPeriod": 67,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 269.61077020948755,
+        "score": 324.3534220714146,
         "scoresByEra": {
-          "start": 269.61077020948755
+          "start": 324.3534220714146
         }
       },
       {
         "smaPeriod": 68,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 269.2299126986878,
+        "score": 327.75201143756914,
         "scoresByEra": {
-          "start": 269.2299126986878
+          "start": 327.7520114375692
         }
       },
       {
         "smaPeriod": 69,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 61.20692817002193,
+        "score": 103.82855818747845,
         "scoresByEra": {
-          "start": 61.206928170021925
+          "start": 103.82855818747845
         }
       },
       {
         "smaPeriod": 70,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 53.53501889133269,
+        "score": 96.5586406248995,
         "scoresByEra": {
-          "start": 53.5350188913327
+          "start": 96.55864062489948
         }
       },
       {
         "smaPeriod": 71,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 25.202156857923015,
+        "score": 67.50985989768392,
         "scoresByEra": {
-          "start": 25.202156857923015
+          "start": 67.50985989768392
         }
       },
       {
         "smaPeriod": 72,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 23.346405627560834,
+        "score": 65.95356535029615,
         "scoresByEra": {
-          "start": 23.346405627560834
+          "start": 65.95356535029615
         }
       },
       {
         "smaPeriod": 73,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 330.3578993928004,
+        "score": 375.78439551150814,
         "scoresByEra": {
-          "start": 330.3578993928004
+          "start": 375.78439551150814
         }
       },
       {
         "smaPeriod": 74,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 40.374517937151296,
+        "score": 75.66613921456394,
         "scoresByEra": {
-          "start": 40.374517937151296
+          "start": 75.66613921456394
         }
       },
       {
         "smaPeriod": 75,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 53.713602800172694,
+        "score": 88.11080804708209,
         "scoresByEra": {
-          "start": 53.713602800172694
+          "start": 88.11080804708207
         }
       },
       {
         "smaPeriod": 76,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 8,
-        "score": 83.06662141223107,
+        "score": 118.6802480864774,
         "scoresByEra": {
-          "start": 83.06662141223107
+          "start": 118.6802480864774
         }
       },
       {
         "smaPeriod": 77,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 123.8991431151917,
+        "score": 705.5416991250415,
         "scoresByEra": {
-          "start": 123.8991431151917
+          "start": 705.5416991250415
         }
       },
       {
         "smaPeriod": 78,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 117.95120497721328,
+        "score": 700.8363551962522,
         "scoresByEra": {
-          "start": 117.95120497721327
+          "start": 700.836355196252
         }
       },
       {
         "smaPeriod": 79,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 137.8861229063014,
+        "score": 330.1595151777838,
         "scoresByEra": {
-          "start": 137.8861229063014
+          "start": 330.1595151777838
         }
       },
       {
         "smaPeriod": 80,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1169.9154945298665,
+        "score": 1662.0630922805262,
         "scoresByEra": {
-          "start": 1169.9154945298665
+          "start": 1662.0630922805262
         }
       },
       {
         "smaPeriod": 81,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1050.0195648318604,
+        "score": 1525.9303187562641,
         "scoresByEra": {
-          "start": 1050.0195648318604
+          "start": 1525.9303187562641
         }
       },
       {
         "smaPeriod": 82,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 176.1436641855774,
+        "score": 732.5976535599793,
         "scoresByEra": {
-          "start": 176.1436641855774
+          "start": 732.5976535599793
         }
       },
       {
         "smaPeriod": 83,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 176.74307307175556,
+        "score": 735.0906500896443,
         "scoresByEra": {
-          "start": 176.74307307175556
+          "start": 735.0906500896443
         }
       },
       {
         "smaPeriod": 84,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 107.90371580720104,
+        "score": 656.7085492186541,
         "scoresByEra": {
-          "start": 107.90371580720104
+          "start": 656.7085492186541
         }
       },
       {
         "smaPeriod": 85,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 101.5902448315693,
+        "score": 651.0772881096209,
         "scoresByEra": {
-          "start": 101.5902448315693
+          "start": 651.0772881096209
         }
       },
       {
         "smaPeriod": 86,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 85.7238979083338,
+        "score": 634.7380384890039,
         "scoresByEra": {
-          "start": 85.7238979083338
+          "start": 634.7380384890039
         }
       },
       {
         "smaPeriod": 87,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1233.4313183422612,
+        "score": 1749.7036202423626,
         "scoresByEra": {
-          "start": 1233.4313183422612
+          "start": 1749.7036202423626
         }
       },
       {
         "smaPeriod": 88,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 678.444993819744,
+        "score": 1113.5143908287048,
         "scoresByEra": {
-          "start": 678.444993819744
+          "start": 1113.5143908287048
         }
       },
       {
         "smaPeriod": 89,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 650.1251435191721,
+        "score": 1081.7546396344974,
         "scoresByEra": {
-          "start": 650.1251435191721
+          "start": 1081.7546396344974
         }
       },
       {
         "smaPeriod": 90,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 664.9871420810216,
+        "score": 1098.8674918548875,
         "scoresByEra": {
-          "start": 664.9871420810216
+          "start": 1098.8674918548875
         }
       },
       {
         "smaPeriod": 91,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 669.8406035232307,
+        "score": 1101.79749099239,
         "scoresByEra": {
-          "start": 669.8406035232307
+          "start": 1101.79749099239
         }
       },
       {
         "smaPeriod": 92,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1317.200117854621,
+        "score": 2042.6649605231607,
         "scoresByEra": {
-          "start": 1317.2001178546213
+          "start": 2042.6649605231607
         }
       },
       {
         "smaPeriod": 93,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1237.4352889792594,
+        "score": 1953.6369501909764,
         "scoresByEra": {
-          "start": 1237.4352889792594
+          "start": 1953.6369501909764
         }
       },
       {
         "smaPeriod": 94,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1240.4678592769496,
+        "score": 1958.424708743183,
         "scoresByEra": {
-          "start": 1240.4678592769496
+          "start": 1958.424708743183
         }
       },
       {
         "smaPeriod": 95,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1171.2037587216323,
+        "score": 1881.1071912083075,
         "scoresByEra": {
-          "start": 1171.2037587216323
+          "start": 1881.1071912083078
         }
       },
       {
         "smaPeriod": 96,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1173.9222274391464,
+        "score": 1885.4734093112722,
         "scoresByEra": {
-          "start": 1173.9222274391464
+          "start": 1885.4734093112722
         }
       },
       {
         "smaPeriod": 97,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 975.0010798588922,
+        "score": 1785.7956062030532,
         "scoresByEra": {
-          "start": 975.0010798588922
+          "start": 1785.7956062030532
         }
       },
       {
         "smaPeriod": 98,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 991.2180893515865,
+        "score": 1806.443215783032,
         "scoresByEra": {
-          "start": 991.2180893515865
+          "start": 1806.4432157830322
         }
       },
       {
         "smaPeriod": 99,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 993.3443635981768,
+        "score": 1810.3182395834551,
         "scoresByEra": {
-          "start": 993.3443635981768
+          "start": 1810.3182395834551
         }
       },
       {
         "smaPeriod": 100,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 973.6829043002733,
+        "score": 1788.2754296047926,
         "scoresByEra": {
-          "start": 973.6829043002734
+          "start": 1788.2754296047929
         }
       },
       {
         "smaPeriod": 101,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 942.1856498872542,
+        "score": 1753.5520501043868,
         "scoresByEra": {
-          "start": 942.185649887254
+          "start": 1753.5520501043868
         }
       },
       {
         "smaPeriod": 102,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1862.626291235475,
+        "score": 2649.310592084972,
         "scoresByEra": {
-          "start": 1862.626291235475
+          "start": 2649.3105920849725
         }
       },
       {
         "smaPeriod": 103,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1874.2254275799237,
+        "score": 2663.8260724770557,
         "scoresByEra": {
-          "start": 1874.2254275799237
+          "start": 2663.8260724770557
         }
       },
       {
         "smaPeriod": 104,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1877.7737588200298,
+        "score": 2668.8692957372496,
         "scoresByEra": {
-          "start": 1877.7737588200298
+          "start": 2668.8692957372496
         }
       },
       {
         "smaPeriod": 105,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1881.2442317968191,
+        "score": 2673.80185948511,
         "scoresByEra": {
-          "start": 1881.2442317968191
+          "start": 2673.80185948511
         }
       },
       {
         "smaPeriod": 106,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1884.6393686527167,
+        "score": 2678.627348427518,
         "scoresByEra": {
-          "start": 1884.639368652717
+          "start": 2678.6273484275184
         }
       },
       {
         "smaPeriod": 107,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1860.9550704177752,
+        "score": 2651.6366147221097,
         "scoresByEra": {
-          "start": 1860.9550704177752
+          "start": 2651.6366147221092
         }
       },
       {
         "smaPeriod": 108,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1864.1601649620936,
+        "score": 2656.203488034891,
         "scoresByEra": {
-          "start": 1864.1601649620936
+          "start": 2656.203488034891
         }
       },
       {
         "smaPeriod": 109,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1837.0655429138062,
+        "score": 2625.158387254965,
         "scoresByEra": {
-          "start": 1837.0655429138062
+          "start": 2625.158387254965
         }
       },
       {
         "smaPeriod": 110,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1801.22638095574,
+        "score": 2583.799891844868,
         "scoresByEra": {
-          "start": 1801.2263809557403
+          "start": 2583.799891844868
         }
       },
       {
         "smaPeriod": 111,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1341.7457756802435,
+        "score": 1577.232497184897,
         "scoresByEra": {
-          "start": 1341.7457756802432
+          "start": 1577.232497184897
         }
       },
       {
         "smaPeriod": 112,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1771.5206716065672,
+        "score": 2550.346102023102,
         "scoresByEra": {
-          "start": 1771.5206716065672
+          "start": 2550.346102023102
         }
       },
       {
         "smaPeriod": 113,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 773.4882394083438,
+        "score": 977.1232270018329,
         "scoresByEra": {
-          "start": 773.4882394083438
+          "start": 977.1232270018329
         }
       },
       {
         "smaPeriod": 114,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 746.5081386519265,
+        "score": 948.4305168768049,
         "scoresByEra": {
-          "start": 746.5081386519266
+          "start": 948.4305168768049
         }
       },
       {
         "smaPeriod": 115,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 913.0432347011337,
+        "score": 1622.6539083032173,
         "scoresByEra": {
-          "start": 913.0432347011337
+          "start": 1622.6539083032173
         }
       },
       {
         "smaPeriod": 116,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 886.8878658173054,
+        "score": 1592.6105937884938,
         "scoresByEra": {
-          "start": 886.8878658173054
+          "start": 1592.6105937884938
         }
       },
       {
         "smaPeriod": 117,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 816.9588646820968,
+        "score": 1512.512074381201,
         "scoresByEra": {
-          "start": 816.9588646820968
+          "start": 1512.512074381201
         }
       },
       {
         "smaPeriod": 118,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 816.9588646820968,
+        "score": 1512.512074381201,
         "scoresByEra": {
-          "start": 816.9588646820968
+          "start": 1512.512074381201
         }
       },
       {
         "smaPeriod": 119,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 867.4049017277998,
+        "score": 857.1351583654163,
         "scoresByEra": {
-          "start": 867.4049017277998
+          "start": 857.1351583654163
         }
       },
       {
         "smaPeriod": 120,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 2094.4320795423646,
+        "score": 2930.0411400671005,
         "scoresByEra": {
-          "start": 2094.4320795423646
+          "start": 2930.0411400671005
         }
       },
       {
         "smaPeriod": 121,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 2094.4320795423646,
+        "score": 2930.0411400671005,
         "scoresByEra": {
-          "start": 2094.4320795423646
+          "start": 2930.0411400671005
         }
       },
       {
         "smaPeriod": 122,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 2085.3756492629145,
+        "score": 2919.437074387941,
         "scoresByEra": {
-          "start": 2085.3756492629145
+          "start": 2919.437074387941
         }
       },
       {
         "smaPeriod": 123,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 2072.228197991122,
+        "score": 2904.0405352410107,
         "scoresByEra": {
-          "start": 2072.228197991122
+          "start": 2904.040535241011
         }
       },
       {
         "smaPeriod": 124,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 2072.228197991122,
+        "score": 2904.0405352410107,
         "scoresByEra": {
-          "start": 2072.228197991122
+          "start": 2904.040535241011
         }
       },
       {
         "smaPeriod": 125,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 2058.578245074602,
+        "score": 2888.052578040046,
         "scoresByEra": {
-          "start": 2058.578245074602
+          "start": 2888.052578040046
         }
       },
       {
         "smaPeriod": 126,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1989.425847344353,
+        "score": 2807.0086222711557,
         "scoresByEra": {
-          "start": 1989.425847344353
+          "start": 2807.0086222711557
         }
       },
       {
         "smaPeriod": 127,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 8,
-        "score": 1928.7386825538013,
+        "score": 2735.8195910793597,
         "scoresByEra": {
-          "start": 1928.7386825538013
+          "start": 2735.8195910793597
         }
       },
       {
         "smaPeriod": 128,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1384.2374052706086,
+        "score": 1555.7891049887778,
         "scoresByEra": {
-          "start": 1384.2374052706086
+          "start": 1555.7891049887778
         }
       },
       {
         "smaPeriod": 129,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1384.2374052706086,
+        "score": 1555.7891049887778,
         "scoresByEra": {
-          "start": 1384.2374052706086
+          "start": 1555.7891049887778
         }
       },
       {
         "smaPeriod": 130,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1353.943063877878,
+        "score": 1523.6375115425635,
         "scoresByEra": {
-          "start": 1353.9430638778779
+          "start": 1523.6375115425635
         }
       },
       {
         "smaPeriod": 131,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1970.7318408089266,
+        "score": 2192.74764729572,
         "scoresByEra": {
-          "start": 1970.7318408089266
+          "start": 2192.74764729572
         }
       },
       {
         "smaPeriod": 132,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1911.297633316176,
+        "score": 2129.87658517548,
         "scoresByEra": {
-          "start": 1911.2976333161762
+          "start": 2129.87658517548
         }
       },
       {
         "smaPeriod": 133,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2207.880965862266,
+        "score": 2443.421566335319,
         "scoresByEra": {
-          "start": 2207.880965862266
+          "start": 2443.421566335319
         }
       },
       {
         "smaPeriod": 134,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2189.046832567481,
+        "score": 2423.523896763611,
         "scoresByEra": {
-          "start": 2189.046832567481
+          "start": 2423.523896763611
         }
       },
       {
         "smaPeriod": 135,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2195.322267026265,
+        "score": 2430.153892436767,
         "scoresByEra": {
-          "start": 2195.322267026265
+          "start": 2430.153892436767
         }
       },
       {
         "smaPeriod": 136,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2048.036639221866,
+        "score": 2277.428264930084,
         "scoresByEra": {
-          "start": 2048.036639221866
+          "start": 2277.428264930084
         }
       },
       {
         "smaPeriod": 137,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2048.036639221866,
+        "score": 2277.428264930084,
         "scoresByEra": {
-          "start": 2048.036639221866
+          "start": 2277.428264930084
         }
       },
       {
         "smaPeriod": 138,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1960.5622502550543,
+        "score": 2184.950074323544,
         "scoresByEra": {
-          "start": 1960.5622502550543
+          "start": 2184.950074323544
         }
       },
       {
         "smaPeriod": 139,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1960.5622502550543,
+        "score": 2184.950074323544,
         "scoresByEra": {
-          "start": 1960.5622502550543
+          "start": 2184.950074323544
         }
       },
       {
         "smaPeriod": 140,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2045.6933839670967,
+        "score": 2274.9514937967515,
         "scoresByEra": {
-          "start": 2045.6933839670967
+          "start": 2274.9514937967515
         }
       },
       {
         "smaPeriod": 141,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1924.5138958176335,
+        "score": 2146.8863501874907,
         "scoresByEra": {
-          "start": 1924.5138958176337
+          "start": 2146.8863501874907
         }
       },
       {
         "smaPeriod": 142,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2619.063278309133,
+        "score": 2860.321340497976,
         "scoresByEra": {
-          "start": 2619.063278309133
+          "start": 2860.321340497976
         }
       },
       {
         "smaPeriod": 143,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2574.604397283428,
+        "score": 2800.456040044064,
         "scoresByEra": {
-          "start": 2574.604397283428
+          "start": 2800.456040044064
         }
       },
       {
         "smaPeriod": 144,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2561.8148316007105,
+        "score": 2792.5560976234538,
         "scoresByEra": {
-          "start": 2561.8148316007105
+          "start": 2792.5560976234538
         }
       },
       {
         "smaPeriod": 145,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2561.8148316007105,
+        "score": 2792.5560976234538,
         "scoresByEra": {
-          "start": 2561.8148316007105
+          "start": 2792.5560976234538
         }
       },
       {
         "smaPeriod": 146,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1860.663049081271,
+        "score": 2081.993932503722,
         "scoresByEra": {
-          "start": 1860.6630490812713
+          "start": 2081.993932503722
         }
       },
       {
         "smaPeriod": 147,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1783.7834995223564,
+        "score": 1986.6266837546,
         "scoresByEra": {
-          "start": 1783.7834995223566
+          "start": 1986.6266837546
         }
       },
       {
         "smaPeriod": 148,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1783.7834995223564,
+        "score": 1986.6266837546,
         "scoresByEra": {
-          "start": 1783.7834995223566
+          "start": 1986.6266837546
         }
       },
       {
         "smaPeriod": 149,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1777.7158905430497,
+        "score": 1980.2262396359292,
         "scoresByEra": {
-          "start": 1777.7158905430497
+          "start": 1980.2262396359292
         }
       },
       {
         "smaPeriod": 150,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1806.9099945926473,
+        "score": 2011.019949050531,
         "scoresByEra": {
-          "start": 1806.9099945926473
+          "start": 2011.019949050531
         }
       },
       {
         "smaPeriod": 151,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1765.4965490593272,
+        "score": 1967.3360070408062,
         "scoresByEra": {
-          "start": 1765.4965490593272
+          "start": 1967.3360070408062
         }
       },
       {
         "smaPeriod": 152,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2557.0857421064234,
+        "score": 2863.2088593224516,
         "scoresByEra": {
-          "start": 2557.0857421064234
+          "start": 2863.2088593224516
         }
       },
       {
         "smaPeriod": 153,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2728.231892378658,
+        "score": 3024.3661397084584,
         "scoresByEra": {
-          "start": 2728.231892378658
+          "start": 3024.3661397084584
         }
       },
       {
         "smaPeriod": 154,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2728.231892378658,
+        "score": 3024.3661397084584,
         "scoresByEra": {
-          "start": 2728.231892378658
+          "start": 3024.3661397084584
         }
       },
       {
         "smaPeriod": 155,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2576.994666950967,
+        "score": 2848.3705665509715,
         "scoresByEra": {
-          "start": 2576.994666950967
+          "start": 2848.370566550972
         }
       },
       {
         "smaPeriod": 156,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2576.994666950967,
+        "score": 2848.3705665509715,
         "scoresByEra": {
-          "start": 2576.994666950967
+          "start": 2848.370566550972
         }
       },
       {
         "smaPeriod": 157,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 3011.196679920738,
+        "score": 3319.5347105721307,
         "scoresByEra": {
-          "start": 3011.196679920738
+          "start": 3319.5347105721307
         }
       },
       {
         "smaPeriod": 158,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2937.165409136889,
+        "score": 3241.810728627918,
         "scoresByEra": {
-          "start": 2937.165409136889
+          "start": 3241.810728627918
         }
       },
       {
         "smaPeriod": 159,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2838.861783875122,
+        "score": 3138.5741097263644,
         "scoresByEra": {
-          "start": 2838.8617838751225
+          "start": 3138.574109726364
         }
       },
       {
         "smaPeriod": 160,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3563.710814200799,
+        "score": 4684.868464521376,
         "scoresByEra": {
-          "start": 3563.710814200799
+          "start": 4684.868464521376
         }
       },
       {
         "smaPeriod": 161,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3563.710814200799,
+        "score": 4684.868464521376,
         "scoresByEra": {
-          "start": 3563.710814200799
+          "start": 4684.868464521376
         }
       },
       {
         "smaPeriod": 162,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3521.5750928910434,
+        "score": 4636.413609662557,
         "scoresByEra": {
-          "start": 3521.5750928910434
+          "start": 4636.413609662557
         }
       },
       {
         "smaPeriod": 163,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3499.412029845403,
+        "score": 4610.920096388797,
         "scoresByEra": {
-          "start": 3499.412029845403
+          "start": 4610.920096388797
         }
       },
       {
         "smaPeriod": 164,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3364.0835296164655,
+        "score": 4455.154476564973,
         "scoresByEra": {
-          "start": 3364.0835296164655
+          "start": 4455.154476564973
         }
       },
       {
         "smaPeriod": 165,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3370.622637239195,
+        "score": 4462.685174720908,
         "scoresByEra": {
-          "start": 3370.622637239195
+          "start": 4462.685174720908
         }
       },
       {
         "smaPeriod": 166,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3167.1844035352815,
+        "score": 4228.197427356835,
         "scoresByEra": {
-          "start": 3167.184403535281
+          "start": 4228.197427356835
         }
       },
       {
         "smaPeriod": 167,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3098.2370358089684,
+        "score": 4148.630506612777,
         "scoresByEra": {
-          "start": 3098.2370358089684
+          "start": 4148.630506612777
         }
       },
       {
         "smaPeriod": 168,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 3130.816142737671,
+        "score": 4186.233830235656,
         "scoresByEra": {
-          "start": 3130.8161427376713
+          "start": 4186.233830235656
         }
       },
       {
         "smaPeriod": 169,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 3581.7750873689893,
+        "score": 3890.0406279434346,
         "scoresByEra": {
-          "start": 3581.7750873689897
+          "start": 3890.0406279434346
         }
       },
       {
         "smaPeriod": 170,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 3383.6432644514225,
+        "score": 3677.799776896149,
         "scoresByEra": {
-          "start": 3383.643264451423
+          "start": 3677.7997768961495
         }
       },
       {
         "smaPeriod": 171,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 3309.5358263317216,
+        "score": 3600.0703765896415,
         "scoresByEra": {
-          "start": 3309.5358263317216
+          "start": 3600.0703765896415
         }
       },
       {
         "smaPeriod": 172,
         "smaUpperBuffer": 3.6,
         "smaLowerBuffer": 3.7,
-        "score": 4450.705627280837,
+        "score": 4789.633811877847,
         "scoresByEra": {
-          "start": 4450.705627280837
+          "start": 4789.633811877847
         }
       },
       {
         "smaPeriod": 173,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2869.8238353452884,
+        "score": 3884.667162341772,
         "scoresByEra": {
-          "start": 2869.8238353452884
+          "start": 3884.667162341772
         }
       },
       {
         "smaPeriod": 174,
         "smaUpperBuffer": 3.5,
         "smaLowerBuffer": 3.6,
-        "score": 4430.629793483565,
+        "score": 4768.6312826592575,
         "scoresByEra": {
-          "start": 4430.629793483565
+          "start": 4768.6312826592575
         }
       },
       {
         "smaPeriod": 175,
         "smaUpperBuffer": 3.6,
         "smaLowerBuffer": 3.6,
-        "score": 4378.874887202888,
+        "score": 4714.482981985494,
         "scoresByEra": {
-          "start": 4378.874887202888
+          "start": 4714.482981985494
         }
       },
       {
         "smaPeriod": 176,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2682.816690083703,
+        "score": 3668.1079199913825,
         "scoresByEra": {
-          "start": 2682.816690083703
+          "start": 3668.1079199913825
         }
       },
       {
         "smaPeriod": 177,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2551.438205989564,
+        "score": 3490.111130914375,
         "scoresByEra": {
-          "start": 2551.438205989564
+          "start": 3490.111130914375
         }
       },
       {
         "smaPeriod": 178,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 2664.5812061853185,
+        "score": 3554.3978573356208,
         "scoresByEra": {
-          "start": 2664.581206185318
+          "start": 3554.3978573356208
         }
       },
       {
         "smaPeriod": 179,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2534.316090809689,
+        "score": 3470.2335688664775,
         "scoresByEra": {
-          "start": 2534.316090809689
+          "start": 3470.2335688664775
         }
       },
       {
         "smaPeriod": 180,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2459.744358555344,
+        "score": 3383.6160863746163,
         "scoresByEra": {
-          "start": 2459.744358555344
+          "start": 3383.616086374616
         }
       },
       {
         "smaPeriod": 181,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2459.744358555344,
+        "score": 3383.6160863746163,
         "scoresByEra": {
-          "start": 2459.744358555344
+          "start": 3383.616086374616
         }
       },
       {
         "smaPeriod": 182,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2474.6398318275724,
+        "score": 3400.9235679807302,
         "scoresByEra": {
-          "start": 2474.6398318275724
+          "start": 3400.9235679807302
         }
       },
       {
         "smaPeriod": 183,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2469.722101854686,
+        "score": 3395.209843982961,
         "scoresByEra": {
-          "start": 2469.722101854686
+          "start": 3395.209843982961
         }
       },
       {
         "smaPeriod": 184,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2408.007718740742,
+        "score": 3323.478495858488,
         "scoresByEra": {
-          "start": 2408.007718740742
+          "start": 3323.478495858488
         }
       },
       {
         "smaPeriod": 185,
         "smaUpperBuffer": 3.5,
         "smaLowerBuffer": 5.5,
-        "score": 3530.7432459429397,
+        "score": 4548.713538468789,
         "scoresByEra": {
-          "start": 3530.7432459429397
+          "start": 4548.713538468789
         }
       },
       {
         "smaPeriod": 186,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 6,
-        "score": 2408.007718740742,
+        "score": 3323.478495858488,
         "scoresByEra": {
-          "start": 2408.007718740742
+          "start": 3323.478495858488
         }
       },
       {
         "smaPeriod": 187,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1556.0118954234335,
+        "score": 2355.884091408817,
         "scoresByEra": {
-          "start": 1556.0118954234333
+          "start": 2355.884091408817
         }
       },
       {
         "smaPeriod": 188,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 6,
-        "score": 1751.7171695764391,
+        "score": 2461.5365628953477,
         "scoresByEra": {
-          "start": 1751.7171695764391
+          "start": 2461.5365628953477
         }
       },
       {
         "smaPeriod": 189,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1555.8898189080878,
+        "score": 2355.7405118600986,
         "scoresByEra": {
-          "start": 1555.889818908088
+          "start": 2355.7405118600986
         }
       },
       {
         "smaPeriod": 190,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1684.2457054874255,
+        "score": 2506.5456626314603,
         "scoresByEra": {
-          "start": 1684.2457054874255
+          "start": 2506.5456626314603
         }
       },
       {
         "smaPeriod": 191,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1736.960509853902,
+        "score": 2539.55280045654,
         "scoresByEra": {
-          "start": 1736.960509853902
+          "start": 2539.55280045654
         }
       },
       {
         "smaPeriod": 192,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1736.960509853902,
+        "score": 2539.55280045654,
         "scoresByEra": {
-          "start": 1736.960509853902
+          "start": 2539.55280045654
         }
       },
       {
         "smaPeriod": 193,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1736.960509853902,
+        "score": 2539.55280045654,
         "scoresByEra": {
-          "start": 1736.960509853902
+          "start": 2539.55280045654
         }
       },
       {
         "smaPeriod": 194,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1801.972256245753,
+        "score": 2656.9626024500362,
         "scoresByEra": {
-          "start": 1801.972256245753
+          "start": 2656.9626024500362
         }
       },
       {
         "smaPeriod": 195,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1801.972256245753,
+        "score": 2656.9626024500362,
         "scoresByEra": {
-          "start": 1801.972256245753
+          "start": 2656.9626024500362
         }
       },
       {
         "smaPeriod": 196,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1801.972256245753,
+        "score": 2656.9626024500362,
         "scoresByEra": {
-          "start": 1801.972256245753
+          "start": 2656.9626024500362
         }
       },
       {
         "smaPeriod": 197,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1825.4708063157661,
+        "score": 2684.494378854628,
         "scoresByEra": {
-          "start": 1825.4708063157661
+          "start": 2684.4943788546275
         }
       },
       {
         "smaPeriod": 198,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1853.7909785108966,
+        "score": 2717.6624762696197,
         "scoresByEra": {
-          "start": 1853.7909785108966
+          "start": 2717.6624762696197
         }
       },
       {
         "smaPeriod": 199,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 6,
-        "score": 1853.7909785108966,
+        "score": 2717.6624762696197,
         "scoresByEra": {
-          "start": 1853.7909785108966
+          "start": 2717.6624762696197
         }
       },
       {
         "smaPeriod": 200,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 6,
-        "score": 689.531285276021,
+        "score": 1182.7907013211502,
         "scoresByEra": {
-          "start": 689.531285276021
+          "start": 1182.7907013211502
         }
       },
       {
         "smaPeriod": 201,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 6,
-        "score": 682.1969370477157,
+        "score": 1173.2678587847452,
         "scoresByEra": {
-          "start": 682.1969370477157
+          "start": 1173.2678587847452
         }
       },
       {
         "smaPeriod": 202,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 6,
-        "score": 680.8298089173595,
+        "score": 1170.9166205907877,
         "scoresByEra": {
-          "start": 680.8298089173595
+          "start": 1170.9166205907877
         }
       },
       {
         "smaPeriod": 203,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 2,
-        "score": -671.6453183781265,
+        "score": -544.9646979106107,
         "scoresByEra": {
-          "start": -671.6453183781266
+          "start": -544.9646979106107
         }
       },
       {
         "smaPeriod": 204,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 2,
-        "score": -445.2126843891175,
+        "score": -298.5545839585689,
         "scoresByEra": {
-          "start": -445.2126843891175
+          "start": -298.5545839585689
         }
       },
       {
         "smaPeriod": 205,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1280.0616830319332,
+        "score": 2019.8919313911103,
         "scoresByEra": {
-          "start": 1280.0616830319332
+          "start": 2019.8919313911103
         }
       },
       {
         "smaPeriod": 206,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1406.6552216586927,
+        "score": 2159.443002608944,
         "scoresByEra": {
-          "start": 1406.6552216586929
+          "start": 2159.443002608944
         }
       },
       {
         "smaPeriod": 207,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1361.1529403182694,
+        "score": 2104.8485873326917,
         "scoresByEra": {
-          "start": 1361.1529403182697
+          "start": 2104.8485873326917
         }
       },
       {
         "smaPeriod": 208,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1358.3919810072794,
+        "score": 2100.5791175815098,
         "scoresByEra": {
-          "start": 1358.3919810072791
+          "start": 2100.5791175815098
         }
       },
       {
         "smaPeriod": 209,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1347.764689917317,
+        "score": 2087.043407051716,
         "scoresByEra": {
-          "start": 1347.764689917317
+          "start": 2087.043407051716
         }
       },
       {
         "smaPeriod": 210,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1802.4760543287778,
+        "score": 2619.034305490224,
         "scoresByEra": {
-          "start": 1802.4760543287778
+          "start": 2619.034305490224
         }
       },
       {
         "smaPeriod": 211,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 2,
-        "score": -237.844690244881,
+        "score": -72.26159225395256,
         "scoresByEra": {
-          "start": -237.844690244881
+          "start": -72.26159225395256
         }
       },
       {
         "smaPeriod": 212,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 1846.8691565189213,
+        "score": 1973.7062147901927,
         "scoresByEra": {
-          "start": 1846.8691565189213
+          "start": 1973.7062147901927
         }
       },
       {
         "smaPeriod": 213,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2270.5469078320552,
+        "score": 2431.6969510942627,
         "scoresByEra": {
-          "start": 2270.5469078320552
+          "start": 2431.6969510942627
         }
       },
       {
         "smaPeriod": 214,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2145.0138979632848,
+        "score": 2299.5170704077527,
         "scoresByEra": {
-          "start": 2145.0138979632848
+          "start": 2299.5170704077527
         }
       },
       {
         "smaPeriod": 215,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 2,
-        "score": 59.28116616604013,
+        "score": 231.71432821589661,
         "scoresByEra": {
-          "start": 59.28116616604013
+          "start": 231.7143282158966
         }
       },
       {
         "smaPeriod": 216,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2468.5370101710546,
+        "score": 2652.5222563937937,
         "scoresByEra": {
-          "start": 2468.5370101710546
+          "start": 2652.522256393793
         }
       },
       {
         "smaPeriod": 217,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 258.70082293221793,
+        "score": 809.772200471791,
         "scoresByEra": {
-          "start": 258.70082293221793
+          "start": 809.772200471791
         }
       },
       {
         "smaPeriod": 218,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 2,
-        "score": 831.8430882894862,
+        "score": 1037.9848086375844,
         "scoresByEra": {
-          "start": 831.8430882894862
+          "start": 1037.9848086375844
         }
       },
       {
         "smaPeriod": 219,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 2,
-        "score": 824.8765275600842,
+        "score": 1030.2630332690892,
         "scoresByEra": {
-          "start": 824.8765275600842
+          "start": 1030.2630332690892
         }
       },
       {
         "smaPeriod": 220,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 2,
-        "score": 319.9442815478239,
+        "score": 502.8128375397202,
         "scoresByEra": {
-          "start": 319.9442815478239
+          "start": 502.8128375397202
         }
       },
       {
         "smaPeriod": 221,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1119.2786802333815,
+        "score": 1670.789739208423,
         "scoresByEra": {
-          "start": 1119.2786802333815
+          "start": 1670.789739208423
         }
       },
       {
         "smaPeriod": 222,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1112.411453028423,
+        "score": 1661.9176298608756,
         "scoresByEra": {
-          "start": 1112.411453028423
+          "start": 1661.9176298608756
         }
       },
       {
         "smaPeriod": 223,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 1645.8655291061991,
+        "score": 1794.4411769347573,
         "scoresByEra": {
-          "start": 1645.8655291061991
+          "start": 1794.4411769347573
         }
       },
       {
         "smaPeriod": 224,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 1611.338535139942,
+        "score": 1757.910485812866,
         "scoresByEra": {
-          "start": 1611.338535139942
+          "start": 1757.910485812866
         }
       },
       {
         "smaPeriod": 225,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 1944.50968415656,
+        "score": 2122.194552673216,
         "scoresByEra": {
-          "start": 1944.50968415656
+          "start": 2122.194552673216
         }
       },
       {
         "smaPeriod": 226,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 1940.4159795583357,
+        "score": 2117.7267746675884,
         "scoresByEra": {
-          "start": 1940.4159795583357
+          "start": 2117.7267746675884
         }
       },
       {
         "smaPeriod": 227,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 1971.8213772658182,
+        "score": 2150.639851444433,
         "scoresByEra": {
-          "start": 1971.8213772658182
+          "start": 2150.639851444433
         }
       },
       {
         "smaPeriod": 228,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 3020.808030969516,
+        "score": 3917.9705473029585,
         "scoresByEra": {
-          "start": 3020.808030969516
+          "start": 3917.9705473029585
         }
       },
       {
         "smaPeriod": 229,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1070.8574142061661,
+        "score": 1607.5462724761135,
         "scoresByEra": {
-          "start": 1070.8574142061661
+          "start": 1607.5462724761135
         }
       },
       {
         "smaPeriod": 230,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 4,
-        "score": 3082.110934818557,
+        "score": 3986.719964248384,
         "scoresByEra": {
-          "start": 3082.110934818557
+          "start": 3986.719964248384
         }
       },
       {
         "smaPeriod": 231,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1066.3102489653754,
+        "score": 1600.720173654559,
         "scoresByEra": {
-          "start": 1066.3102489653754
+          "start": 1600.720173654559
         }
       },
       {
         "smaPeriod": 232,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1064.0366663449802,
+        "score": 1597.3071242437813,
         "scoresByEra": {
-          "start": 1064.0366663449802
+          "start": 1597.3071242437816
         }
       },
       {
         "smaPeriod": 233,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1013.3465754763889,
+        "score": 1536.2832372115465,
         "scoresByEra": {
-          "start": 1013.3465754763889
+          "start": 1536.2832372115465
         }
       },
       {
         "smaPeriod": 234,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1011.1766684625209,
+        "score": 1532.9935514787594,
         "scoresByEra": {
-          "start": 1011.1766684625209
+          "start": 1532.9935514787594
         }
       },
       {
         "smaPeriod": 235,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 4,
-        "score": 1057.162473956693,
+        "score": 1579.2152086500175,
         "scoresByEra": {
-          "start": 1057.162473956693
+          "start": 1579.2152086500175
         }
       },
       {
         "smaPeriod": 236,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 4,
-        "score": 2005.602767875229,
+        "score": 2725.1662272433723,
         "scoresByEra": {
-          "start": 2005.602767875229
+          "start": 2725.166227243372
         }
       },
       {
         "smaPeriod": 237,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2050.428307367002,
+        "score": 2892.621073908561,
         "scoresByEra": {
-          "start": 2050.428307367002
+          "start": 2892.621073908561
         }
       },
       {
         "smaPeriod": 238,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2019.622558291007,
+        "score": 2855.628372868672,
         "scoresByEra": {
-          "start": 2019.622558291007
+          "start": 2855.628372868672
         }
       },
       {
         "smaPeriod": 239,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1995.633921209695,
+        "score": 2826.574347828264,
         "scoresByEra": {
-          "start": 1995.633921209695
+          "start": 2826.574347828264
         }
       },
       {
         "smaPeriod": 240,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 1992.427851740197,
+        "score": 2821.752334144424,
         "scoresByEra": {
-          "start": 1992.427851740197
+          "start": 2821.752334144424
         }
       },
       {
         "smaPeriod": 241,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2051.9274324817634,
+        "score": 2890.018851467209,
         "scoresByEra": {
-          "start": 2051.9274324817634
+          "start": 2890.018851467209
         }
       },
       {
         "smaPeriod": 242,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 4,
-        "score": 2047.4570023456372,
+        "score": 2883.722514100178,
         "scoresByEra": {
-          "start": 2047.4570023456374
+          "start": 2883.722514100178
         }
       },
       {
         "smaPeriod": 243,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 2,
-        "score": 644.6642141808944,
+        "score": 881.7613013965029,
         "scoresByEra": {
-          "start": 644.6642141808944
+          "start": 881.7613013965029
         }
       },
       {
         "smaPeriod": 244,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 2,
-        "score": 643.2535703861879,
+        "score": 879.8318455947599,
         "scoresByEra": {
-          "start": 643.2535703861879
+          "start": 879.8318455947599
         }
       },
       {
         "smaPeriod": 245,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 1512.8042346051232,
+        "score": 1698.598889647211,
         "scoresByEra": {
-          "start": 1512.8042346051232
+          "start": 1698.5988896472113
         }
       },
       {
         "smaPeriod": 246,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 946.9138031331463,
+        "score": 1494.5727268556213,
         "scoresByEra": {
-          "start": 946.9138031331463
+          "start": 1494.5727268556216
         }
       },
       {
         "smaPeriod": 247,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 972.151393346916,
+        "score": 1544.6920273251294,
         "scoresByEra": {
-          "start": 972.151393346916
+          "start": 1544.6920273251292
         }
       },
       {
         "smaPeriod": 248,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 1078.2610493632906,
+        "score": 1742.57907220246,
         "scoresByEra": {
-          "start": 1078.2610493632906
+          "start": 1742.57907220246
         }
       },
       {
         "smaPeriod": 249,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 1094.6968389601127,
+        "score": 1761.0016803664946,
         "scoresByEra": {
-          "start": 1094.6968389601127
+          "start": 1761.0016803664948
         }
       },
       {
         "smaPeriod": 250,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 1095.2244847024165,
+        "score": 1760.5937425449117,
         "scoresByEra": {
-          "start": 1095.2244847024165
+          "start": 1760.593742544912
         }
       },
       {
         "smaPeriod": 251,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 1075.396320072745,
+        "score": 1736.0941934978973,
         "scoresByEra": {
-          "start": 1075.396320072745
+          "start": 1736.0941934978973
         }
       },
       {
         "smaPeriod": 252,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 1089.6976557688968,
+        "score": 1751.9888730580199,
         "scoresByEra": {
-          "start": 1089.6976557688968
+          "start": 1751.9888730580199
         }
       },
       {
         "smaPeriod": 253,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 2,
-        "score": 1034.4884880210104,
+        "score": 1685.5875603657346,
         "scoresByEra": {
-          "start": 1034.4884880210104
+          "start": 1685.5875603657346
         }
       },
       {
         "smaPeriod": 254,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2104.167968453662,
+        "score": 2815.031509955939,
         "scoresByEra": {
-          "start": 2104.167968453662
+          "start": 2815.0315099559384
         }
       },
       {
         "smaPeriod": 255,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2099.4501030535416,
+        "score": 2808.7197801129882,
         "scoresByEra": {
-          "start": 2099.4501030535416
+          "start": 2808.719780112988
         }
       },
       {
         "smaPeriod": 256,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2438.4553628846734,
+        "score": 3200.845934980218,
         "scoresByEra": {
-          "start": 2438.4553628846734
+          "start": 3200.845934980218
         }
       },
       {
         "smaPeriod": 257,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2292.605280279021,
+        "score": 3030.9131748702694,
         "scoresByEra": {
-          "start": 2292.605280279021
+          "start": 3030.913174870269
         }
       },
       {
         "smaPeriod": 258,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2283.69107195756,
+        "score": 3019.7327700269157,
         "scoresByEra": {
-          "start": 2283.69107195756
+          "start": 3019.7327700269157
         }
       },
       {
         "smaPeriod": 259,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2244.201418232452,
+        "score": 2973.0644133347446,
         "scoresByEra": {
-          "start": 2244.201418232452
+          "start": 2973.0644133347446
         }
       },
       {
         "smaPeriod": 260,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2127.5861920172333,
+        "score": 2833.3193489634655,
         "scoresByEra": {
-          "start": 2127.5861920172333
+          "start": 2833.319348963465
         }
       },
       {
         "smaPeriod": 261,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2120.8283597237105,
+        "score": 2824.6444124347718,
         "scoresByEra": {
-          "start": 2120.8283597237105
+          "start": 2824.6444124347718
         }
       },
       {
         "smaPeriod": 262,
         "smaUpperBuffer": 3.4,
         "smaLowerBuffer": 2.3,
-        "score": 3766.5979103624054,
+        "score": 4730.511113979103,
         "scoresByEra": {
-          "start": 3766.5979103624054
+          "start": 4730.511113979103
         }
       },
       {
         "smaPeriod": 263,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2243.108573868166,
+        "score": 2965.0801517900363,
         "scoresByEra": {
-          "start": 2243.108573868166
+          "start": 2965.0801517900363
         }
       },
       {
         "smaPeriod": 264,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2494.5485136678903,
+        "score": 3254.959526293572,
         "scoresByEra": {
-          "start": 2494.5485136678903
+          "start": 3254.959526293572
         }
       },
       {
         "smaPeriod": 265,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2500.681124496832,
+        "score": 3261.2135835519807,
         "scoresByEra": {
-          "start": 2500.681124496832
+          "start": 3261.2135835519803
         }
       },
       {
         "smaPeriod": 266,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2884.335092661067,
+        "score": 3702.8816135707298,
         "scoresByEra": {
-          "start": 2884.335092661067
+          "start": 3702.8816135707298
         }
       },
       {
         "smaPeriod": 267,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2877.6891592678385,
+        "score": 3694.349628286005,
         "scoresByEra": {
-          "start": 2877.689159267839
+          "start": 3694.3496282860046
         }
       },
       {
         "smaPeriod": 268,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2871.0432258746105,
+        "score": 3685.81764300128,
         "scoresByEra": {
-          "start": 2871.0432258746105
+          "start": 3685.8176430012795
         }
       },
       {
         "smaPeriod": 269,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2864.3972924813825,
+        "score": 3677.285657716554,
         "scoresByEra": {
-          "start": 2864.3972924813825
+          "start": 3677.2856577165544
         }
       },
       {
         "smaPeriod": 270,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3155.6568479622856,
+        "score": 4011.26391395219,
         "scoresByEra": {
-          "start": 3155.6568479622856
+          "start": 4011.2639139521893
         }
       },
       {
         "smaPeriod": 271,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3161.5539514856105,
+        "score": 4017.1475996669988,
         "scoresByEra": {
-          "start": 3161.5539514856105
+          "start": 4017.1475996669988
         }
       },
       {
         "smaPeriod": 272,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3154.184361855108,
+        "score": 4007.7836192481946,
         "scoresByEra": {
-          "start": 3154.1843618551075
+          "start": 4007.7836192481946
         }
       },
       {
         "smaPeriod": 273,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3146.814772224605,
+        "score": 3998.4196388293904,
         "scoresByEra": {
-          "start": 3146.814772224605
+          "start": 3998.4196388293904
         }
       },
       {
         "smaPeriod": 274,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3117.4477822896365,
+        "score": 3963.772591001383,
         "scoresByEra": {
-          "start": 3117.4477822896365
+          "start": 3963.772591001383
         }
       },
       {
         "smaPeriod": 275,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3230.2705533985627,
+        "score": 4103.385032623224,
         "scoresByEra": {
-          "start": 3230.2705533985622
+          "start": 4103.385032623224
         }
       },
       {
         "smaPeriod": 276,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3113.0364916530352,
+        "score": 3967.7435419312114,
         "scoresByEra": {
-          "start": 3113.0364916530352
+          "start": 3967.7435419312114
         }
       },
       {
         "smaPeriod": 277,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 3109.8727744810576,
+        "score": 3963.1895948313577,
         "scoresByEra": {
-          "start": 3109.8727744810576
+          "start": 3963.1895948313577
         }
       },
       {
         "smaPeriod": 278,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2813.2381655269683,
+        "score": 3621.1411058775802,
         "scoresByEra": {
-          "start": 2813.2381655269683
+          "start": 3621.1411058775802
         }
       },
       {
         "smaPeriod": 279,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2728.553791119022,
+        "score": 3522.5770301933762,
         "scoresByEra": {
-          "start": 2728.553791119022
+          "start": 3522.5770301933762
         }
       },
       {
         "smaPeriod": 280,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 2,
-        "score": 2761.0908548283423,
+        "score": 3559.221329619649,
         "scoresByEra": {
-          "start": 2761.090854828343
+          "start": 3559.221329619649
         }
       }
     ],
@@ -2101,9 +2101,9 @@
       "smaPeriod": 172,
       "smaUpperBuffer": 3.6,
       "smaLowerBuffer": 3.7,
-      "score": 4450.705627280837,
+      "score": 4789.633811877847,
       "scoresByEra": {
-        "start": 4450.705627280837
+        "start": 4789.633811877847
       }
     }
   },
@@ -2117,2079 +2117,2079 @@
         "smaPeriod": 50,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 8,
-        "score": 10771.150534170743,
+        "score": 10548.149978574487,
         "scoresByEra": {
-          "start": 10771.150534170742
+          "start": 10548.149978574485
         }
       },
       {
         "smaPeriod": 51,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 8,
-        "score": 10037.240429875923,
+        "score": 9839.736833155353,
         "scoresByEra": {
-          "start": 10037.240429875923
+          "start": 9839.736833155353
         }
       },
       {
         "smaPeriod": 52,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 8,
-        "score": 10107.778501059995,
+        "score": 9909.48408598997,
         "scoresByEra": {
-          "start": 10107.778501059995
+          "start": 9909.48408598997
         }
       },
       {
         "smaPeriod": 53,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 8,
-        "score": 8929.382809786568,
+        "score": 8719.071096526208,
         "scoresByEra": {
-          "start": 8929.382809786568
+          "start": 8719.071096526208
         }
       },
       {
         "smaPeriod": 54,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 8,
-        "score": 11660.865695707556,
+        "score": 11755.667121018092,
         "scoresByEra": {
-          "start": 11660.865695707556
+          "start": 11755.667121018092
         }
       },
       {
         "smaPeriod": 55,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 8,
-        "score": 11292.7942313676,
+        "score": 11385.962648282326,
         "scoresByEra": {
-          "start": 11292.794231367601
+          "start": 11385.962648282326
         }
       },
       {
         "smaPeriod": 56,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 8,
-        "score": 9517.125617119393,
+        "score": 9603.4318454464,
         "scoresByEra": {
-          "start": 9517.125617119393
+          "start": 9603.4318454464
         }
       },
       {
         "smaPeriod": 57,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 9966.462828395357,
+        "score": 9764.404495372051,
         "scoresByEra": {
-          "start": 9966.462828395357
+          "start": 9764.404495372051
         }
       },
       {
         "smaPeriod": 58,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 9490.45831475248,
+        "score": 9292.926216933729,
         "scoresByEra": {
-          "start": 9490.45831475248
+          "start": 9292.926216933729
         }
       },
       {
         "smaPeriod": 59,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 8232.321244414834,
+        "score": 8044.640482542235,
         "scoresByEra": {
-          "start": 8232.321244414834
+          "start": 8044.640482542236
         }
       },
       {
         "smaPeriod": 60,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 7712.562645298653,
+        "score": 7529.958525203383,
         "scoresByEra": {
-          "start": 7712.562645298653
+          "start": 7529.958525203383
         }
       },
       {
         "smaPeriod": 61,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 7496.285928908214,
+        "score": 7315.809352119006,
         "scoresByEra": {
-          "start": 7496.2859289082135
+          "start": 7315.809352119006
         }
       },
       {
         "smaPeriod": 62,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 7270.922626322539,
+        "score": 7095.29022596892,
         "scoresByEra": {
-          "start": 7270.922626322539
+          "start": 7095.29022596892
         }
       },
       {
         "smaPeriod": 63,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 7944.844639373474,
+        "score": 7762.583317203354,
         "scoresByEra": {
-          "start": 7944.844639373474
+          "start": 7762.583317203354
         }
       },
       {
         "smaPeriod": 64,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 7488.659885940946,
+        "score": 7302.8907097049705,
         "scoresByEra": {
-          "start": 7488.659885940946
+          "start": 7302.8907097049705
         }
       },
       {
         "smaPeriod": 65,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 7005.453047697901,
+        "score": 6824.460908159148,
         "scoresByEra": {
-          "start": 7005.4530476979
+          "start": 6824.460908159148
         }
       },
       {
         "smaPeriod": 66,
         "smaUpperBuffer": 14,
         "smaLowerBuffer": 18,
-        "score": 2800.9800782172256,
+        "score": 2542.149455978074,
         "scoresByEra": {
-          "start": 2800.980078217225
+          "start": 2542.149455978074
         }
       },
       {
         "smaPeriod": 67,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 8,
-        "score": 6725.995983130844,
+        "score": 6547.788326432672,
         "scoresByEra": {
-          "start": 6725.995983130844
+          "start": 6547.788326432672
         }
       },
       {
         "smaPeriod": 68,
         "smaUpperBuffer": 14,
         "smaLowerBuffer": 18,
-        "score": 2309.7145541566515,
+        "score": 2110.1401140026346,
         "scoresByEra": {
-          "start": 2309.7145541566515
+          "start": 2110.1401140026346
         }
       },
       {
         "smaPeriod": 69,
         "smaUpperBuffer": 14,
         "smaLowerBuffer": 18,
-        "score": 3182.3837611574786,
+        "score": 2646.945321290485,
         "scoresByEra": {
-          "start": 3182.383761157478
+          "start": 2646.9453212904846
         }
       },
       {
         "smaPeriod": 70,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 5876.786968628337,
+        "score": 4954.277797086326,
         "scoresByEra": {
-          "start": 5876.786968628337
+          "start": 4954.277797086326
         }
       },
       {
         "smaPeriod": 71,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 5972.392651287302,
+        "score": 5031.404218492999,
         "scoresByEra": {
-          "start": 5972.392651287302
+          "start": 5031.404218492999
         }
       },
       {
         "smaPeriod": 72,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 6078.76991445668,
+        "score": 5112.462933690416,
         "scoresByEra": {
-          "start": 6078.76991445668
+          "start": 5112.462933690416
         }
       },
       {
         "smaPeriod": 73,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 6220.614436397844,
+        "score": 5231.759250375574,
         "scoresByEra": {
-          "start": 6220.614436397844
+          "start": 5231.759250375574
         }
       },
       {
         "smaPeriod": 74,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 6295.4186907455205,
+        "score": 5291.043955598305,
         "scoresByEra": {
-          "start": 6295.418690745521
+          "start": 5291.043955598305
         }
       },
       {
         "smaPeriod": 75,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 18,
-        "score": 3326.5824363509128,
+        "score": 2799.2308382779993,
         "scoresByEra": {
-          "start": 3326.5824363509128
+          "start": 2799.2308382779993
         }
       },
       {
         "smaPeriod": 76,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 6647.023418330543,
+        "score": 5592.279050330216,
         "scoresByEra": {
-          "start": 6647.023418330544
+          "start": 5592.279050330216
         }
       },
       {
         "smaPeriod": 77,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 6769.554891007368,
+        "score": 5695.367326770923,
         "scoresByEra": {
-          "start": 6769.5548910073685
+          "start": 5695.367326770924
         }
       },
       {
         "smaPeriod": 78,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 6908.6051283140105,
+        "score": 5813.58081987842,
         "scoresByEra": {
-          "start": 6908.6051283140105
+          "start": 5813.58081987842
         }
       },
       {
         "smaPeriod": 79,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7030.656104042008,
+        "score": 5916.736262323804,
         "scoresByEra": {
-          "start": 7030.656104042008
+          "start": 5916.736262323804
         }
       },
       {
         "smaPeriod": 80,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7229.88214363159,
+        "score": 6089.605508940987,
         "scoresByEra": {
-          "start": 7229.88214363159
+          "start": 6089.605508940987
         }
       },
       {
         "smaPeriod": 81,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7242.278276906102,
+        "score": 6083.375907564179,
         "scoresByEra": {
-          "start": 7242.278276906102
+          "start": 6083.375907564179
         }
       },
       {
         "smaPeriod": 82,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7345.454533223739,
+        "score": 6170.041999078066,
         "scoresByEra": {
-          "start": 7345.454533223739
+          "start": 6170.041999078066
         }
       },
       {
         "smaPeriod": 83,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7635.649818961558,
+        "score": 6425.363056984479,
         "scoresByEra": {
-          "start": 7635.649818961558
+          "start": 6425.363056984479
         }
       },
       {
         "smaPeriod": 84,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7342.704039800248,
+        "score": 6179.616307449211,
         "scoresByEra": {
-          "start": 7342.704039800248
+          "start": 6179.616307449211
         }
       },
       {
         "smaPeriod": 85,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7433.717533099814,
+        "score": 6256.213221112534,
         "scoresByEra": {
-          "start": 7433.717533099814
+          "start": 6256.2132211125345
         }
       },
       {
         "smaPeriod": 86,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7328.362284583317,
+        "score": 6104.783969237094,
         "scoresByEra": {
-          "start": 7328.362284583316
+          "start": 6104.783969237094
         }
       },
       {
         "smaPeriod": 87,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7411.591677761677,
+        "score": 6174.116986016776,
         "scoresByEra": {
-          "start": 7411.591677761677
+          "start": 6174.116986016776
         }
       },
       {
         "smaPeriod": 88,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7132.011623649198,
+        "score": 5917.051290801104,
         "scoresByEra": {
-          "start": 7132.011623649198
+          "start": 5917.051290801105
         }
       },
       {
         "smaPeriod": 89,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7015.489657375561,
+        "score": 5805.2509350603395,
         "scoresByEra": {
-          "start": 7015.489657375561
+          "start": 5805.25093506034
         }
       },
       {
         "smaPeriod": 90,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7085.864313854441,
+        "score": 5863.485293641292,
         "scoresByEra": {
-          "start": 7085.864313854441
+          "start": 5863.485293641292
         }
       },
       {
         "smaPeriod": 91,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7154.180616270762,
+        "score": 5920.016383821898,
         "scoresByEra": {
-          "start": 7154.180616270761
+          "start": 5920.016383821898
         }
       },
       {
         "smaPeriod": 92,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7153.496401244716,
+        "score": 5913.111704919202,
         "scoresByEra": {
-          "start": 7153.496401244716
+          "start": 5913.111704919202
         }
       },
       {
         "smaPeriod": 93,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7217.354853888841,
+        "score": 5965.8973837828,
         "scoresByEra": {
-          "start": 7217.354853888841
+          "start": 5965.8973837828
         }
       },
       {
         "smaPeriod": 94,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 20,
-        "score": 7304.508629986107,
+        "score": 6040.360734320691,
         "scoresByEra": {
-          "start": 7304.508629986107
+          "start": 6040.360734320691
         }
       },
       {
         "smaPeriod": 95,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7691.914439542486,
+        "score": 6563.033214593272,
         "scoresByEra": {
-          "start": 7691.914439542486
+          "start": 6563.033214593272
         }
       },
       {
         "smaPeriod": 96,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7777.350142362473,
+        "score": 6637.754814371906,
         "scoresByEra": {
-          "start": 7777.350142362473
+          "start": 6637.754814371906
         }
       },
       {
         "smaPeriod": 97,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7622.397134576075,
+        "score": 6488.153388340533,
         "scoresByEra": {
-          "start": 7622.397134576075
+          "start": 6488.153388340533
         }
       },
       {
         "smaPeriod": 98,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 7679.225806788451,
+        "score": 6536.525722615417,
         "scoresByEra": {
-          "start": 7679.225806788452
+          "start": 6536.525722615417
         }
       },
       {
         "smaPeriod": 99,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 7529.198152891353,
+        "score": 6412.240324000395,
         "scoresByEra": {
-          "start": 7529.198152891353
+          "start": 6412.240324000395
         }
       },
       {
         "smaPeriod": 100,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 7636.642924892954,
+        "score": 6503.74564576791,
         "scoresByEra": {
-          "start": 7636.642924892955
+          "start": 6503.74564576791
         }
       },
       {
         "smaPeriod": 101,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 7550.48533974166,
+        "score": 6410.220083044302,
         "scoresByEra": {
-          "start": 7550.48533974166
+          "start": 6410.220083044302
         }
       },
       {
         "smaPeriod": 102,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 7649.644117333442,
+        "score": 6494.404020755345,
         "scoresByEra": {
-          "start": 7649.6441173334415
+          "start": 6494.404020755345
         }
       },
       {
         "smaPeriod": 103,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 5959.101418696573,
+        "score": 4835.69626507596,
         "scoresByEra": {
-          "start": 5959.101418696573
+          "start": 4835.69626507596
         }
       },
       {
         "smaPeriod": 104,
         "smaUpperBuffer": 18,
         "smaLowerBuffer": 21,
-        "score": 7827.0655089095,
+        "score": 6561.585793783685,
         "scoresByEra": {
-          "start": 7827.065508909501
+          "start": 6561.585793783685
         }
       },
       {
         "smaPeriod": 105,
         "smaUpperBuffer": 18,
         "smaLowerBuffer": 21,
-        "score": 6771.883960066541,
+        "score": 5138.5848694922715,
         "scoresByEra": {
-          "start": 6771.883960066541
+          "start": 5138.5848694922715
         }
       },
       {
         "smaPeriod": 106,
         "smaUpperBuffer": 18.2,
         "smaLowerBuffer": 19.1,
-        "score": 6764.97038990964,
+        "score": 5133.3387714770215,
         "scoresByEra": {
-          "start": 6764.970389909641
+          "start": 5133.3387714770215
         }
       },
       {
         "smaPeriod": 107,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 21,
-        "score": 10735.735286441608,
+        "score": 9106.745217137024,
         "scoresByEra": {
-          "start": 10735.735286441608
+          "start": 9106.745217137024
         }
       },
       {
         "smaPeriod": 108,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 21,
-        "score": 10847.856968374184,
+        "score": 9201.854081451736,
         "scoresByEra": {
-          "start": 10847.856968374184
+          "start": 9201.854081451736
         }
       },
       {
         "smaPeriod": 109,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 10957.185599827155,
+        "score": 9294.593699653564,
         "scoresByEra": {
-          "start": 10957.185599827153
+          "start": 9294.593699653564
         }
       },
       {
         "smaPeriod": 110,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11063.822055886303,
+        "score": 9385.04964051637,
         "scoresByEra": {
-          "start": 11063.822055886305
+          "start": 9385.04964051637
         }
       },
       {
         "smaPeriod": 111,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11167.862492482289,
+        "score": 9473.303469721337,
         "scoresByEra": {
-          "start": 11167.86249248229
+          "start": 9473.303469721337
         }
       },
       {
         "smaPeriod": 112,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11269.398615453298,
+        "score": 9559.432978093308,
         "scoresByEra": {
-          "start": 11269.398615453298
+          "start": 9559.432978093308
         }
       },
       {
         "smaPeriod": 113,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11368.517931611683,
+        "score": 9643.512394571773,
         "scoresByEra": {
-          "start": 11368.517931611683
+          "start": 9643.512394571773
         }
       },
       {
         "smaPeriod": 114,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11465.303983190162,
+        "score": 9725.612585083272,
         "scoresByEra": {
-          "start": 11465.303983190162
+          "start": 9725.612585083272
         }
       },
       {
         "smaPeriod": 115,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11559.836566925223,
+        "score": 9805.80123838214,
         "scoresByEra": {
-          "start": 11559.836566925223
+          "start": 9805.80123838214
         }
       },
       {
         "smaPeriod": 116,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11619.455187516869,
+        "score": 9853.889441688862,
         "scoresByEra": {
-          "start": 11619.455187516869
+          "start": 9853.889441688862
         }
       },
       {
         "smaPeriod": 117,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11709.45269524971,
+        "score": 9930.21190921554,
         "scoresByEra": {
-          "start": 11709.45269524971
+          "start": 9930.21190921554
         }
       },
       {
         "smaPeriod": 118,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 20,
-        "score": 11797.421352366195,
+        "score": 10004.813808148887,
         "scoresByEra": {
-          "start": 11797.421352366195
+          "start": 10004.813808148887
         }
       },
       {
         "smaPeriod": 119,
         "smaUpperBuffer": 15.7,
         "smaLowerBuffer": 20.2,
-        "score": 12091.52845422631,
+        "score": 10256.816694937295,
         "scoresByEra": {
-          "start": 12091.52845422631
+          "start": 10256.816694937295
         }
       },
       {
         "smaPeriod": 120,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 18,
-        "score": 11005.025432032508,
+        "score": 9900.08231746032,
         "scoresByEra": {
-          "start": 11005.025432032508
+          "start": 9900.08231746032
         }
       },
       {
         "smaPeriod": 121,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 18,
-        "score": 11223.804781851482,
+        "score": 10102.844987389737,
         "scoresByEra": {
-          "start": 11223.804781851482
+          "start": 10102.844987389737
         }
       },
       {
         "smaPeriod": 122,
         "smaUpperBuffer": 16,
         "smaLowerBuffer": 18,
-        "score": 11298.778324686326,
+        "score": 10170.330665921905,
         "scoresByEra": {
-          "start": 11298.778324686326
+          "start": 10170.330665921905
         }
       },
       {
         "smaPeriod": 123,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13810.426180224977,
+        "score": 12924.159785371492,
         "scoresByEra": {
-          "start": 13810.426180224977
+          "start": 12924.159785371492
         }
       },
       {
         "smaPeriod": 124,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13859.632303488812,
+        "score": 12970.208168758174,
         "scoresByEra": {
-          "start": 13859.63230348881
+          "start": 12970.208168758174
         }
       },
       {
         "smaPeriod": 125,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13833.420675801806,
+        "score": 12943.932266767597,
         "scoresByEra": {
-          "start": 13833.420675801806
+          "start": 12943.932266767599
         }
       },
       {
         "smaPeriod": 126,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13802.680109356206,
+        "score": 12912.473455994279,
         "scoresByEra": {
-          "start": 13802.680109356206
+          "start": 12912.473455994277
         }
       },
       {
         "smaPeriod": 127,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13848.535646656195,
+        "score": 12955.371531114855,
         "scoresByEra": {
-          "start": 13848.535646656195
+          "start": 12955.371531114855
         }
       },
       {
         "smaPeriod": 128,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13893.506952225258,
+        "score": 12997.442403209348,
         "scoresByEra": {
-          "start": 13893.50695222526
+          "start": 12997.44240320935
         }
       },
       {
         "smaPeriod": 129,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13961.074738464022,
+        "score": 13061.478833053468,
         "scoresByEra": {
-          "start": 13961.074738464024
+          "start": 13061.478833053468
         }
       },
       {
         "smaPeriod": 130,
         "smaUpperBuffer": 12,
         "smaLowerBuffer": 18,
-        "score": 13633.88511438399,
+        "score": 12744.7930685042,
         "scoresByEra": {
-          "start": 13633.88511438399
+          "start": 12744.793068504197
         }
       },
       {
         "smaPeriod": 131,
         "smaUpperBuffer": 20,
         "smaLowerBuffer": 18,
-        "score": 8598.529570911793,
+        "score": 7587.2985113677205,
         "scoresByEra": {
-          "start": 8598.529570911793
+          "start": 7587.2985113677205
         }
       },
       {
         "smaPeriod": 132,
         "smaUpperBuffer": 20,
         "smaLowerBuffer": 18,
-        "score": 8672.262011948258,
+        "score": 7652.359640192351,
         "scoresByEra": {
-          "start": 8672.262011948258
+          "start": 7652.3596401923505
         }
       },
       {
         "smaPeriod": 133,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 18,
-        "score": 15410.135103523588,
+        "score": 14428.685621257304,
         "scoresByEra": {
-          "start": 15410.135103523586
+          "start": 14428.685621257304
         }
       },
       {
         "smaPeriod": 134,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 18,
-        "score": 15357.386612049704,
+        "score": 14376.39103809843,
         "scoresByEra": {
-          "start": 15357.386612049704
+          "start": 14376.39103809843
         }
       },
       {
         "smaPeriod": 135,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 18,
-        "score": 15307.211606892219,
+        "score": 14327.51110667825,
         "scoresByEra": {
-          "start": 15307.211606892219
+          "start": 14327.51110667825
         }
       },
       {
         "smaPeriod": 136,
         "smaUpperBuffer": 9.6,
         "smaLowerBuffer": 18,
-        "score": 15621.874869351106,
+        "score": 14624.979496156087,
         "scoresByEra": {
-          "start": 15621.874869351104
+          "start": 14624.979496156087
         }
       },
       {
         "smaPeriod": 137,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 18,
-        "score": 15394.41452615694,
+        "score": 14410.021436842006,
         "scoresByEra": {
-          "start": 15394.41452615694
+          "start": 14410.021436842004
         }
       },
       {
         "smaPeriod": 138,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12921.840178279212,
+        "score": 12509.077108071258,
         "scoresByEra": {
-          "start": 12921.840178279212
+          "start": 12509.077108071258
         }
       },
       {
         "smaPeriod": 139,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12826.997476893514,
+        "score": 12415.625513482892,
         "scoresByEra": {
-          "start": 12826.997476893514
+          "start": 12415.625513482892
         }
       },
       {
         "smaPeriod": 140,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12855.975077379728,
+        "score": 12444.716838211381,
         "scoresByEra": {
-          "start": 12855.975077379728
+          "start": 12444.716838211381
         }
       },
       {
         "smaPeriod": 141,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12542.966922505404,
+        "score": 12138.037603355568,
         "scoresByEra": {
-          "start": 12542.966922505406
+          "start": 12138.037603355566
         }
       },
       {
         "smaPeriod": 142,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12565.691368289037,
+        "score": 12160.028427308249,
         "scoresByEra": {
-          "start": 12565.691368289037
+          "start": 12160.028427308249
         }
       },
       {
         "smaPeriod": 143,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12588.04168061988,
+        "score": 12181.657196099124,
         "scoresByEra": {
-          "start": 12588.04168061988
+          "start": 12181.657196099126
         }
       },
       {
         "smaPeriod": 144,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12669.920366851718,
+        "score": 12291.96022133233,
         "scoresByEra": {
-          "start": 12669.920366851717
+          "start": 12291.96022133233
         }
       },
       {
         "smaPeriod": 145,
         "smaUpperBuffer": 10,
         "smaLowerBuffer": 12,
-        "score": 12298.194118143781,
+        "score": 11926.179054524597,
         "scoresByEra": {
-          "start": 12298.194118143781
+          "start": 11926.179054524597
         }
       },
       {
         "smaPeriod": 146,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14722.425264189189,
+        "score": 14296.54695639409,
         "scoresByEra": {
-          "start": 14722.425264189189
+          "start": 14296.54695639409
         }
       },
       {
         "smaPeriod": 147,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14511.242932546253,
+        "score": 14089.230250911844,
         "scoresByEra": {
-          "start": 14511.242932546253
+          "start": 14089.230250911844
         }
       },
       {
         "smaPeriod": 148,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14310.483939749485,
+        "score": 13892.15330394746,
         "scoresByEra": {
-          "start": 14310.483939749485
+          "start": 13892.15330394746
         }
       },
       {
         "smaPeriod": 149,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14344.347679707787,
+        "score": 13925.275153562268,
         "scoresByEra": {
-          "start": 14344.347679707787
+          "start": 13925.275153562268
         }
       },
       {
         "smaPeriod": 150,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14201.441786906906,
+        "score": 13784.818833867106,
         "scoresByEra": {
-          "start": 14201.441786906906
+          "start": 13784.818833867106
         }
       },
       {
         "smaPeriod": 151,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14201.441786906906,
+        "score": 13784.818833867106,
         "scoresByEra": {
-          "start": 14201.441786906906
+          "start": 13784.818833867106
         }
       },
       {
         "smaPeriod": 152,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14565.313018623026,
+        "score": 14142.606331358462,
         "scoresByEra": {
-          "start": 14565.313018623026
+          "start": 14142.606331358462
         }
       },
       {
         "smaPeriod": 153,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14565.313018623026,
+        "score": 14142.606331358462,
         "scoresByEra": {
-          "start": 14565.313018623026
+          "start": 14142.606331358462
         }
       },
       {
         "smaPeriod": 154,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14332.806346166773,
+        "score": 13914.561435847392,
         "scoresByEra": {
-          "start": 14332.806346166773
+          "start": 13914.561435847392
         }
       },
       {
         "smaPeriod": 155,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14241.75884565149,
+        "score": 13825.265150193627,
         "scoresByEra": {
-          "start": 14241.75884565149
+          "start": 13825.265150193629
         }
       },
       {
         "smaPeriod": 156,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14241.75884565149,
+        "score": 13825.265150193627,
         "scoresByEra": {
-          "start": 14241.75884565149
+          "start": 13825.265150193629
         }
       },
       {
         "smaPeriod": 157,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14447.054138138967,
+        "score": 14027.921392006569,
         "scoresByEra": {
-          "start": 14447.054138138967
+          "start": 14027.921392006569
         }
       },
       {
         "smaPeriod": 158,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 12,
-        "score": 14451.593433308613,
+        "score": 14032.37349504581,
         "scoresByEra": {
-          "start": 14451.593433308613
+          "start": 14032.37349504581
         }
       },
       {
         "smaPeriod": 159,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12635.688154095213,
+        "score": 11206.888360592877,
         "scoresByEra": {
-          "start": 12635.688154095213
+          "start": 11206.888360592877
         }
       },
       {
         "smaPeriod": 160,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12635.688154095213,
+        "score": 11206.888360592877,
         "scoresByEra": {
-          "start": 12635.688154095213
+          "start": 11206.888360592877
         }
       },
       {
         "smaPeriod": 161,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12635.688154095213,
+        "score": 11206.888360592877,
         "scoresByEra": {
-          "start": 12635.688154095213
+          "start": 11206.888360592877
         }
       },
       {
         "smaPeriod": 162,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12635.688154095213,
+        "score": 11206.888360592877,
         "scoresByEra": {
-          "start": 12635.688154095213
+          "start": 11206.888360592877
         }
       },
       {
         "smaPeriod": 163,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12712.366462866787,
+        "score": 11278.259515965792,
         "scoresByEra": {
-          "start": 12712.366462866787
+          "start": 11278.259515965792
         }
       },
       {
         "smaPeriod": 164,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12712.366462866787,
+        "score": 11278.259515965792,
         "scoresByEra": {
-          "start": 12712.366462866787
+          "start": 11278.259515965792
         }
       },
       {
         "smaPeriod": 165,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12603.07239340999,
+        "score": 11175.375086938986,
         "scoresByEra": {
-          "start": 12603.07239340999
+          "start": 11175.375086938986
         }
       },
       {
         "smaPeriod": 166,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12603.07239340999,
+        "score": 11175.375086938986,
         "scoresByEra": {
-          "start": 12603.07239340999
+          "start": 11175.375086938986
         }
       },
       {
         "smaPeriod": 167,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12515.901031451322,
+        "score": 11094.246254690177,
         "scoresByEra": {
-          "start": 12515.90103145132
+          "start": 11094.246254690179
         }
       },
       {
         "smaPeriod": 168,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12341.503063196815,
+        "score": 10931.961820475615,
         "scoresByEra": {
-          "start": 12341.503063196815
+          "start": 10931.961820475615
         }
       },
       {
         "smaPeriod": 169,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12341.503063196815,
+        "score": 10931.961820475615,
         "scoresByEra": {
-          "start": 12341.503063196815
+          "start": 10931.961820475615
         }
       },
       {
         "smaPeriod": 170,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12803.75034755307,
+        "score": 11362.173268973254,
         "scoresByEra": {
-          "start": 12803.75034755307
+          "start": 11362.173268973254
         }
       },
       {
         "smaPeriod": 171,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12648.8433252817,
+        "score": 11216.404162433699,
         "scoresByEra": {
-          "start": 12648.8433252817
+          "start": 11216.404162433699
         }
       },
       {
         "smaPeriod": 172,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12602.576784903018,
+        "score": 11173.340316554055,
         "scoresByEra": {
-          "start": 12602.576784903018
+          "start": 11173.340316554053
         }
       },
       {
         "smaPeriod": 173,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12602.576784903018,
+        "score": 11173.340316554055,
         "scoresByEra": {
-          "start": 12602.576784903018
+          "start": 11173.340316554053
         }
       },
       {
         "smaPeriod": 174,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12602.576784903018,
+        "score": 11173.340316554055,
         "scoresByEra": {
-          "start": 12602.576784903018
+          "start": 11173.340316554053
         }
       },
       {
         "smaPeriod": 175,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12602.576784903018,
+        "score": 11173.340316554055,
         "scoresByEra": {
-          "start": 12602.576784903018
+          "start": 11173.340316554053
         }
       },
       {
         "smaPeriod": 176,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12602.576784903018,
+        "score": 11173.340316554055,
         "scoresByEra": {
-          "start": 12602.576784903018
+          "start": 11173.340316554053
         }
       },
       {
         "smaPeriod": 177,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12602.576784903018,
+        "score": 11173.340316554055,
         "scoresByEra": {
-          "start": 12602.576784903018
+          "start": 11173.340316554053
         }
       },
       {
         "smaPeriod": 178,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12862.291975736893,
+        "score": 11415.106647565342,
         "scoresByEra": {
-          "start": 12862.291975736893
+          "start": 11415.10664756534
         }
       },
       {
         "smaPeriod": 179,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12437.119754362313,
+        "score": 11014.94130980323,
         "scoresByEra": {
-          "start": 12437.119754362313
+          "start": 11014.941309803227
         }
       },
       {
         "smaPeriod": 180,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12161.005829275433,
+        "score": 10758.019085952497,
         "scoresByEra": {
-          "start": 12161.005829275433
+          "start": 10758.019085952497
         }
       },
       {
         "smaPeriod": 181,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12090.866194708284,
+        "score": 10692.767930869706,
         "scoresByEra": {
-          "start": 12090.866194708286
+          "start": 10692.767930869706
         }
       },
       {
         "smaPeriod": 182,
         "smaUpperBuffer": 6.9,
         "smaLowerBuffer": 18.1,
-        "score": 12909.131479972892,
+        "score": 11458.716622738946,
         "scoresByEra": {
-          "start": 12909.131479972892
+          "start": 11458.716622738944
         }
       },
       {
         "smaPeriod": 183,
         "smaUpperBuffer": 7,
         "smaLowerBuffer": 18.1,
-        "score": 12801.630664109422,
+        "score": 11358.631266589598,
         "scoresByEra": {
-          "start": 12801.630664109422
+          "start": 11358.631266589598
         }
       },
       {
         "smaPeriod": 184,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12090.866194708284,
+        "score": 10692.767930869706,
         "scoresByEra": {
-          "start": 12090.866194708286
+          "start": 10692.767930869706
         }
       },
       {
         "smaPeriod": 185,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 12090.866194708284,
+        "score": 10692.767930869706,
         "scoresByEra": {
-          "start": 12090.866194708286
+          "start": 10692.767930869706
         }
       },
       {
         "smaPeriod": 186,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 11966.832712700829,
+        "score": 10577.3925330937,
         "scoresByEra": {
-          "start": 11966.832712700829
+          "start": 10577.3925330937
         }
       },
       {
         "smaPeriod": 187,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 11966.832712700829,
+        "score": 10577.3925330937,
         "scoresByEra": {
-          "start": 11966.832712700829
+          "start": 10577.3925330937
         }
       },
       {
         "smaPeriod": 188,
         "smaUpperBuffer": 8,
         "smaLowerBuffer": 18,
-        "score": 11966.832712700829,
+        "score": 10577.3925330937,
         "scoresByEra": {
-          "start": 11966.832712700829
+          "start": 10577.3925330937
         }
       },
       {
         "smaPeriod": 189,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12801.630664109422,
+        "score": 11358.631266589598,
         "scoresByEra": {
-          "start": 12801.630664109422
+          "start": 11358.631266589598
         }
       },
       {
         "smaPeriod": 190,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12801.630664109422,
+        "score": 11358.631266589598,
         "scoresByEra": {
-          "start": 12801.630664109422
+          "start": 11358.631266589598
         }
       },
       {
         "smaPeriod": 191,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12801.630664109422,
+        "score": 11358.631266589598,
         "scoresByEra": {
-          "start": 12801.630664109422
+          "start": 11358.631266589598
         }
       },
       {
         "smaPeriod": 192,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12801.630664109422,
+        "score": 11358.631266589598,
         "scoresByEra": {
-          "start": 12801.630664109422
+          "start": 11358.631266589598
         }
       },
       {
         "smaPeriod": 193,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12801.630664109422,
+        "score": 11358.631266589598,
         "scoresByEra": {
-          "start": 12801.630664109422
+          "start": 11358.631266589598
         }
       },
       {
         "smaPeriod": 194,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12673.664280963963,
+        "score": 11239.507883224842,
         "scoresByEra": {
-          "start": 12673.664280963963
+          "start": 11239.507883224842
         }
       },
       {
         "smaPeriod": 195,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12705.632582645232,
+        "score": 11269.609981692898,
         "scoresByEra": {
-          "start": 12705.632582645232
+          "start": 11269.6099816929
         }
       },
       {
         "smaPeriod": 196,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12356.73856938688,
+        "score": 10940.138574133558,
         "scoresByEra": {
-          "start": 12356.73856938688
+          "start": 10940.138574133558
         }
       },
       {
         "smaPeriod": 197,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12356.73856938688,
+        "score": 10940.138574133558,
         "scoresByEra": {
-          "start": 12356.73856938688
+          "start": 10940.138574133558
         }
       },
       {
         "smaPeriod": 198,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12123.64103069228,
+        "score": 10723.257800974461,
         "scoresByEra": {
-          "start": 12123.64103069228
+          "start": 10723.257800974461
         }
       },
       {
         "smaPeriod": 199,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12123.64103069228,
+        "score": 10723.257800974461,
         "scoresByEra": {
-          "start": 12123.64103069228
+          "start": 10723.257800974461
         }
       },
       {
         "smaPeriod": 200,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12123.64103069228,
+        "score": 10723.257800974461,
         "scoresByEra": {
-          "start": 12123.64103069228
+          "start": 10723.257800974461
         }
       },
       {
         "smaPeriod": 201,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12099.393748630897,
+        "score": 10701.81128537251,
         "scoresByEra": {
-          "start": 12099.393748630897
+          "start": 10701.811285372512
         }
       },
       {
         "smaPeriod": 202,
         "smaUpperBuffer": 6,
         "smaLowerBuffer": 18,
-        "score": 12075.146466569511,
+        "score": 10680.364769770564,
         "scoresByEra": {
-          "start": 12075.146466569511
+          "start": 10680.364769770564
         }
       },
       {
         "smaPeriod": 203,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 12893.994259890831,
+        "score": 11447.988714126888,
         "scoresByEra": {
-          "start": 12893.994259890831
+          "start": 11447.988714126888
         }
       },
       {
         "smaPeriod": 204,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 12868.050609468517,
+        "score": 11424.954531603495,
         "scoresByEra": {
-          "start": 12868.050609468517
+          "start": 11424.954531603495
         }
       },
       {
         "smaPeriod": 205,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 12842.106959046203,
+        "score": 11401.920349080101,
         "scoresByEra": {
-          "start": 12842.106959046201
+          "start": 11401.920349080101
         }
       },
       {
         "smaPeriod": 206,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 12816.163308623885,
+        "score": 11378.886166556706,
         "scoresByEra": {
-          "start": 12816.163308623885
+          "start": 11378.886166556706
         }
       },
       {
         "smaPeriod": 207,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 12790.21965820157,
+        "score": 11355.851984033312,
         "scoresByEra": {
-          "start": 12790.21965820157
+          "start": 11355.851984033312
         }
       },
       {
         "smaPeriod": 208,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 12528.806148569463,
+        "score": 11113.591598822626,
         "scoresByEra": {
-          "start": 12528.806148569463
+          "start": 11113.591598822626
         }
       },
       {
         "smaPeriod": 209,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 12503.341095421963,
+        "score": 11091.00299801201,
         "scoresByEra": {
-          "start": 12503.341095421963
+          "start": 11091.00299801201
         }
       },
       {
         "smaPeriod": 210,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 11583.474755840782,
+        "score": 10236.26720608947,
         "scoresByEra": {
-          "start": 11583.474755840782
+          "start": 10236.26720608947
         }
       },
       {
         "smaPeriod": 211,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 11559.835011441108,
+        "score": 10215.376864852551,
         "scoresByEra": {
-          "start": 11559.835011441108
+          "start": 10215.376864852551
         }
       },
       {
         "smaPeriod": 212,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 11536.195267041432,
+        "score": 10194.486523615635,
         "scoresByEra": {
-          "start": 11536.195267041432
+          "start": 10194.486523615635
         }
       },
       {
         "smaPeriod": 213,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 11512.555522641756,
+        "score": 10173.596182378717,
         "scoresByEra": {
-          "start": 11512.555522641756
+          "start": 10173.596182378717
         }
       },
       {
         "smaPeriod": 214,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 11518.916239984941,
+        "score": 10180.942882154526,
         "scoresByEra": {
-          "start": 11518.916239984941
+          "start": 10180.942882154526
         }
       },
       {
         "smaPeriod": 215,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 11167.929476247058,
+        "score": 9851.023492833454,
         "scoresByEra": {
-          "start": 11167.929476247056
+          "start": 9851.023492833454
         }
       },
       {
         "smaPeriod": 216,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 10972.756909527921,
+        "score": 9670.702271354852,
         "scoresByEra": {
-          "start": 10972.75690952792
+          "start": 9670.702271354852
         }
       },
       {
         "smaPeriod": 217,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 10950.085924177656,
+        "score": 9650.721481538003,
         "scoresByEra": {
-          "start": 10950.085924177656
+          "start": 9650.721481538003
         }
       },
       {
         "smaPeriod": 218,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 10927.414938827389,
+        "score": 9630.740691721154,
         "scoresByEra": {
-          "start": 10927.41493882739
+          "start": 9630.740691721154
         }
       },
       {
         "smaPeriod": 219,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 18,
-        "score": 10904.743953477127,
+        "score": 9610.759901904306,
         "scoresByEra": {
-          "start": 10904.743953477127
+          "start": 9610.759901904306
         }
       },
       {
         "smaPeriod": 220,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 20,
-        "score": 10521.592476213154,
+        "score": 9198.132168176562,
         "scoresByEra": {
-          "start": 10521.592476213156
+          "start": 9198.132168176562
         }
       },
       {
         "smaPeriod": 221,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 20,
-        "score": 10499.672491887712,
+        "score": 9178.969392826195,
         "scoresByEra": {
-          "start": 10499.672491887712
+          "start": 9178.969392826195
         }
       },
       {
         "smaPeriod": 222,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 20,
-        "score": 10477.752507562267,
+        "score": 9159.806617475828,
         "scoresByEra": {
-          "start": 10477.752507562267
+          "start": 9159.806617475828
         }
       },
       {
         "smaPeriod": 223,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 20,
-        "score": 10455.832523236824,
+        "score": 9140.643842125459,
         "scoresByEra": {
-          "start": 10455.832523236824
+          "start": 9140.643842125459
         }
       },
       {
         "smaPeriod": 224,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 16,
-        "score": 11641.915714812292,
+        "score": 10301.772212909287,
         "scoresByEra": {
-          "start": 11641.915714812292
+          "start": 10301.772212909287
         }
       },
       {
         "smaPeriod": 225,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 16,
-        "score": 11548.163417055886,
+        "score": 10215.659831876037,
         "scoresByEra": {
-          "start": 11548.163417055886
+          "start": 10215.659831876037
         }
       },
       {
         "smaPeriod": 226,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 16,
-        "score": 11523.85149407261,
+        "score": 10194.153179598403,
         "scoresByEra": {
-          "start": 11523.85149407261
+          "start": 10194.153179598403
         }
       },
       {
         "smaPeriod": 227,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 16,
-        "score": 11499.539571089335,
+        "score": 10172.646527320769,
         "scoresByEra": {
-          "start": 11499.539571089335
+          "start": 10172.646527320769
         }
       },
       {
         "smaPeriod": 228,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 16,
-        "score": 11475.22764810606,
+        "score": 10151.139875043136,
         "scoresByEra": {
-          "start": 11475.22764810606
+          "start": 10151.139875043136
         }
       },
       {
         "smaPeriod": 229,
         "smaUpperBuffer": 4,
         "smaLowerBuffer": 16,
-        "score": 11450.915725122783,
+        "score": 10129.633222765502,
         "scoresByEra": {
-          "start": 11450.915725122784
+          "start": 10129.633222765502
         }
       },
       {
         "smaPeriod": 230,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11669.350089414243,
+        "score": 10322.822503359024,
         "scoresByEra": {
-          "start": 11669.350089414243
+          "start": 10322.822503359024
         }
       },
       {
         "smaPeriod": 231,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11644.52168496868,
+        "score": 10300.859051224217,
         "scoresByEra": {
-          "start": 11644.521684968682
+          "start": 10300.859051224217
         }
       },
       {
         "smaPeriod": 232,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11619.693280523119,
+        "score": 10278.89559908941,
         "scoresByEra": {
-          "start": 11619.693280523119
+          "start": 10278.89559908941
         }
       },
       {
         "smaPeriod": 233,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11594.864876077558,
+        "score": 10256.932146954605,
         "scoresByEra": {
-          "start": 11594.864876077558
+          "start": 10256.932146954605
         }
       },
       {
         "smaPeriod": 234,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11570.036471631995,
+        "score": 10234.968694819798,
         "scoresByEra": {
-          "start": 11570.036471631995
+          "start": 10234.968694819798
         }
       },
       {
         "smaPeriod": 235,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11326.026237921516,
+        "score": 10009.01789464127,
         "scoresByEra": {
-          "start": 11326.026237921516
+          "start": 10009.01789464127
         }
       },
       {
         "smaPeriod": 236,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11301.669192248566,
+        "score": 9987.493124975375,
         "scoresByEra": {
-          "start": 11301.669192248566
+          "start": 9987.493124975375
         }
       },
       {
         "smaPeriod": 237,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 11277.31214657562,
+        "score": 9965.96835530948,
         "scoresByEra": {
-          "start": 11277.312146575618
+          "start": 9965.96835530948
         }
       },
       {
         "smaPeriod": 238,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 10422.53436425839,
+        "score": 9172.112258654566,
         "scoresByEra": {
-          "start": 10422.53436425839
+          "start": 9172.112258654566
         }
       },
       {
         "smaPeriod": 239,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 10399.974766067355,
+        "score": 9152.259201817651,
         "scoresByEra": {
-          "start": 10399.974766067355
+          "start": 9152.259201817651
         }
       },
       {
         "smaPeriod": 240,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 20,
-        "score": 10862.130049150692,
+        "score": 9564.991150498858,
         "scoresByEra": {
-          "start": 10862.130049150692
+          "start": 9564.991150498858
         }
       },
       {
         "smaPeriod": 241,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 20,
-        "score": 10838.516722956887,
+        "score": 9544.197691476034,
         "scoresByEra": {
-          "start": 10838.516722956887
+          "start": 9544.197691476034
         }
       },
       {
         "smaPeriod": 242,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 20,
-        "score": 10814.90339676308,
+        "score": 9523.404232453211,
         "scoresByEra": {
-          "start": 10814.90339676308
+          "start": 9523.404232453211
         }
       },
       {
         "smaPeriod": 243,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 20,
-        "score": 10791.290070569275,
+        "score": 9502.610773430388,
         "scoresByEra": {
-          "start": 10791.290070569275
+          "start": 9502.610773430388
         }
       },
       {
         "smaPeriod": 244,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 12029.410171696507,
+        "score": 10689.00483706057,
         "scoresByEra": {
-          "start": 12029.410171696507
+          "start": 10689.004837060567
         }
       },
       {
         "smaPeriod": 245,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 12003.02988623226,
+        "score": 10665.564036979293,
         "scoresByEra": {
-          "start": 12003.02988623226
+          "start": 10665.564036979295
         }
       },
       {
         "smaPeriod": 246,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11976.649600768013,
+        "score": 10642.12323689802,
         "scoresByEra": {
-          "start": 11976.649600768013
+          "start": 10642.12323689802
         }
       },
       {
         "smaPeriod": 247,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11923.758839462602,
+        "score": 10593.991923784059,
         "scoresByEra": {
-          "start": 11923.758839462602
+          "start": 10593.991923784059
         }
       },
       {
         "smaPeriod": 248,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11897.43707602008,
+        "score": 10570.605628146566,
         "scoresByEra": {
-          "start": 11897.43707602008
+          "start": 10570.605628146566
         }
       },
       {
         "smaPeriod": 249,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11871.115312577558,
+        "score": 10547.219332509074,
         "scoresByEra": {
-          "start": 11871.115312577558
+          "start": 10547.219332509074
         }
       },
       {
         "smaPeriod": 250,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11815.173755423086,
+        "score": 10496.24759967052,
         "scoresByEra": {
-          "start": 11815.173755423086
+          "start": 10496.247599670518
         }
       },
       {
         "smaPeriod": 251,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11578.16756499129,
+        "score": 10276.67610807016,
         "scoresByEra": {
-          "start": 11578.167564991292
+          "start": 10276.67610807016
         }
       },
       {
         "smaPeriod": 252,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11647.169811851023,
+        "score": 10342.04737265658,
         "scoresByEra": {
-          "start": 11647.169811851025
+          "start": 10342.04737265658
         }
       },
       {
         "smaPeriod": 253,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11621.171664949572,
+        "score": 10318.962445485471,
         "scoresByEra": {
-          "start": 11621.171664949572
+          "start": 10318.962445485471
         }
       },
       {
         "smaPeriod": 254,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11595.173518048117,
+        "score": 10295.877518314363,
         "scoresByEra": {
-          "start": 11595.173518048117
+          "start": 10295.877518314363
         }
       },
       {
         "smaPeriod": 255,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11569.175371146666,
+        "score": 10272.792591143254,
         "scoresByEra": {
-          "start": 11569.175371146664
+          "start": 10272.792591143254
         }
       },
       {
         "smaPeriod": 256,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11543.177224245212,
+        "score": 10249.707663972145,
         "scoresByEra": {
-          "start": 11543.177224245212
+          "start": 10249.707663972145
         }
       },
       {
         "smaPeriod": 257,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11517.179077343759,
+        "score": 10226.622736801037,
         "scoresByEra": {
-          "start": 11517.179077343759
+          "start": 10226.622736801037
         }
       },
       {
         "smaPeriod": 258,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11491.180930442304,
+        "score": 10203.537809629928,
         "scoresByEra": {
-          "start": 11491.180930442306
+          "start": 10203.537809629928
         }
       },
       {
         "smaPeriod": 259,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11636.190715972565,
+        "score": 10339.707117489123,
         "scoresByEra": {
-          "start": 11636.190715972565
+          "start": 10339.707117489123
         }
       },
       {
         "smaPeriod": 260,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11467.158118820447,
+        "score": 10183.416443724289,
         "scoresByEra": {
-          "start": 11467.158118820445
+          "start": 10183.416443724289
         }
       },
       {
         "smaPeriod": 261,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11232.643524062592,
+        "score": 9966.186333542555,
         "scoresByEra": {
-          "start": 11232.643524062592
+          "start": 9966.186333542555
         }
       },
       {
         "smaPeriod": 262,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 18,
-        "score": 11207.056636764044,
+        "score": 9943.484314559542,
         "scoresByEra": {
-          "start": 11207.056636764044
+          "start": 9943.484314559542
         }
       },
       {
         "smaPeriod": 263,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 11181.469749465496,
+        "score": 9920.78229557653,
         "scoresByEra": {
-          "start": 11181.469749465496
+          "start": 9920.78229557653
         }
       },
       {
         "smaPeriod": 264,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 10902.865839266446,
+        "score": 9644.547396399154,
         "scoresByEra": {
-          "start": 10902.865839266446
+          "start": 9644.547396399154
         }
       },
       {
         "smaPeriod": 265,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 11197.889417405973,
+        "score": 9938.30744084266,
         "scoresByEra": {
-          "start": 11197.889417405973
+          "start": 9938.30744084266
         }
       },
       {
         "smaPeriod": 266,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 11172.147142883201,
+        "score": 9915.460757070608,
         "scoresByEra": {
-          "start": 11172.147142883201
+          "start": 9915.460757070608
         }
       },
       {
         "smaPeriod": 267,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 11403.143818447606,
+        "score": 10131.982946584698,
         "scoresByEra": {
-          "start": 11403.143818447606
+          "start": 10131.982946584698
         }
       },
       {
         "smaPeriod": 268,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 11070.05699198257,
+        "score": 9818.861425959525,
         "scoresByEra": {
-          "start": 11070.05699198257
+          "start": 9818.861425959525
         }
       },
       {
         "smaPeriod": 269,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 11023.743846773388,
+        "score": 9776.871445394581,
         "scoresByEra": {
-          "start": 11023.743846773388
+          "start": 9776.871445394581
         }
       },
       {
         "smaPeriod": 270,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10843.6221764235,
+        "score": 9610.31839942071,
         "scoresByEra": {
-          "start": 10843.622176423498
+          "start": 9610.31839942071
         }
       },
       {
         "smaPeriod": 271,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10818.404450431815,
+        "score": 9587.96882174764,
         "scoresByEra": {
-          "start": 10818.404450431815
+          "start": 9587.96882174764
         }
       },
       {
         "smaPeriod": 272,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10974.27036925188,
+        "score": 9734.196992262878,
         "scoresByEra": {
-          "start": 10974.27036925188
+          "start": 9734.196992262878
         }
       },
       {
         "smaPeriod": 273,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10848.649759325706,
+        "score": 9618.373531754327,
         "scoresByEra": {
-          "start": 10848.649759325706
+          "start": 9618.373531754327
         }
       },
       {
         "smaPeriod": 274,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10648.206850046265,
+        "score": 9432.921167950894,
         "scoresByEra": {
-          "start": 10648.206850046265
+          "start": 9432.921167950894
         }
       },
       {
         "smaPeriod": 275,
         "smaUpperBuffer": 0,
         "smaLowerBuffer": 16,
-        "score": 10517.72258943681,
+        "score": 9298.757109428927,
         "scoresByEra": {
-          "start": 10517.72258943681
+          "start": 9298.757109428927
         }
       },
       {
         "smaPeriod": 276,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10598.215268590648,
+        "score": 9388.635153077885,
         "scoresByEra": {
-          "start": 10598.215268590648
+          "start": 9388.635153077885
         }
       },
       {
         "smaPeriod": 277,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10573.21947786284,
+        "score": 9366.492145641381,
         "scoresByEra": {
-          "start": 10573.21947786284
+          "start": 9366.492145641381
         }
       },
       {
         "smaPeriod": 278,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10548.223687135032,
+        "score": 9344.349138204876,
         "scoresByEra": {
-          "start": 10548.223687135032
+          "start": 9344.349138204876
         }
       },
       {
         "smaPeriod": 279,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10523.227896407225,
+        "score": 9322.206130768373,
         "scoresByEra": {
-          "start": 10523.227896407225
+          "start": 9322.206130768373
         }
       },
       {
         "smaPeriod": 280,
         "smaUpperBuffer": 2,
         "smaLowerBuffer": 16,
-        "score": 10498.232105679414,
+        "score": 9300.063123331867,
         "scoresByEra": {
-          "start": 10498.232105679415
+          "start": 9300.063123331867
         }
       }
     ],
@@ -4197,9 +4197,9 @@
       "smaPeriod": 136,
       "smaUpperBuffer": 9.6,
       "smaLowerBuffer": 18,
-      "score": 15621.874869351106,
+      "score": 14624.979496156087,
       "scoresByEra": {
-        "start": 15621.874869351104
+        "start": 14624.979496156087
       }
     }
   }

@@ -9,12 +9,17 @@ import type { IndexKey } from "./types";
  * `exitAbove` and releases only once it closes below `reenterBelow`; while
  * released, the SMA alone decides. The gate never buys on its own.
  *
- * Parameters are per index, but both currently share NDX's (11d, 49%/31%),
- * which fires roughly once every four years. A window x exit x re-entry grid
- * for SPX found nothing stably better: its most robust cell (7d, 58%/18%)
- * scored within 0.5% of the shared gate, and higher peaks (5d, 54%/12%) lost
- * ~27% one step away. Changing either set changes every stored result that
- * has the gate on.
+ * Parameters are per index, picked from a full 1-day/1% grid (window 5-30d,
+ * exit 25-90%) under the full-period calibration score, ranked by
+ * `stabilityAdjustedSmaScore` over the ±1d/±1% neighbourhood. No shared gate
+ * beat the old common 11d 49%/31% on both indices: SPX's best halves NDX's
+ * score. SPX 11d 42%/23% is the centre of a 41-43% exit plateau; with it the
+ * calibrated band widens its lower buffer and switches far less. NDX's
+ * 11d 49%/31% sat one step from a cliff (12d lost 22-36%); 10d 50%/31% keeps
+ * its trade count and steps away. The NDX stable argmax, 9d 46%/40%, gained
+ * 1% of base score for 43 gate episodes (mostly short 2000-02 flips) and was
+ * rejected.
+ * Changing either set changes every stored result that has the gate on.
  */
 export interface VolGateParams {
   windowDays: number;
@@ -23,8 +28,8 @@ export interface VolGateParams {
 }
 
 export const SMA_VOL_GATE: Record<IndexKey, VolGateParams> = {
-  sp500: { windowDays: 11, exitAbove: 0.49, reenterBelow: 0.31 },
-  nasdaq100: { windowDays: 11, exitAbove: 0.49, reenterBelow: 0.31 },
+  sp500: { windowDays: 11, exitAbove: 0.42, reenterBelow: 0.23 },
+  nasdaq100: { windowDays: 10, exitAbove: 0.5, reenterBelow: 0.31 },
 };
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;

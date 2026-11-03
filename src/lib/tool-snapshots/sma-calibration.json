@@ -1,55 +1,55 @@
 {
-  "generatedAt": "2026-11-03T08:14:54.994Z",
-  "endDate": "2026-10-30",
-  "windowLength": 38.56536618754278,
+  "generatedAt": "2026-11-03T08:53:10.801Z",
+  "endDate": "2026-11-02",
+  "windowLength": 38.573579739904176,
   "sp500": {
     "startDate": "1988-04-06",
-    "windowLength": 38.56536618754278,
+    "windowLength": 38.573579739904176,
     "historyWrap": false,
     "eraWeights": {
       "start": 100
     },
     "scoresByEra": {
-      "start": 4378.874887202873
+      "start": 4936.974148830283
     },
-    "smaPeriod": 174,
-    "smaUpperBuffer": 3.6,
-    "smaLowerBuffer": 3.5,
-    "smaOnlySwitches": 35,
-    "score": 4228.770666631838,
-    "baseScore": 4378.874887202873,
-    "stabilityPenalty": 150.1042205710346,
-    "avgReturn": 19.24679316145459,
-    "worstReturn": 19.24679316145459,
-    "avgMaxDrawdown": 50.56495340422001,
-    "avgTrades": 37,
-    "evaluatedCombos": 108,
-    "neighborhoodMinScore": 3859.7227017006603,
-    "neighborhoodMedianScore": 4211.663893774948
+    "smaPeriod": 178,
+    "smaUpperBuffer": 3.4,
+    "smaLowerBuffer": 5.5,
+    "smaOnlySwitches": 23,
+    "score": 4936.974148830283,
+    "baseScore": 4936.974148830283,
+    "stabilityPenalty": 0,
+    "avgReturn": 19.84790994624026,
+    "worstReturn": 19.84790994624026,
+    "avgMaxDrawdown": 50.26238511437675,
+    "avgTrades": 27,
+    "evaluatedCombos": 61791,
+    "neighborhoodMinScore": 4761.125272968858,
+    "neighborhoodMedianScore": 4926.8342802025045
   },
   "nasdaq100": {
     "startDate": "1985-01-31",
-    "windowLength": 41.74401095140315,
+    "windowLength": 41.752224503764545,
     "historyWrap": false,
     "eraWeights": {
       "start": 100
     },
     "scoresByEra": {
-      "start": 15621.874869351104
+      "start": 14624.979496156087
     },
     "smaPeriod": 136,
     "smaUpperBuffer": 9.6,
     "smaLowerBuffer": 17.9,
     "smaOnlySwitches": 10,
-    "score": 15621.874869351106,
-    "baseScore": 15621.874869351106,
+    "score": 14624.979496156087,
+    "baseScore": 14624.979496156087,
     "stabilityPenalty": 0,
-    "avgReturn": 30.044043598532078,
-    "worstReturn": 30.044043598532078,
+    "avgReturn": 29.468520468270665,
+    "worstReturn": 29.468520468270665,
     "avgMaxDrawdown": 82.87494465088834,
     "avgTrades": 24,
-    "evaluatedCombos": 7565,
-    "neighborhoodMinScore": 15528.74820963917,
-    "neighborhoodMedianScore": 15651.094921258638
+    "evaluatedCombos": 24231,
+    "neighborhoodMinScore": 14535.863447431202,
+    "neighborhoodMedianScore": 14652.334897706683
   }
 }

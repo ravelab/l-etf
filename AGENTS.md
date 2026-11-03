@@ -575,15 +575,18 @@ gate (`SMA_CALIBRATION_VOL_GATE`, `vol-gate.ts`), because the gate ships on by
 default. Ungated, NDX ranks 182/−18.1%/+6.9% first; gated, 115/−20%/+16% wins
 by a wide margin, so flipping that flag reorders the whole NDX preset set.
 Gate parameters are PER INDEX (`SMA_VOL_GATE[index]`), resolved from
-`smaIndex` wherever signals are generated; one UI switch turns both on, so the
-switch itself never shows parameters. Both currently share 11d 49%/31%: a
-window x exit x re-entry grid for SPX, ranked by the worst one-step neighbour,
-found nothing stably better (best robust cell within 0.5% of the score;
-5d/54%/12% peaked, then lost ~27% one step away). Labels collapse to one set
-when they match (`volGateParamsTextFor`). They are constants, not searched by
-the monthly calibration; re-pick them only alongside a band re-search. A
-gate-only rule (no SMA exits) loses badly on both indices in the
-pre-1988/1985 eras.
+`smaIndex` wherever signals are generated; one UI switch turns both on.
+SPX 11d 42%/23%, NDX 10d 50%/31% (2026-11), each picked from a full 1d/1% grid
+(5-30d, exit 25-90%) under the full-period score with that index's band held at
+its calibration, ranked by `stabilityAdjustedSmaScore` over ±1d/±1%. No single
+gate beat the old shared 11d 49%/31% on BOTH indices (SPX's best halves NDX's
+score), so they differ; labels show both and collapse only when they match
+(`volGateParamsTextFor`). Gate and band are coupled: under 42%/23% the SPX band
+widened its lower buffer (−3.5 → −5.5%, 35 → 23 SMA switches), and that band
+scores worse than the old one under the old gate. So they are constants, not
+searched monthly; re-pick them only together with a band recalibration
+(`npm run refresh-sma`), never alone. A gate-only rule (no SMA exits) loses
+badly on both indices in the pre-1988/1985 eras.
 Every era score also pays shape penalties (`smaScorePenaltyFraction`,
 `sma-search-bounds.ts`), both general rules rather than per-rule exceptions:
 - Re-entry (`SMA_REENTRY_PENALTY`): an upper buffer that only a steep steady

@@ -4,8 +4,17 @@ import { isValidElement, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { getSwapSpreadModel } from "@/lib/simulation/engine";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
+import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata } from "@/lib/seo";
+
+/** Rendered from the engine's gate table so the FAQ cannot drift from what runs. */
+const VOL_GATE_FAQ_ROWS = [
+  { label: "SPX", gate: SMA_VOL_GATE.sp500 },
+  { label: "NDX", gate: SMA_VOL_GATE.nasdaq100 },
+] as const;
+
+const formatGatePct = (value: number) => `${Math.round(value * 100)}%`;
 
 export const metadata: Metadata = pageMetadata({
   title: "FAQ — Leveraged ETFs, SMA Strategies & Methodology",
@@ -102,8 +111,8 @@ const FAQ_DATA: FAQItem[] = [
       <>
         <p className="mb-3">
           The volatility gate is an optional second risk-off rule layered on top of the SMA rule.
-          It measures the index&apos;s realized volatility from the last 11 daily log returns,
-          annualized by the square root of 252.
+          It measures the index&apos;s realized volatility from its last few daily log returns
+          (the window is set per index, below), annualized by the square root of 252.
         </p>
         <p className="mb-3">
           When volatility closes above the exit threshold, the strategy moves to its selected
@@ -112,13 +121,17 @@ const FAQ_DATA: FAQItem[] = [
           to re-enter. The gate never buys on its own.
         </p>
         <ul className="list-disc list-inside space-y-1 ml-4">
-          <li><strong className="text-foreground">SPX:</strong> exit above 49% volatility; re-enter below 31%.</li>
-          <li><strong className="text-foreground">NDX:</strong> exit above 49% volatility; re-enter below 31%.</li>
+          {VOL_GATE_FAQ_ROWS.map(({ label, gate }) => (
+            <li key={label}>
+              <strong className="text-foreground">{`${label}:`}</strong>
+              {` ${gate.windowDays}-day volatility; exit above ${formatGatePct(gate.exitAbove)}; re-enter below ${formatGatePct(gate.reenterBelow)}.`}
+            </li>
+          ))}
         </ul>
         <p className="mt-3">
           It is enabled by default on the site, but you can turn it off with the Volatility checkbox.
-          The thresholds were selected for stable historical behavior and are separate from the SMA
-          period and buffer.
+          Each index&apos;s thresholds were selected for stable historical behavior together with its
+          SMA band, but they are separate settings from the SMA period and buffer.
         </p>
       </>
     ),
