@@ -1,14 +1,13 @@
 import { refinePresetGrid, snapPresetCombo, sweepPresetPeriods, preferStablePresetCenter } from "../scripts/lib/sma-preset-grid";
 import test from "node:test";
-import { getSwapSpreadModel, setSwapSpreadModel } from "../src/lib/simulation/engine";
 import assert from "node:assert/strict";
 import snapshot from "../src/lib/tool-snapshots/sma-cagr-presets.json";
 import calibration from "../src/lib/tool-snapshots/sma-calibration.json";
-import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE, combineEraScores } from "../src/lib/simulation/sma-calibration-eras";
+import { SMA_HISTORICAL_ERAS, SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE, combineEraScores } from "../src/lib/simulation/sma-calibration-eras";
 import { buildSmaEraContexts, evaluateCombosAcrossEras } from "../scripts/lib/sma-sweep-context";
 import { comboKey, planBufferNeighborhood, planPeriodNeighborhood, planCombos } from "../src/lib/simulation/sma-search";
 import {
-  SMA_LONG_PERIOD_PENALTY, SMA_REENTRY_PENALTY, SMA_SEARCH_MIN_PERIOD, SMA_SEARCH_MAX_PERIOD, SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER,
+  SMA_SEARCH_MIN_PERIOD, SMA_SEARCH_MAX_PERIOD, SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER,
   smaReentryClimbPct, smaReentryPenaltyFraction,
 } from "../src/lib/simulation/sma-search-bounds";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
@@ -23,118 +22,14 @@ import type { FormattedBacktest } from "../src/lib/mcp/format";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
 import { CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 
-// These three tests pin the October 9 scoring decision. Monthly financing refits
-// must not change their reference inputs; the artifact tests below use today's model.
-// That decision predates volatility-gated scoring and the re-entry and
-// long-period penalties, so they score without any of them.
-async function withReferenceCalibration(check: () => Promise<void>): Promise<void> {
-  const current = getSwapSpreadModel();
-  const gate = { ...SMA_CALIBRATION_VOL_GATE };
-  SMA_CALIBRATION_VOL_GATE.sp500 = false;
-  SMA_CALIBRATION_VOL_GATE.nasdaq100 = false;
-  const freeClimbPct = SMA_REENTRY_PENALTY.freeClimbPct;
-  SMA_REENTRY_PENALTY.freeClimbPct = Infinity;
-  const freePeriod = SMA_LONG_PERIOD_PENALTY.freePeriod;
-  SMA_LONG_PERIOD_PENALTY.freePeriod = Infinity;
-  setSwapSpreadModel({
-    sp500: {
-      2: { rateSensitivity: 0.727645, baseSpread: 0.002794 },
-      3: { rateSensitivity: 0.825572, baseSpread: 0.003055 },
-    },
-    nasdaq100: {
-      2: { rateSensitivity: 0.892253, baseSpread: -0.001530 },
-      3: { rateSensitivity: 0.946281, baseSpread: -0.000256 },
-    },
-  });
-  try { await check(); } finally {
-    setSwapSpreadModel(current);
-    Object.assign(SMA_CALIBRATION_VOL_GATE, gate);
-    SMA_LONG_PERIOD_PENALTY.freePeriod = freePeriod;
-    SMA_REENTRY_PENALTY.freeClimbPct = freeClimbPct;
-  }
-}
-
-async function buildReferenceEraContexts(indexKey: "sp500" | "nasdaq100") {
-  const eras = await buildSmaEraContexts({ indexKey, endDate: "2026-10-09", windowLength: 10, maxPeriod: 280 });
-  // September CPI was not published when this reference decision was recorded.
-  for (const { ctx } of eras.contexts) ctx.monthlyCpi = ctx.monthlyCpi.filter((point) => point.date < "2026-09");
-  return eras;
-}
-
-test("shared score narrowly ranks NDX's 10-switch rule before 6, then 16", () => withReferenceCalibration(async () => {
-  const eras = await buildReferenceEraContexts("nasdaq100");
-  // The shipped rules before this scoring change: 10, 6 and 16 switches.
-  // Their real CAGRs differ; frequency alone must not determine their order.
-  const rules = [
-    { smaPeriod: 136, smaLowerBuffer: 18, smaUpperBuffer: 9.6 },
-    { smaPeriod: 126, smaLowerBuffer: 17.9, smaUpperBuffer: 19.4 },
-    { smaPeriod: 200, smaLowerBuffer: 11.8, smaUpperBuffer: 5 },
-  ];
-  const scores = rules.map((rule) => {
-    const points = planCombos(planPeriodNeighborhood(rule.smaPeriod, 1, { minPeriod: 20, maxPeriod: 280 }),
-      planBufferNeighborhood(rule.smaUpperBuffer, rule.smaLowerBuffer, 0.1, 0.1, { minBuffer: 0, maxBuffer: 21 }), new Set<string>());
-    const rows = evaluateCombosAcrossEras(eras, points);
-    assert.equal(rows.length, points.length, "every stability neighbor must be scored");
-    const center = rows.find((row) => comboKey(row.combo) === comboKey(rule))!;
-    return stabilityAdjustedSmaScore(center.score, Math.min(...rows.map((row) => row.score)));
-  });
-  for (let i = 1; i < scores.length; i++) {
-    assert.ok(scores[i - 1] > scores[i]);
-    assert.ok((scores[i - 1] - scores[i]) / scores[i] < 0.02, "adjacent rules stay within 2%");
-  }
-}));
-
-test("the same scoring formula preserves the previous six SPX rules' order", () => withReferenceCalibration(async () => {
-  const eras = await buildReferenceEraContexts("sp500");
-  const rules = [
-    { smaPeriod: 175, smaLowerBuffer: 3.6, smaUpperBuffer: 3.6 },
-    { smaPeriod: 91, smaLowerBuffer: 7.1, smaUpperBuffer: 6.6 },
-    { smaPeriod: 261, smaLowerBuffer: 2.3, smaUpperBuffer: 3.5 },
-    { smaPeriod: 30, smaLowerBuffer: 6.2, smaUpperBuffer: 7.9 },
-    { smaPeriod: 145, smaLowerBuffer: 3.4, smaUpperBuffer: 5.7 },
-    { smaPeriod: 65, smaLowerBuffer: 6.5, smaUpperBuffer: 5.4 },
-  ];
-  const scores = rules.map((rule) => {
-    const points = planCombos(planPeriodNeighborhood(rule.smaPeriod, 1, { minPeriod: 20, maxPeriod: 280 }),
-      planBufferNeighborhood(rule.smaUpperBuffer, rule.smaLowerBuffer, 0.1, 0.1, { minBuffer: 0, maxBuffer: 21 }), new Set<string>());
-    const rows = evaluateCombosAcrossEras(eras, points);
-    assert.equal(rows.length, points.length);
-    const center = rows.find((row) => comboKey(row.combo) === comboKey(rule))!;
-    return stabilityAdjustedSmaScore(center.score, Math.min(...rows.map((row) => row.score)));
-  });
-  for (let i = 1; i < scores.length; i++) assert.ok(scores[i - 1] > scores[i]);
-  assert.ok(Math.abs(scores[0] / 5246.785590704165 - 1) < 0.03, "SPX default score changes by less than 3%");
-}));
-
-test("a higher raw-score NDX band wins with modest neighbor losses while a severe cliff still loses", () => withReferenceCalibration(async () => {
-  const eras = await buildReferenceEraContexts("nasdaq100");
-  const rules = [18, 18.1, 18.2].map((smaLowerBuffer) => ({ smaPeriod: 182, smaLowerBuffer, smaUpperBuffer: 6.9 }));
-  rules.push({ smaPeriod: 183, smaLowerBuffer: 18.1, smaUpperBuffer: 7 },
-    { smaPeriod: 183, smaLowerBuffer: 16.7, smaUpperBuffer: 6.6 });
-  const neighborhoods = rules.map((rule) => planCombos(
-    planPeriodNeighborhood(rule.smaPeriod, 1, { minPeriod: 20, maxPeriod: 280 }),
-    planBufferNeighborhood(rule.smaUpperBuffer, rule.smaLowerBuffer, 0.1, 0.1, { minBuffer: 0, maxBuffer: 21 }), new Set<string>()));
-  const results = new Map(evaluateCombosAcrossEras(eras, [...new Map(neighborhoods.flat().map((point) => [comboKey(point), point])).values()])
-    .map((row) => [comboKey(row.combo), row]));
-  const scores = rules.map((rule, i) => {
-    const base = results.get(comboKey(rule))!.score;
-    const worst = Math.min(...neighborhoods[i].map((point) => results.get(comboKey(point))!.score));
-    return stabilityAdjustedSmaScore(base, worst);
-  });
-  for (const score of scores.slice(0, 3)) {
-    assert.ok(score > scores[3], "the 182-day higher raw-score band must beat the former default");
-    assert.ok(score / scores[3] < 1.01, "the advantage stays below 1%");
-  }
-  assert.ok(scores[4] < 0, "a nearby historical drawdown cliff remains strongly penalized");
-}));
-
+// Duration and full-period scoring regressions live in sma-full-period.test.ts.
 test("a re-entry band only a near-vertical climb reaches costs score", () => {
   const ndx136 = { smaPeriod: 136, smaUpperBuffer: 9.6 };
   const ndx107 = { smaPeriod: 107, smaUpperBuffer: 16.4 };
   assert.ok(Math.abs(smaReentryClimbPct(ndx136) - 41) < 1);
   assert.ok(Math.abs(smaReentryClimbPct(ndx107) - 106) < 1);
-  assert.equal(smaReentryPenaltyFraction(ndx136), 0);
-  assert.ok(Math.abs(smaReentryPenaltyFraction(ndx107) - 0.23) < 0.01);
+  assert.ok(smaReentryPenaltyFraction(ndx136) > 0);
+  assert.ok(Math.abs(smaReentryPenaltyFraction(ndx107) - 0.38) < 0.01);
   assert.equal(smaReentryPenaltyFraction({ smaPeriod: 20, smaUpperBuffer: 21 }), 1);
 });
 
@@ -224,7 +119,7 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
       const modernRatio = cpiIndexRatioEndOverStart(modernCpi.monthlyCpi, displayedResult.startDate, displayedResult.endDate);
       assert.equal(expected.inflation.ratio, modernRatio);
       assert.ok(Math.abs(expected.realCagr - calcCagr(1, displayedResult.finalMultiple / modernRatio, displayedResult.startDate, displayedResult.endDate)) < 1e-9);
-      const historicalEras = SMA_CALIBRATION_ERAS[index].filter((era) => era.key !== "start");
+      const historicalEras = SMA_HISTORICAL_ERAS[index].filter((era) => era.key !== "start");
       assert.deepEqual(Object.keys(expected.eraCagrs), historicalEras.map((era) => era.key));
       for (const era of historicalEras) {
         const recorded = expected.eraCagrs[era.key as keyof typeof expected.eraCagrs];
@@ -266,7 +161,7 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
 });
 
 
-test("preset selection retains early-era weights, stability penalties and the calibrated default", async () => {
+test("preset selection uses full-period scores, stability penalties and the calibrated default", async () => {
   const defaults = snapshot.presets.filter((preset) => preset.isCalibratedDefault);
   assert.equal(defaults.length, 1);
   for (const index of ["sp500", "nasdaq100"] as const) {
@@ -304,18 +199,7 @@ test("preset selection retains early-era weights, stability penalties and the ca
       assert.ok(Math.abs(stable - expected.score) < 1e-8);
       assert.ok(Math.abs(expected.baseScore - expected.score - expected.stabilityPenalty) < 1e-8);
     }
-    if (index === "sp500") {
-      // Regression: the modern-only winner's older crashes must affect selection.
-      // Its re-entry band is penalized too; that must not be what sinks it.
-      const freeClimbPct = SMA_REENTRY_PENALTY.freeClimbPct;
-      SMA_REENTRY_PENALTY.freeClimbPct = Infinity;
-      const bad = evaluateCombosAcrossEras(contexts, [{ smaPeriod: 37, smaUpperBuffer: 10.5, smaLowerBuffer: 13.7 }])[0];
-      SMA_REENTRY_PENALTY.freeClimbPct = freeClimbPct;
-      assert.ok(bad.scoresByEra.start! > actualDefault.scoresByEra.start!, "it wins the modern era alone");
-      assert.ok(bad.scoresByEra.proxy! < 0);
-      assert.ok(bad.scoresByEra.proto! < 0);
-      assert.ok(bad.score < actualDefault.score);
-    }
+
   }
 });
 

@@ -16,23 +16,26 @@ export interface SmaCalibrationIndexResult {
    * index's start as if it applied to both.
    */
   startDate: string;
+  /** Actual observed span in years; one unwrapped window. */
+  windowLength?: number;
+  historyWrap?: boolean;
   smaPeriod: number;
   smaUpperBuffer: number;
   smaLowerBuffer: number;
   score: number;
-  /** Weighted era score before the neighboring-parameter stability penalty. */
+  /** Full-period score before the neighboring-parameter stability penalty. */
   baseScore?: number;
   stabilityPenalty?: number;
   avgReturn: number;
   worstReturn: number;
   avgMaxDrawdown: number;
   avgTrades: number;
+  smaOnlySwitches?: number;
   /** How many (period, upper, lower) combos the joint search scored. */
   evaluatedCombos?: number;
   /**
-   * Raw score per calibration era (`proto` / `proxy` / `start`). `baseScore` is the
-   * weighted mean of these; these are what show whether the band merely wins on
-   * the modern range or also survives 1929-32 and 1973-74.
+   * Full-period score under `start`. Legacy snapshots may also contain older
+   * weighted eras; current calibration excludes those reconstructed histories.
    */
   scoresByEra?: Record<string, number>;
   eraWeights?: Record<string, number>;
@@ -50,6 +53,7 @@ export interface SmaCalibrationIndexResult {
 export interface SmaCalibrationResult {
   generatedAt: string;
   endDate: string;
+  /** SPX span for legacy consumers; each index records its own duration. */
   windowLength: number;
   sp500: SmaCalibrationIndexResult;
   nasdaq100: SmaCalibrationIndexResult;
@@ -57,6 +61,8 @@ export interface SmaCalibrationResult {
 
 const smaCalibrationIndexResultSchema = z.object({
   startDate: z.string(),
+  windowLength: z.number().optional(),
+  historyWrap: z.boolean().optional(),
   smaPeriod: z.number(),
   smaUpperBuffer: z.number(),
   smaLowerBuffer: z.number(),
@@ -67,6 +73,7 @@ const smaCalibrationIndexResultSchema = z.object({
   worstReturn: z.number(),
   avgMaxDrawdown: z.number(),
   avgTrades: z.number(),
+  smaOnlySwitches: z.number().optional(),
   evaluatedCombos: z.number().optional(),
   scoresByEra: z.record(z.string(), z.number()).optional(),
   eraWeights: z.record(z.string(), z.number()).optional(),

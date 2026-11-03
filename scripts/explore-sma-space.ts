@@ -26,7 +26,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getDefaultWindowLength } from "../src/lib/simulation/defaults";
+import { calibrationYears } from "../src/lib/simulation/sma-calibration-eras";
 import {
   SMA_CALIBRATION_ERAS,
   describeEraWeights,
@@ -264,7 +264,7 @@ async function explodeIndex(
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const endDate = await getLatestSharedTradeDate(["sp500", "nasdaq100", "risk:SGOV"]);
-  const windowLength = getDefaultWindowLength();
+  const windowLength = calibrationYears("sp500", endDate);
 
   const periods: number[] = [];
   for (let p = SMA_SEARCH_MIN_PERIOD; p <= SMA_SEARCH_MAX_PERIOD; p += options.periodStep) {

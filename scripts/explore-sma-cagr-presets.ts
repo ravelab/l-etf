@@ -1,5 +1,6 @@
+import { calibrationYears } from "../src/lib/simulation/sma-calibration-eras";
 /**
- * Select distinct SMA alternatives using the calibration's weighted multi-era
+ * Select distinct SMA alternatives using the calibration's full-period
  * objective and complete stability neighborhoods; display default-window CAGR.
  * Candidates come from the exhaustive multi-era per-period seeds and calibration.
  * This does not claim a global maximum of modern-only CAGR.
@@ -11,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { simulateWithWarmUp } from "../src/lib/simulation/engine";
 import { findEtfResult } from "../src/lib/simulation/result-lookup";
 import { ETF_PRESETS, createPresetEtfConfig } from "../src/lib/simulation/presets";
-import { DEFAULT_RISK_OFF_ASSET, DEFAULT_RISK_OFF_ASSETS, getDefaultWindowLength } from "../src/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSET, DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "../src/lib/fetch-market-data";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "../src/lib/mcp/server-data";
 import { comboKey, planBufferNeighborhood, planCombos, planPeriodNeighborhood, summarizePlateau, type SmaCombo } from "../src/lib/simulation/sma-search";
@@ -333,8 +334,8 @@ async function main(): Promise<void> {
     selected[index].slice(i + 1).map((right) => regimeDistance(left, right))));
   const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAsset: DEFAULT_RISK_OFF_ASSET,
     cagrRiskOffAssets: DEFAULT_RISK_OFF_ASSETS,
-    executionMode: "next-day-open", windowLength: getDefaultWindowLength(),
-    selection: "Calibrated default plus three distinct alternatives selected by stability-adjusted weighted multi-era score from per-period search seeds with joint buffer refinement",
+    executionMode: "next-day-open", windowLength: calibrationYears("sp500", endDate),
+    selection: "Calibrated default plus three distinct alternatives selected by stability-adjusted full-period score from per-period search seeds with joint buffer refinement",
     grid: { periodStep: PRESET_PERIOD_STEP, bufferStep: PRESET_BUFFER_STEP, basinBufferHalfWidth: PRESET_BUFFER_HALF_WIDTH },
     ranking: SMA_PRESET_RANKING,
     searchBudget: { minutes: budgetMinutes, reached: budgetReached },
@@ -345,7 +346,7 @@ async function main(): Promise<void> {
     evaluated, candidatesTested, bestFound, presets: await withEraCagrs(presets, startDate, endDate) };
   if (process.argv.includes("--write-presets")) {
     writeFileSync(SMA_CALIBRATION_SNAPSHOT_PATH, JSON.stringify({ generatedAt: payload.generatedAt,
-      endDate, windowLength: getDefaultWindowLength(), ...calibratedDefaults }, null, 2) + "\n");
+      endDate, windowLength: calibrationYears("sp500", endDate), ...calibratedDefaults }, null, 2) + "\n");
     const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
     writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
     console.log(`Wrote ${path}`);
@@ -362,7 +363,7 @@ async function rerankPresets(): Promise<void> {
   const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, presets: rankSmaPresetSets(currentPresets.presets) };
   const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
-  console.log(`Ranked presets by multi-era score in ${path}`);
+  console.log(`Ranked presets by full-period score in ${path}`);
 }
 void (process.argv.includes("--rerank-presets") ? rerankPresets()
   : process.argv.includes("--refresh-era-cagrs") ? refreshEraCagrs() : main())

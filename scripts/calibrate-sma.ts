@@ -37,7 +37,7 @@ config({ path: ".env.local", quiet: true });
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { getDefaultWindowLength } from "../src/lib/simulation/defaults";
+import { calibrationYears } from "../src/lib/simulation/sma-calibration-eras";
 import {
   SMA_CALIBRATION_ERAS,
   describeEraWeights,
@@ -388,10 +388,10 @@ async function calibrateIndex(
 
 async function main(): Promise<void> {
   const endDate = await getLatestSharedTradeDate(["sp500", "nasdaq100", "risk:SGOV"]);
-  const windowLength = getDefaultWindowLength();
+  const windowLength = calibrationYears("sp500", endDate);
   const searchSpace = await readSmaSearchSpaceSnapshot();
 
-  console.log(`[calibrate-sma] Calibrating to ${endDate} (${windowLength}y rolling windows)`);
+  console.log(`[calibrate-sma] Calibrating to ${endDate} (one full observed window per index; no wrap)`);
   console.log(
     `[calibrate-sma] period ${SMA_SEARCH_MIN_PERIOD}..${SMA_SEARCH_MAX_PERIOD}, buffer ${SMA_SEARCH_MIN_BUFFER}..${SMA_SEARCH_MAX_BUFFER}%`
   );

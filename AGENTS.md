@@ -488,35 +488,9 @@ limited evidence, not a rank by trade count. It is a scoring preference, not
 statistical confidence: overlapping rolling windows do not create independent
 trades. Do not introduce index-specific formulas, parameter-specific bonuses,
 or an evidence surcharge in addition to the smooth sparse penalty.
-The engine regression through 2026-10-09 pins the user's reference order:
-NDX 136/−18%/+9.6% (10 switches), 126/−17.9%/+19.4% (6), then
-200/−11.8%/+5% (16), each adjacent stable-score lead below 2%.
-It also pins the preceding six SPX rules' relative order. A subsequent search
-may discover stronger rules; do not force these three into preset positions.
-Changing its strength or target requires regenerating search seeds and calibration.
-Before manual recalibration/search, refresh market data with `npm run fetch-data`
-and use the latest complete shared trading day rather than a stale snapshot end.
-Use `npm run refresh-sma` for the combined SPX/NDX refresh: it has a 55-minute
-hard ceiling, including data refresh and canned tool results. It re-scores all
-saved period seeds under the current formula instead of automatically repeating
-the exhaustive coarse grid. The artifact records `searchMode` to distinguish
-a seed re-score from a new coarse-grid exploration. Calibration has a 15-minute
-watchdog; on timeout the preset search re-scores the saved bands itself.
-`explore-sma-cagr` has a shared 15-minute optional-refinement budget, divided
-between indices, and records when that budget stops the search. Only candidates
-with complete immediate stability neighborhoods may become presets. Establish
-four positive, distinct, fully checked rules before optional refinement, choosing
-fallback seeds by score rather than ascending period. A zero-minute budget
-finalizes this checked pool. Worker process groups are stopped on timeouts and
-interruptions. Exhaustive `explore-sma` is a separate, potentially long operation;
-do not invoke it automatically or bypass the combined ceiling unless the user
-explicitly authorizes a longer search. Budget-limited presets are the best fully
-checked candidates found, not a claim of exhaustive convergence.
-The standalone npm calibration/exploration commands also have process-group
-watchdogs, capped at 55 minutes (preset refinement normally has a 20-minute
-watchdog around its 15-minute soft budget). A coarse exploration that times out
-keeps the existing seed artifact; `refresh-sma` is the path that finalizes useful
-results within the combined budget.
+Full-period calibration supersedes the old October 9 rolling-window ranking
+regressions. Test annualization and the objective, not a preferred ordering of
+hard-coded bands.
 
 The shipped SMA band (`src/lib/tool-snapshots/sma-calibration.json`, applied by
 the Signals page and the push-alert cron) comes from a JOINT search over
@@ -529,28 +503,22 @@ reason to be separable. That is what `calibrate-sma.ts` used to do, and the
 fixed starting buffer, not the data, decided which basin it landed in: it
 shipped NDX 150d -17.6%/+20.4% while 131d -18%/+20% scored ~9% higher.
 
-Multi-era, because one range picks a rule for one regime. See
-`src/lib/simulation/sma-calibration-eras.ts` for the ranges and weights (they
-start at the tool pages' own date presets, so any band can be checked by hand).
-The modern ranges contain no 1929-32 and no 1973-74, so the combos that top
-them are short-SMA rules that ride those crashes down 88-95%, and the score's
-`(maxDrawdown - 80)^4` capitulation term then detonates on an older range: a
-`start`-only search returned SPX 32d -6.1%/+7.9%, worth 8,802 on `start` and
--4,354 on the full history. Because that term is already unbounded below, a
-plain weighted sum of RAW per-era scores is the whole "must not be terrible
-anywhere" rule. Never normalise per-era scores before combining — min-max or
-z-scoring rescales a -51,721 wipeout into merely "the worst candidate" and
-discards exactly the signal the eras were added to carry.
-
-The eras are DISJOINT — each `endDate` is the next era's `startDate`, and only
-the live era runs to today. They used to be nested (every era ran to today), so
-the modern data was counted in all of them and a weight did not mean what it
-said: under the old nested NDX 2:8 only 167 of proto's 668 windows began before
-1985, leaving that segment an effective ~0.5/10. A closed era also runs with
-history wrap OFF: wrap extends the final windows past the end of DATA, but
-inside a closed era the continuation is real — it is the next era — so wrapping
-would fabricate a tail over data that exists. Only the live era keeps wrap, and
-its synthetic windows are why it has more windows than its span implies.
+Calibration now uses ONE unwrapped observed window: SPX from 1988-04-06,
+NDX from 1985-01-31, through the latest shared data. Older reconstructions do
+not contribute to selection. `scripts/lib/sma-sweep-context.ts` builds this
+window explicitly, preserves pre-start SMA warm-up, and normalizes switch counts
+by its actual elapsed years. Returns are real annualized CAGR, never total return;
+average and worst return coincide for this single window. `scoreFullPeriod`
+uses geometric real CAGR and omits the redundant worst-window return bonus.
+The sparse-switch preference uses SMA-only switches, computed without the
+volatility gate on the same warm-up-inclusive prices. Gate trades still count
+for churn/costs, and returns/drawdowns still include the gate; they must never
+make a dormant SMA rule look independently active. `smaOnlySwitches` is recorded
+in the calibration snapshot. Re-entry shape penalties begin above a 30% annual
+steady-climb requirement (a policy preference, not an estimated future return);
+apply the same period-aware rule to both indices, never bonus a named band. Never restore rolling
+10-year windows or history wrap in calibration. Per-index snapshot `windowLength`
+records the actual span; the legacy top-level field is not the scoring duration.
 
 A full joint grid is far too slow for the monthly Vercel build, so the work is
 split across two scripts that MUST score a combo identically — both go through
@@ -599,10 +567,9 @@ push alerts only. `SmaPushAlertsCard` applies the calibration snapshot when it
 builds an alert subscription; loading that preference or the snapshot must not
 replace the page's shared SMA inputs. "Set default" explicitly applies the
 latest scored calibration. Five Signals alternatives are selected from the
-multi-era per-period search seeds, refined jointly over one-day periods and
-0.1 percentage-point buffer steps, with the same raw era weights and complete
-±1-day/±0.1% stability neighborhoods as calibration. Keep pre-1988 SPX and
-pre-1985 NDX in selection: a modern-only CAGR winner can fail those eras badly.
+full-period per-period search seeds, refined jointly over one-day periods and
+0.1 percentage-point buffer steps, with the same full-period objective and complete
+±1-day/±0.1% stability neighborhoods as calibration. Older eras are historical diagnostics only, not selection inputs.
 Both indices are scored, displayed and verified WITH the volatility risk-off
 gate (`SMA_CALIBRATION_VOL_GATE`, `vol-gate.ts`), because the gate ships on by
 default. Ungated, NDX ranks 182/−18.1%/+6.9% first; gated, 115/−20%/+16% wins
@@ -626,7 +593,7 @@ Every era score also pays shape penalties (`smaScorePenaltyFraction`,
  some SPX gates 262/−2.3%/+3.4% otherwise outscored 175/−3.6%/+3.6% on a
  handful of slow, well-timed exits.
 Keep one default and three alternatives per index. The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
-rank each index by descending stability-adjusted weighted multi-era score and
+rank each index by descending stability-adjusted full-period score and
 pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
 comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
 weakest NDX rule despite its terrible proto era. Preserve the score order through

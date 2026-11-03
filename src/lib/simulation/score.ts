@@ -3,6 +3,8 @@ import type { SmaComparisonRow } from "./types";
 type ScoreOptions = {
   /** When true, use the heavier drawdown-penalty exponent. */
   hateDrawdown?: boolean;
+  /** Independent SMA-only frequency for the sparse-evidence preference. */
+  sparseTradesPerYear?: number;
 };
 
 // Counts individual risk-on/off switches, not complete exit/re-entry cycles.
@@ -14,12 +16,12 @@ const SPARSE_TRADING_PENALTY_WEIGHT = 19500;
 const FREQUENT_TRADING_PENALTY_WEIGHT = 3000;
 const ABOVE_TARGET_PENALTY_WEIGHT = 200;
 
-function tradingFrequencyPenalty(avgTradesPerYear: number): number {
+function tradingFrequencyPenalty(avgTradesPerYear: number, sparseTradesPerYear = avgTradesPerYear): number {
   const frequency = Math.max(0, avgTradesPerYear);
   // The minimum penalty is at 0.3/year; one switch/year has a modest penalty.
   // A zero-trade strategy has a finite penalty, so this remains a preference
   // rather than excluding buy-and-hold regardless of its other metrics.
-  const sparseDistance = Math.max(0, (TARGET_TRADES_PER_YEAR - frequency) / TARGET_TRADES_PER_YEAR);
+  const sparseDistance = Math.max(0, (TARGET_TRADES_PER_YEAR - Math.max(0, sparseTradesPerYear)) / TARGET_TRADES_PER_YEAR);
   const aboveTargetDistance = Math.max(0, frequency - TARGET_TRADES_PER_YEAR);
   const frequentDistance = Math.max(0, frequency - 1);
   const frequencyPenalty = SPARSE_TRADING_PENALTY_WEIGHT * sparseDistance ** 2
@@ -60,7 +62,7 @@ function computeScore(
   const capitulationPenalty =
     biggestMaxDrawdown > 80 ? Math.pow(biggestMaxDrawdown - 80, 4.0) : 0;
 
-  const tradePenalty = tradingFrequencyPenalty(avgTradesPerYear);
+  const tradePenalty = tradingFrequencyPenalty(avgTradesPerYear, options.sparseTradesPerYear);
 
   return returnScore - drawdownPenalty - capitulationPenalty - tradePenalty;
 }
@@ -88,5 +90,23 @@ export function scoreRow(
     row.biggestMaxDrawdown,
     avgTradesPerYear,
     options,
+  );
+}
+
+/**
+ * One observed full-period path. CAGR and switch frequency are annualized;
+ * maximum drawdown is measured over the entire path. There is no independent
+ * worst-window return to reward, so that term is zero. Longer histories can
+ * reveal deeper drawdowns; that is evidence, not a duration scaling error.
+ */
+export function scoreFullPeriod(row: SmaComparisonRow, inflationPct: number, years: number, smaOnlySwitches?: number): number {
+  if (!Number.isFinite(years) || years <= 0) throw new Error("Full-period score requires a positive elapsed duration");
+  return computeScore(
+    row.avgReturn - Math.max(0, inflationPct),
+    0,
+    row.biggestMaxDrawdown,
+    row.biggestMaxDrawdown,
+    row.avgTrades / years,
+    { sparseTradesPerYear: smaOnlySwitches === undefined ? undefined : smaOnlySwitches / years },
   );
 }

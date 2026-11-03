@@ -4,7 +4,7 @@ import { readSmaSearchSpaceSnapshot, SMA_SEARCH_SPACE_SNAPSHOT_PATH, type SmaSee
 import { readSmaCalibrationSnapshot } from "../src/lib/sma-calibration";
 import { SMA_CALIBRATION_ERAS, primaryEra } from "../src/lib/simulation/sma-calibration-eras";
 import { SMA_SEARCH_MAX_PERIOD } from "../src/lib/simulation/sma-search-bounds";
-import { getDefaultWindowLength } from "../src/lib/simulation/defaults";
+import { calibrationYears } from "../src/lib/simulation/sma-calibration-eras";
 import { buildSmaEraContexts, evaluateCombosAcrossEras } from "./lib/sma-sweep-context";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
 
@@ -13,7 +13,7 @@ async function main() {
   if (!previous) throw new Error("Missing SMA seeds; run explore-sma first");
   const calibration = await readSmaCalibrationSnapshot();
   const endDate = await getLatestSharedTradeDate(["sp500", "nasdaq100", "risk:SGOV"]);
-  const windowLength = getDefaultWindowLength();
+  const windowLength = calibrationYears("sp500", endDate);
   const refreshed = { ...previous, generatedAt: new Date().toISOString(), endDate, windowLength,
     searchMode: "rescored-known-seeds" };
   for (const indexKey of ["sp500", "nasdaq100"] as const) {

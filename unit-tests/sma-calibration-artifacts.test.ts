@@ -89,6 +89,9 @@ describe("sma-calibration snapshot", () => {
     // fields, so an older artifact must keep working untouched.
     for (const index of INDICES) {
       const {
+        smaOnlySwitches,
+        windowLength,
+        historyWrap,
         baseScore,
         stabilityPenalty,
         evaluatedCombos,
@@ -98,6 +101,9 @@ describe("sma-calibration snapshot", () => {
         eraWeights,
         ...legacy
       } = snapshot[index];
+      void smaOnlySwitches;
+      void windowLength;
+      void historyWrap;
       void baseScore;
       void stabilityPenalty;
       void evaluatedCombos;

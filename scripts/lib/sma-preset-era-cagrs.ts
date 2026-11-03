@@ -1,4 +1,4 @@
-import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE } from "../../src/lib/simulation/sma-calibration-eras";
+import { SMA_HISTORICAL_ERAS, SMA_CALIBRATION_VOL_GATE } from "../../src/lib/simulation/sma-calibration-eras";
 import { DEFAULT_RISK_OFF_ASSETS } from "../../src/lib/simulation/defaults";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../../src/lib/input-normalization";
 import { runBacktestCore } from "../../src/lib/mcp/tools/run-backtest";
@@ -26,7 +26,7 @@ interface EraCagr { startDate: string; endDate: string; cagr: number;
 
 async function eraCagrs(index: IndexKey, combo: SmaCombo, endDate: string): Promise<Record<string, EraCagr>> {
   const out: Record<string, EraCagr> = {};
-  for (const era of SMA_CALIBRATION_ERAS[index].filter((era) => era.key !== "start")) {
+  for (const era of SMA_HISTORICAL_ERAS[index].filter((era) => era.key !== "start")) {
     // An era is its own backtest with its own warm-up, never a slice of a
     // longer series. These nominal whole-era CAGRs differ from rolling scores.
     const result = await runBacktestCore({

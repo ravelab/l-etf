@@ -16,6 +16,7 @@ import {
   runPrecomputedSweep,
   type MonthlyCpiPoint,
 } from "./sweep-data";
+import { CONSTANT_INITIAL_INVESTMENT } from "../../src/lib/constants";
 import { DEFAULT_RISK_OFF_ASSET } from "../../src/lib/simulation/defaults";
 import {
   DEFAULT_COMBO_PRESET,
@@ -23,8 +24,9 @@ import {
   getComboSubPresets,
   type EtfPreset,
 } from "../../src/lib/simulation/presets";
-import { buildRollingWindows, summarizeSmaRow, type RollingWindow } from "../../src/lib/simulation/rolling";
-import { scoreRow } from "../../src/lib/simulation/score";
+import { summarizeSmaRow, type RollingWindow } from "../../src/lib/simulation/rolling";
+import { generateSmaSignals } from "../../src/lib/simulation/sma";
+import { scoreFullPeriod } from "../../src/lib/simulation/score";
 import { comboKey, type SmaCombo } from "../../src/lib/simulation/sma-search";
 import { smaScorePenaltyFraction } from "../../src/lib/simulation/sma-search-bounds";
 import {
@@ -70,6 +72,7 @@ export interface EvaluatedCombo {
   combo: SmaCombo;
   score: number;
   row: SmaComparisonRow;
+  smaOnlySwitches: number;
 }
 
 export async function buildSmaSweepContext({
@@ -103,21 +106,16 @@ export async function buildSmaSweepContext({
     expandedStartDate,
     endDate
   );
-  // History wrap stays ON for every era (the app-wide default). It is what
-  // makes an era's coverage uniform: a window running past the era's end
-  // replays the era's own opening, so the first and last years of the era
-  // appear in as many windows as the middle. Without it those edges sit in a
-  // handful of windows while the middle sits in ~120, and the era's score
-  // becomes a statement about its middle years.
-  const windows = buildRollingWindows({
-    prices,
-    windowLength,
-    startDateConstraint: startDate,
-    endDateConstraint: endDate,
-  });
-  if (windows.length === 0) {
-    throw new Error(`No ${windowLength}y rolling windows for ${indexKey} from ${startDate}`);
-  }
+  // One observed path; warm-up rows establish signals but are not scored.
+  const startIdx = prices.findIndex((point) => point.date >= startDate);
+  const endIdx = prices.length - 1;
+  if (startIdx < 0 || endIdx <= startIdx) throw new Error("Insufficient calibration history");
+  const windows: RollingWindow[] = [{
+    startIdx, endIdx, startDate: prices[startIdx].date,
+    endDate: prices[endIdx].date, lastRealEndDate: prices[endIdx].date,
+    usesSyntheticTail: false,
+  }];
+  windowLength = (Date.parse(prices[endIdx].date) - Date.parse(prices[startIdx].date)) / (365.25 * 86400000);
 
   // With per-window CPI available, `summarizeSmaRow` already returns real
   // CAGRs, so the score must not deflate them a second time.
@@ -139,6 +137,8 @@ export async function buildSmaSweepContext({
   };
 }
 
+const signalInputs = new WeakMap<SmaSweepContext, { dates: string[]; closes: number[] }>();
+
 function configIdFor(combo: SmaCombo): string {
   return `c|${combo.smaPeriod}|${combo.smaUpperBuffer}|${combo.smaLowerBuffer}`;
 }
@@ -150,6 +150,11 @@ export function evaluateCombos(
   chunkSize = SMA_EVAL_CHUNK_SIZE
 ): EvaluatedCombo[] {
   const out: EvaluatedCombo[] = [];
+  let inputs = signalInputs.get(ctx);
+  if (!inputs) {
+    inputs = { dates: ctx.prices.map(p => p.date), closes: ctx.prices.map(p => p.close) };
+    signalInputs.set(ctx, inputs);
+  }
   for (let offset = 0; offset < combos.length; offset += chunkSize) {
     const slice = combos.slice(offset, offset + chunkSize);
     const configs: EtfConfig[] = slice.map((combo) =>
@@ -176,7 +181,16 @@ export function evaluateCombos(
       const sims = results.get(configIdFor(combo)) ?? [];
       if (sims.length === 0) continue;
       const row = summarizeSmaRow(combo.smaPeriod, sims, ctx.monthlyCpi);
-      out.push({ combo, score: scoreRow(row, ctx.inflPct, ctx.windowLength), row });
+      // Geometric real CAGR, rather than nominal CAGR minus inflation.
+      const realCagr = (Math.pow(row.avgFinalRealValue! / CONSTANT_INITIAL_INVESTMENT, 1 / ctx.windowLength) - 1) * 100;
+      row.avgReturn = row.bestReturn = row.worstReturn = realCagr;
+      // Gate trades must not make an otherwise dormant SMA rule look active.
+      // Warm-up establishes state; a signal at the final close cannot execute.
+      const ungated = generateSmaSignals(inputs.dates, inputs.closes, combo.smaPeriod,
+        { upper: combo.smaUpperBuffer, lower: combo.smaLowerBuffer });
+      const smaOnlySwitches = ungated.signals.filter(signal =>
+        signal.date >= ctx.windows[0].startDate && signal.date < ctx.windows[0].endDate).length;
+      out.push({ combo, score: scoreFullPeriod(row, ctx.inflPct, ctx.windowLength, smaOnlySwitches), row, smaOnlySwitches });
     }
   }
   return out;
@@ -196,6 +210,7 @@ export interface EraEvaluatedCombo {
   scoresByEra: Partial<Record<SmaEraKey, number>>;
   /** Per-window metrics from the highest-weighted era, for the shipped snapshot. */
   row: SmaComparisonRow;
+  smaOnlySwitches: number;
 }
 
 export async function buildSmaEraContexts({
@@ -216,10 +231,7 @@ export async function buildSmaEraContexts({
       ctx: await buildSmaSweepContext({
         indexKey,
         startDate: era.startDate,
-        // Each era is scored over its OWN range, wrapped. Letting a window run
-        // on into the next era's real data instead would leave every era's
-        // first years covered by only a handful of windows while its middle sat
-        // in ~120 — the score would then be about the middle of each era.
+        // Only the observed index era contributes to selection.
         endDate: era.endDate ?? endDate,
         windowLength,
         maxPeriod,
@@ -266,7 +278,7 @@ export function evaluateCombosAcrossEras(
     if (!primaryHit) continue;
     const score = combineEraScores(eras.indexKey, scoresByEra);
     if (!Number.isFinite(score)) continue;
-    out.push({ combo, score, scoresByEra, row: primaryHit.row });
+    out.push({ combo, score, scoresByEra, row: primaryHit.row, smaOnlySwitches: primaryHit.smaOnlySwitches });
   }
   return out;
 }
