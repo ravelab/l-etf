@@ -114,7 +114,7 @@ export function describeSmaSignalStatus(snapshot: SmaSignalSnapshot, config?: Sm
     parts.push(`NDX: ${formatSmaStatus(snapshot.nasdaq100)}`);
   }
   if (parts.length === 0) return "No alerts enabled";
-  return config?.smaVolGate ? `${parts.join("; ")} · ${volGateLabelFor(config)}` : parts.join("; ");
+  return parts.join("; ");
 }
 
 /** The gate label for the indices this config alerts on, each with its own parameters. */

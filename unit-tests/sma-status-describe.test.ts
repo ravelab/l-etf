@@ -60,16 +60,16 @@ test("describeSmaSignalStatus formats both indexes", () => {
   assert.match(text, /NDX: Sell L-ETFs \(-3\.25%\)/);
 });
 
-test("gated push text shows each index's volatility and the gate parameters", () => {
+test("gated push text shows current volatility without the gate parameters", () => {
   const base = snap();
   const gated = snap({
     sp500: { ...base.sp500, volatility: 0.18, volGateRiskOff: false },
     nasdaq100: { ...base.nasdaq100, signalLabel: "Sell L-ETFs: High Vol", volatility: 0.523, volGateRiskOff: true },
   });
   const text = describeSmaSignalStatus(gated, { ...getDefaultSmaSignalConfig(), smaVolGate: true });
-  assert.equal(text, "SPX: Buy L-ETFs (+2.50%, vol 18%); NDX: Sell L-ETFs: High Vol (-3.25%, vol 52%) · vol SPX 11d 42% 23%; NDX 10d 50% 31%");
+  assert.equal(text, "SPX: Buy L-ETFs (+2.50%, vol 18%); NDX: Sell L-ETFs: High Vol (-3.25%, vol 52%)");
   assert.equal(describeSmaSignalStatus(gated, { ...getDefaultSmaSignalConfig(), smaVolGate: true, smaSpEnabled: false }),
-    "NDX: Sell L-ETFs: High Vol (-3.25%, vol 52%) · vol 10d 50% 31%");
+    "NDX: Sell L-ETFs: High Vol (-3.25%, vol 52%)");
   assert.equal(describeSmaSignalStatus(snap(), { ...getDefaultSmaSignalConfig(), smaVolGate: false }),
     "SPX: Buy L-ETFs (+2.50%); NDX: Sell L-ETFs (-3.25%)");
 });

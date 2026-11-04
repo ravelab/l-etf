@@ -458,7 +458,7 @@ export function buildSmaPushPayload(
   previous?: SmaSignalSnapshot | null,
   config: SmaSignalConfig = getDefaultSmaSignalConfig()
 ): PushSendPayload {
-  const title = "L-ETF SMA alert";
+  const title = "SMA vol alert";
   const body = describeSmaSignalChange(current, previous, config);
   const navigate = new URL(DEFAULT_PUSH_URL, SITE_URL).href;
   const timestamp = Date.parse(current.timestamp);

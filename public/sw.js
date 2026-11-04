@@ -9,7 +9,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("push", (event) => {
   const envelope = readPushPayload(event);
   const payload = readNotificationPayload(envelope);
-  const title = payload.title || envelope.title || "L-ETF SMA alert";
+  const title = payload.title || envelope.title || "SMA vol alert";
   const options = {
     body: payload.body || envelope.body || "SMA status changed.",
     tag: payload.tag || envelope.tag || "l-etf-sma-status",

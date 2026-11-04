@@ -39,13 +39,8 @@ function SignalIcon({ signal, signalLabel }: { signal?: SmaSignalResult["signal"
 export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = false }: SignalCardProps) {
   const gate = SMA_VOL_GATE[indexKey];
   const placeholderSignal = "No Action";
-  const placeholderPercent = "-00.00%";
+  const placeholderPercent = "00.00% below SMA";
   const placeholderDate = "Sep 30, 2026";
-
-  const formatPercent = (num: number) => {
-    const sign = num >= 0 ? "+" : "";
-    return `${sign}${num.toFixed(2)}%`;
-  };
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -83,7 +78,7 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
 
   const getPercentLabel = () => {
     if (!result) return "";
-    if (result.percentDiff > 0) return formatPercent(result.percentDiff);
+    if (result.percentDiff > 0) return `${result.percentDiff.toFixed(2)}% above SMA`;
     if (result.percentDiff < 0) return `${Math.abs(result.percentDiff).toFixed(2)}% below SMA`;
     return "At SMA";
   };
