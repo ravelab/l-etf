@@ -187,22 +187,25 @@ export function getRiskOffFetchTickersForAll(assets: readonly string[]): string[
   return [...new Set(assets.flatMap(getRiskOffFetchTickers))];
 }
 
+const RISK_OFF_TICKER_ABBREV: Readonly<Record<string, string>> = {
+  "BRK.B": "B",
+  GLDM: "G",
+  VGSH: "V",
+  SGOV: "S",
+};
+
+/** One-letter ledger label for a risk-off ticker (BRK.B → B); any other ticker keeps its name. */
+export function riskOffTickerAbbrev(ticker: string): string {
+  return RISK_OFF_TICKER_ABBREV[ticker] ?? ticker;
+}
+
 /**
  * Short label for liquidation copy on composite risk-off (e.g. BRK.B+GLDM+VGSH → B+G+V).
  * Single-ticker presets return the ticker unchanged.
  */
 export function formatRiskOffLiquidationAbbrev(asset: string): string {
   if (!asset.includes("+")) return asset;
-  return asset
-    .split("+")
-    .map((t) => {
-      if (t === "BRK.B") return "B";
-      if (t === "GLDM") return "G";
-      if (t === "VGSH") return "V";
-      if (t === "SGOV") return "S";
-      return t;
-    })
-    .join("+");
+  return asset.split("+").map(riskOffTickerAbbrev).join("+");
 }
 
 export const INDEX_DATE_RANGES: Record<string, { min: string; max: string }> = {

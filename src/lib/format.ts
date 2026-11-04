@@ -85,20 +85,26 @@ export function formatCurrencySigFigs(value: number, sigFigs = 2): string {
   }).format(value);
 }
 
-/**
- * Percent points for UI suffix (value is already “×100” style, e.g. 4.2 ⇒ 4.2%).
- * Uses enough decimals for `sigFigs` significant digits so tiny rates don’t show as 0.0.
- */
-export function formatPercentPointsSigFigs(value: number, sigFigs = 2): string {
-  if (!Number.isFinite(value)) return "0";
-  const abs = Math.abs(value);
-  if (abs === 0) return "0";
-  const exp = Math.floor(Math.log10(abs));
-  const fractionDigits = Math.min(12, Math.max(0, sigFigs - 1 - exp));
-  return value.toLocaleString("en-US", {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  });
+const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumSignificantDigits: 3,
+});
+
+/** USD to three significant figures with a K/M/B suffix ($1.23M), for cramped cells. */
+export function formatCompactCurrency(value: number): string {
+  return compactCurrencyFormatter.format(Number.isFinite(value) ? value : 0);
+}
+
+const compactNumberFormatter = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumSignificantDigits: 3,
+});
+
+/** A plain number to three significant figures with a K/M/B suffix (17.6M), for cramped cells. */
+export function formatCompactNumber(value: number): string {
+  return compactNumberFormatter.format(Number.isFinite(value) ? value : 0);
 }
 
 export function formatDate(dateStr: string): string {

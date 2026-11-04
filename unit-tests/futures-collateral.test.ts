@@ -55,11 +55,12 @@ test("Cash interest excludes Treasury holdings, scales by NAV, and charges debit
 });
 test("Futures integration books collateral returns, costs and final liquidation without creating purchase equity", () => {
   const dates = ["2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07"];
-  const run = (sgov:number[]) => simulateFuturesSmaStrategy({ index:"sp500", prices: dates.map(date=>({date,close:5000,open:5000,adj_close:5000})),
+  // The opening risk-on close is an entry, so the pool it builds is VGSH.
+  const run = (vgsh:number[]) => simulateFuturesSmaStrategy({ index:"sp500", prices: dates.map(date=>({date,close:5000,open:5000,adj_close:5000})),
     rates:dates.map(date=>({date,rateType:"borrow",rateValue:0})), startDate:dates[0],endDate:dates[3],initialEquity:1_000_000,
     targetLeverage:2,smaPeriod:2,smaUpperBuffer:99,smaLowerBuffer:99,riskOffAsset:"VGSH",treasuryCollateral:true,
-    riskOffCloseByTicker:{SGOV:sgov,VGSH:[58,58,58,58]},riskOffOpenByTicker:{SGOV:sgov,VGSH:[58,58,58,58]},futuresFundingSpreadAnnual:0 });
-  const flat=run([100,100,100,100]), rising=run([100,101,102,103]);
+    riskOffCloseByTicker:{SGOV:[100,100,100,100],VGSH:vgsh},riskOffOpenByTicker:{SGOV:[100,100,100,100],VGSH:vgsh},futuresFundingSpreadAnnual:0 });
+  const flat=run([58,58,58,58]), rising=run([58,58.58,59.16,59.74]);
   assert.ok(flat.etfResult.finalValue<1_000_000);
   assert.ok(rising.etfResult.finalValue>flat.etfResult.finalValue+20_000);
   assert.ok(flat.transactions.some(t=>t.symbol.includes("COLLATERAL")&&t.action==="buy"));
@@ -97,8 +98,41 @@ test("Regime exits buy BRK.B from released collateral and Treasury-only exits do
   const sellSignal = vgsh.etfResult.smaSignals.find(s=>s.type==="sell");
   assert.ok(sellSignal);
   const transitionDate = dates[dates.indexOf(sellSignal.date) + 1];
-  const initialTreasury = vgsh.transactions.find(t=>t.symbol==="SGOV (COLLATERAL)"&&t.action==="buy")!;
-  const sold = vgsh.transactions.filter(t=>t.date===transitionDate&&t.symbol==="SGOV (COLLATERAL)"&&t.action==="sell").reduce((sum,t)=>sum-t.qtyDelta,0);
+  const initialTreasury = vgsh.transactions.find(t=>t.symbol==="VGSH (COLLATERAL)"&&t.action==="buy")!;
+  const sold = vgsh.transactions.filter(t=>t.date===transitionDate&&t.symbol==="VGSH (COLLATERAL)"&&t.action==="sell").reduce((sum,t)=>sum-t.qtyDelta,0);
   assert.ok(sold < initialTreasury.qtyDelta, "sell only surplus needed for futures losses, not the entire pool");
   assert.equal(vgsh.transactions.some(t=>t.date===transitionDate&&t.symbol.startsWith("VGSH")&&t.action==="buy"), false);
+});
+
+test("A risk-on entry buys its whole Treasury purchase in VGSH; maintenance after it parks in SGOV", () => {
+  const c = treasury([100, 100], [58, 58]); c.mark(0, "2026-01-02", false);
+  const entry = c.rebalance(100_000, 0, "2026-01-02", true);
+  assert.deepEqual(entry.map((t) => t.symbol), ["VGSH"], "an SGOV-sized entry order still goes to VGSH");
+  assert.ok(c.readHoldings().VGSH > 99_000 && c.readHoldings().SGOV === 0);
+  const topUp = c.rebalance(130_000, 0, "2026-01-02");
+  assert.deepEqual(topUp.map((t) => t.symbol), ["SGOV"], "routine maintenance keeps SGOV first");
+  const sells = c.rebalance(100_000, 0, "2026-01-02");
+  assert.equal(sells[0].symbol, "SGOV", "maintenance sells SGOV before the VGSH bought at entry");
+});
+
+test("Each re-entry after a BRK.B risk-off stretch rebuilds the Treasury pool in VGSH", () => {
+  const dates = ["2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12"];
+  const closes = [100, 110, 60, 55, 120, 125, 130];
+  const series = (x: number) => dates.map(() => x);
+  const run = simulateFuturesSmaStrategy({
+    index: "sp500", prices: dates.map((date, i) => ({ date, close: closes[i], open: closes[i], adj_close: closes[i] })),
+    rates: dates.map((date) => ({ date, rateType: "borrow", rateValue: 0 })), startDate: dates[0], endDate: dates.at(-1)!,
+    initialEquity: 1_000_000, targetLeverage: 1, smaPeriod: 2, smaUpperBuffer: 0, smaLowerBuffer: 0, riskOffAsset: "BRK.B",
+    treasuryCollateral: true, futuresFundingSpreadAnnual: 0,
+    riskOffCloseByTicker: { SGOV: series(100), VGSH: series(58), "BRK.B": series(500) },
+    riskOffOpenByTicker: { SGOV: series(100), VGSH: series(58), "BRK.B": series(500) },
+  });
+  const buy = run.etfResult.smaSignals.find((s) => s.type === "buy");
+  assert.ok(buy, "the path must re-enter");
+  const reentry = dates[dates.indexOf(buy.date) + 1];
+  const treasuryBuys = (date: string) => run.transactions
+    .filter((t) => t.date === date && t.action === "buy" && t.symbol.endsWith("(COLLATERAL)")).map((t) => t.symbol);
+  assert.deepEqual(treasuryBuys(dates[0]), ["VGSH (COLLATERAL)"], "the opening risk-on close is an entry");
+  assert.deepEqual(treasuryBuys(reentry), ["VGSH (COLLATERAL)"]);
+  assert.ok(run.transactions.some((t) => t.date === reentry && t.symbol === "BRK.B" && t.action === "sell"), "re-entry sells the basket");
 });

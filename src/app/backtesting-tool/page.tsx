@@ -64,6 +64,7 @@ import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { normalizeDateString, normalizeNumberValue } from "@/lib/input-normalization";
 import { alignCloseSeriesToDates } from "@/lib/utils";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
+import { withLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
 
 const EMPTY_UNDERLYING_INDEX_SERIES: Array<{
   index: IndexKey;
@@ -1097,7 +1098,9 @@ export function BacktestingPageContent({
     max: INDEX_DATE_RANGES.sp500.max < INDEX_DATE_RANGES.nasdaq100.max ? INDEX_DATE_RANGES.sp500.max : INDEX_DATE_RANGES.nasdaq100.max,
   };
 
-  const displayResult = result;
+  // The UPRO+TQQQ fund is derived from the run's two SMA sleeves, so cached runs and
+  // the canned snapshot show it too. Keyed on the last run's preset, not the form's.
+  const displayResult = useMemo(() => withLetfComboFund(result, runSummary), [result, runSummary]);
 
   const indexSeriesForDisplay = smaMode !== 0 ? underlyingIndexSeries : EMPTY_UNDERLYING_INDEX_SERIES;
 

@@ -41,6 +41,18 @@ export type FuturesTransactionRow = {
   spxEquity?: number;
   /** Synthetic closing row at window end (not an additional trade in PnL). */
   isEndLiquidation?: boolean;
+  /**
+   * Dollar value of every position held once this row executed, by symbol: futures
+   * notional per listing (at the fill or close mark of the moment), risk-off shares
+   * and Treasury collateral at market. A two-sleeve fund's rows hold the whole fund's
+   * positions. Absent on ledgers produced before it existed.
+   */
+  holdingsAfter?: Record<string, number>;
+  /**
+   * Signed dollars traded per ticker, for a row that trades several tickers at
+   * once and so has no single `qtyDelta` × `fillPrice` (the terminal risk-off close-out).
+   */
+  legValues?: Record<string, number>;
 };
 
 export type FuturesStrategyResult = {
@@ -103,6 +115,10 @@ export type FuturesSleeve = {
   readHoldings: () => SleeveHoldings;
   /** Replaces holdings and restates day `i`'s equity. Books no trade: see futures-dual-sleeve.ts. */
   writeHoldings: (holdings: SleeveHoldings, i: number, equity: number) => void;
+  /** Dollar value of the positions held right now, in the shape of a ledger row's `holdingsAfter`. */
+  positions: () => Record<string, number>;
+  /** Ledger rows booked so far; `finish` returns them in this order. */
+  transactionCount: () => number;
   finish: () => FuturesStrategyResult;
 };
 
@@ -278,6 +294,17 @@ function getContractExpiryEpochMs(symbol: string, tradeYear: number): number | n
   const parts = parseContractSymbolParts(symbol);
   if (!parts) return null;
   return thirdFridayEpochMs(resolveTwoDigitYear(parts.yy, tradeYear), parts.quarterMonth);
+}
+
+/** Dollars per index point of an ES/NQ listing (e.g. "NQM88"); null for anything else. */
+export function futuresListingMultiplier(symbol: string): number | null {
+  const family = symbol.slice(0, 2);
+  return family === "ES" || family === "NQ" ? getContractMultiplier(family) : null;
+}
+
+/** Expiry of a listing as seen from `tradeDate` (two-digit years resolve against it); null if unparseable. */
+export function futuresContractExpiryEpochMs(symbol: string, tradeDate: string): number | null {
+  return getContractExpiryEpochMs(symbol, tradeDayStamp(tradeDate).year);
 }
 
 function daysToContractExpiry(symbol: string, tradeDate: string): number {
@@ -1006,6 +1033,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       stepDay: () => {},
       readHoldings: () => ({ cash: emptyEquity, riskOffShares: null, riskOffCash: null, pendingCashInterest: 0 }),
       writeHoldings: () => {},
+      positions: () => ({}),
+      transactionCount: () => 0,
       finish: () => ({
         etfResult: empty,
         targetLeverage: params.targetLeverage,
@@ -1164,12 +1193,15 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   }) : null;
   collateral?.mark(0, dates[0], false);
   let collateralMarginRequirement = 0;
+  // Whether the last close ran risk-on maintenance, so the next risk-on close after a
+  // risk-off stretch (or the run's first) is flagged as the entry that rebuilds the pool.
+  let collateralRiskOnAtLastClose = false;
   const bookCollateralTrades = (trades: CollateralTrade[], date: string) => {
     for (const tx of trades) {
       cash -= tx.fees + tx.spread;
       totalFees += tx.fees;
       totalSpreadCosts += tx.spread;
-      transactions.push({ date, action: tx.quantity > 0 ? "buy" : "sell", instrument: "riskoff",
+      recordTransaction({ date, action: tx.quantity > 0 ? "buy" : "sell", instrument: "riskoff",
         symbol: `${tx.symbol} (COLLATERAL)`, qtyDelta: tx.quantity, qtyAfter: tx.quantityAfter,
         fillPrice: tx.price, fees: tx.fees, spread: tx.spread, cashInterestEarned: 0,
         excessLiquidity: cash - collateralMarginRequirement, leverageDeltaPct: 0, equity: cash });
@@ -1181,6 +1213,41 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   let riskOffShares: number[] | null = null;
   let riskOffCash: number[] | null = null;
   let riskOffLastPrice: number[] | null = null;
+
+  /**
+   * Price the ledger values each futures listing at: the open fill while the day's
+   * open trades execute, the close mark once the day is marked. The same prices the
+   * trades fill at, so a fresh position's value equals what was paid for it.
+   */
+  let ledgerFuturesMark: ((symbol: string) => number) | null = null;
+  /**
+   * Dollar value of every position held at this instant, for the ledger's Assets
+   * column: futures notional by listing, risk-off shares at their last price, and
+   * Treasury collateral at its marked value. Cash is not a position.
+   */
+  const currentPositions = (): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const [sym, q] of lots) {
+      const family = sym.slice(0, 2);
+      const mark = ledgerFuturesMark?.(sym) ?? Number.NaN;
+      if (q > 0 && (family === "ES" || family === "NQ") && mark > 0) {
+        out[sym] = q * getContractMultiplier(family) * mark;
+      }
+    }
+    for (const [j, shares] of (riskOffShares ?? []).entries()) {
+      const t = heldTickers[j];
+      const px = riskOffLastPrice?.[j] ?? Number.NaN;
+      if (shares > 0 && t && px > 0) out[t] = (out[t] ?? 0) + shares * px;
+    }
+    for (const [t, value] of Object.entries(collateral?.readHoldings() ?? {})) {
+      if (value > 0) out[t] = (out[t] ?? 0) + value;
+    }
+    return out;
+  };
+  /** Appends a ledger row stamped with the positions held once it has executed. */
+  function recordTransaction(row: FuturesTransactionRow): void {
+    transactions.push({ ...row, holdingsAfter: currentPositions() });
+  }
   let pendingEnterRiskOff = false;
   let pendingExitRiskOff = false;
   const rollCalendarDaysBeforeExpiry = Math.max(
@@ -1237,7 +1304,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       cash -= budget;
       totalFees += fees;
       totalSpreadCosts += spread;
-      transactions.push({ date, action: "buy", instrument: "riskoff", symbol: t,
+      recordTransaction({ date, action: "buy", instrument: "riskoff", symbol: t,
         qtyDelta: shares, qtyAfter: shares, fillPrice: px, fees, spread,
         cashInterestEarned: 0, excessLiquidity: 0, leverageDeltaPct: 0,
         equity: cash + riskOffShares.reduce((sum, qty, slot) => sum + qty * (riskOffLastPrice?.[slot] || 0), 0) });
@@ -1289,6 +1356,13 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   // open instead would size off one price and mark at another, silently dropping
   // (risk-on) or keeping (risk-off) that day's intraday move depending on regime.
   const startsRiskOn = Boolean(invested[0]);
+  ledgerFuturesMark = (sym) => futuresBasisFillPrice({
+    spotPrice: firstSpot,
+    symbol: sym,
+    tradeDate: firstDate,
+    rateDaily: rateLookup.getRate(firstDate),
+    dividendDaily: 0,
+  });
   if (startsRiskOn && Number.isFinite(firstSpot) && firstSpot > 0) {
     const initialTargetNotional = Math.max(0, params.targetLeverage * cash);
     const initialContract = chooseContract(params.index);
@@ -1360,7 +1434,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       const excessLiquidity = equity - maintenanceMarginUsed - (collateral?.value() ?? 0) * 0.25;
       const actualLeverage = equity > 0 ? notional / equity : 0;
       const leverageDeltaPct = computeLeverageDeltaPct(actualLeverage, params.targetLeverage);
-      transactions.push({
+      recordTransaction({
         date: firstDate,
         action: "buy",
         instrument: "futures",
@@ -1427,7 +1501,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         totalFees += fees;
         totalSpreadCosts += spread;
         day0RiskOffBookAtEntry += shares * (openPx as number);
-        transactions.push({
+        recordTransaction({
           date: firstDate,
           action: "buy",
           instrument: "riskoff",
@@ -1481,7 +1555,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       collateralMarginRequirement = totalFuturesNotionalAtMark({ lots, contract,
         mark: sym => futuresBasisFillPrice({ spotPrice: smaInput[0], symbol: sym,
           tradeDate: dates[0], rateDaily: rateLookup.getRate(dates[0]), dividendDaily: 0 }) }) * maintMarginRate;
-      bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, dates[0]), dates[0]);
+      bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, dates[0], true), dates[0]);
+      collateralRiskOnAtLastClose = true;
       dailyEquity[0] = cash;
       dailyExcessLiquidity[0] = cash - collateralMarginRequirement - collateral.value() * 0.25;
     }
@@ -1578,6 +1653,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       rateDaily,
       dividendDaily,
     });
+    ledgerFuturesMark = futuresFillAt;
 
     // Realize prior-close-to-current-open futures PnL before same-day open trades.
     // Charge futures carry to contracts held from the prior close, not contracts
@@ -1635,7 +1711,9 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           cash += Math.max(0, gross - spread - fees);
           totalFees += fees;
           totalSpreadCosts += spread;
-          transactions.push({
+          // Sold before the row is stamped, so its holdings show only the legs still held.
+          if (riskOffShares) riskOffShares[j] = 0;
+          recordTransaction({
             date,
             action: "sell",
             instrument: "riskoff",
@@ -1699,7 +1777,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           });
           const intAmt = intRemainFlat;
           if (intAmt > 0) intRemainFlat = 0;
-          transactions.push({
+          lots.set(sym, 0);
+          recordTransaction({
             date,
             action: "sell",
             instrument: "futures",
@@ -1717,7 +1796,6 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
             // All-cash book after this fill (futures-only; risk-off not entered yet).
             equity: cash,
           });
-          lots.set(sym, 0);
         }
         reconcileLots(lots);
         contract = null;
@@ -1766,7 +1844,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           totalFees += fees;
           totalSpreadCosts += spread;
           riskOffBookAtOpen += shares * (openPx as number);
-          transactions.push({
+          recordTransaction({
             date,
             action: "buy",
             instrument: "riskoff",
@@ -1904,7 +1982,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         const intAmt = intRemainOpenTrim;
         if (intAmt > 0) intRemainOpenTrim = 0;
         const isMarginLiquidation = excessO <= 0;
-        transactions.push({
+        recordTransaction({
           date,
           action: "sell",
           instrument: "futures",
@@ -1999,7 +2077,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           mark: markFuturesOpen,
         });
         const interestOnRollOpen = accruedInterestSinceLastTx;
-        transactions.push({
+        recordTransaction({
           date,
           action: "sell",
           instrument: "futures",
@@ -2031,7 +2109,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           targetLeverage: params.targetLeverage,
           mark: markFuturesOpen,
         });
-        transactions.push({
+        recordTransaction({
           date,
           action: "buy",
           instrument: "futures",
@@ -2248,7 +2326,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           });
           const intAmt = intRemainMust;
           if (intAmt > 0) intRemainMust = 0;
-          transactions.push({
+          recordTransaction({
             date,
             action: "sell",
             instrument: "futures",
@@ -2307,7 +2385,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
               mark: markFuturesOpen,
             });
             const intOnBuy = accruedInterestSinceLastTx;
-            transactions.push({
+            recordTransaction({
               date,
               action: "buy",
               instrument: "futures",
@@ -2367,7 +2445,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
               });
               const intAmt = intRemainPartial;
               if (intAmt > 0) intRemainPartial = 0;
-              transactions.push({
+              recordTransaction({
                 date,
                 action: "sell",
                 instrument: "futures",
@@ -2403,6 +2481,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     // Mark-to-market remaining open-to-close futures PnL after open trades.
     // Daily carry was already attributed to positions held from the prior close.
     const markFuturesClose = (sym: string) => futuresFillAt(sym, spot);
+    ledgerFuturesMark = markFuturesClose;
     if (contract != null && sumLots(lots) > 0) {
       const mult = getContractMultiplier(contract);
       for (const [, q] of lots) {
@@ -2416,7 +2495,10 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       collateralMarginRequirement = contract && sumLots(lots) > 0
         ? totalFuturesNotionalAtMark({ lots, contract, mark: markFuturesClose }) * maintMarginRate : 0;
       // Close is the daily-data proxy for the bot's five-minutes-before-close maintenance.
-      if (wantsRiskOn) bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, date), date);
+      if (wantsRiskOn) {
+        bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, date, !collateralRiskOnAtLastClose), date);
+      }
+      collateralRiskOnAtLastClose = wantsRiskOn;
       accrueCollateralInterest(collateralCashInterest({ equity: cash, treasuryValue: collateral.value(),
         rateDaily, dollarScale: feeDollarScaleForDate(date), days: 1 }), 1);
     } else {
@@ -2663,7 +2745,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
               }
             : {};
         if (intAmt > 0) interestSweepSessionCount = 0;
-        transactions.push({
+        recordTransaction({
           date: finalDate,
           action: "sell",
           instrument: "futures",
@@ -2687,6 +2769,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       // For risk-off, keep a single terminal ledger row (no per-leg liquidation).
       let totalRiskOffExitFees = 0;
       let totalRiskOffExitSpread = 0;
+      const soldValueByTicker: Record<string, number> = {};
       for (let j = 0; j < heldTickers.length; j++) {
         const t = heldTickers[j];
         const shares = riskOffShares?.[j] ?? 0;
@@ -2699,6 +2782,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         });
         if (!Number.isFinite(px) || (px as number) <= 0) continue;
         const fillPrice = px as number;
+        soldValueByTicker[t] = -shares * fillPrice;
         totalRiskOffExitFees += getRiskOffCommission({
           qtyDelta: shares,
           fillPrice,
@@ -2716,7 +2800,11 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       dailyEquity[lastIdx] = riskOffEquityNet;
       totalFees += totalRiskOffExitFees;
       totalSpreadCosts += totalRiskOffExitSpread;
-      transactions.push({
+      // The basket is closed out, so the row is stamped with nothing left in it.
+      riskOffShares = null;
+      riskOffCash = null;
+      riskOffLastPrice = null;
+      recordTransaction({
         date: finalDate,
         action: "sell",
         instrument: "riskoff",
@@ -2731,6 +2819,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         leverageDeltaPct: 0,
         equity: riskOffEquityNet,
         isEndLiquidation: true as const,
+        legValues: soldValueByTicker,
       });
     }
   }
@@ -2802,6 +2891,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       // claiming more free cash than the restated equity behind them.
       dailyExcessLiquidity[i] = equity - (collateral?.value() ?? 0) * 0.25;
     },
+    positions: currentPositions,
+    transactionCount: () => transactions.length,
     finish,
   };
 }

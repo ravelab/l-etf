@@ -44,6 +44,15 @@ export type DualSleeveFuturesParams = {
   secondary: Omit<FuturesStrategyParams, "initialEquity" | "displayName">;
 };
 
+/** Ledger rows `[from, to)` of `sleeve`, booked while the other sleeve held `other`. */
+type LedgerSegment = { sleeve: number; from: number; to: number; other: Record<string, number> };
+
+function addPositions(a: Record<string, number>, b: Record<string, number>): Record<string, number> {
+  const out = { ...a };
+  for (const [symbol, qty] of Object.entries(b)) out[symbol] = (out[symbol] ?? 0) + qty;
+  return out;
+}
+
 function scaled(values: number[] | null, factor: number): number[] | null {
   return values ? values.map((v) => v * factor) : null;
 }
@@ -151,10 +160,19 @@ export function simulateDualSleeveFuturesStrategy(
 ): FuturesStrategyResult {
   const initialEquity = Number.isFinite(params.initialEquity) ? Math.max(0, params.initialEquity) : 0;
   const half = initialEquity / 2;
-  const sleeves: FuturesSleeve[] = [
-    createFuturesSleeve({ ...params.primary, initialEquity: half }),
-    createFuturesSleeve({ ...params.secondary, initialEquity: half }),
-  ];
+  const sleeves: FuturesSleeve[] = [];
+  // Every ledger row is booked inside exactly one of these runs, in the order the
+  // fund executes them. Recording the OTHER sleeve's positions at that moment is
+  // what lets each row carry the fund's holdings rather than one sleeve's.
+  const segments: LedgerSegment[] = [];
+  const attribute = (s: number, run: () => void) => {
+    const other = sleeves[1 - s]?.positions() ?? {};
+    const from = sleeves[s]?.transactionCount() ?? 0;
+    run();
+    segments.push({ sleeve: s, from, to: sleeves[s].transactionCount(), other });
+  };
+  attribute(0, () => sleeves.push(createFuturesSleeve({ ...params.primary, initialEquity: half })));
+  attribute(1, () => sleeves.push(createFuturesSleeve({ ...params.secondary, initialEquity: half })));
 
   // The two index families keep their own trading calendars, so the fund walks the
   // union and steps a sleeve only on the days it actually has.
@@ -185,14 +203,16 @@ export function simulateDualSleeveFuturesStrategy(
       const i = nextIdx[s];
       // Day 0 is established by the sleeve factory, so it is never stepped.
       if (i === undefined || i === 0) continue;
-      sleeve.stepDay(i);
+      attribute(s, () => sleeve.stepDay(i));
       cursor[s] = i;
     }
 
     dailyValues.push(sleeves.reduce((sum, sleeve, s) => sum + sleeve.equityAt(cursor[s]), 0));
   }
 
-  const [primaryResult, secondaryResult] = sleeves.map((sleeve) => sleeve.finish());
+  const finished: FuturesStrategyResult[] = [];
+  for (const [s, sleeve] of sleeves.entries()) attribute(s, () => finished.push(sleeve.finish()));
+  const [primaryResult, secondaryResult] = finished;
   const finalEquity = dailyValues[dailyValues.length - 1] ?? 0;
   const costDollars = [primaryResult, secondaryResult].reduce((sum, result) => {
     const sleeveFinal = result.etfResult.dailyValues.at(-1) ?? 0;
@@ -205,11 +225,14 @@ export function simulateDualSleeveFuturesStrategy(
   // amount and report as 0.50x from the first row. Add the other sleeve's
   // end-of-day figures for that date. `Leverage Δ` stays the acting sleeve's: it is
   // measured against that sleeve's own target, and the two targets differ.
+  // Holdings follow the same rule: a row's own positions plus the other sleeve's at
+  // the moment the row executed (see `attribute`).
   const fundRows = (
     own: FuturesStrategyResult,
     other: FuturesStrategyResult,
     otherSleeve: FuturesSleeve,
-    ownIsPrimary: boolean
+    ownIsPrimary: boolean,
+    otherPositionsByRow: ReadonlyArray<Record<string, number>>
   ): FuturesTransactionRow[] => {
     const ownEquity = byDateWithCarryForward(own.etfResult.dates, own.etfResult.dailyValues);
     const otherEquity = byDateWithCarryForward(other.etfResult.dates, other.etfResult.dailyValues);
@@ -217,18 +240,35 @@ export function simulateDualSleeveFuturesStrategy(
       otherSleeve.dates,
       otherSleeve.dates.map((_, i) => otherSleeve.excessLiquidityAt(i))
     );
-    return own.transactions.map((row) => ({
+    return own.transactions.map((row, r) => ({
       ...row,
       equity: row.equity + otherEquity(row.date),
       spxEquity: ownIsPrimary ? ownEquity(row.date) : otherEquity(row.date),
       excessLiquidity: row.excessLiquidity + otherExcess(row.date),
+      ...(row.holdingsAfter
+        ? { holdingsAfter: addPositions(row.holdingsAfter, otherPositionsByRow[r] ?? {}) }
+        : {}),
     }));
   };
 
-  const transactions: FuturesTransactionRow[] = [
-    ...fundRows(primaryResult, secondaryResult, sleeves[1], true),
-    ...fundRows(secondaryResult, primaryResult, sleeves[0], false),
-  ].sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+  const otherPositionsByRow = sleeves.map((_, s) => {
+    const out: Array<Record<string, number>> = [];
+    for (const seg of segments) {
+      if (seg.sleeve !== s) continue;
+      for (let r = seg.from; r < seg.to; r++) out[r] = seg.other;
+    }
+    return out;
+  });
+  const rowsBySleeve = [
+    fundRows(primaryResult, secondaryResult, sleeves[1], true, otherPositionsByRow[0]),
+    fundRows(secondaryResult, primaryResult, sleeves[0], false, otherPositionsByRow[1]),
+  ];
+  // Execution order, so each row's holdings follow from the one before it. The
+  // stable date sort only matters if one sleeve's calendar ends before the other's,
+  // which would otherwise leave its closing rows after the later dates.
+  const transactions: FuturesTransactionRow[] = segments
+    .flatMap((seg) => rowsBySleeve[seg.sleeve].slice(seg.from, seg.to))
+    .sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
 
   // CAGR, drawdown and Sharpe must come from the FUND's curve, never the primary
   // sleeve's — spreading the sleeve's result would keep its own statistics beside

@@ -100,6 +100,11 @@ Both `worker.ts`'s `mode_type === 'backtest'` branch and `parallel.ts`'s
 spread-deduction bug pattern as the live paths; leave them alone unless you
 also verify they've become reachable.
 
+Known and unfixed (2026-11): on a switch INTO risk-off, `simulateSingleEtf` sizes
+the risk-off shares from the value before the transition spread is deducted, so
+the next day's shares × price mark hands that spread back (a few bp per entry).
+Fixing it moves every SMA result, the calibration and all snapshots.
+
 ## Deployment updates
 
 `DeployVersionWatcher` must compare the server version with the loaded build's
@@ -221,7 +226,11 @@ pool; purchases are internal transfers, and only P&L/costs change it. Low-level
 callers omitting the option retain the legacy analytical cash-sweep model.
 
 The live-policy reference is `~/futures/src/treasury/sleeve.ts` and its execution
-code (some config/README comments lag). Scope deliberately excludes core equities
+code (some config/README comments lag). One deliberate divergence (2026-11): the
+risk-on entry close buys its whole Treasury purchase in VGSH (`riskOnEntry` on
+`rebalance`, flagged by the engine from the previous close's regime); routine
+maintenance still buys SGOV first and sells SGOV before VGSH.
+Scope deliberately excludes core equities
 and box loans. See `docs/futures-collateral-model.md` for broker sources and the
 remaining approximations: daily execution proxies, estimated margin requirements/haircuts,
 share-equivalent order bands and per-sleeve
@@ -277,6 +286,25 @@ untouched, so nothing trades. Splitting the drifted weights any other way, or
 applying it a day later, books real trades and is wrong.
 `unit-tests/futures-dual-sleeve.test.ts` pins the exactness case: with a band that
 never exits, the fund must equal two independent half-size sleeves to the cent.
+
+Every ledger row carries `holdingsAfter` (dollar value per symbol once it executed),
+stamped by `recordTransaction`. Change the position (`lots`, `riskOffShares`,
+collateral) BEFORE recording its row, or the stamp shows the pre-trade book. The
+fund builds its ledger in execution order from `attribute` segments, adding the
+other sleeve's positions at that moment. The table re-sorts a day's rows, so it
+replays stamp-to-stamp deltas in display order (`futures-ledger-assets.ts`): a
+stamp must always be the full book, never a delta.
+
+## Backtest page: the UPRO/TQQQ fund
+
+`letf-dual-sleeve.ts` composes the "TQQQ/UPRO SMA Vol" row from the run's two
+`-sma` sleeves on display (`withLetfComboFund`), so cached runs and the canned
+snapshot show it without storing it. Composing instead of re-simulating rests on
+two facts: an LETF sleeve has only proportional costs, so its path scales exactly
+with capital; and the held regime is derived from `smaSignals` assuming
+next-day-open execution. A fixed-dollar cost or another execution mode breaks the
+composition. The reset settles in cash, unlike the futures fund's in-kind
+transfer; only the staying sleeve's basket trade is charged.
 
 ## Swap spread: fitted range and the cap above it
 

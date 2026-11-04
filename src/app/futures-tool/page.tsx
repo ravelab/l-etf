@@ -875,7 +875,7 @@ export function FuturesPageContent({
         </SharedToolInputs>
 
         <p className="text-xs text-muted">
-          Standalone futures account: spare securities cash is parked in SGOV/VGSH, with a 200-share-equivalent trading band.
+          Standalone futures account: each risk-on entry parks its Treasury purchase in VGSH; later spare securities cash goes to SGOV first, with a 200-share-equivalent trading band.
           No fixed cash reserve is held for futures margin. No core equity holdings or box loans are included.
           Daily opens approximate 10:00 a.m. execution; closes approximate pre-close Treasury maintenance.
           Futures margin, Treasury haircuts and the 0.35% annual funding premium are estimates, not historical broker quotes.

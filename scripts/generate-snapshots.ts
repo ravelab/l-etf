@@ -1616,31 +1616,59 @@ function downsampleEtfResult(etf: EtfResult, target: number): EtfResult {
 }
 
 /**
- * Decimals kept per transaction field. Every cell that renders one is formatted
- * to at most two decimals or two significant figures, so this is invisible on
- * screen; the percent deltas keep more because a near-zero delta is shown to two
- * significant figures and 4 decimals would round its tail away.
+ * Decimals kept per transaction field, matched to how the ledger renders it so the
+ * rounding is invisible on screen: dollar balances as whole dollars, fills to two
+ * decimals, leverage deltas to one (three kept so the display never double-rounds).
+ * Fees and spreads keep the default because sub-dollar amounts show two significant
+ * figures.
  */
 const TRANSACTION_FIELD_DECIMALS: Record<string, number> = {
-  leverageDeltaPct: 6,
-  leverageDeltaPctBefore: 6,
-  cashInterestAnnualRatePct: 6,
+  equity: 0,
+  spxEquity: 0,
+  excessLiquidity: 0,
+  fillPrice: 2,
+  leverageDeltaPct: 3,
+  leverageDeltaPctBefore: 3,
 };
 const TRANSACTION_DEFAULT_DECIMALS = 4;
+/**
+ * Engine fields the ledger never reads: sweep-interest attribution (its column
+ * became Assets) and `qtyAfter` (Front/Deferred replay `qtyDelta`; Assets reads
+ * `holdingsAfter`). Every row carries them, ~0.8 MB of a budgeted download.
+ */
+const TRANSACTION_FIELDS_OMITTED = new Set([
+  "cashInterestEarned",
+  "cashInterestTradingDays",
+  "cashInterestAnnualRatePct",
+  "qtyAfter",
+]);
 
-/** Trims 17-significant-digit floats out of the snapshot's transaction log. */
+/** Whole dollars: the Assets cell shows three significant figures. */
+function roundHoldings(holdings: Record<string, number>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(holdings)
+      .map(([symbol, qty]) => [symbol, Math.round(qty)] as const)
+      .filter(([, qty]) => qty !== 0),
+  );
+}
+
+/** Trims 17-significant-digit floats and unrendered fields out of the snapshot's transaction log. */
 function roundTransactions(
   transactions: FuturesStrategyResult["transactions"],
 ): FuturesStrategyResult["transactions"] {
   return transactions.map(
     (transaction) =>
       Object.fromEntries(
-        Object.entries(transaction).map(([key, value]) => [
-          key,
-          typeof value === "number" && Number.isFinite(value)
-            ? Number(value.toFixed(TRANSACTION_FIELD_DECIMALS[key] ?? TRANSACTION_DEFAULT_DECIMALS))
-            : value,
-        ]),
+        Object.entries(transaction)
+          .filter(([key]) => !TRANSACTION_FIELDS_OMITTED.has(key))
+          .map(([key, value]) => [
+            key,
+            (key === "holdingsAfter" || key === "legValues") && value && typeof value === "object"
+              ? roundHoldings(value as Record<string, number>)
+              : typeof value === "number" && Number.isFinite(value)
+                ? Number(value.toFixed(TRANSACTION_FIELD_DECIMALS[key] ?? TRANSACTION_DEFAULT_DECIMALS))
+                : value,
+          ]),
       ) as FuturesStrategyResult["transactions"][number],
   );
 }

@@ -1,5 +1,6 @@
 import { buildYearlyCpiInflation, sampleYearlyRealGrowth } from "@/lib/inflation";
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
+import { LETF_FUND_RESULT_ID } from "@/lib/simulation/letf-dual-sleeve";
 import { shortBacktestAssetLabel, type StrategyYearlyGrowthSeries } from "@/lib/strategy-page-data";
 
 interface YearlyGrowthInput {
@@ -83,7 +84,9 @@ export function collectBacktestGrowthSeries(params: {
   const rowsByFamily = new Map<string, EtfResult[]>();
 
   for (const etf of params.result.etfResults) {
-    const family = etf.sourceIndex;
+    // The UPRO/TQQQ fund holds both families, so it gets a group of its own (with
+    // no index to close it) rather than sitting inside the SPX one.
+    const family = etf.id === LETF_FUND_RESULT_ID ? LETF_FUND_RESULT_ID : etf.sourceIndex;
     if (!rowsByFamily.has(family)) {
       familyOrder.push(family);
       rowsByFamily.set(family, []);

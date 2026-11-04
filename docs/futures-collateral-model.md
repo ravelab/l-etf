@@ -11,9 +11,15 @@ snapshots enable `treasuryCollateral` in the same engine.
 - No fixed margin cash reserve, matching the operator’s setup. The modeled
   futures maintenance requirement (default 8% of notional) constrains capacity
   and excess liquidity; it is not deducted from investable capital.
-- Park the securities pool in SGOV, with VGSH as the fallback when
-  the order is too small for 200 SGOV-equivalent shares but large enough for
-  200 VGSH-equivalent shares. Sell SGOV before VGSH to replenish cash.
+- The risk-on entry close (the first after a risk-off stretch, or the run's
+  first) buys its whole Treasury purchase in VGSH, which is what rebuilds an
+  SPX pool emptied to fund BRK.B+GLDM. A deliberate operator choice: across the
+  backtests it added about +0.1 to +0.2 pts/yr to the SPX sleeve, but lost when
+  re-entry came during hikes with an inverted curve (2023-01, 2025-06).
+- Routine maintenance after that parks the pool in SGOV, with VGSH as the fallback
+  when the order is too small for 200 SGOV-equivalent shares but large enough for
+  200 VGSH-equivalent shares. Sell SGOV before VGSH to replenish cash, so the
+  VGSH bought at entry is the last to go and its share decays as the account grows.
 - Use Treasury total-return series, including their embedded fund expenses.
   These holdings receive no additional cash-interest credit.
 - Charge Treasury half-spreads and commissions. Small adjustments stay in cash.

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { Fragment, memo, useMemo, useState } from "react";
 import {
   type FuturesStrategyResult,
   buildRollDateMap,
@@ -8,11 +8,27 @@ import {
   DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
 } from "@/lib/simulation/futures";
 import { Card } from "@/components/ui/Card";
-import { formatDate, formatCurrency, formatCurrencySigFigs, formatPercentPointsSigFigs } from "@/lib/format";
+import {
+  formatCompactCurrency,
+  formatCompactNumber,
+  formatCurrency,
+  formatCurrencySigFigs,
+  formatDate,
+} from "@/lib/format";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SmaTriggerBadge } from "@/components/tools/SmaTriggerBadge";
 import type { SmaSignal } from "@/lib/simulation/types";
 import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
+import {
+  addHoldings,
+  ledgerAssetLines,
+  ledgerHoldingsDeltas,
+  ledgerTradeValues,
+  runningHoldings,
+  sumHoldings,
+  type LedgerAsset,
+  type LedgerHoldings,
+} from "@/lib/simulation/futures-ledger-assets";
 
 const PAGE_SIZE = 10;
 
@@ -40,34 +56,94 @@ function formatMultiple(value: number): string {
   })}x`;
 }
 
+/**
+ * From here up a ledger number carries a K/M/B unit ($74.1K, 17.6M, 84.3Kx), so the
+ * late rows of a decades-long run still fit a desktop width without scrolling.
+ */
+const COMPACT_LEDGER_FROM = 1_000;
+const isCompact = (value: number) => Math.abs(value) >= COMPACT_LEDGER_FROM;
+
+/** Contracts or shares: whole units under 1K, K/M/B above. */
+function formatLedgerQty(value: number): string {
+  return isCompact(value) ? formatCompactNumber(value) : formatQty(value);
+}
+
+/** Index-like fill price: two decimals under 1K, K/M/B above. */
 function formatIndexLikePrice(value: number): string {
   if (!Number.isFinite(value)) return "—";
+  if (isCompact(value)) return formatCompactNumber(value);
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
-function formatInterestEarnedCell(row: {
-  cashInterestEarned: number;
-  cashInterestTradingDays?: number;
-  cashInterestAnnualRatePct?: number;
-}): string {
-  const amt = row.cashInterestEarned;
-  if (!Number.isFinite(amt) || amt === 0) return formatCurrency(amt);
-  const days = row.cashInterestTradingDays;
-  const pct = row.cashInterestAnnualRatePct;
-  if (
-    days != null &&
-    Number.isFinite(days) &&
-    days > 0 &&
-    pct != null &&
-    Number.isFinite(pct)
-  ) {
-    const pctStr = formatPercentPointsSigFigs(pct, 2);
-    return `${formatCurrency(amt)} (${Math.round(days)}d, ${pctStr}%)`;
-  }
-  return formatCurrency(amt);
+/** Growth multiple: two decimals under 1Kx, K/M/B above. */
+function formatLedgerMultiple(value: number): string {
+  return isCompact(value) ? `${formatCompactNumber(value)}x` : formatMultiple(value);
+}
+
+/** Whole dollars under $1K, K/M/B above. */
+function formatLedgerDollars(value: number): string {
+  return isCompact(value) ? formatCompactCurrency(value) : formatCurrency(value);
+}
+
+/** Fees and spreads keep two significant figures on small amounts ($0.071), K/M/B from $1K. */
+function formatLedgerCost(value: number): string {
+  return isCompact(value) ? formatCompactCurrency(value) : formatCurrencySigFigs(value, 2);
+}
+
+function signedCompactCurrency(value: number): string {
+  return `${value > 0 ? "+" : "−"}${formatCompactCurrency(Math.abs(value))}`;
+}
+
+/** `NQM88 $173K (+$173K)`; a position the row closed reads `NQM88 (−$173K)`. */
+function AssetEntries({ entries }: { entries: LedgerAsset[] }) {
+  // Lines wrap between entries, never inside one, and a wrapped line ends on its "·".
+  return (
+    <span>
+      {entries.map((asset, k) => (
+        <Fragment key={asset.label}>
+          <span className="whitespace-nowrap">
+            {asset.label}
+            {Math.abs(asset.value) >= 1 && ` ${formatCompactCurrency(asset.value)}`}
+            {Math.abs(asset.trade) >= 1 && (
+              <span className={asset.trade > 0 ? "text-positive" : "text-negative"}>
+                {" "}({signedCompactCurrency(asset.trade)})
+              </span>
+            )}
+            {k < entries.length - 1 && " ·"}
+          </span>
+          {k < entries.length - 1 && " "}
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * Small type like the Volatility input: futures notional, then risk-off and Treasury
+ * holdings, each followed by what this row bought (+) or sold (−) in it. Each group
+ * wraps onto as many lines as the column needs, so the table never scrolls sideways.
+ */
+function LedgerAssetsCell({
+  holdings,
+  trades,
+  date,
+}: {
+  holdings?: LedgerHoldings;
+  trades?: LedgerHoldings;
+  date: string;
+}) {
+  if (!holdings) return <span className="text-muted">—</span>;
+  const { futures, securities } = ledgerAssetLines(holdings, date, trades);
+  if (futures.length === 0 && securities.length === 0) return <span className="text-muted">—</span>;
+  return (
+    <span className="flex flex-col text-xs leading-tight tabular-nums">
+      {futures.length > 0 && <AssetEntries entries={futures} />}
+      {securities.length > 0 && <AssetEntries entries={securities} />}
+    </span>
+  );
 }
 
 function FuturesSmaDetailsImpl({
@@ -92,6 +168,12 @@ function FuturesSmaDetailsImpl({
     /** Calendar front-strip vs deferred quarterly lots after this row (futures only). */
     frontQtyAfter?: number;
     backQtyAfter?: number;
+    /** Change in holdings over the source rows this display row covers. */
+    holdingsDelta?: Record<string, number>;
+    /** Holdings after this row, replayed in display order (undefined on legacy ledgers). */
+    assetsAfter?: Record<string, number>;
+    /** Signed dollars this row traded per symbol: futures notional, risk-off / Treasury dollars. */
+    tradeValues?: Record<string, number>;
   };
 
   const frontBackAfterEachTx = useMemo(
@@ -109,6 +191,9 @@ function FuturesSmaDetailsImpl({
 
   const rows = useMemo<DisplayRow[]>(() => {
     const source = strategy.transactions;
+    const deltas = ledgerHoldingsDeltas(source);
+    const deltaOf = (from: number, to: number) =>
+      deltas ? sumHoldings(deltas.slice(from, to)) : undefined;
     const merged: DisplayRow[] = [];
     let i = 0;
     while (i < source.length) {
@@ -135,18 +220,8 @@ function FuturesSmaDetailsImpl({
           ...next,
           fees: current.fees + next.fees,
           spread: current.spread + next.spread,
-          cashInterestEarned: current.cashInterestEarned + next.cashInterestEarned,
-          ...(current.cashInterestEarned > 0
-            ? {
-                cashInterestTradingDays: current.cashInterestTradingDays,
-                cashInterestAnnualRatePct: current.cashInterestAnnualRatePct,
-              }
-            : next.cashInterestEarned > 0
-              ? {
-                  cashInterestTradingDays: next.cashInterestTradingDays,
-                  cashInterestAnnualRatePct: next.cashInterestAnnualRatePct,
-                }
-              : {}),
+          holdingsDelta: deltaOf(i, i + 2),
+          tradeValues: sumHoldings([ledgerTradeValues(current), ledgerTradeValues(next)]),
           displayAction: "ROLL",
           displaySymbol: `${fromSymbol} → ${toSymbol}`,
           leverageDeltaPctBefore: current.leverageDeltaPctBefore,
@@ -193,26 +268,14 @@ function FuturesSmaDetailsImpl({
           const totalQtyDelta = group.reduce((sum, r) => sum + r.qtyDelta, 0);
           const totalFees = group.reduce((sum, r) => sum + r.fees, 0);
           const totalSpread = group.reduce((sum, r) => sum + r.spread, 0);
-          const totalInterest = group.reduce((sum, r) => sum + r.cashInterestEarned, 0);
-          const metaSource = group.find(
-            (r) =>
-              r.cashInterestEarned > 0 &&
-              r.cashInterestTradingDays != null &&
-              r.cashInterestAnnualRatePct != null
-          );
           const fbMerged = frontBackAfterEachTx[j - 1];
           merged.push({
             ...lastLeg,
             qtyDelta: totalQtyDelta,
             fees: totalFees,
             spread: totalSpread,
-            cashInterestEarned: totalInterest,
-            ...(metaSource
-              ? {
-                  cashInterestTradingDays: metaSource.cashInterestTradingDays,
-                  cashInterestAnnualRatePct: metaSource.cashInterestAnnualRatePct,
-                }
-              : {}),
+            holdingsDelta: deltaOf(i, j),
+            tradeValues: sumHoldings(group.map(ledgerTradeValues)),
             leverageDeltaPctBefore: current.leverageDeltaPctBefore,
             leverageDeltaPct: lastLeg.leverageDeltaPct,
             ...(fbMerged != null
@@ -241,13 +304,6 @@ function FuturesSmaDetailsImpl({
           const group = source.slice(i, j);
           const totalFees = group.reduce((sum, r) => sum + r.fees, 0);
           const totalSpread = group.reduce((sum, r) => sum + r.spread, 0);
-          const totalInterest = group.reduce((sum, r) => sum + r.cashInterestEarned, 0);
-          const metaSource = group.find(
-            (r) =>
-              r.cashInterestEarned > 0 &&
-              r.cashInterestTradingDays != null &&
-              r.cashInterestAnnualRatePct != null
-          );
           // One initial per ticker. A two-sleeve fund buys the same basket for each
           // sleeve on the same day, and listing every leg read as "B+G+V+B+G+V".
           const shortSymbol = [
@@ -258,13 +314,8 @@ function FuturesSmaDetailsImpl({
             ...current,
             fees: totalFees,
             spread: totalSpread,
-            cashInterestEarned: totalInterest,
-            ...(metaSource
-              ? {
-                  cashInterestTradingDays: metaSource.cashInterestTradingDays,
-                  cashInterestAnnualRatePct: metaSource.cashInterestAnnualRatePct,
-                }
-              : {}),
+            holdingsDelta: deltaOf(i, j),
+            tradeValues: sumHoldings(group.map(ledgerTradeValues)),
             // Per-leg rows carry cumulative book at open; merged row shows basket after final leg.
             equity: lastLeg.equity,
             displaySymbol: shortSymbol,
@@ -276,11 +327,14 @@ function FuturesSmaDetailsImpl({
       }
 
       const fb = frontBackAfterEachTx[i];
-      merged.push(
-        current.instrument === "futures" && fb != null
-          ? { ...current, frontQtyAfter: fb.frontQty, backQtyAfter: fb.backQty }
-          : current
-      );
+      merged.push({
+        ...current,
+        holdingsDelta: deltaOf(i, i + 1),
+        tradeValues: ledgerTradeValues(current),
+        ...(current.instrument === "futures" && fb != null
+          ? { frontQtyAfter: fb.frontQty, backQtyAfter: fb.backQty }
+          : {}),
+      });
       i += 1;
     }
     // Same calendar date: show sells before buys (e.g. liquidate B+G+V then BUY ESM when going risk-on).
@@ -314,17 +368,9 @@ function FuturesSmaDetailsImpl({
         let totalQtyDelta = row.qtyDelta;
         let totalFees = row.fees;
         let totalSpread = row.spread;
-        let totalInterest = row.cashInterestEarned;
+        let totalDelta = row.holdingsDelta;
+        let totalTrades = row.tradeValues ?? {};
         let leverageBefore = row.leverageDeltaPctBefore;
-        let interestMeta:
-          | { cashInterestTradingDays?: number; cashInterestAnnualRatePct?: number }
-          | undefined =
-          row.cashInterestTradingDays != null && row.cashInterestAnnualRatePct != null
-            ? {
-                cashInterestTradingDays: row.cashInterestTradingDays,
-                cashInterestAnnualRatePct: row.cashInterestAnnualRatePct,
-              }
-            : undefined;
         while (consolidated.length > 0) {
           const prev = consolidated[consolidated.length - 1];
           if (prev.date !== row.date) break;
@@ -335,33 +381,26 @@ function FuturesSmaDetailsImpl({
           totalQtyDelta += prev.qtyDelta;
           totalFees += prev.fees;
           totalSpread += prev.spread;
-          totalInterest += prev.cashInterestEarned;
+          if (totalDelta && prev.holdingsDelta) totalDelta = addHoldings(totalDelta, prev.holdingsDelta);
+          totalTrades = addHoldings(totalTrades, prev.tradeValues ?? {});
           if (prev.leverageDeltaPctBefore != null) leverageBefore = prev.leverageDeltaPctBefore;
-          if (
-            interestMeta == null &&
-            prev.cashInterestTradingDays != null &&
-            prev.cashInterestAnnualRatePct != null
-          ) {
-            interestMeta = {
-              cashInterestTradingDays: prev.cashInterestTradingDays,
-              cashInterestAnnualRatePct: prev.cashInterestAnnualRatePct,
-            };
-          }
         }
         consolidated.push({
           ...row,
           qtyDelta: totalQtyDelta,
           fees: totalFees,
           spread: totalSpread,
-          cashInterestEarned: totalInterest,
+          holdingsDelta: totalDelta,
+          tradeValues: totalTrades,
           leverageDeltaPctBefore: leverageBefore,
-          ...(interestMeta ?? {}),
         });
       } else {
         consolidated.push(row);
       }
     }
-    return consolidated;
+    if (!deltas) return consolidated;
+    const assetsAfter = runningHoldings(consolidated.map((row) => row.holdingsDelta ?? {}));
+    return consolidated.map((row, k) => ({ ...row, assetsAfter: assetsAfter[k] }));
   }, [strategy.transactions, frontBackAfterEachTx]);
 
   /** Regime trades execute the session after their signal close. */
@@ -451,22 +490,22 @@ function FuturesSmaDetailsImpl({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border text-left text-muted">
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap">Date</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap">Action</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap">Symbol</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Qty Δ</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Front</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Deferred</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Fill</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Fees</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Spread</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Interest Earned</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Excess Liquidity</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">Leverage Δ</th>
-                <th className="pb-2 pr-4 font-medium whitespace-nowrap text-right">
+                <th className="pb-2 pr-4 font-medium align-bottom">Date</th>
+                <th className="pb-2 pr-4 font-medium align-bottom">Action</th>
+                <th className="pb-2 pr-4 font-medium align-bottom">Symbol</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Qty Δ</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Front</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Deferred</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Fill</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Fees</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Spread</th>
+                <th className="pb-2 pr-4 font-medium align-bottom">Assets</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Excess Liquidity</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">Leverage Δ</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right">
                   {strategy.sleeveLeverageMetrics ? "Value (SPX size)" : "Value"}
                 </th>
-                <th className="pb-2 font-medium whitespace-nowrap text-right">Real Value</th>
+                <th className="pb-2 font-medium align-bottom text-right">Real Value</th>
               </tr>
             </thead>
             <tbody>
@@ -475,7 +514,8 @@ function FuturesSmaDetailsImpl({
                 const symbolRaw = row.displaySymbol ?? row.symbol;
                 const isLiquidation =
                   isTerminalBookClose || symbolRaw.includes("(LIQUIDATE)");
-                const symbolDisplay = symbolRaw.replace(/\s*\(LIQUIDATE\)\s*$/i, "").trim();
+                // Collateral rows read as their ticker; the Assets cell already shows the Treasury pool.
+                const symbolDisplay = symbolRaw.replace(/\s*\((?:LIQUIDATE|COLLATERAL)\)\s*$/i, "").trim();
                 const actionText = isLiquidation
                   ? "LIQUIDATE"
                   : (row.displayAction ?? row.action.toUpperCase());
@@ -516,23 +556,23 @@ function FuturesSmaDetailsImpl({
                       {dashDetail
                         ? "—"
                         : isMergedRoll
-                          ? formatQty(Math.abs(row.qtyDelta))
+                          ? formatLedgerQty(Math.abs(row.qtyDelta))
                           : row.qtyDelta >= 0
-                            ? `+${formatQty(row.qtyDelta)}`
-                            : formatQty(row.qtyDelta)}
+                            ? `+${formatLedgerQty(row.qtyDelta)}`
+                            : formatLedgerQty(row.qtyDelta)}
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums text-muted">
                       {row.instrument === "futures" &&
                       row.frontQtyAfter != null &&
                       row.backQtyAfter != null
-                        ? formatQty(row.frontQtyAfter)
+                        ? formatLedgerQty(row.frontQtyAfter)
                         : "—"}
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums text-muted">
                       {row.instrument === "futures" &&
                       row.frontQtyAfter != null &&
                       row.backQtyAfter != null
-                        ? formatQty(row.backQtyAfter)
+                        ? formatLedgerQty(row.backQtyAfter)
                         : "—"}
                     </td>
                     <td className="py-2.5 pr-4 min-w-0 whitespace-normal break-words text-right tabular-nums">
@@ -542,19 +582,20 @@ function FuturesSmaDetailsImpl({
                             Number.isFinite(row.rollSellFill ?? NaN) &&
                             Number.isFinite(row.rollBuyFill ?? NaN)
                           ? `${formatIndexLikePrice(row.rollSellFill as number)} → ${formatIndexLikePrice(row.rollBuyFill as number)}`
-                          : row.fillPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          : formatIndexLikePrice(row.fillPrice)}
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums text-muted">
-                      {formatCurrencySigFigs(row.fees, 2)}
+                      {formatLedgerCost(row.fees)}
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums text-muted">
-                      {formatCurrencySigFigs(row.spread, 2)}
+                      {formatLedgerCost(row.spread)}
+                    </td>
+                    {/* Tight padding: two 15px lines fit the height of every other cell; a third grows the row. */}
+                    <td className="py-1 pr-4">
+                      <LedgerAssetsCell holdings={row.assetsAfter} trades={row.tradeValues} date={row.date} />
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums">
-                      {dashDetail ? "—" : formatInterestEarnedCell(row)}
-                    </td>
-                    <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums">
-                      {dashDetail ? "—" : formatCurrency(row.excessLiquidity)}
+                      {dashDetail ? "—" : formatLedgerDollars(row.excessLiquidity)}
                     </td>
                     <td className="py-2.5 pr-4 min-w-0 whitespace-normal break-words text-right tabular-nums">
                       {showLeverageDelta
@@ -573,11 +614,11 @@ function FuturesSmaDetailsImpl({
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums font-medium">
                       {Number.isFinite(portfolioEq)
-                        ? `${formatCurrency(portfolioEq)}${spxSharePct != null ? ` (${spxSharePct.toFixed(0)}%)` : ""}`
+                        ? `${formatLedgerDollars(portfolioEq)}${spxSharePct != null ? ` (${spxSharePct.toFixed(0)}%)` : ""}`
                         : "—"}
                     </td>
                     <td className="py-2.5 whitespace-nowrap text-right tabular-nums font-medium text-blue-400">
-                      {Number.isFinite(portfolioEq) ? formatMultiple(realMultiple) : "—"}
+                      {Number.isFinite(portfolioEq) ? formatLedgerMultiple(realMultiple) : "—"}
                     </td>
                   </tr>
                 );

@@ -4,6 +4,7 @@ import {
   buildBacktestYearlyGrowthSeries,
   collectBacktestGrowthSeries,
 } from "@/lib/backtest-yearly-growth";
+import { LETF_FUND_RESULT_ID } from "@/lib/simulation/letf-dual-sleeve";
 import type { EtfResult } from "@/lib/simulation/types";
 
 /** December CPI observations at a flat 2%/yr, so every year carries inflation. */
@@ -142,6 +143,20 @@ test("collectBacktestGrowthSeries: groups by family, SMA first, index closing th
     rows.map((r) => r.label),
     ["UPRO SMA", "UPRO", "VOO", "TQQQ SMA", "TQQQ", "QQQ"]
   );
+});
+
+test("collectBacktestGrowthSeries: the UPRO/TQQQ fund is its own group after both indices", () => {
+  const rows = collectBacktestGrowthSeries({
+    result: {
+      etfResults: [
+        etfResult("etf1-sma", "UPRO (SMA, SGOV)", "sp500"),
+        etfResult("etf2-sma", "TQQQ (SMA, SGOV)", "nasdaq100"),
+        etfResult(LETF_FUND_RESULT_ID, "TQQQ/UPRO (SMA Vol, S / S)", "sp500"),
+      ],
+    },
+    underlyingIndexSeries: INDEX_SERIES,
+  });
+  assert.deepEqual(rows.map((r) => r.label), ["UPRO SMA", "VOO", "TQQQ SMA", "QQQ", "TQQQ/UPRO SMA Vol"]);
 });
 
 test("collectBacktestGrowthSeries: reports every family the result holds", () => {
