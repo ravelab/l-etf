@@ -270,7 +270,7 @@ export function simulateDualSleeveFuturesStrategy(
     .flatMap((seg) => rowsBySleeve[seg.sleeve].slice(seg.from, seg.to))
     .sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
 
-  // CAGR, drawdown and Sharpe must come from the FUND's curve, never the primary
+  // CAGR, drawdown and Sortino must come from the FUND's curve, never the primary
   // sleeve's — spreading the sleeve's result would keep its own statistics beside
   // the fund's values. The SMA overlay is the primary sleeve's, realigned onto the
   // union calendar so a day only the other index traded does not shift it.

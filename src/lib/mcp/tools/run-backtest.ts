@@ -80,7 +80,7 @@ export function registerRunBacktest(server: McpServer): void {
       annotations: READ_ONLY_ANNOTATIONS,
       description:
         "Backtest a simulated leveraged-ETF strategy over a date range and return CAGR, max drawdown, " +
-        "Sharpe, final multiple, trade log, and a 1x benchmark. Specify a `preset` (e.g. UPRO, TQQQ) " +
+        "Sortino, final multiple, trade log, and a 1x benchmark. Specify a `preset` (e.g. UPRO, TQQQ) " +
         "or a custom `leverage`+`index`. Enable `smaEnabled` for SMA timing with risk-off switching. " +
         "For educational research only — NOT investment advice.",
       inputSchema: z.object({

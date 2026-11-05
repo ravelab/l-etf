@@ -35,7 +35,7 @@ export function toolSuccess(summary: string, data: Record<string, unknown>): Too
  * makes `structuredContent` and the serialized text disagree — and the SDK
  * validates `structuredContent` against the declared `outputSchema`, where
  * `z.number()` rejects NaN outright. A degenerate window really does have no
- * Sharpe ratio, so null is the honest value rather than a loosened schema.
+ * Sortino ratio, so null is the honest value rather than a loosened schema.
  */
 export function sanitizeNonFinite<T>(value: T): T {
   if (typeof value === "number") {

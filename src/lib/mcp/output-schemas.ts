@@ -8,7 +8,7 @@
 // where the payload is pinned by a test — see `mcp-output-schema.test.ts`.
 //
 // Every metric is `.nullable()`: payloads pass through `sanitizeNonFinite`, and
-// a degenerate window genuinely has no Sharpe ratio or CAGR. Counts and dates,
+// a degenerate window genuinely has no Sortino ratio or CAGR. Counts and dates,
 // which are always produced, stay strict.
 
 import { z } from "zod/v4";
@@ -27,7 +27,7 @@ const backtestSchema = z.object({
   endDate: z.string(),
   finalMultiple: metric,
   cagrPct: metric,
-  sharpeRatio: metric,
+  sortinoRatio: metric,
   maxDrawdownPct: metric,
   maxDrawdownDates: dateRange.optional(),
   longestDrawdownDays: z.number(),
@@ -67,7 +67,7 @@ export const runFuturesBacktestOutput = z.object({
     initialEquity: metric,
     finalEquity: metric,
     cagrPct: metric,
-    sharpeRatio: metric,
+    sortinoRatio: metric,
     maxDrawdownPct: metric,
     totalTradingCostPct: metric,
     numSignals: z.number(),
@@ -260,7 +260,7 @@ const ladderRungSchema = z.object({
   dualSleeve: z.boolean(),
   finalEquity: metric,
   cagrPct: metric,
-  sharpeRatio: metric,
+  sortinoRatio: metric,
   maxDrawdownPct: metric,
   totalTradingCostPct: metric,
   avgActualLeverageRiskOn: metric,

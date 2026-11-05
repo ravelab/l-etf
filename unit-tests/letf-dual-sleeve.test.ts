@@ -17,7 +17,7 @@ const DATES = ["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-06", "2020-01-
 function sleeve(values: number[], opts: { startInvested: boolean; signals?: SmaSignal[]; name?: string }): EtfResult {
   return {
     id: "x", name: opts.name ?? "x", sourceIndex: "sp500", dates: DATES, dailyValues: values,
-    finalValue: values.at(-1)!, cagr: 0, sharpeRatio: 0, maxDrawdownPct: 0, maxDrawdownDollar: 0,
+    finalValue: values.at(-1)!, cagr: 0, sortinoRatio: 0, maxDrawdownPct: 0, maxDrawdownDollar: 0,
     longestDrawdownDays: 0, bestMonth: 0, worstMonth: 0, smaSignals: opts.signals ?? [], smaPrices: [],
     smaStartInvested: opts.startInvested, totalTradingCostPct: 0,
   };

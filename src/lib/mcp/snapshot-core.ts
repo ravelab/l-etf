@@ -70,7 +70,7 @@ interface EtfResultLike {
   sourceIndex: string;
   finalValue: number;
   cagr: number;
-  sharpeRatio: number;
+  sortinoRatio: number;
   maxDrawdownPct: number;
   longestDrawdownDays: number;
   totalTradingCostPct: number;
@@ -113,7 +113,7 @@ function summarizeEtfResult(result: EtfResultLike) {
     index: result.sourceIndex,
     finalMultiple: result.finalValue / CONSTANT_INITIAL_INVESTMENT,
     cagrPct: result.cagr,
-    sharpeRatio: result.sharpeRatio,
+    sortinoRatio: result.sortinoRatio,
     maxDrawdownPct: result.maxDrawdownPct,
     longestDrawdownDays: result.longestDrawdownDays,
     totalTradingCostPct: result.totalTradingCostPct,

@@ -16,7 +16,7 @@
 
 import { CONSTANT_INITIAL_INVESTMENT, formatRiskOffLiquidationAbbrev, getRiskOffSpread } from "@/lib/constants";
 import { getComboSubPresets, DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
-import { calcCagr, calcMaxDrawdown, calcMonthlyExtremes, calcSharpeRatio } from "@/lib/simulation/metrics";
+import { calcCagr, calcMaxDrawdown, calcMonthlyExtremes, calcSortinoRatio } from "@/lib/simulation/metrics";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
 
@@ -119,7 +119,7 @@ export function composeLetfDualSleeveFund(params: {
     finalValue,
     // Same base the sleeves use: the pre-spread starting amount, so entry costs count.
     cagr: calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, dates[0], dates[dates.length - 1]),
-    sharpeRatio: calcSharpeRatio(dailyValues),
+    sortinoRatio: calcSortinoRatio(dailyValues),
     maxDrawdownPct: drawdown.pct,
     maxDrawdownDollar: drawdown.dollar,
     maxDrawdownDates: drawdown.maxDrawdownDates,

@@ -12,7 +12,7 @@ function row(id: string, values: number[], cagr: number): EtfResult {
   return {
     id, name: id, dates, dailyValues: values, finalValue: values[2], cagr,
     maxDrawdownPct: 0, maxDrawdownDollar: 0, longestDrawdownDays: 0,
-    sourceIndex: "sp500", sharpeRatio: 0, bestMonth: 0, worstMonth: 0, totalTradingCostPct: 0,
+    sourceIndex: "sp500", sortinoRatio: 0, bestMonth: 0, worstMonth: 0, totalTradingCostPct: 0,
     smaSignals: [], smaPrices: [],
   };
 }

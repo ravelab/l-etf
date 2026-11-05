@@ -3,7 +3,7 @@ import type { EtfConfig, PricePoint, RatePoint, SmaComparisonRow, EtfResult, Bac
 import { buildRollingWindows, summarizeSmaRow, type RollingWindow } from "./rolling";
 import { buildRateLookup } from "./borrowing-rate";
 import { simulateSingleEtf, simulateWithWarmUp, computeSimulatedRiskOnReturn } from "./engine";
-import { calcCagr, calcMaxDrawdownInRange, calcSharpeRatio, calcMonthlyExtremes } from "./metrics";
+import { calcCagr, calcMaxDrawdownInRange, calcSortinoRatio, calcMonthlyExtremes } from "./metrics";
 import {
   CONSTANT_HISTORY_WRAP_ENABLED,
   CONSTANT_INITIAL_INVESTMENT,
@@ -1298,7 +1298,7 @@ function extractResultsMainThread(
 
       const dd = calcMaxDrawdownInRange(precomputed.dailyValues, configDates, startIdx, endIdx);
       const cagr = calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, configTimestamps[startIdx], configTimestamps[endIdx], windows[0].startDate, windows[0].endDate);
-      const sharpeRatio = calcSharpeRatio(renormalizedDaily);
+      const sortinoRatio = calcSortinoRatio(renormalizedDaily);
       const monthlyExtremes = calcMonthlyExtremes(renormalizedDaily, configDates.slice(startIdx, endIdx + 1));
 
       return {
@@ -1309,7 +1309,7 @@ function extractResultsMainThread(
         dailyValues: renormalizedDaily,
         finalValue,
         cagr,
-        sharpeRatio,
+        sortinoRatio,
         maxDrawdownPct: dd.pct,
         maxDrawdownDollar: dd.dollar,
         maxDrawdownDates: dd.maxDrawdownDates,
@@ -1636,7 +1636,7 @@ export async function runParallelBacktest({
         dailyValues: slicedDailyValues,
         finalValue: fallbackFinal,
         cagr: 0,
-        sharpeRatio: 0,
+        sortinoRatio: 0,
         maxDrawdownPct: 0,
         maxDrawdownDollar: 0,
         longestDrawdownDays: 0,
@@ -1676,7 +1676,7 @@ export async function runParallelBacktest({
 
     const drawdown = calcMaxDrawdownInRange(dailyValues, dates, 0, dailyValues.length - 1);
     const monthlyExtremes = calcMonthlyExtremes(dailyValues, dates);
-    const sharpeRatio = calcSharpeRatio(dailyValues);
+    const sortinoRatio = calcSortinoRatio(dailyValues);
     const cagr = calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, dates[0], dates[dates.length - 1]);
 
     return {
@@ -1685,7 +1685,7 @@ export async function runParallelBacktest({
       dailyValues,
       finalValue,
       cagr,
-      sharpeRatio,
+      sortinoRatio,
       maxDrawdownPct: drawdown.pct,
       maxDrawdownDollar: drawdown.dollar,
       maxDrawdownDates: drawdown.maxDrawdownDates,

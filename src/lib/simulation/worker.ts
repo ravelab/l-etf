@@ -8,7 +8,7 @@ import { buildDrawdownRangeQuery } from "./drawdown-range";
 import {
   calcCagr,
   calcMaxDrawdownInRange,
-  calcSharpeRatio,
+  calcSortinoRatio,
   calcMonthlyExtremes,
 } from "./metrics";
 import type { DrawdownMetrics } from "./metrics";
@@ -209,7 +209,7 @@ function handleExtractWindows(data: WorkerData): void {
 
       const dd = calcMaxDrawdownInRangeInternal(precomputed.dailyValues, configDates, startIdx, endIdx);
       const cagr = calcCagrMs(CONSTANT_INITIAL_INVESTMENT, finalValue, configTimestamps[startIdx], configTimestamps[endIdx], windows[0].startDate, windows[0].endDate);
-      const sharpeRatio = calcSharpeRatio(renormalizedDaily);
+      const sortinoRatio = calcSortinoRatio(renormalizedDaily);
       const monthlyExtremes = calcMonthlyExtremes(renormalizedDaily, configDates.slice(startIdx, endIdx + 1));
 
       return {
@@ -220,7 +220,7 @@ function handleExtractWindows(data: WorkerData): void {
         dailyValues: renormalizedDaily,
         finalValue,
         cagr,
-        sharpeRatio,
+        sortinoRatio,
         maxDrawdownPct: dd.pct,
         maxDrawdownDollar: dd.dollar,
         maxDrawdownDates: dd.maxDrawdownDates,

@@ -8,7 +8,7 @@ import {
   calcCagr,
   calcMaxDrawdown,
   calcMonthlyExtremes,
-  calcSharpeRatio,
+  calcSortinoRatio,
 } from "@/lib/simulation/metrics";
 import { estimateFuturesAfterTaxCagr, type FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { formatMultiple, formatPercent } from "@/lib/format";
@@ -36,7 +36,7 @@ function buildIndexRowFromValues(dates: string[], values: number[], label: strin
   const cagr = calcCagr(initialInvestment, finalValue, dates[0], dates[dates.length - 1]);
   const drawdown = calcMaxDrawdown(values, dates);
   const monthlyExtremes = calcMonthlyExtremes(values, dates);
-  const sharpeRatio = calcSharpeRatio(values);
+  const sortinoRatio = calcSortinoRatio(values);
 
   return {
     id: `__index_${id}__`,
@@ -46,7 +46,7 @@ function buildIndexRowFromValues(dates: string[], values: number[], label: strin
     dailyValues: values,
     finalValue,
     cagr,
-    sharpeRatio,
+    sortinoRatio,
     maxDrawdownPct: drawdown.pct,
     maxDrawdownDollar: drawdown.dollar,
     maxDrawdownDates: drawdown.maxDrawdownDates,
@@ -69,7 +69,7 @@ function buildIndexRow(result: BacktestResult, indexLabel: string): EtfResult {
   const cagr = calcCagr(initialInvestment, finalValue, dates[0], dates[dates.length - 1]);
   const drawdown = calcMaxDrawdown(nonLeveragedValues, dates);
   const monthlyExtremes = calcMonthlyExtremes(nonLeveragedValues, dates);
-  const sharpeRatio = calcSharpeRatio(nonLeveragedValues);
+  const sortinoRatio = calcSortinoRatio(nonLeveragedValues);
 
   return {
     id: "__index__",
@@ -79,7 +79,7 @@ function buildIndexRow(result: BacktestResult, indexLabel: string): EtfResult {
     dailyValues: nonLeveragedValues,
     finalValue,
     cagr,
-    sharpeRatio,
+    sortinoRatio,
     maxDrawdownPct: drawdown.pct,
     maxDrawdownDollar: drawdown.dollar,
     maxDrawdownDates: drawdown.maxDrawdownDates,
@@ -132,7 +132,7 @@ type SortKey =
   | "startDate"
   | "finalValue"
   | "cagr"
-  | "sharpeRatio"
+  | "sortinoRatio"
   | "avgActualLeverage"
   | "maxLeverageDeltaPct"
   | "maxDrawdownPct"
@@ -228,7 +228,11 @@ function ResultsTableImpl({
         indexRows.push(buildIndexRow(result, indexLabel));
       }
     }
-    return [...indexRows, ...result.etfResults];
+    // Cached runs from before Sortino was introduced still contain daily values.
+    return [...indexRows, ...result.etfResults.map((row) => ({
+      ...row,
+      sortinoRatio: calcSortinoRatio(row.dailyValues),
+    }))];
   }, [result, indexLabel, underlyingIndexSeries]);
 
   const colorById = useMemo(() => {
@@ -379,7 +383,7 @@ function ResultsTableImpl({
               <SortButton label="Longest DD" active={sortKey === "longestDrawdownDays"} dir={sortDir} onClick={() => toggleSort("longestDrawdownDays")} />
             </th>
             <th className="pb-2 pr-4 font-medium">
-              <SortButton label="Sharpe" active={sortKey === "sharpeRatio"} dir={sortDir} onClick={() => toggleSort("sharpeRatio")} />
+              <SortButton label="Sortino" active={sortKey === "sortinoRatio"} dir={sortDir} onClick={() => toggleSort("sortinoRatio")} />
             </th>
             <th className="pb-2 pr-4 font-medium">
               <SortButton label="Total Trade Cost" active={sortKey === "totalTradingCostPct"} dir={sortDir} onClick={() => toggleSort("totalTradingCostPct")} />
@@ -461,7 +465,7 @@ function ResultsTableImpl({
                   href={buildMetricBacktestUrl(r.longestDrawdownDates)}
                 />
               </td>
-              <td className="py-2.5 pr-4">{(r.sharpeRatio ?? 0).toFixed(2)}</td>
+              <td className="py-2.5 pr-4">{r.sortinoRatio === Infinity ? "∞" : (r.sortinoRatio ?? 0).toFixed(2)}</td>
               <td className="py-2.5 pr-4 text-muted">
                 {formatPercent(r.totalTradingCostPct ?? 0)}
               </td>

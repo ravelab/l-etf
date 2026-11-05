@@ -34,7 +34,7 @@ const strategyResult: EtfResult = {
   dailyValues: [10_000, 20_000, 30_000],
   finalValue: 30_000,
   cagr: 0,
-  sharpeRatio: 0,
+  sortinoRatio: 0,
   maxDrawdownPct: 0,
   maxDrawdownDollar: 0,
   longestDrawdownDays: 0,

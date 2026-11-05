@@ -93,7 +93,7 @@ export async function runFuturesBacktestCore(input: FuturesInput) {
     initialEquity: result.initialEquity,
     finalEquity: etf.finalValue,
     cagrPct: etf.cagr,
-    sharpeRatio: etf.sharpeRatio,
+    sortinoRatio: etf.sortinoRatio,
     maxDrawdownPct: etf.maxDrawdownPct,
     totalTradingCostPct: etf.totalTradingCostPct,
     numSignals: etf.smaSignals.length,

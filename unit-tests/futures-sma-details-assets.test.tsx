@@ -9,7 +9,7 @@ const dates = ["1988-06-01", "1988-06-02", "1988-06-03"];
 const etfResult: EtfResult = {
   id: "fund", name: "fund", dates, dailyValues: [100_000, 101_000, 102_000], finalValue: 102_000, cagr: 0,
   maxDrawdownPct: 0, maxDrawdownDollar: 0, longestDrawdownDays: 0, sourceIndex: "sp500",
-  sharpeRatio: 0, bestMonth: 0, worstMonth: 0, totalTradingCostPct: 0, smaSignals: [], smaPrices: [],
+  sortinoRatio: 0, bestMonth: 0, worstMonth: 0, totalTradingCostPct: 0, smaSignals: [], smaPrices: [],
 };
 
 function tx(row: Partial<FuturesTransactionRow> & Pick<FuturesTransactionRow, "date" | "symbol" | "action" | "instrument">): FuturesTransactionRow {

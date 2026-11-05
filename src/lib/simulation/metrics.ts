@@ -223,17 +223,19 @@ export function calcMonthlyExtremes(
 }
 
 /**
- * Cache for Sharpe ratio calculations.
+ * Cache for Sortino ratio calculations.
  */
-const sharpeCache = new WeakMap<number[], number>();
+const sortinoCache = new WeakMap<number[], number>();
 
 /**
- * Calculate annualized Sharpe ratio from daily portfolio values.
- * Assumes risk-free rate ~0 for simplicity.
+ * Calculate annualized Sortino ratio from daily portfolio values.
+ * Uses a 0% minimum acceptable return and 252 trading days per year.
+ * Downside deviation averages squared negative returns over ALL observations.
+ * Positive paths without downside return Infinity; flat/insufficient paths return 0.
  * Results are cached by values array identity.
  */
-export function calcSharpeRatio(values: number[]): number {
-  const cached = sharpeCache.get(values);
+export function calcSortinoRatio(values: number[]): number {
+  const cached = sortinoCache.get(values);
   if (cached !== undefined) return cached;
 
   if (values.length < 3) return 0;
@@ -248,14 +250,14 @@ export function calcSharpeRatio(values: number[]): number {
 
   const mean =
     dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
-  const variance =
-    dailyReturns.reduce((sum, r) => sum + (r - mean) ** 2, 0) /
-    (dailyReturns.length - 1);
-  const stdDev = Math.sqrt(variance);
-  if (!isFinite(stdDev) || stdDev === 0) return 0;
-
-  const result = (mean / stdDev) * Math.sqrt(252);
-  sharpeCache.set(values, result);
+  const downsideVariance =
+    dailyReturns.reduce((sum, r) => sum + Math.min(r, 0) ** 2, 0) /
+    dailyReturns.length;
+  const downsideDeviation = Math.sqrt(downsideVariance);
+  const result = downsideDeviation === 0
+    ? (mean > 0 ? Infinity : 0)
+    : (mean / downsideDeviation) * Math.sqrt(252);
+  sortinoCache.set(values, result);
   return result;
 }
 

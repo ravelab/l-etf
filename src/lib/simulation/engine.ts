@@ -14,7 +14,7 @@ import {
   calcMaxDrawdown,
   calcMaxDrawdownInRange,
   calcMonthlyExtremes,
-  calcSharpeRatio,
+  calcSortinoRatio,
 } from "./metrics";
 import {
   CONSTANT_INITIAL_INVESTMENT,
@@ -500,7 +500,7 @@ export function simulateSingleEtf(
   etfOpenPricesByName?: Record<string, number[]>,
   onProgress?: (completedSteps: number, totalSteps: number) => void,
   options?: {
-    /** Skip metric calculations (drawdown, Sharpe, etc.) — use when only dailyValues/smaSignals are needed */
+    /** Skip metric calculations (drawdown, Sortino, etc.) — use when only dailyValues/smaSignals are needed */
     skipMetrics?: boolean;
     /** Pre-computed leveraged risk-on daily returns (same leverage/ER/index across sweep configs) */
     precomputedRiskOnReturns?: number[];
@@ -873,7 +873,7 @@ export function simulateSingleEtf(
       dailyValues,
       finalValue: dailyValues[dailyValues.length - 1],
       cagr: 0,
-      sharpeRatio: 0,
+      sortinoRatio: 0,
       maxDrawdownPct: 0,
       maxDrawdownDollar: 0,
       longestDrawdownDays: 0,
@@ -888,7 +888,7 @@ export function simulateSingleEtf(
 
   const drawdown = calcMaxDrawdown(dailyValues, dates);
   const monthlyExtremes = calcMonthlyExtremes(dailyValues, dates);
-  const sharpeRatio = calcSharpeRatio(dailyValues);
+  const sortinoRatio = calcSortinoRatio(dailyValues);
 
   const rawFinalValue = dailyValues[dailyValues.length - 1];
   const exitDollarCost = rawFinalValue * exitSpread;
@@ -914,7 +914,7 @@ export function simulateSingleEtf(
     dailyValues,
     finalValue,
     cagr,
-    sharpeRatio,
+    sortinoRatio,
     maxDrawdownPct: drawdown.pct,
     maxDrawdownDollar: drawdown.dollar,
     maxDrawdownDates: drawdown.maxDrawdownDates,
@@ -1074,7 +1074,7 @@ function sliceBacktestResultToWindow(
     const cagr = calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, firstDateMs, lastDateMs);
     const drawdown = calcMaxDrawdownInRange(dailyValues, datesSlice, 0, dailyValues.length - 1);
     const monthlyExtremes = calcMonthlyExtremes(dailyValues, datesSlice);
-    const sharpeRatio = calcSharpeRatio(dailyValues);
+    const sortinoRatio = calcSortinoRatio(dailyValues);
 
     // Regime on the window's first day: the last warm-up signal wins; with none,
     // the simulation's start state carries through. Signals are chronological.
@@ -1093,7 +1093,7 @@ function sliceBacktestResultToWindow(
       finalValue,
       totalTradingCostPct,
       cagr,
-      sharpeRatio,
+      sortinoRatio,
       maxDrawdownPct: drawdown.pct,
       maxDrawdownDollar: drawdown.dollar,
       maxDrawdownDates: drawdown.maxDrawdownDates,

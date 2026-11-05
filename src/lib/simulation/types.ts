@@ -61,7 +61,7 @@ export interface EtfResult {
   dailyValues: number[];
   finalValue: number;
   cagr: number;
-  sharpeRatio: number;
+  sortinoRatio: number;
   maxDrawdownPct: number;
   maxDrawdownDollar: number;
   maxDrawdownDates?: { start: string; end: string };

@@ -10,7 +10,7 @@ import {
   calcCagr,
   calcMaxDrawdown,
   calcMonthlyExtremes,
-  calcSharpeRatio,
+  calcSortinoRatio,
 } from "@/lib/simulation/metrics";
 
 type FuturesContractSymbol = "ES" | "NQ";
@@ -607,7 +607,7 @@ export function buildEtfResult(params: {
   const cagr = calcCagr(initial, finalValue, dates[0], dates[dates.length - 1]);
   const drawdown = calcMaxDrawdown(dailyValues, dates);
   const monthlyExtremes = calcMonthlyExtremes(dailyValues, dates);
-  const sharpeRatio = calcSharpeRatio(dailyValues);
+  const sortinoRatio = calcSortinoRatio(dailyValues);
 
   return {
     id: params.id,
@@ -617,7 +617,7 @@ export function buildEtfResult(params: {
     dailyValues,
     finalValue,
     cagr,
-    sharpeRatio,
+    sortinoRatio,
     maxDrawdownPct: drawdown.pct,
     maxDrawdownDollar: drawdown.dollar,
     maxDrawdownDates: drawdown.maxDrawdownDates,
