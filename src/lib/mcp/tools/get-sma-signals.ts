@@ -12,6 +12,7 @@ import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result
 import { getSmaSignalsOutput } from "@/lib/mcp/output-schemas";
 import { smaBufferSchema, smaPeriodSchema, smaVolGateSchema } from "@/lib/mcp/schemas";
 import { z } from "zod/v4";
+import { signalExitThresholds } from "@/lib/mcp/signal-exit-thresholds";
 
 const TWO_YEARS_MS = 2 * 365.25 * 24 * 60 * 60 * 1000;
 
@@ -24,7 +25,7 @@ export function registerGetSmaSignals(server: McpServer): void {
       description:
         "Compute the current SMA timing signal (buy/sell/hold) for the S&P 500 and Nasdaq-100 " +
         "using the given SMA periods and buffers. When omitted, defaults to the latest SMA " +
-        "calibration snapshot (falling back to hardcoded defaults if unavailable).",
+        "calibration snapshot. Includes next-close SMA/vol exit boundaries and constant-decline scenarios for 1–7 trading days; these are not probabilities.",
       inputSchema: z.object({
         smaSpPeriod: smaPeriodSchema.optional(),
         smaSpUpperBuffer: smaBufferSchema.optional(),
@@ -67,7 +68,14 @@ export function registerGetSmaSignals(server: McpServer): void {
         const snapshot = computeSmaSignalSnapshot({ sp500Prices, nasdaqPrices, config });
         return toolSuccessTyped(
           `SPX: ${snapshot.sp500.signalLabel}; NDX: ${snapshot.nasdaq100.signalLabel}.`,
-          { config, signals: snapshot },
+          { config, signals: snapshot, exitThresholds: {
+            sp500: signalExitThresholds({ index: "sp500", prices: sp500Prices,
+              smaPeriod: config.smaSpPeriod, smaLowerBuffer: config.smaSpLowerBuffer,
+              volEnabled: config.smaVolGate === true, volGateRiskOff: snapshot.sp500.volGateRiskOff === true }),
+            nasdaq100: signalExitThresholds({ index: "nasdaq100", prices: nasdaqPrices,
+              smaPeriod: config.smaNqPeriod, smaLowerBuffer: config.smaNqLowerBuffer,
+              volEnabled: config.smaVolGate === true, volGateRiskOff: snapshot.nasdaq100.volGateRiskOff === true }),
+          } },
         );
       } catch (error) {
         return toolError(error);

@@ -771,3 +771,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+- MCP `get_sma_signals` includes deterministic exit boundaries in
+  `exitThresholds` (`signal-exit-thresholds.ts`), not probabilities. Constant-decline
+  scenarios distinguish the boundary at a horizon from the least decline that
+  reaches it on any earlier close. Keep their tests against `computeRealizedVol`
+  and the generated output schema when changing the per-index volatility gates.

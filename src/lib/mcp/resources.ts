@@ -7,6 +7,8 @@ import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { DISCLAIMER } from "@/lib/mcp/disclaimer";
 import { McpToolError } from "@/lib/mcp/tool-result";
 
+import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+
 const METHODOLOGY = `# l-etf simulation methodology (summary)
 
 - **Simulated LETFs** apply daily leverage (2x/3x) to the underlying index's
@@ -18,6 +20,21 @@ const METHODOLOGY = `# l-etf simulation methodology (summary)
   above its SMA (times an upper buffer) and switches to the chosen risk-off
   asset when it falls below (times a lower buffer). Execution defaults to
   next-day-open fills.
+- **Volatility gate**: enabled by default alongside SMA timing. Annualized sample
+  standard deviation of daily index-close log returns (sqrt(252)) forces risk-off
+  above the exit threshold and releases below the re-entry threshold. Parameters
+  (window, exit, release): ${SMA_VOL_GATE_PARAMS_TEXT}. Releasing the gate leaves
+  the SMA regime in control; it does not independently force a buy.
+- **Exit thresholds**: get_sma_signals includes next-close boundaries and 1–7-day
+  constant-decline scenarios. These are deterministic scenarios, not probabilities;
+  average return alone cannot determine realized volatility.
+- **Futures**: carry applies to notional per calendar day. Production backtests
+  model SGOV/VGSH Treasury collateral, including its costs; margin constrains
+  capacity rather than being an expense or a cash reserve. Treasury holdings do
+  not also earn cash-sweep interest.
+- **Default risk-off allocation**: MCP backtest tools retain the shared
+  BRK.B+GLDM+VGSH basket. Tool pages default to SPX BRK.B+GLDM and NDX VGSH;
+  specify riskOffAsset explicitly for comparable single-strategy runs.
 - **Risk-off assets** may be single tickers (SGOV, VGSH, GLDM, BRK.B, VOO, QQQ)
   or composites (e.g. BRK.B+GLDM+VGSH) held in equal weight.
 - **Rolling-window analysis** evaluates a strategy across every historical

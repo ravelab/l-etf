@@ -398,7 +398,27 @@ const smaSignalSchema = z.object({
   volGateRiskOff: z.boolean().optional(),
 });
 
+const exitThresholdSchema = z.object({
+  asOf: z.string().nullable(),
+  nextSmaExitClose: metric,
+  nextSmaExitReturnPct: metric,
+  volatility: z.object({
+    status: z.enum(["available", "disabled", "already-risk-off", "insufficient-data"]),
+    windowDays: z.number(),
+    exitAbovePct: z.number(),
+    reenterBelowPct: z.number(),
+    nextVolExitRisePct: metric,
+    constantDeclineScenarios: z.array(z.object({
+      tradingDays: z.number(),
+      dailyReturnPctAtHorizon: metric,
+      dailyReturnPctByHorizon: metric,
+    })),
+  }),
+  note: z.string(),
+});
+
 export const getSmaSignalsOutput = z.object({
+  exitThresholds: z.object({ sp500: exitThresholdSchema, nasdaq100: exitThresholdSchema }),
   config: z.object({}).loose(),
   signals: z.object({
     sp500: smaSignalSchema,
