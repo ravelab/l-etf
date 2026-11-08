@@ -1,5 +1,6 @@
 import type { SmaSignalResult } from "@/lib/sma-signals";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
+import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
 import type { IndexKey } from "@/lib/simulation/types";
 
 interface SignalCardProps {
@@ -38,6 +39,7 @@ function SignalIcon({ signal, signalLabel }: { signal?: SmaSignalResult["signal"
 
 export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = false }: SignalCardProps) {
   const gate = SMA_VOL_GATE[indexKey];
+  const brake = SMA_RSI_BRAKE[indexKey];
   const placeholderSignal = "No Action";
   const placeholderPercent = "00.00% below SMA";
   const placeholderDate = "Sep 30, 2026";
@@ -123,6 +125,16 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
               {result.volGateRiskOff
                 ? ` · re-enter < ${Math.round(gate.reenterBelow * 100)}%`
                 : ` · exit > ${Math.round(gate.exitAbove * 100)}%`}
+            </span>
+          </div>
+        )}
+
+        {result?.rsi !== undefined && (
+          <div data-testid="rsi-brake-status" className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-muted">{brake.periodDays}d RSI</span>
+            <span className={`font-medium tabular-nums ${result.rsiBrakeRiskOff ? "text-negative" : "text-muted"}`}>
+              {Number.isFinite(result.rsi) ? result.rsi.toFixed(1) : "n/a"}
+              {result.rsiBrakeRiskOff ? ` · re-enter > ${brake.reenterAbove}` : ` · exit < ${brake.exitBelow}`}
             </span>
           </div>
         )}

@@ -468,7 +468,7 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
               </td>
               <td className={`py-2.5 pr-4 ${row.actionToneClass}`}>
                 {row.action}
-                {row.trigger && <SmaTriggerBadge trigger={row.trigger} vol={row.triggerVol} />}
+                {row.trigger && <SmaTriggerBadge trigger={row.trigger} vol={row.triggerVol} rsi={row.triggerRsi} />}
               </td>
               <td className={`py-2.5 pr-4 text-right ${riskOffReturn == null ? "" : riskOffReturn >= 0 ? "text-positive" : "text-negative"}`}>
                 {riskOffReturn == null ? "\u2014" : formatSignedNumber(riskOffReturn, "", "%")}

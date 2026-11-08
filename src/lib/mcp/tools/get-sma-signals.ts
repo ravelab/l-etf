@@ -25,7 +25,7 @@ export function registerGetSmaSignals(server: McpServer): void {
       description:
         "Compute the current SMA timing signal (buy/sell/hold) for the S&P 500 and Nasdaq-100 " +
         "using the given SMA periods and buffers. When omitted, defaults to the latest SMA " +
-        "calibration snapshot. Includes next-close SMA/vol exit boundaries and constant-decline scenarios for 1–7 trading days; these are not probabilities.",
+        "calibration snapshot. Includes next-close SMA, vol and RSI-brake exit boundaries and constant-decline scenarios for 1–7 trading days; these are not probabilities.",
       inputSchema: z.object({
         smaSpPeriod: smaPeriodSchema.optional(),
         smaSpUpperBuffer: smaBufferSchema.optional(),
@@ -71,10 +71,12 @@ export function registerGetSmaSignals(server: McpServer): void {
           { config, signals: snapshot, exitThresholds: {
             sp500: signalExitThresholds({ index: "sp500", prices: sp500Prices,
               smaPeriod: config.smaSpPeriod, smaLowerBuffer: config.smaSpLowerBuffer,
-              volEnabled: config.smaVolGate === true, volGateRiskOff: snapshot.sp500.volGateRiskOff === true }),
+              volEnabled: config.smaVolGate === true, volGateRiskOff: snapshot.sp500.volGateRiskOff === true,
+              rsiBrakeEnabled: config.smaVolGate === true, rsiBrakeRiskOff: snapshot.sp500.rsiBrakeRiskOff === true }),
             nasdaq100: signalExitThresholds({ index: "nasdaq100", prices: nasdaqPrices,
               smaPeriod: config.smaNqPeriod, smaLowerBuffer: config.smaNqLowerBuffer,
-              volEnabled: config.smaVolGate === true, volGateRiskOff: snapshot.nasdaq100.volGateRiskOff === true }),
+              volEnabled: config.smaVolGate === true, volGateRiskOff: snapshot.nasdaq100.volGateRiskOff === true,
+              rsiBrakeEnabled: config.smaVolGate === true, rsiBrakeRiskOff: snapshot.nasdaq100.rsiBrakeRiskOff === true }),
           } },
         );
       } catch (error) {

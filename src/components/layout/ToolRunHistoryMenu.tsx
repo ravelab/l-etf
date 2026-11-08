@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } f
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toValidRunSummary } from "@/lib/hooks/use-run-summary-inputs";
 import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
-import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+import { SMA_RISK_OFF_GATES_PARAMS_TEXT } from "@/lib/simulation/risk-off-gates";
 import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import { appendRiskOffUrlParams } from "@/lib/risk-off-url-params";
 import {
@@ -83,8 +83,9 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 
 /**
  * Famous "worst time to invest" anchors, measured on the **strategy** rather than on the
- * index: the SMA exits and the volatility gate sidestep some index bears and whipsaw through
- * others, so UPRO SMA Vol and TQQQ SMA Vol set their records on their own dates.
+ * index: the SMA exits, the volatility gate and the RSI crash brake sidestep some index bears
+ * and whipsaw through others, so UPRO SMA Vol and TQQQ SMA Vol set their records on their own
+ * dates.
  *
  * Each window runs peak to bottom — it opens at a record high and closes at the lowest close
  * before the strategy takes that high back — so the backtest buys on the worst possible day
@@ -92,8 +93,9 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * that peak-to-bottom decline, so it is what the window itself returns.
  *
  * The window is the decline, not the era around it, so an anchor can run well past the event it
- * is named for: TQQQ SMA Vol rode through the 1987 crash and kept sliding into the 1990 bear,
- * so its 1987 window ends in August 1990 at -82.2%, its deepest decline on record.
+ * is named for: TQQQ SMA Vol rode through the 1987 crash and kept sliding until November 1988,
+ * so its 1987 window ends there at -77.5%, its deepest decline on record. (Before the RSI brake
+ * stepped it aside in August 1990, the slide ran on into the 1990 bear at -82.2%.)
  *
  * Regenerate with `node --import tsx scripts/find-worst-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
@@ -102,7 +104,7 @@ const WORST_TIME_TO_INVEST_ITEMS = [
   { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-02-27", days: 1273, drawdown: "-68.6%" },
   { letf: "UPRO" as const, startDate: "1998-07-17", endDate: "1998-09-11", days: 56, drawdown: "-50.6%" },
   { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-47.9%" },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1990-08-24", days: 1054, drawdown: "-82.2%" },
+  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1988-11-21", days: 413, drawdown: "-77.5%" },
   { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-04-25", days: 522, drawdown: "-62.1%" },
 ] as const;
 
@@ -150,7 +152,7 @@ function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
   if (flags?.showRiskOffAsset ?? true) {
     pieces.push(`SPX Risk-Off ${summary.spxRiskOffAsset}`, `NDX Risk-Off ${summary.ndxRiskOffAsset}`);
   }
-  if (summary.smaVolGate) pieces.push(`Vol ${SMA_VOL_GATE_PARAMS_TEXT}`);
+  if (summary.smaVolGate) pieces.push(`Vol ${SMA_RISK_OFF_GATES_PARAMS_TEXT}`);
   return pieces.join(" - ");
 }
 

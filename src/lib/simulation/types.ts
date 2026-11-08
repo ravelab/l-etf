@@ -33,7 +33,11 @@ export interface EtfConfig {
   smaUpperBuffer: number;
   smaLowerBuffer: number;
   smaIndex: "sp500" | "nasdaq100";
-  /** Also hold risk-off while the volatility gate (`vol-gate.ts`) is tripped. */
+  /**
+   * The gate switch: also hold risk-off while the volatility gate (`vol-gate.ts`)
+   * or the RSI crash brake (`rsi-brake.ts`) is tripped. Resolve it per index
+   * through `smaRiskOffGates`.
+   */
   smaVolGate?: boolean;
   smaExecutionMode?: "trigger-day-close" | "next-day-close" | "next-day-open";
   riskOffAsset: "SGOV" | "VGSH" | "GLDM" | "BRK.B" | "VOO" | "QQQ" | "BRK.B+GLDM" | "VGSH+GLDM" | "BRK.B+VGSH" | "BRK.B+GLDM+VGSH";
@@ -47,10 +51,11 @@ export interface SmaSignal {
   type: "buy" | "sell";
   price: number;
   /**
-   * What moved the position, set only on volatility-gated runs: "sma" when the
-   * SMA band was crossed that close, "vol" when the gate tripped or released.
+   * What moved the position, set only on gated runs: "sma" when the SMA band was
+   * crossed that close, "vol" when the volatility gate tripped or released, "rsi"
+   * when the RSI crash brake did.
    */
-  trigger?: "sma" | "vol";
+  trigger?: "sma" | "vol" | "rsi";
 }
 
 export interface EtfResult {

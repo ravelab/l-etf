@@ -1,5 +1,6 @@
 import { computeSma } from "@/lib/simulation/sma";
 import { computeRealizedVol, nextVolGateRiskOff, type VolGateParams } from "@/lib/simulation/vol-gate";
+import { computeWilderRsi, nextRsiBrakeRiskOff, type RsiBrakeParams } from "@/lib/simulation/rsi-brake";
 import { DailyPrice } from "@/lib/data/storage/types";
 
 type SmaSignal = "buy" | "sell" | "hold";
@@ -15,6 +16,9 @@ export interface SmaSignalResult {
   /** Present only when the volatility gate was requested. */
   volatility?: number;
   volGateRiskOff?: boolean;
+  /** Present only when the RSI crash brake was requested. */
+  rsi?: number;
+  rsiBrakeRiskOff?: boolean;
 }
 
 /**
@@ -25,13 +29,15 @@ export interface SmaSignalResult {
  * - Sell: Price crosses below SMA × (1 - buffer%)
  * - Hold: Price within buffer zone
  *
- * With `volGate`, a tripped volatility gate overrides all three with "sell".
+ * With `volGate`, a tripped volatility gate overrides all three with "sell";
+ * with `rsiBrake`, so does a tripped RSI crash brake. Both are the same state
+ * machines `generateSmaSignals` runs, replayed over the whole series.
  */
 export function getSmaSignal(
   prices: DailyPrice[],
   period: number,
   buffer: { upper: number; lower: number },
-  options: { volGate?: VolGateParams } = {}
+  options: { volGate?: VolGateParams; rsiBrake?: RsiBrakeParams } = {}
 ): SmaSignalResult {
   const upperPercent = buffer.upper;
   const lowerPercent = buffer.lower;
@@ -105,17 +111,13 @@ export function getSmaSignal(
     signalEmoji = "🔴";
   }
 
-  if (!options.volGate) {
-    return { signal, indexValue: currentPrice, indexDate, smaValue: currentSma, percentDiff, signalLabel, signalEmoji };
-  }
-
-  const gate = options.volGate;
-  const vol = computeRealizedVol(priceIndex, gate.windowDays);
-  let volGateRiskOff = false;
-  for (const v of vol) volGateRiskOff = nextVolGateRiskOff(volGateRiskOff, v, gate);
-  if (volGateRiskOff) {
+  const volState = options.volGate ? volGateState(priceIndex, options.volGate) : null;
+  const brakeState = options.rsiBrake ? rsiBrakeState(priceIndex, options.rsiBrake) : null;
+  // The vol gate names the sell when both are tripped: it is the broader rule.
+  const gateLabel = volState?.riskOff ? "Sell L-ETFs: High Vol" : brakeState?.riskOff ? "Sell L-ETFs: RSI Brake" : null;
+  if (gateLabel) {
     signal = "sell";
-    signalLabel = "Sell L-ETFs: High Vol";
+    signalLabel = gateLabel;
     signalEmoji = "🔴";
   }
 
@@ -127,7 +129,21 @@ export function getSmaSignal(
     percentDiff,
     signalLabel,
     signalEmoji,
-    volatility: vol[vol.length - 1],
-    volGateRiskOff,
+    ...(volState ? { volatility: volState.value, volGateRiskOff: volState.riskOff } : {}),
+    ...(brakeState ? { rsi: brakeState.value, rsiBrakeRiskOff: brakeState.riskOff } : {}),
   };
+}
+
+function volGateState(prices: number[], gate: VolGateParams): { value: number; riskOff: boolean } {
+  const vol = computeRealizedVol(prices, gate.windowDays);
+  let riskOff = false;
+  for (const v of vol) riskOff = nextVolGateRiskOff(riskOff, v, gate);
+  return { value: vol[vol.length - 1], riskOff };
+}
+
+function rsiBrakeState(prices: number[], brake: RsiBrakeParams): { value: number; riskOff: boolean } {
+  const rsi = computeWilderRsi(prices, brake.periodDays);
+  let riskOff = false;
+  for (const r of rsi) riskOff = nextRsiBrakeRiskOff(riskOff, r, brake);
+  return { value: rsi[rsi.length - 1], riskOff };
 }

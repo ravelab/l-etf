@@ -2,7 +2,7 @@
 
 import { Card } from "@/components/ui/Card";
 import type { RunSummary } from "@/lib/run-summary";
-import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+import { SMA_RISK_OFF_GATES_PARAMS_TEXT } from "@/lib/simulation/risk-off-gates";
 
 function formatBufferPair(lower: number, upper: number): string {
   if (lower === upper) return `${upper}%`;
@@ -92,7 +92,7 @@ export function SimulationRunSummary({
         )}
         {summary.smaVolGate && (
           <span className="text-muted min-w-0">
-            Volatility: <span className="text-foreground">{SMA_VOL_GATE_PARAMS_TEXT}</span>
+            Volatility + RSI: <span className="text-foreground">{SMA_RISK_OFF_GATES_PARAMS_TEXT}</span>
           </span>
         )}
         {showRiskOffAsset && (

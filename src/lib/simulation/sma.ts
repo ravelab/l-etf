@@ -2,6 +2,7 @@ import type { SmaSignal } from "./types";
 import { CONSTANT_SMA_CHECK_FREQUENCY } from "../constants";
 import { SMA_CACHE_MAX_ENTRIES, boundedCacheGet, boundedCacheSet } from "./bounded-cache";
 import { computeRealizedVol, nextVolGateRiskOff, type VolGateParams } from "./vol-gate";
+import { computeWilderRsi, nextRsiBrakeRiskOff, type RsiBrakeParams } from "./rsi-brake";
 
 /**
  * WeakMap-based SMA cache: same prices array reference + same period → same result.
@@ -65,6 +66,11 @@ export function computeSma(prices: number[], period: number): number[] {
  * parameters (`vol-gate.ts`, per index) is tripped. `signals` and `invested` describe the combined
  * position, so a gate exit is a "sell" and a gate release back into an
  * invested SMA regime is a "buy".
+ *
+ * rsiBrake: likewise hold risk-off while the RSI crash brake (`rsi-brake.ts`)
+ * is tripped. Callers resolve both from the gate switch via `smaRiskOffGates`.
+ * With either layer on, each signal names what moved the position: "sma" when
+ * the band was crossed that close, else "vol", else "rsi".
  */
 const signalCache = new WeakMap<number[], Map<string, { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] }>>();
 
@@ -73,14 +79,16 @@ export function generateSmaSignals(
   prices: number[],
   smaPeriod: number,
   buffer: { upper: number; lower: number },
-  options?: { initialInvested?: boolean; seedAtIndex?: number; volGate?: VolGateParams }
+  options?: { initialInvested?: boolean; seedAtIndex?: number; volGate?: VolGateParams; rsiBrake?: RsiBrakeParams }
 ): { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] } {
   const { upper: upperBufferPct, lower: lowerBufferPct } = buffer;
   const initialInvested = options?.initialInvested ?? true;
   const seedAtIndex = options?.seedAtIndex ?? 0;
   const volGate = options?.volGate;
+  const rsiBrake = options?.rsiBrake;
   const gateKey = volGate ? `${volGate.windowDays}/${volGate.exitAbove}/${volGate.reenterBelow}` : "off";
-  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}|${gateKey}`;
+  const brakeKey = rsiBrake ? `${rsiBrake.periodDays}/${rsiBrake.exitBelow}/${rsiBrake.reenterAbove}` : "off";
+  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}|${gateKey}|${brakeKey}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
     const cached = boundedCacheGet(byPrices, cacheKey);
@@ -104,6 +112,8 @@ export function generateSmaSignals(
   let warmUpSum = 0;
   const vol = volGate ? computeRealizedVol(prices, volGate.windowDays) : null;
   let gateRiskOff = false;
+  const rsi = rsiBrake ? computeWilderRsi(prices, rsiBrake.periodDays) : null;
+  let brakeRiskOff = false;
   let position = initialInvested;
 
   for (let i = 0; i < dates.length; i++) {
@@ -112,6 +122,7 @@ export function generateSmaSignals(
     if (i === seedAtIndex) {
       isInvested = initialInvested;
       gateRiskOff = false;
+      brakeRiskOff = false;
       position = initialInvested;
       daysSinceCheck = 0;
     }
@@ -129,6 +140,7 @@ export function generateSmaSignals(
     }
 
     const wasInvested = isInvested;
+    const wasGateRiskOff = gateRiskOff;
     daysSinceCheck++;
     if (daysSinceCheck >= CONSTANT_SMA_CHECK_FREQUENCY) {
       daysSinceCheck = 0;
@@ -144,14 +156,16 @@ export function generateSmaSignals(
     }
 
     if (vol && volGate) gateRiskOff = nextVolGateRiskOff(gateRiskOff, vol[i], volGate);
-    const nextPosition = isInvested && !gateRiskOff;
+    if (rsi && rsiBrake) brakeRiskOff = nextRsiBrakeRiskOff(brakeRiskOff, rsi[i], rsiBrake);
+    const nextPosition = isInvested && !gateRiskOff && !brakeRiskOff;
     if (nextPosition !== position) {
       position = nextPosition;
+      const trigger = isInvested !== wasInvested ? "sma" : gateRiskOff !== wasGateRiskOff ? "vol" : "rsi";
       signals.push({
         date: dates[i],
         type: nextPosition ? "buy" : "sell",
         price: prices[i],
-        ...(vol ? { trigger: isInvested !== wasInvested ? "sma" : "vol" } : {}),
+        ...(vol || rsi ? { trigger } : {}),
       });
     }
 

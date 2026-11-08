@@ -393,9 +393,11 @@ const smaSignalSchema = z.object({
   percentDiff: metric,
   signalLabel: z.string(),
   signalEmoji: z.string(),
-  /** Present only when the volatility gate is on. */
+  /** Present only when the gate switch is on (volatility gate + RSI crash brake). */
   volatility: metric.optional(),
   volGateRiskOff: z.boolean().optional(),
+  rsi: metric.optional(),
+  rsiBrakeRiskOff: z.boolean().optional(),
 });
 
 const exitThresholdSchema = z.object({
@@ -413,6 +415,15 @@ const exitThresholdSchema = z.object({
       dailyReturnPctAtHorizon: metric,
       dailyReturnPctByHorizon: metric,
     })),
+  }),
+  rsiBrake: z.object({
+    status: z.enum(["available", "disabled", "already-risk-off", "insufficient-data"]),
+    periodDays: z.number(),
+    exitBelow: z.number(),
+    reenterAbove: z.number(),
+    rsi: metric,
+    nextExitClose: metric,
+    nextExitReturnPct: metric,
   }),
   note: z.string(),
 });

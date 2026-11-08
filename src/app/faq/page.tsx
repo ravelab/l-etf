@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { getSwapSpreadModel } from "@/lib/simulation/engine";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
+import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata } from "@/lib/seo";
 
@@ -15,6 +16,12 @@ const VOL_GATE_FAQ_ROWS = [
 ] as const;
 
 const formatGatePct = (value: number) => `${Math.round(value * 100)}%`;
+
+/** Same for both indices today; listed per index so a split shows up here too. */
+const RSI_BRAKE_FAQ_ROWS = [
+  { label: "SPX", brake: SMA_RSI_BRAKE.sp500 },
+  { label: "NDX", brake: SMA_RSI_BRAKE.nasdaq100 },
+] as const;
 
 export const metadata: Metadata = pageMetadata({
   title: "FAQ — Leveraged ETFs, SMA Strategies & Methodology",
@@ -129,9 +136,42 @@ const FAQ_DATA: FAQItem[] = [
           ))}
         </ul>
         <p className="mt-3">
-          It is enabled by default on the site, but you can turn it off with the Volatility checkbox.
+          It is enabled by default on the site, but you can turn it off with the Volatility + RSI
+          checkbox, which also controls the RSI crash brake below.
           Each index&apos;s thresholds were selected for stable historical behavior together with its
           SMA band, but they are separate settings from the SMA period and buffer.
+        </p>
+      </>
+    ),
+  },
+  {
+    question: "What is the RSI crash brake?",
+    answer: (
+      <>
+        <p className="mb-3">
+          The RSI crash brake is a third risk-off rule that ships with the volatility gate and is
+          switched by the same checkbox. It watches the index&apos;s Wilder RSI, a 0-100 measure of
+          how one-sided recent closes have been. A very low reading means a steep, steady slide.
+        </p>
+        <p className="mb-3">
+          When RSI closes below the exit level, the strategy moves to its risk-off asset even if the
+          SMA and the volatility gate both say to stay invested. It releases once RSI closes back
+          above the re-entry level, and then the other rules decide. Like the gate, it never buys on
+          its own.
+        </p>
+        <ul className="list-disc list-inside space-y-1 ml-4">
+          {RSI_BRAKE_FAQ_ROWS.map(({ label, brake }) => (
+            <li key={label}>
+              <strong className="text-foreground">{`${label}:`}</strong>
+              {` ${brake.periodDays}-day RSI; exit below ${brake.exitBelow}; re-enter above ${brake.reenterAbove}.`}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3">
+          It targets grinding sell-offs whose daily moves are too even to lift short-term
+          volatility, such as late 2018 or August 1990. It fires rarely, and most of its historical
+          benefit comes from a handful of such episodes, so treat it as insurance rather than a
+          source of extra return.
         </p>
       </>
     ),

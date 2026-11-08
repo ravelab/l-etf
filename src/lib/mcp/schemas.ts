@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 import { RISK_OFF_ASSET_OPTIONS } from "@/lib/constants";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { MARKET_DATA_EARLIEST_START } from "@/lib/fetch-market-data";
-import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+import { SMA_RISK_OFF_GATES_PARAMS_TEXT } from "@/lib/simulation/risk-off-gates";
 
 const PRESET_KEYS = Object.keys(ETF_PRESETS) as [string, ...string[]];
 const RISK_OFF_ASSET_VALUES = RISK_OFF_ASSET_OPTIONS.map((o) => o.value) as [
@@ -31,13 +31,14 @@ export const smaPeriodSchema = z.number().int().min(5).max(500);
 export const smaBufferSchema = z.number().min(0).max(30);
 
 /**
- * Also hold risk-off while realized volatility is high (`vol-gate.ts`). Omitted
- * means on, the site's default, so an MCP answer matches the page it links to.
+ * Also hold risk-off while realized volatility is high (`vol-gate.ts`) or the
+ * RSI crash brake is tripped (`rsi-brake.ts`). Omitted means on, the site's
+ * default, so an MCP answer matches the page it links to.
  */
 export const smaVolGateSchema = z
   .boolean()
   .describe(
-    `Volatility risk-off gate: also stay risk-off while realized volatility is high (${SMA_VOL_GATE_PARAMS_TEXT}). Default true, matching the site.`,
+    `Risk-off gates: also stay risk-off while realized volatility is high or the RSI crash brake is tripped (${SMA_RISK_OFF_GATES_PARAMS_TEXT}). Default true, matching the site.`,
   );
 
 /**

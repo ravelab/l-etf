@@ -3,6 +3,7 @@
 import { useId } from "react";
 import { InfoPopoverButton } from "@/components/ui/InfoPopoverButton";
 import { SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT, volGateParamsTextFor } from "@/lib/simulation/vol-gate";
+import { SMA_RSI_BRAKE_PARAMS_TEXT } from "@/lib/simulation/rsi-brake";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -24,9 +25,9 @@ export function VolGateCheckbox({
   return (
     <div className="flex flex-col gap-1">
       <div className="text-xs text-muted font-medium flex items-center gap-1.5">
-        <span>Volatility</span>
+        <span>Volatility + RSI</span>
         <span className="ml-auto inline-flex items-center">
-          <InfoPopoverButton label="Volatility">
+          <InfoPopoverButton label="Volatility and RSI brake">
             Adds a second risk-off rule on top of each SMA. At every close the index&apos;s realized volatility
             is measured (standard deviation of the last N daily log returns × √252). Above the exit level the
             strategy moves to the risk-off asset even if the SMA says invested; it stays there until volatility
@@ -38,6 +39,12 @@ export function VolGateCheckbox({
                 {pct(SMA_VOL_GATE[index].exitAbove)}, re-enter below {pct(SMA_VOL_GATE[index].reenterBelow)}.
               </span>
             ))}
+            <span className="mt-2 block">
+              The same switch adds an RSI crash brake for steady, grinding sell-offs whose daily moves are too
+              even to lift volatility: when the index&apos;s Wilder RSI closes below the exit level the strategy
+              also moves risk-off, and the brake releases once RSI closes above the re-entry level. It never buys
+              on its own either. Both indices: {SMA_RSI_BRAKE_PARAMS_TEXT}.
+            </span>
           </InfoPopoverButton>
         </span>
       </div>

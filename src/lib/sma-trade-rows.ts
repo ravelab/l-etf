@@ -2,6 +2,7 @@ import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { formatRiskOffLiquidationAbbrev } from "@/lib/constants";
 import type { EtfConfig, EtfResult, SmaSignal } from "@/lib/simulation/types";
 import { computeRealizedVol, SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
+import { computeWilderRsi, SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
 
 export interface SmaTradeRow {
   signalDate: string;
@@ -14,10 +15,12 @@ export interface SmaTradeRow {
   actionToneClass: string;
   isInitialEntry?: boolean;
   isEndLiquidation?: boolean;
-  /** Volatility-gated runs only: what moved the position. */
+  /** Gated runs only: what moved the position. */
   trigger?: SmaSignal["trigger"];
   /** Gate-window realized volatility at the trigger close (scale-free, so index closes work). */
   triggerVol?: number | null;
+  /** RSI-brake trades only: the brake's Wilder RSI at the trigger close (scale-free too). */
+  triggerRsi?: number | null;
 }
 
 interface BuildSmaTradeRowsParams {
@@ -82,6 +85,9 @@ export function buildSmaTradeRows({
   const triggerVols = etf.smaSignals.some((s) => s.trigger)
     ? computeRealizedVol(closePrices, SMA_VOL_GATE[config.smaIndex].windowDays)
     : null;
+  const triggerRsis = etf.smaSignals.some((s) => s.trigger === "rsi")
+    ? computeWilderRsi(closePrices, SMA_RSI_BRAKE[config.smaIndex].periodDays)
+    : null;
   const baseRows = etf.smaSignals.flatMap((signal): SmaTradeRow[] => {
     const signalIdx = dateToIndex.get(signal.date);
     // Hide signals whose next-day execution hasn't happened yet (no data beyond the signal day).
@@ -122,7 +128,11 @@ export function buildSmaTradeRows({
       actionToneClass: isBuy ? "text-positive" : "text-negative",
       action: `${isBuy ? "Buy" : "Sell"} ${config.name}${priceStr}`,
       ...(signal.trigger
-        ? { trigger: signal.trigger, triggerVol: signalIdx != null ? (triggerVols?.[signalIdx] ?? null) : null }
+        ? {
+            trigger: signal.trigger,
+            triggerVol: signalIdx != null ? (triggerVols?.[signalIdx] ?? null) : null,
+            ...(signal.trigger === "rsi" ? { triggerRsi: signalIdx != null ? (triggerRsis?.[signalIdx] ?? null) : null } : {}),
+          }
         : {}),
     }];
   });

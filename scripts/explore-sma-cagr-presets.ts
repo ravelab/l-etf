@@ -28,6 +28,7 @@ import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-s
 import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE } from "../src/lib/simulation/sma-calibration-eras";
 import { type EraEvaluatedCombo } from "./lib/sma-sweep-context";
 import { withEraCagrs } from "./lib/sma-preset-era-cagrs";
+import { rescoreSavedPresets } from "./lib/sma-preset-rescore";
 import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapPresetCombo, refinePresetGrid, sweepPresetPeriods, preferStablePresetCenter } from "./lib/sma-preset-grid";
 import { presetScoreCache } from "./lib/sma-preset-cache";
 import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
@@ -365,6 +366,13 @@ async function rerankPresets(): Promise<void> {
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Ranked presets by full-period score in ${path}`);
 }
-void (process.argv.includes("--rerank-presets") ? rerankPresets()
+async function rescorePresets(): Promise<void> {
+  const payload = await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, cagrRiskOffAssets: DEFAULT_RISK_OFF_ASSETS });
+  const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
+  writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
+  console.log(`Re-scored saved presets under the current engine in ${path}`);
+}
+void (process.argv.includes("--rescore-presets") ? rescorePresets()
+  : process.argv.includes("--rerank-presets") ? rerankPresets()
   : process.argv.includes("--refresh-era-cagrs") ? refreshEraCagrs() : main())
   .catch((error) => { console.error(error); process.exitCode = 1; });

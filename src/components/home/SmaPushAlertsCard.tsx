@@ -22,7 +22,7 @@ import type { PushSmaConfig } from "@/lib/push/types";
 import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 import { formatSmaSummary } from "@/lib/buffer-format";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
-import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+import { SMA_RISK_OFF_GATES_PARAMS_TEXT } from "@/lib/simulation/risk-off-gates";
 
 type PushState = {
   status: "checking" | "unsupported" | "ready" | "subscribed" | "install-first" | "error";
@@ -48,7 +48,7 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
     parts.push(`NDX: ${config.smaNqPeriod}/−${config.smaNqLowerBuffer}/${config.smaNqUpperBuffer}%`);
   }
   if (parts.length === 0) return " (Disabled)";
-  if (config.smaVolGate) parts.push(`vol ${SMA_VOL_GATE_PARAMS_TEXT}`);
+  if (config.smaVolGate) parts.push(`vol ${SMA_RISK_OFF_GATES_PARAMS_TEXT}`);
   return ` (${parts.join(", ")})`;
 }
 

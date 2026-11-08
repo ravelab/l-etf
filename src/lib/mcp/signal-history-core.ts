@@ -8,7 +8,7 @@
 
 import { generateSmaSignals } from "@/lib/simulation/sma";
 import type { IndexKey, PricePoint } from "@/lib/simulation/types";
-import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
+import { smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 
 interface SignalHistoryInput {
   index: IndexKey;
@@ -28,8 +28,8 @@ interface Crossover {
   date: string;
   type: "buy" | "sell";
   price: number;
-  /** Which rule flipped it, when the volatility gate is on. */
-  trigger?: "sma" | "vol";
+  /** Which rule flipped it, when the gate switch is on (vol gate + RSI brake). */
+  trigger?: "sma" | "vol" | "rsi";
   /** Trading days the previous regime lasted, counted inside the range. */
   tradingDaysHeld: number;
 }
@@ -88,7 +88,7 @@ export function summarizeSignalHistory(input: SignalHistoryInput): SignalHistory
     closes,
     smaPeriod,
     { upper: smaUpperBuffer, lower: smaLowerBuffer },
-    input.smaVolGate ? { volGate: SMA_VOL_GATE[input.index] } : {},
+    input.smaVolGate ? smaRiskOffGates(input.index) : {},
   );
 
   // Warm-up rows shape the SMA and seed the regime, but are not part of the

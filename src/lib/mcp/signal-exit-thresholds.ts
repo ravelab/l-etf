@@ -1,4 +1,5 @@
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
+import { SMA_RSI_BRAKE, computeWilderAverages, rsiFromAverages, type RsiBrakeParams } from "@/lib/simulation/rsi-brake";
 import type { IndexKey } from "@/lib/simulation/types";
 
 /** Deterministic boundaries, not forecasts. All returns are signed percentages. */
@@ -9,6 +10,8 @@ export function signalExitThresholds(input: {
   smaLowerBuffer: number;
   volEnabled: boolean;
   volGateRiskOff: boolean;
+  rsiBrakeEnabled: boolean;
+  rsiBrakeRiskOff: boolean;
 }) {
   const { prices, smaPeriod, smaLowerBuffer } = input;
   const closes = prices.map(p => p.close ?? NaN);
@@ -47,6 +50,7 @@ export function signalExitThresholds(input: {
       if (days === 1) nextVolExitRisePct = Math.expm1(c >= 0 ? 0 : (-b + root) / (2 * a)) * 100;
     }
   }
+  const rsiBrake = rsiBrakeThreshold(closes, SMA_RSI_BRAKE[input.index], input.rsiBrakeEnabled, input.rsiBrakeRiskOff);
   return {
     asOf: prices.at(-1)?.date ?? null,
     nextSmaExitClose,
@@ -59,6 +63,43 @@ export function signalExitThresholds(input: {
       nextVolExitRisePct,
       constantDeclineScenarios: scenarios,
     },
-    note: "Boundaries, not probabilities. Signed close-to-close returns; each scenario repeats the same percentage return every day. AtHorizon measures volatility on that close; ByHorizon means on any close up to that day. Zero means a flat path reaches the boundary. Volatility must exceed its threshold; price must fall below the SMA exit close. SMA updates with the next close. The SMA rule may exit before the vol gate. Already-active or disabled vol gates have no new-exit scenarios. Default execution is the following trading day's open.",
+    rsiBrake,
+    note: "Boundaries, not probabilities. Signed close-to-close returns; each scenario repeats the same percentage return every day. AtHorizon measures volatility on that close; ByHorizon means on any close up to that day. Zero means a flat path reaches the boundary. Volatility must exceed its threshold; price must fall below the SMA exit close; the RSI brake trips when the next close is below its exit close (Wilder RSI below the exit level). SMA updates with the next close. Whichever rule's boundary is nearest exits first. Already-active or disabled gates have no new-exit boundary. Default execution is the following trading day's open.",
+  };
+}
+
+/**
+ * The next close at which the brake's Wilder RSI lands exactly on its exit
+ * level. With smoothed averages G and L, a decline d gives
+ * RSI = 100 − 100 / (1 + G(n−1) / (L(n−1) + d)), so the boundary decline is
+ * d = (n−1)(G(100−a)/a − L); any lower close trips the brake.
+ */
+function rsiBrakeThreshold(closes: number[], brake: RsiBrakeParams, enabled: boolean, riskOff: boolean) {
+  const n = brake.periodDays;
+  const last = closes.at(-1);
+  const recent = closes.slice(-(n + 1));
+  const { gain, loss } = computeWilderAverages(closes, n);
+  const g = gain.at(-1) ?? NaN;
+  const l = loss.at(-1) ?? NaN;
+  const rsi = rsiFromAverages(g, l);
+  const status = !enabled ? "disabled" as const
+    : riskOff ? "already-risk-off" as const
+    : last == null || recent.length < n + 1 || !recent.every(v => Number.isFinite(v) && v > 0) || !Number.isFinite(rsi)
+      ? "insufficient-data" as const
+      : "available" as const;
+  let nextExitClose: number | null = null;
+  if (status === "available" && last != null) {
+    const a = brake.exitBelow;
+    const decline = Math.max(0, (n - 1) * (g * (100 - a) / a - l));
+    nextExitClose = decline < last ? last - decline : null;
+  }
+  return {
+    status,
+    periodDays: n,
+    exitBelow: brake.exitBelow,
+    reenterAbove: brake.reenterAbove,
+    rsi: status !== "insufficient-data" && Number.isFinite(rsi) ? rsi : null,
+    nextExitClose,
+    nextExitReturnPct: nextExitClose != null && last != null ? (nextExitClose / last - 1) * 100 : null,
   };
 }

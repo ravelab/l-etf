@@ -615,6 +615,19 @@ scores worse than the old one under the old gate. So they are constants, not
 searched monthly; re-pick them only together with a band recalibration
 (`npm run refresh-sma`), never alone. A gate-only rule (no SMA exits) loses
 badly on both indices in the pre-1988/1985 eras.
+The same switch also applies the RSI crash brake (`rsi-brake.ts`: Wilder RSI
+14d, out below 18, back above 62, both indices, 2026-11). Resolve the switch
+with `smaRiskOffGates(index)` (`risk-off-gates.ts`); a call site that spreads
+`{ volGate }` alone silently drops the brake. `getSmaSignal` (Signals page,
+push alerts) replays both state machines apart from `generateSmaSignals`, so
+keep the two in step. Brake trades are gate trades, excluded from the
+sparse-switch count like vol trades. It was the only RSI family, out of ~15k
+add-ons, that beat the defaults on both indices without lowering real CAGR in
+SPX 1885–1988 or NDX 1971–85; its gain rests on three episodes (SPX Q4 2018,
+NDX Aug 1990, NDX 1973). RSI as a band or vol-gate replacement lost badly.
+With the brake on, the best vol gate and the calibrated bands are unchanged,
+so it tunes independently; changing it moves every gated stored result
+(calibration scores, canned snapshots, Signals presets, worst-time windows).
 Every era score also pays shape penalties (`smaScorePenaltyFraction`,
 `sma-search-bounds.ts`), both general rules rather than per-rule exceptions:
 - Re-entry (`SMA_REENTRY_PENALTY`): an upper buffer that only a steep steady
@@ -629,7 +642,8 @@ pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
 comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
 weakest NDX rule despite its terrible proto era. Preserve the score order through
 selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder
-saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`.
+saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`;
+re-score them in place after an engine or gate change via `-- --rescore-presets`.
 The manual search must visit all 231 integer periods (50–280; shorter SMAs are excluded), both at their
 per-period seeds and at each saved fine buffer pair: restricting to five-day
 periods missed NDX 177/−12.1%/+7.8%, which beats the saved 150-day rule on the
@@ -776,4 +790,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   `exitThresholds` (`signal-exit-thresholds.ts`), not probabilities. Constant-decline
   scenarios distinguish the boundary at a horizon from the least decline that
   reaches it on any earlier close. Keep their tests against `computeRealizedVol`
-  and the generated output schema when changing the per-index volatility gates.
+  / `computeWilderRsi` and the generated output schema when changing the
+  per-index volatility gates or the RSI brake.

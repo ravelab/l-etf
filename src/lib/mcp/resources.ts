@@ -8,6 +8,7 @@ import { DISCLAIMER } from "@/lib/mcp/disclaimer";
 import { McpToolError } from "@/lib/mcp/tool-result";
 
 import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
+import { SMA_RSI_BRAKE_PARAMS_TEXT } from "@/lib/simulation/rsi-brake";
 
 const METHODOLOGY = `# l-etf simulation methodology (summary)
 
@@ -25,7 +26,11 @@ const METHODOLOGY = `# l-etf simulation methodology (summary)
   above the exit threshold and releases below the re-entry threshold. Parameters
   (window, exit, release): ${SMA_VOL_GATE_PARAMS_TEXT}. Releasing the gate leaves
   the SMA regime in control; it does not independently force a buy.
-- **Exit thresholds**: get_sma_signals includes next-close boundaries and 1–7-day
+- **RSI crash brake**: switched with the volatility gate (\`smaVolGate\`). Wilder RSI
+  of index closes forces risk-off below the exit level and releases above the
+  re-entry level (period, exit, release): ${SMA_RSI_BRAKE_PARAMS_TEXT}. It targets
+  steady sell-offs the volatility window misses and, like the gate, never buys.
+- **Exit thresholds**: get_sma_signals includes next-close SMA, volatility and RSI-brake boundaries and 1–7-day
   constant-decline scenarios. These are deterministic scenarios, not probabilities;
   average return alone cannot determine realized volatility.
 - **Futures**: carry applies to notional per calendar day. Production backtests
