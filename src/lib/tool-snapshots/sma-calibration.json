@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T18:40:01.358Z",
+  "generatedAt": "2026-11-08T19:12:31.531Z",
   "endDate": "2026-11-02",
   "windowLength": 38.573579739904176,
   "sp500": {
@@ -23,7 +23,7 @@
     "worstReturn": 20.510599558012842,
     "avgMaxDrawdown": 50.26238511437675,
     "avgTrades": 27,
-    "evaluatedCombos": 2031,
+    "evaluatedCombos": 28783,
     "neighborhoodMinScore": 5328.226748591056,
     "neighborhoodMedianScore": 5505.631969397515
   },
@@ -48,7 +48,7 @@
     "worstReturn": 30.598982812584552,
     "avgMaxDrawdown": 77.51926418632648,
     "avgTrades": 24,
-    "evaluatedCombos": 3028,
+    "evaluatedCombos": 27070,
     "neighborhoodMinScore": 16772.811339227475,
     "neighborhoodMedianScore": 16902.402421742605
   }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T08:53:10.801Z",
+  "generatedAt": "2026-11-08T19:12:31.531Z",
   "startDate": "1988-04-06",
   "endDate": "2026-11-02",
   "riskOffAsset": "BRK.B+GLDM+VGSH",
@@ -33,16 +33,16 @@
   },
   "distinctness": "At least 5% different risk-on days AND at least 20 days or 3 percentage points of parameter separation",
   "minRegimeDifferencePct": {
-    "sp500": 5.125038592158074,
+    "sp500": 5.5161057939693325,
     "nasdaq100": 6.1216730038022815
   },
   "evaluated": {
-    "sp500": 61791,
-    "nasdaq100": 24231
+    "sp500": 28783,
+    "nasdaq100": 27070
   },
   "candidatesTested": {
-    "sp500": 17860,
-    "nasdaq100": 9145
+    "sp500": 9913,
+    "nasdaq100": 12387
   },
   "bestFound": {
     "sp500": {
@@ -336,19 +336,19 @@
       "isCalibratedDefault": false,
       "sp500": {
         "smaPeriod": 110,
-        "smaUpperBuffer": 5.5,
+        "smaUpperBuffer": 4.5,
         "smaLowerBuffer": 5,
-        "cagr": 21.657529137456642,
-        "finalMultiple": 1923.6040616266346,
-        "maxDrawdown": 57.866464411889226,
-        "trades": 38,
-        "score": 3144.085655606263,
-        "baseScore": 3158.3673828944197,
-        "stabilityPenalty": 14.281727288156617,
+        "cagr": 22.07440219145951,
+        "finalMultiple": 2194.932424394239,
+        "maxDrawdown": 55.912340497228165,
+        "trades": 40,
+        "score": 3505.562935738339,
+        "baseScore": 3544.729487750677,
+        "stabilityPenalty": 39.16655201233789,
         "scoresByEra": {
-          "start": 3158.3673828944197
+          "start": 3544.729487750677
         },
-        "realCagr": 18.37795984757802,
+        "realCagr": 18.783595092664495,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-09-01",
@@ -360,8 +360,8 @@
           "proto": {
             "startDate": "1885-03-20",
             "endDate": "1926-07-01",
-            "cagr": 12.563686294445375,
-            "realCagr": 10.553958849770995,
+            "cagr": 12.696740061721346,
+            "realCagr": 10.684637056895063,
             "inflation": {
               "startDate": "1885-03-01",
               "endDate": "1926-07-01",
@@ -371,8 +371,8 @@
           "proxy": {
             "startDate": "1926-07-01",
             "endDate": "1988-04-06",
-            "cagr": 18.171317473038595,
-            "realCagr": 14.578498228610105,
+            "cagr": 18.83003511415817,
+            "realCagr": 15.217188561341576,
             "inflation": {
               "startDate": "1926-07-01",
               "endDate": "1988-04-01",
@@ -423,6 +423,5 @@
         }
       }
     }
-  ],
-  "rescoredAt": "2026-11-08T18:40:40.292Z"
+  ]
 }

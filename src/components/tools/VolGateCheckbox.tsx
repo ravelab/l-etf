@@ -3,7 +3,7 @@
 import { useId } from "react";
 import { InfoPopoverButton } from "@/components/ui/InfoPopoverButton";
 import { SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT, volGateParamsTextFor } from "@/lib/simulation/vol-gate";
-import { SMA_RSI_BRAKE_PARAMS_TEXT } from "@/lib/simulation/rsi-brake";
+import { SMA_RSI_BRAKE, SMA_RSI_BRAKE_PARAMS_TEXT, rsiBrakeParamsTextFor } from "@/lib/simulation/rsi-brake";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -14,6 +14,14 @@ const GATE_LINES = gateLinesDiffer
   ? GATE_INDICES.map((index) => `${GATE_LINE_LABEL[index]} ${volGateParamsTextFor([index])}`)
   : [SMA_VOL_GATE_PARAMS_TEXT];
 
+// The brake is shared by both indices today, so it reads as one short stacked
+// pair beside the vol lines. Below 13rem the pair cannot fit beside them, so the
+// box grows a third line instead of truncating the vol gates away.
+const sharedBrake = new Set(GATE_INDICES.map((index) => rsiBrakeParamsTextFor([index]))).size === 1;
+const BRAKE_LINES = sharedBrake
+  ? [`RSI ${SMA_RSI_BRAKE.sp500.periodDays}d`, `<${SMA_RSI_BRAKE.sp500.exitBelow} >${SMA_RSI_BRAKE.sp500.reenterAbove}`]
+  : GATE_INDICES.map((index) => `${GATE_LINE_LABEL[index]} ${rsiBrakeParamsTextFor([index])}`);
+
 export function VolGateCheckbox({
   checked,
   onChange,
@@ -23,7 +31,7 @@ export function VolGateCheckbox({
 }) {
   const id = useId();
   return (
-    <div className="flex flex-col gap-1">
+    <div className="@container flex flex-col gap-1">
       <div className="text-xs text-muted font-medium flex items-center gap-1.5">
         <span>Volatility + RSI</span>
         <span className="ml-auto inline-flex items-center">
@@ -50,7 +58,7 @@ export function VolGateCheckbox({
       </div>
       <label
         htmlFor={id}
-        className="flex h-[34px] cursor-pointer items-center gap-2 rounded-lg border border-card-border bg-input-bg px-3 text-sm text-foreground"
+        className="flex min-h-[34px] cursor-pointer items-center gap-1.5 rounded-lg border border-card-border bg-input-bg px-2.5 py-1 text-sm text-foreground @min-[13rem]:h-[34px] @min-[13rem]:gap-2 @min-[13rem]:px-3 @min-[13rem]:py-0"
       >
         <input
           id={id}
@@ -60,17 +68,29 @@ export function VolGateCheckbox({
           checked={checked}
           onChange={(e) => onChange(e.currentTarget.checked)}
         />
-        {GATE_LINES.length === 1 ? (
-          <span className="truncate">{SMA_VOL_GATE_PARAMS_TEXT}</span>
-        ) : (
-          // Per-index gates differ: one short line each fits the fixed-height box
-          // on a phone, where the joined text would truncate away NDX entirely.
-          <span className="flex min-w-0 flex-col text-xs leading-tight">
-            {GATE_LINES.map((line) => (
-              <span key={line} className="truncate">{line}</span>
+        <span className="flex min-w-0 flex-1 flex-col @min-[13rem]:flex-row @min-[13rem]:items-center @min-[13rem]:justify-between @min-[13rem]:gap-2">
+          {GATE_LINES.length === 1 ? (
+            <span className="truncate">{SMA_VOL_GATE_PARAMS_TEXT}</span>
+          ) : (
+            // Per-index gates differ: one short line each fits the fixed-height box
+            // on a phone, where the joined text would truncate away NDX entirely.
+            <span className="flex min-w-0 flex-col text-[11px] leading-tight @min-[13rem]:text-xs">
+              {GATE_LINES.map((line) => (
+                <span key={line} className="truncate">{line}</span>
+              ))}
+            </span>
+          )}
+          <span
+            data-testid="sma-rsi-brake-params"
+            title={`RSI crash brake: ${SMA_RSI_BRAKE_PARAMS_TEXT}`}
+            className="flex min-w-0 flex-col text-[11px] leading-tight @min-[13rem]:shrink-0 @min-[13rem]:text-right @min-[13rem]:text-xs"
+          >
+            <span className="truncate @min-[13rem]:hidden">{SMA_RSI_BRAKE_PARAMS_TEXT}</span>
+            {BRAKE_LINES.map((line) => (
+              <span key={line} className="hidden whitespace-nowrap @min-[13rem]:block">{line}</span>
             ))}
           </span>
-        )}
+        </span>
       </label>
     </div>
   );
