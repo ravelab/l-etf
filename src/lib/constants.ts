@@ -42,7 +42,12 @@ export const RISK_OFF_ASSET_OPTIONS = [
 ] as const;
 
 export const CONSTANT_SP500_START_DATE = "1885-03-20";
-export const CONSTANT_NASDAQ100_START_DATE = "1971-02-05";
+/** Earliest Nasdaq row, and the first day of the NDX proxy: from here to
+ *  CONSTANT_NASDAQ100_SHORTCUT_DATE the Nasdaq series is Ken French's Business
+ *  Equipment industry (scripts/build-ndx-proxy.py), which matches NDX's
+ *  volatility and trend. Unlike SPX, NDX has no older proto era. The date preset
+ *  shares the SPX proxy's entry, since both proxies start the same day. */
+export const CONSTANT_NASDAQ100_START_DATE = "1926-07-01";
 /** Calendar icon shortcut: first day of the rules-based large-cap proxy. From
  *  here to CONSTANT_SP500_SHORTCUT_DATE the S&P series is replaced by the
  *  Fama-French cap-weighted basket of the market's biggest 30% by size

@@ -129,8 +129,8 @@ export async function runFuturesLadder(params: {
 
   // A Nasdaq rung needs data covering the WHOLE range, not merely somewhere in
   // it. The two-sleeve fund walks the union of its sleeves' trading days and
-  // steps a sleeve only on days it has, so an NDX sleeve starting in 1971
-  // inside an 1885 run would sit frozen at half the fund's equity for 86 years
+  // steps a sleeve only on days it has, so an NDX sleeve starting in 1926
+  // inside an 1885 run would sit frozen at half the fund's equity for 41 years
   // while the SPX sleeve compounded — a "4.5x SPX 3x NDX" result that was half
   // dead capital and numerically indistinguishable from the plain SPX rung.
   // Dropping the rung is the honest answer; the plain SPX rungs still run.

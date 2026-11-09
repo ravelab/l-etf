@@ -21,10 +21,10 @@ test("the catalog is ordered, non-overlapping, and internally consistent", () =>
 });
 
 test("episodesForRange keeps only episodes fully inside the available data", () => {
-  // The Nasdaq series starts 1971-02-05 (the NDQ-TR composite proxy), so 1929
-  // is out of reach but the 1973-74 bear is genuinely covered.
-  const nasdaq = episodesForRange("1971-02-05", "2026-01-01");
-  assert.equal(nasdaq.some((e) => e.startDate.startsWith("1929")), false);
+  // The Nasdaq series starts 1926-07-01 (the NDX proxy), so 1907 is out of
+  // reach but 1929 and the 1973-74 bear are genuinely covered.
+  const nasdaq = episodesForRange("1926-07-01", "2026-01-01");
+  assert.ok(nasdaq.some((e) => e.startDate.startsWith("1929")), "1929 is in Nasdaq range");
   assert.equal(nasdaq.some((e) => e.startDate.startsWith("1907")), false);
   assert.ok(nasdaq.some((e) => e.startDate.startsWith("1973")), "1973-74 is in Nasdaq range");
   assert.ok(nasdaq.some((e) => e.name.includes("Global Financial")));

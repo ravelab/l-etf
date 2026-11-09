@@ -72,7 +72,7 @@ describe("Signals page SMA inputs", () => {
         for (const [eraKey, era] of Object.entries(preset[indexKey].eraCagrs)) {
           expect(details).toHaveTextContent(`${eraKey === "proto" ? "Proto" : "Proxy"}: ${era.realCagr.toFixed(2)}%`);
         }
-        if (indexKey === "nasdaq100") expect(details).not.toHaveTextContent("Proxy");
+        if (indexKey === "nasdaq100") expect(details).not.toHaveTextContent("Proto");
         else expect(details.textContent!.indexOf("Proxy:")).toBeLessThan(details.textContent!.indexOf("Proto:"));
         expect(screen.queryByText(/50\/50/)).not.toBeInTheDocument();
         fireEvent.click(button);

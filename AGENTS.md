@@ -201,20 +201,22 @@ and understates the position by ~30% of the rate. The futures cash sweep walks
 
 Real NDX back to the 1985-01-31 launch lives in `data/index-ndx-1985.csv`, pulled
 from the index owner's Global Index Watch endpoint by `scripts/build-ndx-1985.ts`
-(free, unauthenticated, closes only). Yahoo's `^NDX` only starts 1985-10-01, so
-without it those 168 sessions are Nasdaq *Composite* backfill.
+(free, unauthenticated, closes only). Yahoo's `^NDX` only starts 1985-10-01.
+Stooq's `^ndx` is not real NDX for 1985-01..09: it reproduces the Nasdaq
+Composite to 0.0045% and its file starts in 1938.
 
-Vet any other "NDX" source for that era before believing it: it must match real
-`^NDX` returns over the Oct-Dec 1985 overlap *and* differ materially from the
-Composite before it. Stooq's `^ndx` fails the second test — it reproduces our
-Composite proxy to 0.0045% across all 188 sessions of 1985-01..09 and its file
-starts in 1938, decades before the Composite existed.
-
-`NDQ-TR` in `data/index-nq.csv` is not a misspelling of NDX: it tags the
-1971-02-05..1985-09-30 rows, which are the Nasdaq *Composite* scaled to meet NDX
-at the seam (the Nasdaq-100 did not exist yet) and carry their own dividend-yield
-table in `fetch-data.ts`. Display labels say NDX everywhere; only the data layer
-keeps the distinction.
+Before the launch, `index-nq.csv` is the NDX proxy (rows tagged `FF-BUSEQ-TR`,
+1926-07-01..1985-01-30): Ken French's Business Equipment industry, built by
+`scripts/build-ndx-proxy.py` into `data/index-ffbuseq.csv` and spliced by
+`src/lib/data/ndx-proxy-splice.ts` (`npm run fetch-data -- --ndx-proxy` re-applies
+it without refetching). It replaced a 1971 Nasdaq Composite backfill, now removed:
+the 1970s Composite's stale OTC quotes showed as 0.31 lag-1 autocorrelation, 12%
+volatility and 20/60-day variance ratios of 2.4-3.0, flattering both 3x decay and
+trend rules, while Business Equipment matches real NDX's volatility and trend
+where they overlap (DataFetch.md has the table). Judge any future proxy the same
+way: volatility, variance ratios and beta against real NDX, not correlation alone,
+which favours the Composite only because NDX later came to dominate it. Display
+labels say NDX everywhere; only the data layer keeps the distinction.
 
 Margin is a requirement, not an expense, but interest eligibility depends on the
 broker and collateral. Production futures callers enable `treasuryCollateral`:
@@ -421,7 +423,7 @@ Sharp edges:
   the server path). `hasNasdaqData` must mean "NDX covers the WHOLE range", not
   "NDX rows exist": the dual-sleeve fund walks the union of its sleeves' trading
   days and steps a sleeve only on days it has, so an 1885 start leaves the NDX
-  sleeve frozen at half the fund's equity until 1971 and reports a result
+  sleeve frozen at half the fund's equity until 1926 and reports a result
   indistinguishable from the plain SPX rung. It defaults to
   `CONSTANT_SP500_SHORTCUT_DATE` like the page, not to the S&P's 1885 start.
 - `stress_test_strategy` (`crisis-episodes.ts` catalog + `stress-core.ts`) runs a
@@ -632,7 +634,8 @@ push alerts) replays both state machines apart from `generateSmaSignals`, so
 keep the two in step. Brake trades are gate trades, excluded from the
 sparse-switch count like vol trades. It was the only RSI family, out of ~15k
 add-ons, that beat the defaults on both indices without lowering real CAGR in
-SPX 1885–1988 or NDX 1971–85; its gain rests on three episodes (SPX Q4 2018,
+SPX 1885–1988 or NDX 1971–85 (measured on the since-removed Composite backfill;
+not re-run on the NDX proxy); its gain rests on three episodes (SPX Q4 2018,
 NDX Aug 1990, NDX 1973). RSI as a band or vol-gate replacement lost badly.
 With the brake on, the best vol gate and the calibrated bands are unchanged,
 so it tunes independently; changing it moves every gated stored result
@@ -649,7 +652,7 @@ Keep one default and three alternatives per index. The calibrated default stays 
 rank each index by descending stability-adjusted full-period score and
 pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
 comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
-weakest NDX rule despite its terrible proto era. Preserve the score order through
+weakest NDX rule despite its terrible pre-launch era. Preserve the score order through
 selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder
 saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`;
 re-score them in place after an engine or gate change via `-- --rescore-presets`.
@@ -666,12 +669,13 @@ The manual search promotes its strongest stable discovery into the same
 `sma-calibration.json` used by defaults/alerts, retaining the prior band on score
 ties. Both search scripts publish through `scripts/lib/sma-calibration-result.ts`.
 Signals preset buttons apply only their own index, so SPX and NDX can be mixed
-independently. Keep the compact stats in proxy-before-proto order; scores and
+independently. Keep the compact stats in proxy-before-proto order (SPX has both,
+NDX only a proxy); scores and
 methodology prose are not displayed. Each button shares its stats row and the
 text wraps after it at every width — never a horizontal scroll.
 Desktop pairs each rank in two columns matching the controls: SPX left, NDX right.
 Displayed NDX real CAGR and switches use a separate 1985-01-31 launch backtest,
-so the modern period begins exactly where proto ends. Store real-return dates
+so the modern period begins exactly where the NDX proxy ends. Store real-return dates
 explicitly as `realCagrStartDate`/`realCagrEndDate` and count dates as `switchHistory`.
 The nominal `cagr`/`finalMultiple`/`trades` fields and distinct-regime comparison
 use that same per-index start: 1988 for SPX, 1985 for NDX. Verify the entire
@@ -682,8 +686,8 @@ five since 1988; do not attach that count to a different calibrated default.
 The search retains distinct trade regimes against the calibrated default and
 centers tied stable-score plateaus. After stability scoring, a plateau center
 must not displace a higher stable score (the monthly calibrator follows this
-same ordering). The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proto)
-alongside default-window CAGRs; NDX has no proxy era. Each era is independently
+same ordering). The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proxy)
+alongside default-window CAGRs; NDX has no proto era. Each era is independently
 backtested with warm-up and that index's `DEFAULT_RISK_OFF_ASSETS` entry (the
 basket a visitor's backtest holds, recorded as `cagrRiskOffAssets`), without
 history wrap. The search itself still scores on `DEFAULT_RISK_OFF_ASSET`.

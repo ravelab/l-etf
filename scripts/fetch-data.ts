@@ -6,9 +6,10 @@ import { writeFile, readFile, open, appendFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { CONSTANT_SP500_PROXY_START_DATE } from "../src/lib/constants";
+import { CONSTANT_NASDAQ100_SHORTCUT_DATE, CONSTANT_SP500_PROXY_START_DATE } from "../src/lib/constants";
 import { computeAdjustedRebaseRatio } from "../src/lib/data/adjusted-rebase";
 import { spliceFfLargeCapHistory } from "../src/lib/data/ff-large-cap-splice";
+import { prependNdxProxyHistory } from "../src/lib/data/ndx-proxy-splice";
 import {
   mergeAdjustedPricesWithRawIndexBars,
   mergeIncrementalIndexRows,
@@ -70,14 +71,6 @@ const EQUITY_PROXY_EXPENSE_RATIOS = {
 } as const;
 
 const TRADING_DAYS_PER_YEAR = 252;
-
-// Nasdaq Composite dividend yields by year, 1971-1985.
-// Used for the NDQ-TR synthetic total-return period before Nasdaq 100 inception.
-const NASDAQ_COMPOSITE_DIVIDEND_YIELD: Record<number, number> = {
-  1971: 0.0260, 1972: 0.0230, 1973: 0.0270, 1974: 0.0380, 1975: 0.0350,
-  1976: 0.0310, 1977: 0.0335, 1978: 0.0380, 1979: 0.0380, 1980: 0.0330,
-  1981: 0.0345, 1982: 0.0350, 1983: 0.0280, 1984: 0.0275, 1985: 0.0225,
-};
 
 // Nasdaq 100 dividend yields by year. Used for synthetic NDX-TR before QQQ.
 const NASDAQ100_DIVIDEND_YIELD: Record<number, number> = {
@@ -1150,7 +1143,7 @@ async function fetchTiingoRows(ticker: string, startDate?: string): Promise<Tiin
 const yahooIndexBarsCache = new Map<string, Map<string, YahooDailyBar>>();
 
 async function fetchYahooIndexBars(
-  yahooSymbol: "^GSPC" | "^NDX" | "^IXIC",
+  yahooSymbol: "^GSPC" | "^NDX",
   options: { startDate?: string; endDate?: string; fullHistory?: boolean } = {}
 ): Promise<Array<{ date: string; open: number; close: number; source: "yahoo" }>> {
   const requestCacheKey = options.fullHistory
@@ -1599,6 +1592,59 @@ async function fetchSsoHistory(): Promise<DailyPrice[]> {
 const NDX_1985_FILE = "index-ndx-1985.csv";
 
 /**
+ * The NDX proxy fronts index-nq.csv before real NDX starts (1985-01-31): Ken
+ * French's Business Equipment industry from 1926-07-01 (data/index-ffbuseq.csv,
+ * built by scripts/build-ndx-proxy.py), which matches NDX's volatility and trend.
+ * It replaced a 1971 Nasdaq Composite backfill whose stale OTC quotes halved its
+ * volatility and doubled its apparent trend.
+ */
+const NDX_PROXY_FILE = "index-ffbuseq.csv";
+const NDX_PROXY_NAME = "FF-BUSEQ-TR";
+// Carries "scaled" so serializeIndexCsvRow rounds the derived close to 6 significant figures.
+const NDX_PROXY_SOURCE = "famafrench-buseq-scaled(close)+carried(open)+er(adj_close)";
+const QQQ_DAILY_EXPENSE = EQUITY_PROXY_EXPENSE_RATIOS.QQQ / TRADING_DAYS_PER_YEAR;
+
+async function readNdxProxyRows(): Promise<Array<{ date: string; adj_close: number; close: number }>> {
+  const existing = await readExistingCsv(NDX_PROXY_FILE);
+  if (!existing) {
+    throw new Error(`index-nq: ${NDX_PROXY_FILE} is missing - regenerate it with "python3 scripts/build-ndx-proxy.py"`);
+  }
+  const columns = existing.header.split(",");
+  const [dateIdx, adjIdx, closeIdx] = ["date", "adj_close", "close"].map((c) => columns.indexOf(c));
+  if (dateIdx < 0 || adjIdx < 0 || closeIdx < 0) {
+    throw new Error(`index-nq: ${NDX_PROXY_FILE} lacks date/adj_close/close columns`);
+  }
+  return existing.rows.map((cols) => ({ date: cols[dateIdx], adj_close: Number(cols[adjIdx]), close: Number(cols[closeIdx]) }));
+}
+
+function spliceNdxProxy(rows: DailyPrice[], proxyRows: Array<{ date: string; adj_close: number; close: number }>): DailyPrice[] {
+  const spliced = prependNdxProxyHistory({
+    rows,
+    proxyRows,
+    anchorDate: CONSTANT_NASDAQ100_SHORTCUT_DATE,
+    dailyExpense: QQQ_DAILY_EXPENSE,
+    name: NDX_PROXY_NAME,
+    source: NDX_PROXY_SOURCE,
+  });
+  console.log(`  ✓ index-nq: fronted with ${spliced.prependedCount} NDX proxy rows (${NDX_PROXY_FILE})`);
+  return spliced.rows;
+}
+
+/**
+ * Re-apply the NDX proxy to the existing index-nq.csv without refetching anything:
+ * `npm run fetch-data -- --ndx-proxy`, after rebuilding data/index-ffbuseq.csv.
+ * Rows from 1985-01-31 on are rewritten unchanged.
+ */
+async function respliceNdxProxy(): Promise<void> {
+  const existing = await readExistingCsv("index-nq.csv");
+  if (!existing) throw new Error("index-nq.csv is missing; run a full fetch first");
+  const rows = spliceNdxProxy(parseIndexCsvRows(existing.rows), await readNdxProxyRows());
+  validateIndexRowsAllowingRecentPartialTail(rows, "index-nq.csv");
+  await writeCsvRows("index-nq.csv", "date,adj_close,open,close,name,source", rows.map(serializeIndexCsvRow));
+  console.log(`\n✓ Written to index-nq.csv (${rows.length} rows)`);
+}
+
+/**
  * Real NDX closes ahead of Yahoo's coverage, as bars.
  *
  * The source is close-only: its start-of-day series is just the prior close, so
@@ -1749,11 +1795,7 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
     throw new Error("No QQQ data available from Tiingo");
   }
 
-  const ixicRows = await fetchYahooIndexBars("^IXIC", { fullHistory: true });
   const yahooNdxRows = await fetchYahooIndexBars("^NDX", { fullHistory: true });
-  if (ixicRows.length === 0) {
-    throw new Error("No Yahoo ^IXIC open/close data available");
-  }
   if (yahooNdxRows.length === 0) {
     throw new Error("No Yahoo ^NDX open/close data available");
   }
@@ -1766,42 +1808,15 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
   const ndxHistoricalRows = (await readNdx1985Bars()).filter((row) => row.date < yahooNdxFirstDate);
   const ndxRows = [...ndxHistoricalRows, ...yahooNdxRows];
 
-  const ixicByDate = new Map(ixicRows.map((row) => [row.date, row]));
   const ndxByDate = new Map(ndxRows.map((row) => [row.date, row]));
   const ndxFirstDate = ndxRows[0].date;
   const qqqFirstDate = qqqRows[0].date;
 
-  const qqqDailyER = EQUITY_PROXY_EXPENSE_RATIOS.QQQ / TRADING_DAYS_PER_YEAR;
-  const syntheticRows: Array<{ date: string; adjClose: number; name: "NDQ-TR" | "NDX-TR" }> = [];
+  const qqqDailyER = QQQ_DAILY_EXPENSE;
+  // The chain starts at the launch; the NDX proxy is spliced in afterwards by
+  // walking back from that row, so this level is only an anchor.
+  const syntheticRows: Array<{ date: string; adjClose: number }> = [{ date: ndxFirstDate, adjClose: 100 }];
   let syntheticTr = 100;
-
-  for (let i = 0; i < ixicRows.length && ixicRows[i].date < ndxFirstDate; i++) {
-    const row = ixicRows[i];
-    if (i > 0) {
-      const prev = ixicRows[i - 1];
-      const year = Number(row.date.slice(0, 4));
-      const divYield = NASDAQ_COMPOSITE_DIVIDEND_YIELD[year] ?? 0.025;
-      const priceReturn = row.close / prev.close - 1;
-      syntheticTr *= 1 + priceReturn + divYield / TRADING_DAYS_PER_YEAR - qqqDailyER;
-    }
-    syntheticRows.push({ date: row.date, adjClose: syntheticTr, name: "NDQ-TR" });
-  }
-
-  const ndxFirstIxic = ixicByDate.get(ndxFirstDate);
-  const prevIxic = ixicRows.filter((row) => row.date < ndxFirstDate).at(-1);
-  if (!ndxFirstIxic || !prevIxic) {
-    throw new Error(`index-nq: missing Yahoo ^IXIC boundary data for ${ndxFirstDate}`);
-  }
-  const ndxFirstRaw = ndxByDate.get(ndxFirstDate);
-  if (!ndxFirstRaw) {
-    throw new Error(`index-nq: missing Yahoo ^NDX boundary data for ${ndxFirstDate}`);
-  }
-  const ixicToNdxScale = ndxFirstRaw.close / ndxFirstIxic.close;
-
-  const boundaryYear = Number(ndxFirstDate.slice(0, 4));
-  const boundaryDivYield = NASDAQ100_DIVIDEND_YIELD[boundaryYear] ?? 0.012;
-  syntheticTr *= 1 + (ndxFirstIxic.close / prevIxic.close - 1) + boundaryDivYield / TRADING_DAYS_PER_YEAR - qqqDailyER;
-  syntheticRows.push({ date: ndxFirstDate, adjClose: syntheticTr, name: "NDX-TR" });
 
   for (let i = 1; i < ndxRows.length && ndxRows[i].date <= qqqFirstDate; i++) {
     const row = ndxRows[i];
@@ -1810,7 +1825,7 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
     const divYield = NASDAQ100_DIVIDEND_YIELD[year] ?? 0.001;
     const priceReturn = row.close / prev.close - 1;
     syntheticTr *= 1 + priceReturn + divYield / TRADING_DAYS_PER_YEAR - qqqDailyER;
-    syntheticRows.push({ date: row.date, adjClose: syntheticTr, name: "NDX-TR" });
+    syntheticRows.push({ date: row.date, adjClose: syntheticTr });
   }
 
   const qqqAnchor = qqqRows[0];
@@ -1823,22 +1838,19 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
 
   for (const synthetic of syntheticRows) {
     if (synthetic.date >= qqqFirstDate) continue;
-    const raw = synthetic.date < ndxFirstDate ? ixicByDate.get(synthetic.date) : ndxByDate.get(synthetic.date);
+    const raw = ndxByDate.get(synthetic.date);
     if (!raw) {
-      throw new Error(`index-nq: missing Yahoo raw open/close for ${synthetic.date}`);
+      throw new Error(`index-nq: missing NDX open/close for ${synthetic.date}`);
     }
-    const rawScale = synthetic.date < ndxFirstDate ? ixicToNdxScale : 1;
     result.push({
       date: synthetic.date,
       adj_close: synthetic.adjClose * scaleToQqq,
-      open: raw.open * rawScale,
-      close: raw.close * rawScale,
-      name: synthetic.name,
-      source: synthetic.name === "NDQ-TR"
-        ? "yahoo-ixic-scaled(open+close)+dividends+er(adj_close)"
-        : synthetic.date < yahooNdxFirstDate
-          ? "nasdaq-giw(close)+carried(open)+dividends+er(adj_close)"
-          : "yahoo-ndx(open+close)+dividends+er(adj_close)",
+      open: raw.open,
+      close: raw.close,
+      name: "NDX-TR",
+      source: synthetic.date < yahooNdxFirstDate
+        ? "nasdaq-giw(close)+carried(open)+dividends+er(adj_close)"
+        : "yahoo-ndx(open+close)+dividends+er(adj_close)",
     });
   }
 
@@ -1858,7 +1870,7 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
   }
 
   appendProvisionalYahooRows(result, yahooNdxRows, "QQQ");
-  return result;
+  return spliceNdxProxy(result, await readNdxProxyRows());
 }
 
 async function fetchBrkaHistory(): Promise<DailyPrice[]> {
@@ -2048,7 +2060,7 @@ async function fetchVgshHistory(): Promise<DailyPrice[]> {
   }
 
   // Prepend VGSH with SHY (1-3Y Treasury, launched 2002-07-22) for the
-  // pre-VGSH period, mirroring how NDX is prepended with NDQ.
+  // pre-VGSH period, mirroring how NDX is prepended with its proxy.
   // SHY is scaled so its price on VGSH's first trading day matches VGSH's
   // first price; this preserves SHY's daily returns while aligning levels
   // (the boundary's daily change is SHY's own return on that day).
@@ -2781,6 +2793,8 @@ async function main() {
       process.exit(1);
     }
     await fetchIndex(args[0], { forceRebuild });
+  } else if (allArgs[0] === "--ndx-proxy") {
+    await respliceNdxProxy();
   } else if (allArgs[0] === "--inflation") {
     await fetchInflation(forceRebuild);
   } else if (allArgs[0] === "--rates" || allArgs[0] === "-r") {

@@ -435,9 +435,12 @@ const FAQ_DATA: FAQItem[] = [
             data has closes only; opens are carried forward from the prior close.
           </li>
           <li>
-            <strong className="text-foreground">February 5, 1971 — NDX proto.</strong>{" "}Before
-            1985, Composite returns are scaled to the NDX launch and combined with estimated
-            dividends and QQQ expense drag. This is not actual Nasdaq-100 history.
+            <strong className="text-foreground">July 1, 1926 — NDX proxy.</strong>{" "}Before
+            the launch, L-ETF uses a cap-weighted portfolio of U.S. computer, software,
+            semiconductor and electronic-equipment stocks (Ken French&apos;s Business Equipment
+            industry), scaled to meet NDX, with its own dividends and QQQ expense drag. It is not
+            actual Nasdaq-100 history, but it matches NDX&apos;s volatility and trend far better than
+            the Nasdaq Composite, whose 1970s prices were smoothed by thinly traded stocks.
           </li>
           <li>
             <strong className="text-foreground">July 1, 1926 — SPX proxy.</strong>{" "}Through

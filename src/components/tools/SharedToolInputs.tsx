@@ -11,7 +11,6 @@ import { CalendarShortcutIcon } from "@/components/ui/CalendarShortcutIcon";
 import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
 import {
   CONSTANT_NASDAQ100_SHORTCUT_DATE,
-  CONSTANT_NASDAQ100_START_DATE,
   CONSTANT_SP500_PROXY_START_DATE,
   CONSTANT_SP500_SHORTCUT_DATE,
   CONSTANT_SP500_START_DATE,
@@ -39,19 +38,15 @@ const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
     title: "Earliest S&P row (Cowles-era reconstruction)",
   },
   {
+    // One entry for both: the two proxies start the same day, and a preset is a date.
     value: CONSTANT_SP500_PROXY_START_DATE,
-    label: "SPX proxy",
-    title: "Start of the rules-based proxy: the market's biggest 30% by size",
+    label: "SPX/NDX proxy",
+    title: "Start of both proxies: SPX = the market's biggest 30% by size; NDX = computer and electronics stocks",
   },
   {
     value: CONSTANT_SP500_SHORTCUT_DATE,
     label: "SPX start",
     title: "SPX start used by the app",
-  },
-  {
-    value: CONSTANT_NASDAQ100_START_DATE,
-    label: "NDX proto",
-    title: "Earliest Nasdaq row (Composite scaled to meet NDX)",
   },
   {
     value: CONSTANT_NASDAQ100_SHORTCUT_DATE,

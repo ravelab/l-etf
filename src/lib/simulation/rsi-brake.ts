@@ -14,7 +14,8 @@ import type { IndexKey } from "./types";
  * RSI(14) < 18 / > 62 was chosen (2026-11) from a full grid of RSI add-ons as
  * the one family that beats the calibrated defaults on both indices without
  * lowering real CAGR in any held-out era (SPX 1885-1926, 1926-1988; NDX
- * 1971-1985), also with a Treasury-only risk-off. Neighbouring settings
+ * 1971-1985 on the since-retired Nasdaq Composite backfill), also with a
+ * Treasury-only risk-off. Neighbouring settings
  * (RSI7 < 7, RSI10 < 12, RSI14 < 18-20 with re-entry 44-66) pass too.
  * The evidence is thin: its whole gain comes from those three episodes. It
  * leaves the best vol gate and the calibrated SMA bands unchanged, so the three

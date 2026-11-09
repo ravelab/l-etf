@@ -97,10 +97,10 @@ export const SMA_HISTORICAL_ERAS: Record<IndexKey, SmaCalibrationEra[]> = {
   ],
   nasdaq100: [
     {
-      key: "proto",
+      key: "proxy",
       startDate: CONSTANT_NASDAQ100_START_DATE,
       endDate: CONSTANT_NASDAQ100_SHORTCUT_DATE,
-      label: "NDX proto",
+      label: "NDX proxy",
       weight: 5,
     },
     { key: "start", startDate: CONSTANT_NASDAQ100_SHORTCUT_DATE, label: "NDX start", weight: 95 },

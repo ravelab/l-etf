@@ -70,9 +70,9 @@ Tiingo's later adjusted-close revisions still land on them.
 
 These are the most layered outputs.
 
-`index-ffhi30.csv` also lives in `data/` but is **not** produced by
-`fetch-data`; see "Out-of-band index files" below. It *is* an input to
-`index-sp.csv`, so regenerate it before a full S&P rebuild.
+`index-ffhi30.csv` and `index-ffbuseq.csv` also live in `data/` but are **not**
+produced by `fetch-data`; see "Out-of-band index files" below. They *are* inputs
+to `index-sp.csv` and `index-nq.csv`, so regenerate them before a full rebuild.
 
 #### `index-sp.csv`
 
@@ -130,28 +130,30 @@ Builds the Nasdaq 100 benchmark series.
 
 Sources:
 
-- Yahoo `^IXIC` daily open/close for the Nasdaq Composite era
-- Yahoo `^NDX` daily open/close for the Nasdaq 100 era
-- Nasdaq Composite and Nasdaq 100 dividend-yield tables in `scripts/fetch-data.ts`
+- `data/index-ffbuseq.csv`, the NDX proxy, for `1926-07-01`..`1985-01-30`
+- `data/index-ndx-1985.csv` (real NDX closes) from the `1985-01-31` launch
+- Yahoo `^NDX` daily open/close from `1985-10-01`
+- the Nasdaq 100 dividend-yield table in `scripts/fetch-data.ts`
 - Tiingo `QQQ`
 - existing `data/index-nq.csv` fallback if a live rebuild cannot complete
 
 What it contains:
 
-- `close`: Nasdaq benchmark close used for SMA signals. Before the NDX boundary,
-  this is Yahoo `^IXIC` scaled onto the NDX price level.
-- `open`: Nasdaq benchmark open used for open-execution logic. Before the NDX
-  boundary, this is Yahoo `^IXIC` scaled onto the NDX price level.
+- `close`: Nasdaq benchmark close used for SMA signals. Before the launch this is
+  the proxy's price index, walked back from the real `1985-01-31` close.
+- `open`: Nasdaq benchmark open used for open-execution logic. Before Yahoo's
+  `^NDX` starts it is the previous close (both sources are close-only).
 - `adj_close`: stitched total-return series used for simulation
 
 Boundaries:
 
-- `1971-02-05` through `1985-09-30`: raw open/close comes from Yahoo `^IXIC`,
-  scaled onto the NDX raw-price level at the `1985-10-01` boundary so raw/adjusted
-  scale continuity is preserved.
-- `1985-10-01` through QQQ inception: raw open/close comes from Yahoo `^NDX`;
-  `adj_close` is synthetic NDX total return using the dividend table and QQQ
-  expense-ratio drag.
+- `1926-07-01` through `1985-01-30`: the NDX proxy (rows tagged `FF-BUSEQ-TR`),
+  spliced by `src/lib/data/ndx-proxy-splice.ts`: its total-return growth less QQQ's
+  daily expense drives `adj_close`, its price growth drives `close`, walking back
+  from the untouched `1985-01-31` row so both seams are exact.
+- `1985-01-31` through QQQ inception: real NDX closes (`index-ndx-1985.csv`, then
+  Yahoo `^NDX` from `1985-10-01`); `adj_close` is synthetic NDX total return using
+  the dividend table and QQQ expense-ratio drag.
 - QQQ inception onward: raw open/close comes from Yahoo `^NDX`; `adj_close`
   comes from Tiingo `QQQ`.
 
@@ -161,9 +163,9 @@ Boundaries:
 
 Real Nasdaq-100 daily closes for `1985-01-31`..`1985-12-31` — the index's launch
 through year end. It exists to cover the 168 sessions between the launch and
-`1985-10-01`, the first date Yahoo's `^NDX` carries; without it those sessions
-are backfilled from the Nasdaq *Composite*, a different basket that diverges from
-the real index by 0.28%/day at the median and 12.96% over the window.
+`1985-10-01`, the first date Yahoo's `^NDX` carries; the Nasdaq *Composite*, the
+obvious stand-in, diverges from the real index by 0.28%/day at the median and
+12.96% over the window.
 
 This file is **not** touched by `npm run fetch-data`. Regenerate it with:
 
@@ -378,10 +380,57 @@ Inflation and borrow-rate files:
 date,value,name,source
 ```
 
+#### `index-ffbuseq.csv`
+
+The NDX proxy: Ken French's Business Equipment industry (computers, software,
+semiconductors, electronic equipment), `1926-07-01`..`1985-01-31`. It is what
+`index-nq.csv` uses before the NDX launch. Regenerate it, then re-apply it to the
+existing `index-nq.csv` without refetching anything:
+
+```bash
+python3 scripts/build-ndx-proxy.py        # needs pandas + numpy
+npm run fetch-data -- --ndx-proxy
+```
+
+Source: Ken French's Data Library, "12 Industry Portfolios" (daily), the
+value-weighted `BusEq` column, dividends included; dividends are split out with
+the monthly total and ex-dividend files of the same portfolios.
+
+Chosen over the Nasdaq Composite (the 1971-1985 backfill it replaced) and the
+Fama-French large-growth portfolios by matching real NDX where they overlap:
+
+| Series | Vol 1985-94 | Vol 1995-2026 | Variance ratio 20/60d, 1985-94 | Beta to NDX, 1995-2026 |
+| --- | --- | --- | --- | --- |
+| Real NDX | 19.7% | 27.3% | 1.28 / 1.37 | 1.00 |
+| Business Equipment | 19.0% | 26.4% | 1.24 / 1.23 | 0.94 |
+| Nasdaq Composite | 13.7% | 24.2% | 1.89 / 2.32 | 0.87 |
+| FF large growth | 16.5% | 19.0% | 1.07 / 1.09 | 0.63 |
+
+In 1971-1985 the Composite's stale OTC quotes show as 0.31 lag-1
+autocorrelation, 12.3% volatility and variance ratios of 2.4-3.0, which flatter
+both 3x decay and trend rules; Business Equipment shows 0.10, 19.0% and 1.28.
+
+What it contains:
+
+- `adj_close`: total return, rebased to `index-nq.csv`'s `adj_close` on
+  `1985-01-31`, the first row the splice leaves untouched.
+- `close`: price index. Each month's dividend return, from the monthly total and
+  ex-dividend files, is spread evenly over that month's sessions. The monthly
+  files are used because the daily file, compounded, does not reproduce them.
+- `open`: blank; the splice carries the previous close.
+
+Sharp edges:
+
+- Saturdays before `1952-06` are folded into the next session, as in
+  `index-ffhi30.csv`.
+- The portfolio is value-weighted, so IBM dominates it for decades; it is
+  computer and electronics stocks on every exchange, not Nasdaq listings.
+
 ## Practical Summary
 
 - `index-sp.csv` and `index-nq.csv` are benchmark files with real closes plus stitched total-return history.
 - `index-ffhi30.csv` is a Fama-French large-cap S&P 500 analogue built out of band by `scripts/build-ff-index.py`, not by `fetch-data` — but `fetch-data` reads it to build `index-sp.csv`'s 1926-1988 era, so regenerate it before a full S&P rebuild.
+- `index-ffbuseq.csv` is the NDX proxy (Fama-French Business Equipment, 1926-1985) built out of band by `scripts/build-ndx-proxy.py`; `fetch-data` reads it to build `index-nq.csv`'s pre-launch era (`npm run fetch-data -- --ndx-proxy` re-applies it alone).
 - `etf-*.csv` files are direct Tiingo price histories.
 - `risk-*.csv` files mix real ETF rows with synthetic proxies for pre-inception dates.
 - `inflation.csv` and `rate-borrow.csv` are value series, not price series.

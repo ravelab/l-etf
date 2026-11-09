@@ -106,7 +106,7 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
         assert.equal(history.endDate, launchResult.endDate);
         assert.equal(history.count, launchResult.numTrades);
         displayedResult = launchResult;
-        assert.equal(expected.realCagrStartDate, expected.eraCagrs.proto.endDate);
+        assert.equal(expected.realCagrStartDate, expected.eraCagrs.proxy.endDate);
         if (expected.smaPeriod === 125 && expected.smaLowerBuffer === 17.9 && expected.smaUpperBuffer === 19.4) {
           assert.equal(history.count, 6);
           assert.equal(result.numTrades, 6);

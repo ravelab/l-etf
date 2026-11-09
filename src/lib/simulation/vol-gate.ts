@@ -20,8 +20,9 @@ import type { IndexKey } from "./types";
  * rejected: on band 136d −17.9%/+9.6% (data to 2026-11-02, with or without the
  * RSI brake) it scores ~6% base / ~3.5% stable higher and +0.6pt real CAGR at
  * the same max drawdown, but trades 42 times instead of 24, the extra 18 short
- * gate flips mostly in 1998-2003. It is identical in the 1971-85 proto era,
- * where neither gate changes a trade, so the gain has no out-of-sample support.
+ * gate flips mostly in 1998-2003. It was identical in 1971-85 on the
+ * since-retired Composite backfill, where neither gate changed a trade, so the
+ * gain had no out-of-sample support there.
  * Changing either set changes every stored result that has the gate on.
  */
 export interface VolGateParams {

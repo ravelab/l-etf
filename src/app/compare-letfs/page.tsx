@@ -643,7 +643,7 @@ export function CompareLETFsPageContent({
           })
         : startDate;
       // Only warn about risk-off data gaps for SP500 — NDX strategies are naturally
-      // capped at NDX data availability (1971-02-05), which is a price-history limit
+      // capped at NDX data availability (the 1926-07-01 proxy start), a price-history limit
       // not a risk-off basket limit.
       if (effectiveStartSp > startDate) {
         toast.warning(

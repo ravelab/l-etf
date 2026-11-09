@@ -137,9 +137,9 @@ test("compare_futures_ladder is registered and advertised", async () => {
 
 test("a range predating Nasdaq data drops the NDX rungs instead of faking them", async () => {
   // The dual-sleeve fund walks the union of both sleeves' dates, so an NDX
-  // sleeve with no data before 1971 would sit frozen at half the equity while
+  // sleeve with no data before 1926 would sit frozen at half the equity while
   // the SPX sleeve compounded — reporting a "4.5x SPX 3x NDX" fund that was
-  // half dead capital for 86 years, numerically indistinguishable from the
+  // half dead capital for 41 years, numerically indistinguishable from the
   // plain SPX rung. The ladder must not offer that rung at all.
   const result = await runFuturesLadder({
     showEmulations: false,

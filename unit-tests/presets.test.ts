@@ -61,14 +61,14 @@ test("getActivePreset handles sub-presets", () => {
 
 test("getComboEffectiveDateRange returns common range", () => {
   const range = getComboEffectiveDateRange("UPRO+TQQQ");
-  // UPRO is sp500 (1885), TQQQ is nasdaq100 (1971)
+  // UPRO is sp500 (1885), TQQQ is nasdaq100 (1926, the NDX proxy)
   // Min should be earliest (1885)
   assert.equal(range.min.startsWith("188"), true);
 });
 
 test("getConfigDefaultStartDate finds correct date", () => {
   const date = getConfigDefaultStartDate({ name: "TQQQ", simulated: true, smaIndex: "nasdaq100" });
-  assert.equal(date, "1971-02-05");
+  assert.equal(date, "1926-07-01");
 });
 
 test("createDefaultEtfConfig creates valid config", () => {

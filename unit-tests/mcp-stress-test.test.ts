@@ -113,9 +113,9 @@ test("a Nasdaq preset skips the episodes predating its data, and says which", as
   });
   const data = res.structuredContent as unknown as StressPayload;
   assert.equal(data.index, "nasdaq100");
-  assert.equal(data.episodes.some((e) => e.name.includes("1929")), false);
   assert.equal(data.episodes.some((e) => e.name.includes("1907")), false);
-  // The Nasdaq series starts in 1971, so 1973-74 IS in range.
+  // The Nasdaq series starts in 1926 (the NDX proxy), so 1929 and 1973-74 ARE in range.
+  assert.ok(data.episodes.some((e) => e.name.includes("1929")));
   assert.ok(data.episodes.some((e) => e.name === "1973-74 Bear Market"));
   await client.close();
 });
