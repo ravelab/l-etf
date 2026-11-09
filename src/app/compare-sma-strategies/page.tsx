@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -54,7 +55,9 @@ import { parsePositiveIntegerOrFallback } from "@/lib/utils";
 export default function CompareSmaStrategiesPage() {
   return (
     <Suspense fallback={null}>
-      <CompareSmaStrategiesPageContent active />
+      <ClientOnly>
+        <CompareSmaStrategiesPageContent active />
+      </ClientOnly>
     </Suspense>
   );
 }

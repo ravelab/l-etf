@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -43,7 +44,9 @@ type RiskOffComparisonRow = {
 export default function CompareRiskOffAssetsPage() {
   return (
     <Suspense fallback={null}>
-      <CompareRiskOffAssetsPageContent active />
+      <ClientOnly>
+        <CompareRiskOffAssetsPageContent active />
+      </ClientOnly>
     </Suspense>
   );
 }

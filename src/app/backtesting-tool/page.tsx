@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -87,7 +88,9 @@ const buildPresetConfigs = (letf: string): EtfConfig[] => {
 export default function BacktestingPage() {
   return (
     <Suspense fallback={null}>
-      <BacktestingPageContent active />
+      <ClientOnly>
+        <BacktestingPageContent active />
+      </ClientOnly>
     </Suspense>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -62,7 +63,9 @@ import { recordSuccessfulToolRun } from "@/lib/tool-run-history";
 export default function CompareBufferStrategiesPage() {
   return (
     <Suspense fallback={null}>
-      <CompareBufferStrategiesPageContent active />
+      <ClientOnly>
+        <CompareBufferStrategiesPageContent active />
+      </ClientOnly>
     </Suspense>
   );
 }

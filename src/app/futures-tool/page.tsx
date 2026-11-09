@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { isAbortError } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -88,7 +89,9 @@ function latestClosePrice(prices: PricePoint[]): number {
 export default function FuturesPage() {
   return (
     <Suspense fallback={null}>
-      <FuturesPageContent active />
+      <ClientOnly>
+        <FuturesPageContent active />
+      </ClientOnly>
     </Suspense>
   );
 }

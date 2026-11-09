@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
@@ -376,7 +377,9 @@ function findBestLabelByValue<T extends { label: string }>(
 export default function CompareLETFsPage() {
   return (
     <Suspense fallback={null}>
-      <CompareLETFsPageContent active />
+      <ClientOnly>
+        <CompareLETFsPageContent active />
+      </ClientOnly>
     </Suspense>
   );
 }

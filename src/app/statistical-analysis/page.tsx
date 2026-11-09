@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
@@ -54,7 +55,9 @@ import { computeWinRatesByWindowLength, type WinRatesByWindow } from "@/lib/simu
 export default function StatisticalAnalysisPage() {
   return (
     <Suspense fallback={null}>
-      <StatisticalAnalysisPageContent active />
+      <ClientOnly>
+        <StatisticalAnalysisPageContent active />
+      </ClientOnly>
     </Suspense>
   );
 }
