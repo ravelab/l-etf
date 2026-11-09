@@ -9,10 +9,6 @@
     {
       "path": "/api/cron/refresh-data",
       "schedule": "10 21 * * 1-5"
-    },
-    {
-      "path": "/api/cron/refresh-data",
-      "schedule": "10 22 * * 1-5"
     }
   ]
 }
