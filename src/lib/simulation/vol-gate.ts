@@ -16,9 +16,12 @@ import type { IndexKey } from "./types";
  * score. SPX 11d 42%/23% is the centre of a 41-43% exit plateau; with it the
  * calibrated band widens its lower buffer and switches far less. NDX's
  * 11d 49%/31% sat one step from a cliff (12d lost 22-36%); 10d 50%/31% keeps
- * its trade count and steps away. The NDX stable argmax, 9d 46%/40%, gained
- * 1% of base score for 43 gate episodes (mostly short 2000-02 flips) and was
- * rejected.
+ * its trade count and steps away. The NDX stable argmax, 9d 46%/40%, was
+ * rejected: on band 136d −17.9%/+9.6% (data to 2026-11-02, with or without the
+ * RSI brake) it scores ~6% base / ~3.5% stable higher and +0.6pt real CAGR at
+ * the same max drawdown, but trades 42 times instead of 24, the extra 18 short
+ * gate flips mostly in 1998-2003. It is identical in the 1971-85 proto era,
+ * where neither gate changes a trade, so the gain has no out-of-sample support.
  * Changing either set changes every stored result that has the gate on.
  */
 export interface VolGateParams {

@@ -27,6 +27,15 @@ describe("VolGateCheckbox", () => {
     expect(params.textContent).toContain(`<${brake.exitBelow} >${brake.reenterAbove}`);
   });
 
+  it("keeps the box at the standard input height at every width", () => {
+    render(<VolGateCheckbox checked onChange={() => {}} />);
+    const box = screen.getByTestId("sma-vol-gate").closest("label")!;
+    const classes = box.className.split(/\s+/);
+    expect(classes).toContain("h-[34px]");
+    // No min-height or padding-y escape hatch that lets a narrow box grow.
+    expect(classes.some((c) => /(^|:)(min-h-|py-)/.test(c))).toBe(false);
+  });
+
   it("toggles both layers with one switch", () => {
     const onChange = vi.fn();
     render(<VolGateCheckbox checked={false} onChange={onChange} />);

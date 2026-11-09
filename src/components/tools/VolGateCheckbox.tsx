@@ -14,9 +14,10 @@ const GATE_LINES = gateLinesDiffer
   ? GATE_INDICES.map((index) => `${GATE_LINE_LABEL[index]} ${volGateParamsTextFor([index])}`)
   : [SMA_VOL_GATE_PARAMS_TEXT];
 
-// The brake is shared by both indices today, so it reads as one short stacked
-// pair beside the vol lines. Below 13rem the pair cannot fit beside them, so the
-// box grows a third line instead of truncating the vol gates away.
+// The brake sits inside the box, beside the checkbox that switches it, and the box
+// never grows past the standard 34px input height. From 13rem the brake is a short
+// stacked pair right of the vol lines; narrower (phone and 4-column tablet cells,
+// ~150px) that pair cannot fit beside them, so all three become compact lines.
 const sharedBrake = new Set(GATE_INDICES.map((index) => rsiBrakeParamsTextFor([index]))).size === 1;
 const BRAKE_LINES = sharedBrake
   ? [`RSI ${SMA_RSI_BRAKE.sp500.periodDays}d`, `<${SMA_RSI_BRAKE.sp500.exitBelow} >${SMA_RSI_BRAKE.sp500.reenterAbove}`]
@@ -58,7 +59,7 @@ export function VolGateCheckbox({
       </div>
       <label
         htmlFor={id}
-        className="flex min-h-[34px] cursor-pointer items-center gap-1.5 rounded-lg border border-card-border bg-input-bg px-2.5 py-1 text-sm text-foreground @min-[13rem]:h-[34px] @min-[13rem]:gap-2 @min-[13rem]:px-3 @min-[13rem]:py-0"
+        className="flex h-[34px] cursor-pointer items-center gap-1.5 rounded-lg border border-card-border bg-input-bg px-2.5 text-sm text-foreground @min-[13rem]:gap-2 @min-[13rem]:px-3"
       >
         <input
           id={id}
@@ -68,22 +69,18 @@ export function VolGateCheckbox({
           checked={checked}
           onChange={(e) => onChange(e.currentTarget.checked)}
         />
-        <span className="flex min-w-0 flex-1 flex-col @min-[13rem]:flex-row @min-[13rem]:items-center @min-[13rem]:justify-between @min-[13rem]:gap-2">
-          {GATE_LINES.length === 1 ? (
-            <span className="truncate">{SMA_VOL_GATE_PARAMS_TEXT}</span>
-          ) : (
-            // Per-index gates differ: one short line each fits the fixed-height box
-            // on a phone, where the joined text would truncate away NDX entirely.
-            <span className="flex min-w-0 flex-col text-[11px] leading-tight @min-[13rem]:text-xs">
-              {GATE_LINES.map((line) => (
-                <span key={line} className="truncate">{line}</span>
-              ))}
-            </span>
-          )}
+        <span className="flex min-w-0 flex-1 flex-col text-[10px] leading-none @min-[13rem]:flex-row @min-[13rem]:items-center @min-[13rem]:justify-between @min-[13rem]:gap-2 @min-[13rem]:text-xs @min-[13rem]:leading-tight">
+          {/* Per-index gates differ: one short line each, where the joined text would
+              truncate away NDX entirely. */}
+          <span className="flex min-w-0 flex-col">
+            {GATE_LINES.map((line) => (
+              <span key={line} className="truncate">{line}</span>
+            ))}
+          </span>
           <span
             data-testid="sma-rsi-brake-params"
             title={`RSI crash brake: ${SMA_RSI_BRAKE_PARAMS_TEXT}`}
-            className="flex min-w-0 flex-col text-[11px] leading-tight @min-[13rem]:shrink-0 @min-[13rem]:text-right @min-[13rem]:text-xs"
+            className="flex min-w-0 flex-col @min-[13rem]:shrink-0 @min-[13rem]:text-right"
           >
             <span className="truncate @min-[13rem]:hidden">{SMA_RSI_BRAKE_PARAMS_TEXT}</span>
             {BRAKE_LINES.map((line) => (
