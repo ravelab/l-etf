@@ -146,10 +146,12 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
       const rawClose = syntheticPriceScale > 0 ? close / syntheticPriceScale : close;
       return rawClose * closeNormalizationFactor;
     });
+    // Null too: a rule line without an SMA carries NaN, which JSON turns into null.
     const smaSeries = dates.map((_, i) => {
       const v = etf.smaPrices[i];
-      return isNaN(v) ? null : v * closeNormalizationFactor;
+      return v != null && Number.isFinite(v) ? v * closeNormalizationFactor : null;
     });
+    const hasSma = smaSeries.some((v) => v != null);
     const buySeries = dates.map((date) => {
       const v = buySignals.get(date);
       return v == null ? null : v * closeNormalizationFactor;
@@ -169,14 +171,16 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           borderWidth: isDarkTheme ? 0.6 : 1.1,
           pointRadius: 0,
         },
-        {
-          label: smaDatasetLabel,
-          data: smaSeries,
-          borderColor: isDarkTheme ? "#eab308" : "#a16207",
-          borderWidth: isDarkTheme ? 1.2 : 1.6,
-          pointRadius: 0,
-          borderDash: [4, 2],
-        },
+        ...(hasSma
+          ? [{
+              label: smaDatasetLabel,
+              data: smaSeries,
+              borderColor: isDarkTheme ? "#eab308" : "#a16207",
+              borderWidth: isDarkTheme ? 1.2 : 1.6,
+              pointRadius: 0,
+              borderDash: [4, 2],
+            }]
+          : []),
         {
           label: "Buy",
           data: buySeries,

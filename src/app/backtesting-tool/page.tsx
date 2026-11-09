@@ -66,6 +66,18 @@ import { normalizeDateString, normalizeNumberValue } from "@/lib/input-normaliza
 import { alignCloseSeriesToDates } from "@/lib/utils";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
 import { withLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
+import {
+  DEFAULT_EXTRA_STRATEGY_IDS,
+  appendExtraStrategiesUrlParam,
+  listSignalRules,
+  normalizeExtraStrategyIds,
+  parseExtraStrategiesUrlParam,
+  withSignalRuleLines,
+} from "@/lib/simulation/signal-rules";
+import { ExtraStrategiesSelect } from "@/components/tools/ExtraStrategiesSelect";
+import { warmUpStartDatesByIndex } from "@/lib/simulation/warm-up-by-index";
+
+const EXTRA_STRATEGY_RULES = listSignalRules();
 
 const EMPTY_UNDERLYING_INDEX_SERIES: Array<{
   index: IndexKey;
@@ -126,8 +138,9 @@ export function BacktestingPageContent({
     expandedSmaCharts: [] as string[],
     smaMode: 1,
     runSummaryInputs: null as RunSummary | null,
+    extraStrategies: [...DEFAULT_EXTRA_STRATEGY_IDS] as string[],
   }, {
-    persistKeys: ["etfConfigs", "smaMode", "runSummaryInputs"],
+    persistKeys: ["etfConfigs", "smaMode", "runSummaryInputs", "extraStrategies"],
   });
 
   const {
@@ -186,6 +199,9 @@ export function BacktestingPageContent({
   const [pendingRun, setPendingRun] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [smaMode, setSmaMode] = useState(initial.smaMode);
+  const [extraStrategies, setExtraStrategies] = useState<string[]>(() =>
+    normalizeExtraStrategyIds(initial.extraStrategies)
+  );
   const skipNextPresetEffectRef = useRef(false);
 
   const baseEtfConfigs = useMemo(() => buildPresetConfigs(letf), [letf]);
@@ -225,10 +241,10 @@ export function BacktestingPageContent({
         riskOffAsset: riskOffAssets[cfg.smaIndex],
       }));
 
-      if (smaMode === 0) return baseConfigs;
-      return baseConfigs;
+      // Plug-in rule lines ride along with the SMA lines, never in Check Emulations.
+      return smaMode === 0 ? baseConfigs : withSignalRuleLines(baseConfigs, extraStrategies);
     },
-    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, smaMode, checkSimulationDisplayStarts, etfLaunchDates]
+    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, smaMode, extraStrategies, checkSimulationDisplayStarts, etfLaunchDates]
   );
 
   type BacktestingSnapshotState = typeof initial;
@@ -267,6 +283,8 @@ export function BacktestingPageContent({
       if (decoded.smaVolGate != null) setSmaVolGate(decoded.smaVolGate);
       if (decoded.spxRiskOffAsset) setSpxRiskOffAsset(decoded.spxRiskOffAsset);
       if (decoded.ndxRiskOffAsset) setNdxRiskOffAsset(decoded.ndxRiskOffAsset);
+      const urlExtraStrategies = parseExtraStrategiesUrlParam(params);
+      Promise.resolve().then(() => setExtraStrategies(urlExtraStrategies));
       const smaParam = params.get("sma");
       // Use Promise.resolve().then() to defer state updates and avoid cascading render warnings
       Promise.resolve().then(() => {
@@ -381,13 +399,14 @@ export function BacktestingPageContent({
         if (requiredIndexes.length === 0) requiredIndexes.push(primaryIndex);
 
         const displayStartDate = startDate;
-        const maxSmaWarmUp = Math.max(0, ...resolvedEtfConfigs.map((cfg) => (cfg.smaEnabled ? cfg.smaPeriod : 0)));
-        const expandedStartDate = getMarketDataWarmUpStartDate(displayStartDate, maxSmaWarmUp);
+        const warmUp = warmUpStartDatesByIndex(resolvedEtfConfigs, displayStartDate, getMarketDataWarmUpStartDate);
+        const expandedStartDate = warmUp.earliest;
 
         const priceResults = await Promise.all(
           requiredIndexes.map(async (idx) => {
             const idxMin = INDEX_DATE_RANGES[idx]?.min ?? displayStartDate;
-            const fetchStartDate = expandedStartDate < idxMin ? idxMin : expandedStartDate;
+            const idxWarmUpStart = warmUp.byIndex[idx] ?? expandedStartDate;
+            const fetchStartDate = idxWarmUpStart < idxMin ? idxMin : idxWarmUpStart;
             const res = await fetchJsonCached<Array<PricePoint | { date: string; adj_close?: number; close?: number }>>(
               `/api/prices?index=${idx}&startDate=${fetchStartDate}&endDate=${endDate}`,
               signal
@@ -569,6 +588,7 @@ export function BacktestingPageContent({
       smaVolGate,
     });
     appendRiskOffUrlParams(urlParams, riskOffAssets);
+    appendExtraStrategiesUrlParam(urlParams, extraStrategies);
     if (smaMode === 0) urlParams.set("sma", "0");
 
     // Add etfConfigs as additional cards
@@ -579,7 +599,7 @@ export function BacktestingPageContent({
 
     markNextSearchAsInternal();
     router.push(buildToolsUrl("backtest", urlParams));
-  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, etfConfigs, router, markNextSearchAsInternal]);
+  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, extraStrategies, etfConfigs, router, markNextSearchAsInternal]);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -620,13 +640,14 @@ export function BacktestingPageContent({
 
       const displayStartDate = startDate;
 
-      const maxSmaWarmUp = Math.max(0, ...resolvedEtfConfigs.map((cfg) => (cfg.smaEnabled ? cfg.smaPeriod : 0)));
-      const expandedStartDate = getMarketDataWarmUpStartDate(displayStartDate, maxSmaWarmUp);
+      const warmUp = warmUpStartDatesByIndex(resolvedEtfConfigs, displayStartDate, getMarketDataWarmUpStartDate);
+      const expandedStartDate = warmUp.earliest;
 
       const priceResults = await Promise.all(
         requiredIndexes.map(async (idx) => {
           const idxMin = INDEX_DATE_RANGES[idx]?.min ?? displayStartDate;
-          const fetchStartDate = expandedStartDate < idxMin ? idxMin : expandedStartDate;
+          const idxWarmUpStart = warmUp.byIndex[idx] ?? expandedStartDate;
+          const fetchStartDate = idxWarmUpStart < idxMin ? idxMin : idxWarmUpStart;
           const res = await fetchJsonCached<Array<PricePoint | { date: string; adj_close?: number; close?: number }>>(
             `/api/prices?index=${idx}&startDate=${fetchStartDate}&endDate=${endDate}`,
             signal
@@ -958,6 +979,7 @@ export function BacktestingPageContent({
         expandedSmaCharts,
         smaMode,
         runSummaryInputs: nextRunSummary,
+        extraStrategies,
       });
 
       // Validate results and show warnings via toast
@@ -999,6 +1021,7 @@ export function BacktestingPageContent({
           smaVolGate,
         });
         appendRiskOffUrlParams(historyParams, riskOffAssets);
+        appendExtraStrategiesUrlParam(historyParams, extraStrategies);
         if (smaMode === 0) historyParams.set("sma", "0");
         etfConfigs.forEach((cfg, i) => {
           historyParams.set(`e${i}_n`, cfg.name);
@@ -1045,6 +1068,7 @@ export function BacktestingPageContent({
     endDate,
     etfConfigs,
     expandedSmaCharts,
+    extraStrategies,
     index,
     initialInvestment,
     letf,
@@ -1267,6 +1291,13 @@ export function BacktestingPageContent({
           progress={runProgress}
           error={error}
           showRollingFields={false}
+          endFields={
+            <ExtraStrategiesSelect
+              rules={EXTRA_STRATEGY_RULES}
+              selected={extraStrategies}
+              onChange={setExtraStrategies}
+            />
+          }
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

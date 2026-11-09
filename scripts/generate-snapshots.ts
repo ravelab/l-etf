@@ -85,6 +85,8 @@ import {
   type SmaBand,
 } from "../src/lib/simulation/futures-plan";
 import { buildFuturesRunPlans, runFuturesPlan } from "../src/lib/simulation/futures-run-plan";
+import { DEFAULT_EXTRA_STRATEGY_IDS, withSignalRuleLines } from "../src/lib/simulation/signal-rules";
+import { warmUpStartDatesByIndex } from "../src/lib/simulation/warm-up-by-index";
 import { validateSimulationReadyPrices } from "../src/lib/utils";
 import {
   precomputeAllConfigDailyValues,
@@ -372,7 +374,8 @@ const SNAPSHOT_BUILDERS: Record<PageKey, (shared: SharedInputs) => Promise<Recor
 
 async function buildBacktestingSnapshot(shared: SharedInputs) {
   const comboSubs = getComboSubPresets(shared.preset);
-  const resolvedEtfConfigs = comboSubs.map((preset, idx) =>
+  // Same lines the page runs by default, including any default extra strategies.
+  const resolvedEtfConfigs = withSignalRuleLines(comboSubs.map((preset, idx) =>
     createPresetEtfConfig(`etf${idx + 1}`, preset, {
       smaEnabled: true,
       smaPeriod: preset.index === "nasdaq100" ? shared.smaNqPeriod : shared.smaSpPeriod,
@@ -380,15 +383,17 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
       smaVolGate: shared.smaVolGate,
       riskOffAsset: riskOffAssetFor(shared, preset.index),
     })
-  );
+  ), DEFAULT_EXTRA_STRATEGY_IDS);
 
   const primaryIndex: IndexKey = resolvedEtfConfigs[0]?.smaIndex ?? "sp500";
   const requiredIndexes = [...new Set(resolvedEtfConfigs.map((cfg) => cfg.smaIndex))] as IndexKey[];
   const displayStartDate = shared.startDate;
-  const maxSmaPeriod = Math.max(0, ...resolvedEtfConfigs.map((cfg) => cfg.smaPeriod));
-  const expandedStartDate = getSmaWarmupStartDate(displayStartDate, maxSmaPeriod);
+  const warmUp = warmUpStartDatesByIndex(resolvedEtfConfigs, displayStartDate, getSmaWarmupStartDate);
+  const expandedStartDate = warmUp.earliest;
 
-  const priceRows = await Promise.all(requiredIndexes.map((idx) => loadPrices(idx, expandedStartDate, shared.endDate)));
+  const priceRows = await Promise.all(
+    requiredIndexes.map((idx) => loadPrices(idx, warmUp.byIndex[idx] ?? expandedStartDate, shared.endDate))
+  );
   const pricesByIndex = Object.fromEntries(priceRows.map((prices, idx) => [requiredIndexes[idx], prices])) as Record<IndexKey, PricePoint[]>;
   const rates = await loadRates(expandedStartDate, shared.endDate);
   const inflationData = await fetchInflationData(displayStartDate, shared.endDate);

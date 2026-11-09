@@ -9,6 +9,7 @@ import { buildRateLookup } from "./borrowing-rate";
 import { riskOffCloseMarkPrice, riskOffOpenTradePrice } from "./risk-off";
 import { generateSmaSignals } from "./sma";
 import { smaRiskOffGates } from "./risk-off-gates";
+import { getSignalRule, runSignalRule } from "./signal-rules";
 import {
   calcCagr,
   calcMaxDrawdown,
@@ -284,10 +285,13 @@ function expandEtfConfigs(etfConfigs: EtfConfig[]): EtfConfig[] {
       name: `${config.name} (No SMA)`,
       smaEnabled: false,
     };
+    const ruleLabel = config.signalRule
+      ? getSignalRule(config.signalRule).label
+      : `SMA${config.smaVolGate ? " Vol" : ""}`;
     const smaConfig: EtfConfig = {
       ...config,
       id: `${config.id}-sma`,
-      name: `${config.name} (SMA${config.smaVolGate ? " Vol" : ""}, ${formatRiskOffAsset(config.riskOffAsset)})`,
+      name: `${config.name} (${ruleLabel}, ${formatRiskOffAsset(config.riskOffAsset)})`,
     };
     return [baselineConfig, smaConfig];
   });
@@ -456,6 +460,7 @@ function buildDedupeKey(config: EtfConfig): string {
     smaUpperBuffer: config.smaUpperBuffer,
     smaLowerBuffer: config.smaLowerBuffer,
     smaVolGate: config.smaVolGate === true,
+    signalRule: config.signalRule ?? null,
     riskOffAsset: config.riskOffAsset,
     smaExecutionMode: config.smaExecutionMode,
   });
@@ -538,18 +543,20 @@ export function simulateSingleEtf(
     if (missingCloseIdx !== -1) {
       throw new Error(`Missing close price for ${config.smaIndex} on ${dates[missingCloseIdx]}`);
     }
-    const smaResult = generateSmaSignals(
-      dates,
-      closePrices,
-      config.smaPeriod,
-      { upper: config.smaUpperBuffer, lower: config.smaLowerBuffer },
-      {
-        ...(options?.smaInitialInvested !== undefined
-          ? { initialInvested: options.smaInitialInvested, seedAtIndex: options?.smaSeedAtIndex }
-          : {}),
-        ...(config.smaVolGate === true ? smaRiskOffGates(config.smaIndex) : {}),
-      }
-    );
+    const smaResult = config.signalRule
+      ? runSignalRule(getSignalRule(config.signalRule), dates, closePrices, config)
+      : generateSmaSignals(
+        dates,
+        closePrices,
+        config.smaPeriod,
+        { upper: config.smaUpperBuffer, lower: config.smaLowerBuffer },
+        {
+          ...(options?.smaInitialInvested !== undefined
+            ? { initialInvested: options.smaInitialInvested, seedAtIndex: options?.smaSeedAtIndex }
+            : {}),
+          ...(config.smaVolGate === true ? smaRiskOffGates(config.smaIndex) : {}),
+        }
+      );
     const signalInvested = smaResult.invested;
     smaSignals = smaResult.signals;
     smaPrices = smaResult.smaValues;

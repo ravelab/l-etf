@@ -306,6 +306,15 @@ next-day-open execution. A fixed-dollar cost or another execution mode breaks th
 composition. The reset settles in cash, unlike the futures fund's in-kind
 transfer; only the staying sleeve's basket trade is charged.
 
+External timing rules plug in through `signal-rules.ts`: add a `SignalRule` (a
+regime array from index closes; `three-gate.ts` is the example) to
+`BUILT_IN_SIGNAL_RULES` and it appears in the page's "Extra Strategies" picker
+(URL `xs`), which adds a twin of each matching SMA line run on that rule. None are
+ticked by default, and the canned snapshot uses `DEFAULT_EXTRA_STRATEGY_IDS`. A rule
+line must not lengthen the other lines' warm-up — the SMA band, vol gate and RSI
+brake carry state from the first loaded close, so it moves their results — which is
+why warm-up is per index (`warm-up-by-index.ts`).
+
 ## Swap spread: fitted range and the cap above it
 
 ETF calibration and real/simulated backtest comparisons must end on an observed

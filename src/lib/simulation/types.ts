@@ -39,6 +39,12 @@ export interface EtfConfig {
    * through `smaRiskOffGates`.
    */
   smaVolGate?: boolean;
+  /**
+   * Id of a plug-in timing rule (`signal-rules.ts`) that replaces the SMA band.
+   * The SMA fields and `smaVolGate` are then unused except `smaPeriod`, which
+   * sizes the data warm-up.
+   */
+  signalRule?: string;
   smaExecutionMode?: "trigger-day-close" | "next-day-close" | "next-day-open";
   riskOffAsset: "SGOV" | "VGSH" | "GLDM" | "BRK.B" | "VOO" | "QQQ" | "BRK.B+GLDM" | "VGSH+GLDM" | "BRK.B+VGSH" | "BRK.B+GLDM+VGSH";
 }

@@ -2,6 +2,7 @@ import { buildYearlyCpiInflation, sampleYearlyRealGrowth } from "@/lib/inflation
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "@/lib/constants";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
+import { isSignalRuleLabel } from "@/lib/simulation/signal-rules";
 import type { BacktestResult, EtfConfig } from "@/lib/simulation/types";
 import type { RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
 
@@ -41,6 +42,8 @@ export function shortBacktestAssetLabel(fullName: string): string {
   if (noSma) return noSma[1].trim();
   const sma = /^(.*) \(SMA( Vol)?,.*\)$/.exec(fullName);
   if (sma) return `${sma[1].trim()} SMA${sma[2] ?? ""}`;
+  const ruled = /^(.*) \(([^,()]+),.*\)$/.exec(fullName);
+  if (ruled && isSignalRuleLabel(ruled[2])) return `${ruled[1].trim()} ${ruled[2]}`;
   return fullName;
 }
 
