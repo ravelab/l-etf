@@ -287,7 +287,7 @@ export function simulateDualSleeveFuturesStrategy(
 
   const etfResult: EtfResult = buildEtfResult({
     id: "dual-sleeve-futures-sma",
-    name: params.primary.smaVolGate ? params.displayName.replace(/ SMA$/, " SMA Vol") : params.displayName,
+    name: params.primary.smaVolGate ? params.displayName.replace(/ SMA$/, " SMA Vol RSI") : params.displayName,
     sourceIndex: params.primary.index,
     dates,
     dailyValues,

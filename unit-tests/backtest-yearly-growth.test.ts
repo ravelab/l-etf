@@ -151,12 +151,12 @@ test("collectBacktestGrowthSeries: the UPRO/TQQQ fund is its own group after bot
       etfResults: [
         etfResult("etf1-sma", "UPRO (SMA, SGOV)", "sp500"),
         etfResult("etf2-sma", "TQQQ (SMA, SGOV)", "nasdaq100"),
-        etfResult(LETF_FUND_RESULT_ID, "TQQQ/UPRO (SMA Vol, S / S)", "sp500"),
+        etfResult(LETF_FUND_RESULT_ID, "TQQQ/UPRO (SMA Vol RSI, S / S)", "sp500"),
       ],
     },
     underlyingIndexSeries: INDEX_SERIES,
   });
-  assert.deepEqual(rows.map((r) => r.label), ["UPRO SMA", "VOO", "TQQQ SMA", "QQQ", "TQQQ/UPRO SMA Vol"]);
+  assert.deepEqual(rows.map((r) => r.label), ["UPRO SMA", "VOO", "TQQQ SMA", "QQQ", "TQQQ/UPRO SMA Vol RSI"]);
 });
 
 test("collectBacktestGrowthSeries: reports every family the result holds", () => {

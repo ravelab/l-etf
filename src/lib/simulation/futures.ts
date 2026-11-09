@@ -1007,7 +1007,7 @@ export type FuturesStrategyParams = {
 
 function futuresStrategyName(params: FuturesStrategyParams, leverageLabel: string): string {
   const name = params.displayName ?? `${leverageLabel}x ${params.index === "sp500" ? "SPX" : "NDX"} SMA`;
-  return params.smaVolGate ? name.replace(/ SMA$/, " SMA Vol") : name;
+  return params.smaVolGate ? name.replace(/ SMA$/, " SMA Vol RSI") : name;
 }
 
 export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleeve {

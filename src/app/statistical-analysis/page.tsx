@@ -517,7 +517,7 @@ function WinRateSummaryTable({
   const sectionOrder = new Map(sections.map((section, idx) => [section.label, idx]));
   const rows = sections.flatMap((section) =>
     (section.summaryRows ?? []).map((row) => {
-      const smaLabel = volGate ? "SMA Vol" : "SMA";
+      const smaLabel = volGate ? "SMA Vol RSI" : "SMA";
       let label = row.label === "SMA" ? smaLabel : row.label;
       if (multipleSections) {
         if (row.label === "No SMA") {

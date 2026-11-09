@@ -54,7 +54,7 @@ test("it charts the band's SMA and warms up for the band's period", () => {
   assert.equal(lineWarmUpDays({ smaEnabled: true, smaPeriod: 136, signalRule: NDX_SMA_VOL_ARGMAX_RULE.id }), 136);
 });
 
-test("ticked, it adds a TQQQ SMA Vol 9d line beside TQQQ SMA Vol", () => {
+test("ticked, it adds a TQQQ SMA Vol 9d line beside TQQQ SMA Vol RSI", () => {
   const tqqq = createPresetEtfConfig("etf1", ETF_PRESETS.TQQQ, {
     smaEnabled: true, smaPeriod: LINE.smaPeriod, smaUpperBuffer: LINE.smaUpperBuffer, smaLowerBuffer: LINE.smaLowerBuffer,
     smaVolGate: true, riskOffAsset: "VGSH",
@@ -70,7 +70,7 @@ test("ticked, it adds a TQQQ SMA Vol 9d line beside TQQQ SMA Vol", () => {
   );
   const shipped = findEtfResult(result, "etf1-sma");
   const argmax = findEtfResult(result, "etf2-sma");
-  assert.equal(shipped?.name, "TQQQ (SMA Vol, VGSH)");
+  assert.equal(shipped?.name, "TQQQ (SMA Vol RSI, VGSH)");
   assert.equal(argmax?.name, "TQQQ (SMA Vol 9d, VGSH)");
   assert.equal(shortBacktestAssetLabel(argmax!.name), "TQQQ SMA Vol 9d");
   assert.deepEqual(argmax?.smaPrices, shipped?.smaPrices, "same SMA line on the details chart");

@@ -35,12 +35,12 @@ export function normalizeStrategyLabel(label: string): string {
 
 /**
  * Compact labels for backtest value chart / results table (aligns with strategies tab: "UPRO", "TQQQ SMA").
- * Engine uses "NAME (No SMA)", "NAME (SMA, risk-off…)" and, gated, "NAME (SMA Vol, risk-off…)".
+ * Engine uses "NAME (No SMA)", "NAME (SMA, risk-off…)" and, gated, "NAME (SMA Vol RSI, risk-off…)".
  */
 export function shortBacktestAssetLabel(fullName: string): string {
   const noSma = /^(.*) \(No SMA\)$/.exec(fullName);
   if (noSma) return noSma[1].trim();
-  const sma = /^(.*) \(SMA( Vol)?,.*\)$/.exec(fullName);
+  const sma = /^(.*) \(SMA( Vol RSI)?,.*\)$/.exec(fullName);
   if (sma) return `${sma[1].trim()} SMA${sma[2] ?? ""}`;
   const ruled = /^(.*) \(([^,()]+),.*\)$/.exec(fullName);
   if (ruled && isSignalRuleLabel(ruled[2])) return `${ruled[1].trim()} ${ruled[2]}`;
@@ -50,7 +50,7 @@ export function shortBacktestAssetLabel(fullName: string): string {
 /**
  * Table/chart label for a strategy. With Trade After-Hours off, "SMA Next Open" is
  * the only SMA execution mode in play, so it reads as plain "SMA". A run with the
- * volatility gate reads "SMA Vol"; internal labels never carry it.
+ * volatility and RSI gates read "SMA Vol RSI"; internal labels never carry them.
  */
 export function formatStrategyLabelForDisplay(label: string, tradeAfterHours: boolean, volGate = false): string {
   const normalized = normalizeStrategyLabel(label);
@@ -58,7 +58,7 @@ export function formatStrategyLabelForDisplay(label: string, tradeAfterHours: bo
     .replace(" SMA Next Open", " SMA")
     .replace(" SMA Close", " SMA")
     .replace(" SMA Next Close", " SMA");
-  return volGate ? shown.replace(/ SMA\b/, " SMA Vol") : shown;
+  return volGate ? shown.replace(/ SMA\b/, " SMA Vol RSI") : shown;
 }
 
 export function shouldIncludeStrategyChartLabel(label: string): boolean {

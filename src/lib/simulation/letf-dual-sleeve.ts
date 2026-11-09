@@ -154,12 +154,12 @@ export function withLetfComboFund(
     return etf && etf.name.startsWith(`${preset.name} (SMA`) ? etf : undefined;
   });
   if (!primary || !secondary) return result;
-  const vol = primary.name.includes("(SMA Vol") ? " Vol" : "";
+  const volRsi = primary.name.includes("(SMA Vol RSI") ? " Vol RSI" : "";
   const riskOff = [run.spxRiskOffAsset, run.ndxRiskOffAsset].map(formatRiskOffLiquidationAbbrev).join(" / ");
   const fund = composeLetfDualSleeveFund({
     id: LETF_FUND_RESULT_ID,
-    // The results table and chart shorten this to "TQQQ/UPRO SMA Vol".
-    name: `TQQQ/UPRO (SMA${vol}, ${riskOff})`,
+    // The results table and chart shorten this to "TQQQ/UPRO SMA Vol RSI".
+    name: `TQQQ/UPRO (SMA${volRsi}, ${riskOff})`,
     primary: { result: primary, riskOffAsset: run.spxRiskOffAsset },
     secondary: { result: secondary, riskOffAsset: run.ndxRiskOffAsset },
   });

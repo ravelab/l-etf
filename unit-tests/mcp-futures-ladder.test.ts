@@ -106,7 +106,7 @@ test("the two-sleeve fund defaults to the site's per-index risk-off assets and g
   assert.deepEqual(data.dualRiskOffAssets, DEFAULT_RISK_OFF_ASSETS);
   const fund = data.rungs.find((r) => r.dualSleeve);
   assert.ok(fund, "the range covers Nasdaq data, so the fund must run");
-  assert.match(fund.name, / SMA Vol$/);
+  assert.match(fund.name, / SMA Vol RSI$/);
   await client.close();
 });
 
@@ -122,7 +122,7 @@ test("the sleeve overrides and the gate can each be set", async () => {
     rungs: Array<{ name: string; dualSleeve: boolean }>;
   };
   assert.deepEqual(data.dualRiskOffAssets, { sp500: "SGOV", nasdaq100: "GLDM" });
-  assert.ok(data.rungs.every((r) => !/ SMA Vol$/.test(r.name)));
+  assert.ok(data.rungs.every((r) => !/ SMA Vol RSI$/.test(r.name)));
   await client.close();
 });
 

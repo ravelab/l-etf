@@ -1,6 +1,6 @@
 /**
  * The "Worst time to invest" windows in `ToolRunHistoryMenu.tsx`, measured on the **strategy**
- * equity curve (UPRO SMA Vol / TQQQ SMA Vol) rather than the index. The index's worst stretches are not
+ * equity curve (UPRO SMA Vol RSI / TQQQ SMA Vol RSI) rather than the index. The index's worst stretches are not
  * the strategy's: the SMA exits sidestep some of them and whipsaw through others, and the menu
  * backtests the strategy.
  *
@@ -123,7 +123,7 @@ async function simulateStrategy(presetKey: PresetKey, calibration: SmaCalibratio
 
   const config: EtfConfig = {
     id: presetKey.toLowerCase(),
-    name: `${presetKey} SMA Vol ${smaPeriod}`,
+    name: `${presetKey} SMA Vol RSI ${smaPeriod}`,
     leverage: preset.leverage,
     expenseRatio: preset.expenseRatio,
     simulated: true,
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
     const { smaPeriod, smaUpperBuffer, smaLowerBuffer, curve } = await simulateStrategy(presetKey, calibration);
     curves.set(presetKey, curve);
     console.log(
-      `\n${presetKey} SMA Vol ${smaPeriod} (-${smaLowerBuffer}%/+${smaUpperBuffer}%) — ` +
+      `\n${presetKey} SMA Vol RSI ${smaPeriod} (-${smaLowerBuffer}%/+${smaUpperBuffer}%) — ` +
         `${curve.dates[0]} .. ${curve.dates[curve.dates.length - 1]} (${curve.dates.length} sessions)`,
     );
     console.log("Deepest peak-to-bottom declines:");

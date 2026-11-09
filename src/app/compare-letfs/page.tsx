@@ -334,7 +334,7 @@ function hasInvalidLiveStrategyResults(results: StrategyResult[]): boolean {
 }
 
 function getStrategyColor(label: string): string {
-  const normalized = normalizeStrategyLabel(label.replace(" SMA Vol", " SMA"));
+  const normalized = normalizeStrategyLabel(label.replace(/ SMA Vol(?: RSI)?/, " SMA"));
   if (normalized === "UPRO") return "#16f3ce";
   if (normalized === "UPRO SMA Close") return "#3b82f6";
   if (normalized === "UPRO SMA") return "#1d4ed8";
@@ -1334,7 +1334,7 @@ export function CompareLETFsPageContent({
             bests={sp500DistributionPercentileBests}
             tradeAfterHours={tradeAfterHours}
             volGateShown={volGateShown}
-            smaLabel={volGateShown ? "UPRO SMA Vol" : "UPRO SMA"}
+            smaLabel={volGateShown ? "UPRO SMA Vol RSI" : "UPRO SMA"}
             nonSmaLabel="UPRO"
             unleveragedLabel="VOO"
           />
@@ -1351,7 +1351,7 @@ export function CompareLETFsPageContent({
             bests={nasdaqDistributionPercentileBests}
             tradeAfterHours={tradeAfterHours}
             volGateShown={volGateShown}
-            smaLabel={volGateShown ? "TQQQ SMA Vol" : "TQQQ SMA"}
+            smaLabel={volGateShown ? "TQQQ SMA Vol RSI" : "TQQQ SMA"}
             nonSmaLabel="TQQQ"
             unleveragedLabel="QQQ"
           />

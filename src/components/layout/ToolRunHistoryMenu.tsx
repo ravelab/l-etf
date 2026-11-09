@@ -84,7 +84,7 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 /**
  * Famous "worst time to invest" anchors, measured on the **strategy** rather than on the
  * index: the SMA exits, the volatility gate and the RSI crash brake sidestep some index bears
- * and whipsaw through others, so UPRO SMA Vol and TQQQ SMA Vol set their records on their own
+ * and whipsaw through others, so UPRO SMA Vol RSI and TQQQ SMA Vol RSI set their records on their own
  * dates.
  *
  * Each window runs peak to bottom — it opens at a record high and closes at the lowest close
@@ -93,7 +93,7 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * that peak-to-bottom decline, so it is what the window itself returns.
  *
  * The window is the decline, not the era around it, so an anchor can run well past the event it
- * is named for: TQQQ SMA Vol rode through the 1987 crash and kept sliding until November 1988,
+ * is named for: TQQQ SMA Vol RSI rode through the 1987 crash and kept sliding until November 1988,
  * so its 1987 window ends there at -77.5%, its deepest decline on record. (Before the RSI brake
  * stepped it aside in August 1990, the slide ran on into the 1990 bear at -82.2%.)
  *
@@ -364,7 +364,7 @@ export function ToolRunHistoryMenu() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-foreground">
-                            {item.letf} SMA Vol · {item.drawdown} peak to bottom
+                            {item.letf} SMA Vol RSI · {item.drawdown} peak to bottom
                           </span>
                           <span className="block text-xs text-muted">
                             {formatWindowSpan(item.days)} · {item.startDate} to {item.endDate}

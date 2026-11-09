@@ -287,7 +287,7 @@ function expandEtfConfigs(etfConfigs: EtfConfig[]): EtfConfig[] {
     };
     const ruleLabel = config.signalRule
       ? getSignalRule(config.signalRule).label
-      : `SMA${config.smaVolGate ? " Vol" : ""}`;
+      : `SMA${config.smaVolGate ? " Vol RSI" : ""}`;
     const smaConfig: EtfConfig = {
       ...config,
       id: `${config.id}-sma`,
