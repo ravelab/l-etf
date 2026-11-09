@@ -14053,3 +14053,7 @@ date,adj_close,open,close,name,source
 2026-10-29,715.34,29421.2,29402.51,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-10-30,690.49,28604.9,28384.85,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-11-02,681.09,28561.2,27989.82,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-11-03,685.28,28085.5,28180.26,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-11-04,691.95,28346.8,28437.17,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-11-05,647.05,28078.2,26629.81,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-11-06,656.1,27045.3,26989.99,QQQ,yahoo(open+close)+tiingo(adj_close)

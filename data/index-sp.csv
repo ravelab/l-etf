@@ -35470,3 +35470,7 @@ date,adj_close,open,close,name,source
 2026-10-29,707.32,7699.61,7720.39,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-10-30,694.81,7631.07,7580.07,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-11-02,691.32,7610.83,7541.4,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-11-03,693.54,7552.92,7568.92,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-11-04,704.78,7635.81,7688.62,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-11-05,673.97,7678.72,7353.73,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-11-06,675.99,7377.65,7376.86,VOO,yahoo(open+close)+tiingo(adj_close)
