@@ -1,4 +1,5 @@
 import type { EtfConfig, IndexKey, SmaSignal } from "./types";
+import { SMA_ONLY_RULE, SMA_RSI_ONLY_RULE, SMA_VOL_ONLY_RULE } from "./sma-gate-variants";
 import { NDX_THREE_GATE_RULE } from "./three-gate";
 import { NDX_SMA_VOL_ARGMAX_RULE } from "./sma-vol-argmax";
 
@@ -46,7 +47,13 @@ export interface SignalRule {
 }
 
 /** Registered rules, in picker order. Plug new ones in here. */
-const BUILT_IN_SIGNAL_RULES: readonly SignalRule[] = [NDX_THREE_GATE_RULE, NDX_SMA_VOL_ARGMAX_RULE];
+const BUILT_IN_SIGNAL_RULES: readonly SignalRule[] = [
+  SMA_ONLY_RULE,
+  SMA_VOL_ONLY_RULE,
+  SMA_RSI_ONLY_RULE,
+  NDX_THREE_GATE_RULE,
+  NDX_SMA_VOL_ARGMAX_RULE,
+];
 
 /** Extra strategies ticked by default on the backtest page (and in its canned snapshot). */
 export const DEFAULT_EXTRA_STRATEGY_IDS: readonly string[] = [];

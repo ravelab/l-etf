@@ -14,6 +14,10 @@ import {
   type SignalRule,
 } from "@/lib/simulation/signal-rules";
 import { NDX_THREE_GATE_RULE } from "@/lib/simulation/three-gate";
+import { SMA_ONLY_RULE, SMA_RSI_ONLY_RULE, SMA_VOL_ONLY_RULE } from "@/lib/simulation/sma-gate-variants";
+import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
+import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
+import { generateSmaSignals } from "@/lib/simulation/sma";
 import { simulateBacktest } from "@/lib/simulation/engine";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
@@ -66,8 +70,39 @@ function tqqq(id: string) {
 test("NDX 3-Gate is offered, and no extra strategy is ticked by default", () => {
   assert.deepEqual(DEFAULT_EXTRA_STRATEGY_IDS, []);
   assert.ok(listSignalRules().includes(NDX_THREE_GATE_RULE));
+  assert.ok(listSignalRules().includes(SMA_ONLY_RULE));
+  assert.ok(listSignalRules().includes(SMA_VOL_ONLY_RULE));
+  assert.ok(listSignalRules().includes(SMA_RSI_ONLY_RULE));
   assert.equal(getSignalRule("ndx-3-gate"), NDX_THREE_GATE_RULE);
   assert.match(NDX_THREE_GATE_RULE.sourceUrl ?? "", /^https:\/\/willperryyy\.github\.io\/tqqq-gate\//);
+});
+
+test("SMA gate variants keep the same SMA line and select only their named layer", () => {
+  const prices = closes();
+  const dates = isoDates(prices.length);
+  const line = { smaIndex: "nasdaq100", smaPeriod: 20, smaUpperBuffer: 1, smaLowerBuffer: 1 } as const;
+  const plain = runSignalRule(SMA_ONLY_RULE, dates, prices, line);
+  const vol = runSignalRule(SMA_VOL_ONLY_RULE, dates, prices, line);
+  const rsi = runSignalRule(SMA_RSI_ONLY_RULE, dates, prices, line);
+
+  assert.deepEqual(plain.smaValues, vol.smaValues);
+  assert.deepEqual(plain.smaValues, rsi.smaValues);
+  assert.deepEqual(
+    plain.invested,
+    generateSmaSignals(dates, prices, line.smaPeriod, { upper: 1, lower: 1 }).invested,
+  );
+  assert.deepEqual(
+    vol.invested,
+    generateSmaSignals(dates, prices, line.smaPeriod, { upper: 1, lower: 1 }, {
+      volGate: SMA_VOL_GATE.nasdaq100,
+    }).invested,
+  );
+  assert.deepEqual(
+    rsi.invested,
+    generateSmaSignals(dates, prices, line.smaPeriod, { upper: 1, lower: 1 }, {
+      rsiBrake: SMA_RSI_BRAKE.nasdaq100,
+    }).invested,
+  );
 });
 
 test("normalizeExtraStrategyIds keeps registered ids once, in picker order", () => {
