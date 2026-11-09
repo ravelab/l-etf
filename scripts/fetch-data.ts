@@ -10,6 +10,7 @@ import { CONSTANT_NASDAQ100_SHORTCUT_DATE, CONSTANT_SP500_PROXY_START_DATE } fro
 import { computeAdjustedRebaseRatio } from "../src/lib/data/adjusted-rebase";
 import { spliceFfLargeCapHistory } from "../src/lib/data/ff-large-cap-splice";
 import { prependNdxProxyHistory } from "../src/lib/data/ndx-proxy-splice";
+import { buildBrkProxyLevels, logLevelInterpolator } from "../src/lib/data/brk-proxy";
 import {
   mergeAdjustedPricesWithRawIndexBars,
   mergeIncrementalIndexRows,
@@ -1873,109 +1874,91 @@ async function fetchIndexNqHistory(): Promise<DailyPrice[]> {
   return spliceNdxProxy(result, await readNdxProxyRows());
 }
 
+/**
+ * BRK.B risk-off before real BRK-A (1980-03-17): 70% equity + 30% VGSH, rebalanced
+ * daily (src/lib/data/brk-proxy.ts). The equity leg is Fama-French large value from
+ * 1926 (data/index-fflargevalue.csv, scripts/build-brk-proxy.py) and the S&P series
+ * before that.
+ */
+const BRK_PROXY_LV_FILE = "index-fflargevalue.csv";
+const BRK_PROXY_NAMES = { sp500: "SP500+VGSH(70/30)", largeValue: "FFLV+VGSH(70/30)" } as const;
+
+async function readLargeValueLevels(): Promise<Map<string, number>> {
+  const existing = await readExistingCsv(BRK_PROXY_LV_FILE);
+  if (!existing) {
+    throw new Error(`risk-brka: ${BRK_PROXY_LV_FILE} is missing - regenerate it with "python3 scripts/build-brk-proxy.py"`);
+  }
+  const columns = existing.header.split(",");
+  const [dateIdx, adjIdx] = ["date", "adj_close"].map((c) => columns.indexOf(c));
+  if (dateIdx < 0 || adjIdx < 0) throw new Error(`risk-brka: ${BRK_PROXY_LV_FILE} lacks date/adj_close columns`);
+  return new Map(existing.rows.map((cols) => [cols[dateIdx], Number(cols[adjIdx])]));
+}
+
+function buildBrkaRows(
+  brkaRows: Array<{ date: string; adjClose: number; adjOpen?: number }>,
+  spRows: DailyPrice[],
+  vgshRows: Array<{ date: string; adj_close?: number }>,
+  largeValue: Map<string, number>
+): DailyPrice[] {
+  const brkaFirstDate = brkaRows[0].date;
+  const sp500 = new Map(
+    spRows.filter((r) => r.adj_close != null && isFinite(r.adj_close)).map((r) => [r.date, r.adj_close as number])
+  );
+  // S&P sessions up to and including BRK-A's first, so stitchBoundary can anchor on it.
+  const dates = [...sp500.keys()].filter((d) => d <= brkaFirstDate).sort();
+  if (dates.length < 2 || dates[dates.length - 1] !== brkaFirstDate) {
+    throw new Error(`risk-brka: S&P 500 sessions do not reach BRK-A's first date ${brkaFirstDate}`);
+  }
+  const blended = buildBrkProxyLevels({
+    dates,
+    sp500,
+    largeValue,
+    treasuryLogLevel: logLevelInterpolator(
+      vgshRows.filter((r) => r.adj_close != null).map((r) => ({ date: r.date, adj_close: r.adj_close as number }))
+    ),
+  });
+  const legByDate = new Map(blended.map((r) => [r.date, r.equity]));
+  return stitchBoundary(brkaRows, blended, "BRK-A", "tiingo", BRK_PROXY_NAMES.sp500, "synthetic").map((row) =>
+    row.name === "BRK-A" ? row : { ...row, name: BRK_PROXY_NAMES[legByDate.get(row.date) ?? "sp500"] }
+  );
+}
+
 async function fetchBrkaHistory(): Promise<DailyPrice[]> {
   const brkaRows = await fetchTiingoRows("BRK-A");
-
   if (brkaRows.length === 0) {
     throw new Error("No BRK-A data available from Tiingo");
   }
+  return buildBrkaRows(brkaRows, await fetchIndexSpHistory(), await fetchVgshHistory(), await readLargeValueLevels());
+}
 
-  // Pre-BRK-A proxy: 50% VGSH (1-3Y Treasury) + 50% S&P 500 total return.
-  const sp500Rows = await fetchIndexSpHistory();
-  const vgshRows = await fetchVgshHistory();
-  const brkaFirstDate = brkaRows[0].date;
-
-  // Build a daily log-interpolated VGSH close map so it aligns with S&P trading days
-  // (VGSH pre-inception series is monthly before ~2009-10).
-  const vgshSorted = vgshRows
-    .filter((r) => r.adj_close != null && isFinite(r.adj_close))
-    .slice()
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const vgshLogPriceByDate = new Map<string, number>();
-  for (const r of vgshSorted) vgshLogPriceByDate.set(r.date, Math.log(r.adj_close as number));
-
-  const interpolateVgshLogPrice = (targetDate: string): number | null => {
-    if (vgshSorted.length === 0) return null;
-    const exact = vgshLogPriceByDate.get(targetDate);
-    if (exact != null) return exact;
-    // Binary search for bracketing entries
-    let lo = 0;
-    let hi = vgshSorted.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (vgshSorted[mid].date < targetDate) lo = mid + 1;
-      else hi = mid;
-    }
-    const rightIdx = lo;
-    const leftIdx = rightIdx - 1;
-    if (leftIdx < 0) return vgshLogPriceByDate.get(vgshSorted[rightIdx].date) ?? null;
-    if (rightIdx >= vgshSorted.length) return vgshLogPriceByDate.get(vgshSorted[leftIdx].date) ?? null;
-    const left = vgshSorted[leftIdx];
-    const right = vgshSorted[rightIdx];
-    const leftLog = vgshLogPriceByDate.get(left.date);
-    const rightLog = vgshLogPriceByDate.get(right.date);
-    if (leftLog == null || rightLog == null) return null;
-    const leftTime = new Date(left.date + "T00:00:00Z").getTime();
-    const rightTime = new Date(right.date + "T00:00:00Z").getTime();
-    const targetTime = new Date(targetDate + "T00:00:00Z").getTime();
-    const span = rightTime - leftTime;
-    if (span <= 0) return leftLog;
-    const frac = (targetTime - leftTime) / span;
-    return leftLog + (rightLog - leftLog) * frac;
+/**
+ * Re-apply the BRK proxy to the existing risk-brka.csv without refetching anything:
+ * `npm run fetch-data -- --brk-proxy`, after rebuilding data/index-fflargevalue.csv.
+ * Real BRK-A rows are rewritten unchanged; the proxy is rebuilt from index-sp.csv
+ * and risk-vgsh.csv as they stand.
+ */
+async function respliceBrkProxy(): Promise<void> {
+  const read = async (filename: string) => {
+    const existing = await readExistingCsv(filename);
+    if (!existing) throw new Error(`${filename} is missing; run a full fetch first`);
+    const columns = existing.header.split(",");
+    return existing.rows.map((cols) => Object.fromEntries(columns.map((c, i) => [c, cols[i] ?? ""])));
   };
-
-  // Build daily 50/50 blended synthetic series over S&P trading days up to (but not
-  // including) BRK-A inception. Each step compounds 0.5*spRet + 0.5*vgshRet.
-  const spPreBrk = sp500Rows
-    .filter((r) => r.date < brkaFirstDate && r.adj_close != null && isFinite(r.adj_close))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  if (spPreBrk.length < 2) {
-    throw new Error("Not enough pre-BRK S&P 500 data to build blended proxy");
-  }
-
-  const blendedRows: Array<{ date: string; close: number }> = [];
-  let blendedPrice = 100;
-  blendedRows.push({ date: spPreBrk[0].date, close: blendedPrice });
-  let prevVgshLog = interpolateVgshLogPrice(spPreBrk[0].date);
-  for (let i = 1; i < spPreBrk.length; i++) {
-    const prev = spPreBrk[i - 1];
-    const curr = spPreBrk[i];
-    const spRet = (curr.adj_close as number) / (prev.adj_close as number) - 1;
-    const currVgshLog = interpolateVgshLogPrice(curr.date);
-    const vgshRet =
-      prevVgshLog != null && currVgshLog != null
-        ? Math.exp(currVgshLog - prevVgshLog) - 1
-        : 0;
-    const blendedRet = 0.5 * spRet + 0.5 * vgshRet;
-    blendedPrice = blendedPrice * (1 + blendedRet);
-    blendedRows.push({ date: curr.date, close: blendedPrice });
-    prevVgshLog = currVgshLog;
-  }
-
-  // Also include the BRK-A inception date in the blended series so stitchBoundary
-  // can scale the synthetic anchor to match the real BRK-A first price.
-  const spOnBrkFirst = sp500Rows.find((r) => r.date === brkaFirstDate);
-  const vgshOnBrkFirst = interpolateVgshLogPrice(brkaFirstDate);
-  if (spOnBrkFirst && spOnBrkFirst.adj_close != null) {
-    const lastSp = spPreBrk[spPreBrk.length - 1];
-    const spRet = (spOnBrkFirst.adj_close as number) / (lastSp.adj_close as number) - 1;
-    const vgshRet =
-      prevVgshLog != null && vgshOnBrkFirst != null
-        ? Math.exp(vgshOnBrkFirst - prevVgshLog) - 1
-        : 0;
-    blendedPrice = blendedPrice * (1 + 0.5 * spRet + 0.5 * vgshRet);
-    blendedRows.push({ date: brkaFirstDate, close: blendedPrice });
-  }
-
-  return stitchBoundary(
-    brkaRows,
-    blendedRows,
-    "BRK-A",
-    "tiingo",
-    "SP500+VGSH(50/50)",
-    "synthetic"
-  );
+  const brkaRows = (await read("risk-brka.csv"))
+    .filter((r) => r.name === "BRK-A")
+    .map((r) => ({ date: r.date, adjClose: Number(r.adj_close), ...(r.adj_open ? { adjOpen: Number(r.adj_open) } : {}) }));
+  const spRows = (await read("index-sp.csv")).map((r) => ({
+    date: r.date, adj_close: r.adj_close ? Number(r.adj_close) : undefined, name: r.name, source: r.source,
+  }));
+  const vgshRows = (await read("risk-vgsh.csv")).map((r) => ({ date: r.date, adj_close: Number(r.adj_close) }));
+  const rows = buildBrkaRows(brkaRows, spRows, vgshRows, await readLargeValueLevels());
+  await buildAndWritePriceCsv({
+    filename: "risk-brka.csv",
+    label: "BRK-A",
+    fetchFullRows: async () => rows,
+    gapThreshold: 35,
+    includeAdjOpen: true,
+  });
 }
 
 async function fetchGldmHistory(): Promise<DailyPrice[]> {
@@ -2795,6 +2778,8 @@ async function main() {
     await fetchIndex(args[0], { forceRebuild });
   } else if (allArgs[0] === "--ndx-proxy") {
     await respliceNdxProxy();
+  } else if (allArgs[0] === "--brk-proxy") {
+    await respliceBrkProxy();
   } else if (allArgs[0] === "--inflation") {
     await fetchInflation(forceRebuild);
   } else if (allArgs[0] === "--rates" || allArgs[0] === "-r") {

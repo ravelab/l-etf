@@ -70,9 +70,10 @@ Tiingo's later adjusted-close revisions still land on them.
 
 These are the most layered outputs.
 
-`index-ffhi30.csv` and `index-ffbuseq.csv` also live in `data/` but are **not**
-produced by `fetch-data`; see "Out-of-band index files" below. They *are* inputs
-to `index-sp.csv` and `index-nq.csv`, so regenerate them before a full rebuild.
+`index-ffhi30.csv`, `index-ffbuseq.csv` and `index-fflargevalue.csv` also live in
+`data/` but are **not** produced by `fetch-data`; see "Out-of-band index files"
+below. They *are* inputs to `index-sp.csv`, `index-nq.csv` and `risk-brka.csv`, so
+regenerate them before a full rebuild.
 
 #### `index-sp.csv`
 
@@ -298,8 +299,14 @@ These combine real ETF history with synthetic pre-inception proxies.
 
 #### `risk-brka.csv`
 
-- Modern BRK-A rows from Tiingo
-- Pre-inception proxy made from 50% S&P 500 total return and 50% VGSH
+- Modern BRK-A rows from Tiingo, from `1980-03-17`
+- `1926-07-01` to BRK-A: 70% Fama-French large value (`index-fflargevalue.csv`) +
+  30% VGSH, rebalanced daily (rows tagged `FFLV+VGSH(70/30)`)
+- Before `1926-07-01`: 70% S&P 500 total return + 30% VGSH, rebalanced daily
+  (`SP500+VGSH(70/30)`), since no large-value data exists; the same 70% keeps
+  the market exposure at Berkshire's ~0.7 across the seam
+- Blend logic lives in `src/lib/data/brk-proxy.ts`; re-apply it offline after
+  rebuilding the large-value file with `npm run fetch-data -- --brk-proxy`
 
 ### Rates and inflation
 
@@ -426,10 +433,38 @@ Sharp edges:
 - The portfolio is value-weighted, so IBM dominates it for decades; it is
   computer and electronics stocks on every exchange, not Nasdaq listings.
 
+#### `index-fflargevalue.csv`
+
+The equity leg of the BRK.B proxy: Ken French's large value portfolio ("6
+Portfolios Formed on Size and Book-to-Market", daily, value-weighted `BIG HiBM`),
+total return, `1926-07-01`..`1980-03-17`, Saturdays folded as in
+`index-ffhi30.csv`. Only its returns are used, so the level starts at 1.
+
+```bash
+python3 scripts/build-brk-proxy.py        # needs pandas + numpy
+npm run fetch-data -- --brk-proxy
+```
+
+Chosen by matching real BRK-A over 1980-2026 (monthly beta to the S&P, daily
+volatility, 20/60-day variance ratios, max drawdown):
+
+| Series | Beta | Vol | Variance ratios | Max DD |
+| --- | --- | --- | --- | --- |
+| BRK-A | 0.71 | 22.4% | 0.90 / 0.89 | -51.5% |
+| 70% large value + 30% VGSH | 0.70 | 14.4% | 0.86 / 0.83 | -51.3% |
+| 70% S&P + 30% VGSH (used before 1926) | 0.69 | 12.4% | 0.78 / 0.72 | -40.2% |
+| 50% S&P + 50% VGSH (the old proxy) | 0.49 | 8.8% | 0.79 / 0.73 | -28.2% |
+| 100% large value | 1.01 | 20.7% | 0.87 / 0.85 | -68.2% |
+
+No diversified portfolio reproduces a single stock's own volatility; the blend
+matches Berkshire's market exposure and drawdown instead of its company-specific
+noise, and carries none of Berkshire's own outperformance.
+
 ## Practical Summary
 
 - `index-sp.csv` and `index-nq.csv` are benchmark files with real closes plus stitched total-return history.
 - `index-ffhi30.csv` is a Fama-French large-cap S&P 500 analogue built out of band by `scripts/build-ff-index.py`, not by `fetch-data` — but `fetch-data` reads it to build `index-sp.csv`'s 1926-1988 era, so regenerate it before a full S&P rebuild.
+- `index-fflargevalue.csv` is Fama-French large value (1926-1980), the equity leg of `risk-brka.csv`'s 70/30 pre-BRK-A proxy; built by `scripts/build-brk-proxy.py`, re-applied with `npm run fetch-data -- --brk-proxy`.
 - `index-ffbuseq.csv` is the NDX proxy (Fama-French Business Equipment, 1926-1985) built out of band by `scripts/build-ndx-proxy.py`; `fetch-data` reads it to build `index-nq.csv`'s pre-launch era (`npm run fetch-data -- --ndx-proxy` re-applies it alone).
 - `etf-*.csv` files are direct Tiingo price histories.
 - `risk-*.csv` files mix real ETF rows with synthetic proxies for pre-inception dates.

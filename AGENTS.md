@@ -218,6 +218,14 @@ way: volatility, variance ratios and beta against real NDX, not correlation alon
 which favours the Composite only because NDX later came to dominate it. Display
 labels say NDX everywhere; only the data layer keeps the distinction.
 
+The BRK.B risk-off asset (`risk-brka.csv`) is real BRK-A from 1980-03-17, then
+70% Fama-French large value + 30% VGSH back to 1926 and 70% S&P + 30% VGSH before
+that (`src/lib/data/brk-proxy.ts`;
+`npm run fetch-data -- --brk-proxy` re-applies it offline). The 70/30 matches BRK-A's beta and worst
+drawdown, not its volatility, which is company-specific. Pre-1980 rows are only
+rebuilt on a forced or offline rebuild, so they can go stale when `index-sp.csv`
+history changes; the 1926-1980 rows had, after the S&P's Fama-French splice.
+
 Margin is a requirement, not an expense, but interest eligibility depends on the
 broker and collateral. Production futures callers enable `treasuryCollateral`:
 `futures-collateral.ts` models a separate SGOV/VGSH pool without a fixed cash

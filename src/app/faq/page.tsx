@@ -285,7 +285,9 @@ const FAQ_DATA: FAQItem[] = [
             <strong className="text-foreground">GLDM</strong> — gold.
           </li>
           <li>
-            <strong className="text-foreground">BRK.B</strong> — Berkshire Hathaway.
+            <strong className="text-foreground">BRK.B</strong> — Berkshire Hathaway. Before its
+            1980 price history, a stand-in: 70% large value stocks and 30% short Treasuries back
+            to 1926, and 70% S&amp;P 500 / 30% short Treasuries before that.
           </li>
           <li><strong className="text-foreground">VOO</strong> — S&P 500 exposure.</li>
           <li><strong className="text-foreground">QQQ</strong> — Nasdaq 100 exposure.</li>
@@ -556,7 +558,8 @@ const FAQ_DATA: FAQItem[] = [
           young — UPRO and SSO launched in 2006-2009, TQQQ and QLD in 2006-2010. That&apos;s not
           enough history to test how a strategy would have done through, say, the 1929 crash or
           the 1970s. So the app builds a synthetic version of each ETF going back as far as the
-          underlying index data exists (S&amp;P 500 since the 1800s, Nasdaq 100 since the 1980s).
+          underlying index data exists (S&amp;P 500 since the 1800s; Nasdaq 100 since 1985, with a
+          computer-and-electronics stock proxy back to 1926).
         </p>
 
         <p className="mb-3">
