@@ -51,34 +51,40 @@ function getNewYorkDayOfWeek(date: Date): number {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(day);
 }
 
-async function maybeNotifySmaAlerts(cronBuildMarker: Record<string, unknown> | null) {
+async function maybeNotifySmaAlerts(
+  cronBuildMarker: Record<string, unknown> | null,
+  marketDataAdvanced: boolean,
+) {
   if (!isCronBuildMarkerStorageReady()) {
     console.log("[build:vercel] Skipping SMA push alerts: cron build marker storage is not configured");
     return;
   }
 
-  if (!cronBuildMarker) {
-    console.log("[build:vercel] Skipping SMA push alerts: build was not marked as cron-triggered");
+  if (!cronBuildMarker && !marketDataAdvanced) {
+    console.log("[build:vercel] Skipping SMA push alerts: no cron marker and no newer market data");
     return;
   }
 
-  console.log("[build:vercel] Running SMA push alerts for cron-triggered build");
+  console.log(
+    `[build:vercel] Running SMA push alerts (${cronBuildMarker ? "cron-triggered build" : "new market data in regular build"})`,
+  );
   runBestEffort("npm run notify:sma-alerts");
 }
 
-function readLatestSpxTradingDate(): string | null {
-  const candidates = ["index-sp.csv"];
-  for (const file of candidates) {
-    const path = join(process.cwd(), "data", file);
-    if (!existsSync(path)) continue;
-    const csv = readFileSync(path, "utf-8");
-    const lines = csv.split(/\r?\n/).filter((l) => l.trim() !== "");
-    for (let i = lines.length - 1; i >= 1; i--) {
-      const firstCol = lines[i].split(",")[0];
-      if (firstCol && /^\d{4}-\d{2}-\d{2}$/.test(firstCol)) return firstCol;
-    }
+function readLatestTradingDate(filename: string): string | null {
+  const path = join(process.cwd(), "data", filename);
+  if (!existsSync(path)) return null;
+  const csv = readFileSync(path, "utf-8");
+  const lines = csv.split(/\r?\n/).filter((l) => l.trim() !== "");
+  for (let i = lines.length - 1; i >= 1; i--) {
+    const firstCol = lines[i].split(",")[0];
+    if (firstCol && /^\d{4}-\d{2}-\d{2}$/.test(firstCol)) return firstCol;
   }
   return null;
+}
+
+function readLatestSpxTradingDate(): string | null {
+  return readLatestTradingDate("index-sp.csv");
 }
 
 async function isFirstTradingDayOfWeek(currentNyDate: string): Promise<{ should: boolean; latestTradingDate: string | null; weekMarkerDate: string; reason: string }> {
@@ -119,11 +125,26 @@ async function isFirstMondayOfMonthPending(currentNyDate: string): Promise<{ sho
 }
 
 async function main() {
+  const previousSpxTradingDate = readLatestTradingDate("index-sp.csv");
+  const previousNdxTradingDate = readLatestTradingDate("index-nq.csv");
   run("npm run fetch-data");
 
   const now = new Date();
   const dayOfWeek = getNewYorkDayOfWeek(now);
   const currentNyDate = newYorkDateKey(now);
+  const currentSpxTradingDate = readLatestTradingDate("index-sp.csv");
+  const currentNdxTradingDate = readLatestTradingDate("index-nq.csv");
+  const marketDataAdvanced = (
+    (previousSpxTradingDate !== null &&
+      currentSpxTradingDate !== null &&
+      currentSpxTradingDate > previousSpxTradingDate) ||
+    (previousNdxTradingDate !== null &&
+      currentNdxTradingDate !== null &&
+      currentNdxTradingDate > previousNdxTradingDate)
+  );
+  console.log(
+    `[build:vercel] Market data advanced? ${marketDataAdvanced} (SPX ${previousSpxTradingDate ?? "none"} → ${currentSpxTradingDate ?? "none"}, NDX ${previousNdxTradingDate ?? "none"} → ${currentNdxTradingDate ?? "none"})`,
+  );
   console.log(`[build:vercel] NY day-of-week: ${dayOfWeek}`);
   console.log(`[build:vercel] NY date: ${currentNyDate}`);
   const forcePublicCsvCommit = process.env.COMMIT_DATA_FORCE === "1";
@@ -184,7 +205,7 @@ async function main() {
   // invokes the bundler directly, so a lifecycle hook would silently never fire.
   run("node scripts/publish-source-maps.mjs");
 
-  await maybeNotifySmaAlerts(cronBuildMarker);
+  await maybeNotifySmaAlerts(cronBuildMarker, marketDataAdvanced);
 
   // Clear the cron build marker only after `next build` succeeded and the notify
   // step has been decided/run. Consuming it up front would make a retry of a
