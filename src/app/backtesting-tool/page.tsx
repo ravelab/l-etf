@@ -904,6 +904,7 @@ export function BacktestingPageContent({
             nonLeveragedValues: canonicalRun.nonLeveragedValues,
             investedValues: canonicalRun.investedValues,
             etfResults: normalizedEtfResults,
+            etfResultIdAliases: canonicalRun.etfResultIdAliases,
           },
           initialInvestment,
           etfPricePointsByName,
@@ -927,6 +928,7 @@ export function BacktestingPageContent({
         nonLeveragedValues: canonicalRun.nonLeveragedValues,
         investedValues: canonicalRun.investedValues,
         etfResults: normalizedEtfResults,
+        etfResultIdAliases: canonicalRun.etfResultIdAliases,
       });
 
       const effectiveStart = startDate;
@@ -964,6 +966,7 @@ export function BacktestingPageContent({
           nonLeveragedValues: canonicalRun.nonLeveragedValues,
           investedValues: canonicalRun.investedValues,
           etfResults: normalizedEtfResults,
+          etfResultIdAliases: canonicalRun.etfResultIdAliases,
         },
         annualizedInflation: inflationData.annualizedInflation,
         monthlyCpi: inflationData.monthlyCpi,

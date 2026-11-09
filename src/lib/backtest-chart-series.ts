@@ -1,6 +1,7 @@
 import type { BacktestResult, EtfConfig, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { getSwapSpreadDaily } from "@/lib/simulation/engine";
+import { findEtfResult } from "@/lib/simulation/result-lookup";
 
 type UnderlyingIndexSeries = {
   index: IndexKey;
@@ -86,15 +87,6 @@ export function buildBacktestChartSeries(options: {
   const tradeOpenPricesByEtfId: Record<string, number[]> = {};
   const syntheticPriceScaleByEtfId: Record<string, number> = {};
   const datesByEtfId: Record<string, string[]> = {};
-  const syntheticBaseResultById = new Map<string, BacktestResult["etfResults"][number]>();
-
-  for (const resultEtf of options.result.etfResults) {
-    if (!resultEtf.id.endsWith("-base")) continue;
-    const baseId = stripVariantSuffix(resultEtf.id);
-    if (!syntheticBaseResultById.has(baseId)) {
-      syntheticBaseResultById.set(baseId, resultEtf);
-    }
-  }
 
   for (const etf of options.result.etfResults) {
     const cfg = options.resolvedEtfConfigs.find((candidate) => candidate.id === stripVariantSuffix(etf.id));
@@ -179,8 +171,10 @@ export function buildBacktestChartSeries(options: {
 
     if (cfg.simulated) {
       let tradeScale: number | null = null;
-      const baseId = stripVariantSuffix(etf.id);
-      const baseSyntheticResult = syntheticBaseResultById.get(baseId);
+      // Through the alias map: the engine simulates identical buy-and-hold twins once,
+      // so an extra-strategy line's `-base` lives under the line it twins. Missing it
+      // priced trades off the 1x index instead of the LETF.
+      const baseSyntheticResult = findEtfResult(options.result, `${stripVariantSuffix(etf.id)}-base`);
       const syntheticTradeClose = baseSyntheticResult
         ? alignSeriesToDates(etf.dates, baseSyntheticResult.dates, baseSyntheticResult.dailyValues)
         : closePricesByEtfId[etf.id];
