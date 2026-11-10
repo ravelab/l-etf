@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { hasMeaningfulSearchParams, persistedToolStateMatchesUrl } from "@/lib/tools-route";
 import { PAGE_CACHE_PREFIX } from "./use-page-cache";
+import { getStoredEndDate } from "./use-shared-inputs";
 import type { RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
 
 type ToolSnapshotMetadata = {
@@ -143,6 +144,11 @@ export function useToolSnapshot<T = Record<string, unknown>>({
         }
         const formGate = smaVolGateRef.current;
         if (formGate !== undefined && (payload.sharedInputs?.smaVolGate === true) !== formGate) {
+          onNoDataRef.current?.();
+          return;
+        }
+        const pickedEndDate = getStoredEndDate();
+        if (pickedEndDate && pickedEndDate !== payload.sharedInputs?.endDate) {
           onNoDataRef.current?.();
           return;
         }

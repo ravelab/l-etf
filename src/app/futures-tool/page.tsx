@@ -405,8 +405,9 @@ export function FuturesPageContent({
         normalizeDateString(snapshot.startDate as string | undefined, dateRange.min)
       );
       const snapshotRunInputs = snapshot.runSummaryInputs as Record<string, unknown> | undefined;
-      handleFieldChange(
-        "endDate",
+      // State only: a snapshot's end date describes that run, not a date the user
+      // picked, so persisting it would pin later visits to it.
+      form.setEndDate(
         normalizeDateString(
           (snapshot.endDate as string | undefined) ??
             (snapshotRunInputs?.endDate as string | undefined),

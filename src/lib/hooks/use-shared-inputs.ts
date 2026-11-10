@@ -133,19 +133,25 @@ function loadStored(): Partial<SharedInputs> {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as Partial<SharedInputs>;
-    delete parsed.endDate;
-    return parsed;
+    return JSON.parse(raw) as Partial<SharedInputs>;
   } catch {
     return {};
   }
 }
 
+/** The end date the user deliberately picked, or null when it follows today. */
+export function getStoredEndDate(): string | null {
+  const stored = loadStored().endDate;
+  return typeof stored === "string" && stored !== getIsoDate(new Date()) ? stored : null;
+}
+
 function saveStored(inputs: SharedInputs): void {
   if (typeof window === "undefined") return;
   try {
-    const { endDate, ...persisted } = inputs;
-    void endDate;
+    // An end date of today is the rolling default, not a choice: storing it would
+    // pin tomorrow's visit to a stale end. Only a deliberately picked date sticks.
+    const { endDate, ...rest } = inputs;
+    const persisted = endDate === getIsoDate(new Date()) ? rest : inputs;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
   } catch {
     // ignore quota errors

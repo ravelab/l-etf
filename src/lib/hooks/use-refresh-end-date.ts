@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { getIsoDate } from "@/lib/date";
 import { hasMeaningfulSearchParams } from "@/lib/tools-route";
+import { getStoredEndDate } from "@/lib/hooks/use-shared-inputs";
 
 export function useRefreshEndDateOnInitialVisit(params: {
   active?: boolean;
@@ -17,6 +18,7 @@ export function useRefreshEndDateOnInitialVisit(params: {
     if (hasMeaningfulSearchParams(window.location.search)) return;
     if (params.hasCachedResults) return;
     if (params.shouldHydrateSnapshot) return;
+    if (getStoredEndDate()) return;
 
     appliedRef.current = true;
     const today = getIsoDate(new Date());
