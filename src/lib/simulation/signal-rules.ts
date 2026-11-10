@@ -2,6 +2,7 @@ import type { EtfConfig, IndexKey, SmaSignal } from "./types";
 import { SMA_ONLY_RULE, SMA_RSI_ONLY_RULE, SMA_VOL_ONLY_RULE } from "./sma-gate-variants";
 import { NDX_THREE_GATE_RULE } from "./three-gate";
 import { NDX_SMA_VOL_ARGMAX_RULE } from "./sma-vol-argmax";
+import { NDX_SMA_VOL_SHOCK_RULE } from "./sma-vol-shock";
 
 /**
  * Plug-in timing rules: anything that decides "hold the LETF or sit in risk-off"
@@ -42,6 +43,11 @@ export interface SignalRule {
    * The engine acts on a change at the next session, like an SMA signal.
    */
   regime: (dates: string[], closes: number[], line: SignalRuleLine) => boolean[];
+  /**
+   * The regime's changes with their `trigger`, for rules that know what moved
+   * the position; otherwise they are derived from `regime` with no trigger.
+   */
+  signals?: (dates: string[], closes: number[], line: SignalRuleLine) => SmaSignal[];
   /** The SMA to draw on the line's details chart, for rules built on one. */
   smaValues?: (dates: string[], closes: number[], line: SignalRuleLine) => number[];
 }
@@ -53,6 +59,7 @@ const BUILT_IN_SIGNAL_RULES: readonly SignalRule[] = [
   SMA_RSI_ONLY_RULE,
   NDX_THREE_GATE_RULE,
   NDX_SMA_VOL_ARGMAX_RULE,
+  NDX_SMA_VOL_SHOCK_RULE,
 ];
 
 /** Extra strategies ticked by default on the backtest page (and in its canned snapshot). */
@@ -118,10 +125,12 @@ export function runSignalRule(
   if (invested.length !== dates.length) {
     throw new Error(`Signal rule "${rule.id}" returned ${invested.length} decisions for ${dates.length} dates`);
   }
-  const signals: SmaSignal[] = [];
-  for (let i = 1; i < invested.length; i++) {
-    if (invested[i] !== invested[i - 1]) {
-      signals.push({ date: dates[i], type: invested[i] ? "buy" : "sell", price: closes[i] });
+  const signals: SmaSignal[] = rule.signals ? rule.signals(dates, closes, line) : [];
+  if (!rule.signals) {
+    for (let i = 1; i < invested.length; i++) {
+      if (invested[i] !== invested[i - 1]) {
+        signals.push({ date: dates[i], type: invested[i] ? "buy" : "sell", price: closes[i] });
+      }
     }
   }
   // Always a full-length series: the page shows a line's details (chart and trade

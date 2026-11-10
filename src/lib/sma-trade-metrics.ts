@@ -1,4 +1,7 @@
 import type { SmaTradeRow } from "@/lib/sma-trade-rows";
+import type { PricePoint } from "@/lib/simulation/types";
+import { getRiskOffFetchTickers } from "@/lib/constants";
+import { alignCloseSeriesToDates } from "@/lib/utils";
 
 /**
  * Per-segment metrics for the SMA card's Trade Days table. A segment runs from
@@ -21,6 +24,31 @@ export interface SmaSegmentContext {
 }
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
+/**
+ * One date → nominal total-return close map per component of the line's own
+ * risk-off asset, aligned to the line's trading days the way the engine aligns
+ * them. The raw series are monthly before their daily history starts (VGSH
+ * before 2002-06), so an exact-date lookup misses nearly every earlier trade.
+ */
+export function buildRiskOffLookups(
+  riskOffAsset: string | undefined,
+  dates: string[],
+  pricesByTicker: Record<string, PricePoint[]> | undefined,
+): Array<Map<string, number>> {
+  if (!riskOffAsset || !pricesByTicker || dates.length === 0) return [];
+  const reference = dates.map((date) => ({ date }) as PricePoint);
+  return getRiskOffFetchTickers(riskOffAsset).flatMap((ticker) => {
+    const points = pricesByTicker[ticker];
+    if (!points?.length) return [];
+    const aligned = alignCloseSeriesToDates(reference, points);
+    const lookup = new Map<string, number>();
+    dates.forEach((date, i) => {
+      if (Number.isFinite(aligned[i]) && aligned[i] > 0) lookup.set(date, aligned[i]);
+    });
+    return [lookup];
+  });
+}
 
 function getYearsBetween(ctx: SmaSegmentContext, index: number): number | null {
   const current = ctx.tradeRows[index]?.tradingDay;

@@ -3,6 +3,12 @@ import { CONSTANT_SMA_CHECK_FREQUENCY } from "../constants";
 import { SMA_CACHE_MAX_ENTRIES, boundedCacheGet, boundedCacheSet } from "./bounded-cache";
 import { computeRealizedVol, nextVolGateRiskOff, type VolGateParams } from "./vol-gate";
 import { computeWilderRsi, nextRsiBrakeRiskOff, type RsiBrakeParams } from "./rsi-brake";
+import {
+  INITIAL_VOL_SHOCK_STATE,
+  computeVolShockRatio,
+  nextVolShockState,
+  type VolShockGateParams,
+} from "./vol-shock-gate";
 
 /**
  * WeakMap-based SMA cache: same prices array reference + same period → same result.
@@ -69,8 +75,13 @@ export function computeSma(prices: number[], period: number): number[] {
  *
  * rsiBrake: likewise hold risk-off while the RSI crash brake (`rsi-brake.ts`)
  * is tripped. Callers resolve both from the gate switch via `smaRiskOffGates`.
- * With either layer on, each signal names what moved the position: "sma" when
- * the band was crossed that close, else "vol", else "rsi".
+ *
+ * shockGate: likewise hold risk-off while the volatility-shock gate
+ * (`vol-shock-gate.ts`) is tripped. No default switch turns it on; only the
+ * signal rule that names it does.
+ *
+ * With any layer on, each signal names what moved the position: "sma" when
+ * the band was crossed that close, else "vol", else "rsi", else "shock".
  */
 const signalCache = new WeakMap<number[], Map<string, { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] }>>();
 
@@ -79,16 +90,26 @@ export function generateSmaSignals(
   prices: number[],
   smaPeriod: number,
   buffer: { upper: number; lower: number },
-  options?: { initialInvested?: boolean; seedAtIndex?: number; volGate?: VolGateParams; rsiBrake?: RsiBrakeParams }
+  options?: {
+    initialInvested?: boolean;
+    seedAtIndex?: number;
+    volGate?: VolGateParams;
+    rsiBrake?: RsiBrakeParams;
+    shockGate?: VolShockGateParams;
+  }
 ): { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] } {
   const { upper: upperBufferPct, lower: lowerBufferPct } = buffer;
   const initialInvested = options?.initialInvested ?? true;
   const seedAtIndex = options?.seedAtIndex ?? 0;
   const volGate = options?.volGate;
   const rsiBrake = options?.rsiBrake;
+  const shockGate = options?.shockGate;
   const gateKey = volGate ? `${volGate.windowDays}/${volGate.exitAbove}/${volGate.reenterBelow}` : "off";
   const brakeKey = rsiBrake ? `${rsiBrake.periodDays}/${rsiBrake.exitBelow}/${rsiBrake.reenterAbove}` : "off";
-  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}|${gateKey}|${brakeKey}`;
+  const shockKey = shockGate
+    ? `|${shockGate.windowDays}/${shockGate.baselineDays}/${shockGate.exitAbove}/${shockGate.reenterBelow}/${shockGate.confirmDays}`
+    : "";
+  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}|${gateKey}|${brakeKey}${shockKey}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
     const cached = boundedCacheGet(byPrices, cacheKey);
@@ -114,6 +135,8 @@ export function generateSmaSignals(
   let gateRiskOff = false;
   const rsi = rsiBrake ? computeWilderRsi(prices, rsiBrake.periodDays) : null;
   let brakeRiskOff = false;
+  const shockRatio = shockGate ? computeVolShockRatio(prices, shockGate) : null;
+  let shockState = INITIAL_VOL_SHOCK_STATE;
   let position = initialInvested;
 
   for (let i = 0; i < dates.length; i++) {
@@ -123,6 +146,7 @@ export function generateSmaSignals(
       isInvested = initialInvested;
       gateRiskOff = false;
       brakeRiskOff = false;
+      shockState = INITIAL_VOL_SHOCK_STATE;
       position = initialInvested;
       daysSinceCheck = 0;
     }
@@ -156,16 +180,24 @@ export function generateSmaSignals(
     }
 
     if (vol && volGate) gateRiskOff = nextVolGateRiskOff(gateRiskOff, vol[i], volGate);
+    const wasBrakeRiskOff = brakeRiskOff;
     if (rsi && rsiBrake) brakeRiskOff = nextRsiBrakeRiskOff(brakeRiskOff, rsi[i], rsiBrake);
-    const nextPosition = isInvested && !gateRiskOff && !brakeRiskOff;
+    if (shockRatio && shockGate) shockState = nextVolShockState(shockState, shockRatio[i], shockGate);
+    const nextPosition = isInvested && !gateRiskOff && !brakeRiskOff && !shockState.riskOff;
     if (nextPosition !== position) {
       position = nextPosition;
-      const trigger = isInvested !== wasInvested ? "sma" : gateRiskOff !== wasGateRiskOff ? "vol" : "rsi";
+      const trigger = isInvested !== wasInvested
+        ? "sma"
+        : gateRiskOff !== wasGateRiskOff
+          ? "vol"
+          : brakeRiskOff !== wasBrakeRiskOff || !shockRatio
+            ? "rsi"
+            : "shock";
       signals.push({
         date: dates[i],
         type: nextPosition ? "buy" : "sell",
         price: prices[i],
-        ...(vol || rsi ? { trigger } : {}),
+        ...(vol || rsi || shockRatio ? { trigger } : {}),
       });
     }
 

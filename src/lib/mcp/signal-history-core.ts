@@ -7,7 +7,7 @@
 // backtest of the same band would produce — without running the backtest.
 
 import { generateSmaSignals } from "@/lib/simulation/sma";
-import type { IndexKey, PricePoint } from "@/lib/simulation/types";
+import type { IndexKey, PricePoint, SmaSignal } from "@/lib/simulation/types";
 import { smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 
 interface SignalHistoryInput {
@@ -29,7 +29,7 @@ interface Crossover {
   type: "buy" | "sell";
   price: number;
   /** Which rule flipped it, when the gate switch is on (vol gate + RSI brake). */
-  trigger?: "sma" | "vol" | "rsi";
+  trigger?: SmaSignal["trigger"];
   /** Trading days the previous regime lasted, counted inside the range. */
   tradingDaysHeld: number;
 }

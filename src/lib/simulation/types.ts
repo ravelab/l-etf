@@ -59,9 +59,9 @@ export interface SmaSignal {
   /**
    * What moved the position, set only on gated runs: "sma" when the SMA band was
    * crossed that close, "vol" when the volatility gate tripped or released, "rsi"
-   * when the RSI crash brake did.
+   * when the RSI crash brake did, "shock" when the volatility-shock gate did.
    */
-  trigger?: "sma" | "vol" | "rsi";
+  trigger?: "sma" | "vol" | "rsi" | "shock";
 }
 
 export interface EtfResult {

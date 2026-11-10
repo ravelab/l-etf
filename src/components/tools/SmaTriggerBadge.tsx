@@ -6,20 +6,24 @@ const TRIGGER_TITLE = {
   sma: "Triggered by the SMA band",
   vol: "Triggered by the volatility gate (realized volatility)",
   rsi: "Triggered by the RSI crash brake (Wilder RSI)",
+  shock: "Triggered by the volatility-shock gate (short-window over baseline realized volatility)",
 } as const;
 
-/** Names what moved a gated SMA position: the SMA band, the vol gate or the RSI brake. */
-export function SmaTriggerBadge({ trigger, vol, rsi }: {
+/** Names what moved a gated SMA position: the SMA band, the vol gate, the RSI brake or the shock gate. */
+export function SmaTriggerBadge({ trigger, vol, rsi, shock }: {
   trigger: NonNullable<SmaSignal["trigger"]>;
   vol?: number | null;
   rsi?: number | null;
+  shock?: number | null;
 }) {
   const isGate = trigger !== "sma";
   const label = trigger === "vol"
     ? finite(vol) ? `Vol ${Math.round(vol * 100)}%` : "Vol"
     : trigger === "rsi"
       ? finite(rsi) ? `RSI ${Math.round(rsi)}` : "RSI"
-      : "SMA";
+      : trigger === "shock"
+        ? finite(shock) ? `Shock ${shock.toFixed(2)}x` : "Shock"
+        : "SMA";
   return (
     <span
       data-testid="sma-trigger"

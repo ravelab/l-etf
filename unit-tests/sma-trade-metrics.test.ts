@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildRiskOffLookups,
   getDaysTillNextEvent,
   getRiskOffAdvantage,
   getRiskOffRealCagr,
@@ -9,6 +10,7 @@ import {
   type SmaSegmentContext,
 } from "../src/lib/sma-trade-metrics";
 import type { SmaTradeRow } from "../src/lib/sma-trade-rows";
+import type { PricePoint } from "../src/lib/simulation/types";
 
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
 const T0 = "2020-01-01";
@@ -161,4 +163,34 @@ test("days till next event spans to the next row or window end", () => {
   // Last row → to endDate (2022-01-01)
   const daysToEnd = Math.round((Date.UTC(2022, 0, 1) - Date.UTC(2020, 0, 11)) / 86400000);
   assert.equal(getDaysTillNextEvent(context, 1), daysToEnd);
+});
+
+const point = (date: string, adj_close: number, close = adj_close) =>
+  ({ date, adj_close, close, open: close, adj_open: adj_close }) as PricePoint;
+
+test("risk-off lookups cover trading days the raw monthly series has no row for", () => {
+  const dates = ["1990-03-05", "1990-03-06", "1990-04-17"];
+  const monthly = [point("1990-03-01", 10), point("1990-04-01", 11), point("1990-05-01", 12)];
+  const [vgsh] = buildRiskOffLookups("VGSH", dates, { VGSH: monthly });
+  assert.deepEqual([...vgsh.keys()], dates);
+  const sold = getRiskOffTotalRealReturn(ctx({
+    tradeRows: [row({ signalDate: "1990-03-05", signalType: "sell" }), row({ signalDate: "1990-04-17", signalType: "buy" })],
+    endDate: "1990-04-17",
+    annualizedInflation: 0,
+    riskOffLookups: [vgsh],
+  }), 0);
+  assert.ok(sold != null && sold > 0, "a 1990 risk-off segment now has a value");
+});
+
+test("risk-off lookups use only the line's own components, on total-return closes", () => {
+  const dates = ["2024-01-02", "2024-01-03"];
+  const prices = {
+    VGSH: [point("2024-01-02", 60, 58), point("2024-01-03", 61, 58)],
+    "BRK.B": [point("2024-01-02", 350), point("2024-01-03", 360)],
+  };
+  const lookups = buildRiskOffLookups("VGSH", dates, prices);
+  assert.equal(lookups.length, 1, "the other index's BRK.B is not mixed in");
+  assert.equal(lookups[0].get("2024-01-03"), 61, "adj_close, so the bond yield counts");
+  assert.equal(buildRiskOffLookups("BRK.B+VGSH", dates, prices).length, 2);
+  assert.deepEqual(buildRiskOffLookups(undefined, dates, prices), []);
 });

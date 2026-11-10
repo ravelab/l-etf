@@ -3,6 +3,7 @@ import { formatRiskOffLiquidationAbbrev } from "@/lib/constants";
 import type { EtfConfig, EtfResult, SmaSignal } from "@/lib/simulation/types";
 import { computeRealizedVol, SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { computeWilderRsi, SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
+import { computeVolShockRatio, NDX_VOL_SHOCK_GATE } from "@/lib/simulation/vol-shock-gate";
 
 export interface SmaTradeRow {
   signalDate: string;
@@ -21,6 +22,8 @@ export interface SmaTradeRow {
   triggerVol?: number | null;
   /** RSI-brake trades only: the brake's Wilder RSI at the trigger close (scale-free too). */
   triggerRsi?: number | null;
+  /** Shock-gate trades only: short over baseline realized volatility at the trigger close. */
+  triggerShock?: number | null;
 }
 
 interface BuildSmaTradeRowsParams {
@@ -88,6 +91,9 @@ export function buildSmaTradeRows({
   const triggerRsis = etf.smaSignals.some((s) => s.trigger === "rsi")
     ? computeWilderRsi(closePrices, SMA_RSI_BRAKE[config.smaIndex].periodDays)
     : null;
+  const triggerShocks = etf.smaSignals.some((s) => s.trigger === "shock")
+    ? computeVolShockRatio(closePrices, NDX_VOL_SHOCK_GATE)
+    : null;
   const baseRows = etf.smaSignals.flatMap((signal): SmaTradeRow[] => {
     const signalIdx = dateToIndex.get(signal.date);
     // Hide signals whose next-day execution hasn't happened yet (no data beyond the signal day).
@@ -132,6 +138,7 @@ export function buildSmaTradeRows({
             trigger: signal.trigger,
             triggerVol: signalIdx != null ? (triggerVols?.[signalIdx] ?? null) : null,
             ...(signal.trigger === "rsi" ? { triggerRsi: signalIdx != null ? (triggerRsis?.[signalIdx] ?? null) : null } : {}),
+            ...(signal.trigger === "shock" ? { triggerShock: signalIdx != null ? (triggerShocks?.[signalIdx] ?? null) : null } : {}),
           }
         : {}),
     }];

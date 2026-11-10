@@ -3,6 +3,7 @@ import type {
   EtfConfig,
   EtfResult,
   SmaComparisonRow,
+  SmaSignal,
 } from "./types";
 import { buildDrawdownRangeQuery } from "./drawdown-range";
 import {
@@ -29,7 +30,7 @@ interface PrecomputedConfigDailyValues {
   configId: string;
   indexKey: EtfConfig["smaIndex"];
   dailyValues: number[];
-  smaSignals?: Array<{ date: string; type: 'buy' | 'sell'; price: number; trigger?: 'sma' | 'vol' }>;
+  smaSignals?: Array<{ date: string; type: 'buy' | 'sell'; price: number; trigger?: SmaSignal['trigger'] }>;
   smaPrices?: number[];
   timestamps: number[];
   riskOffStateByIndex?: Int8Array;

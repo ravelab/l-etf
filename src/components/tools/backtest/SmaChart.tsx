@@ -15,6 +15,7 @@ import {
 import { buildSmaTradeRows, formatSignedNumber, type SmaTradeRow } from "@/lib/sma-trade-rows";
 import { SmaTriggerBadge } from "@/components/tools/SmaTriggerBadge";
 import {
+  buildRiskOffLookups,
   getDaysTillNextEvent,
   getRiskOffAdvantage,
   getRiskOffRealCagr,
@@ -369,6 +370,8 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
             tradeRows={tradeRows}
             etfPriceLabel={etfPriceLabel}
             riskOffPricesByTicker={riskOffPricesByTicker}
+            riskOffAsset={baseConfig?.riskOffAsset}
+            dates={etfDates}
             annualizedInflation={annualizedInflation}
             endDate={etfDates[etfDates.length - 1]}
             finalEtfPrice={tradeClosePrices[tradeClosePrices.length - 1] ?? closePrices[closePrices.length - 1]}
@@ -385,6 +388,8 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           tradeRows,
           etfPriceLabel,
           riskOffPricesByTicker,
+          riskOffAsset,
+          dates,
           annualizedInflation,
           endDate,
           finalEtfPrice,
@@ -392,27 +397,17 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           tradeRows: SmaTradeRow[];
           etfPriceLabel: string;
           riskOffPricesByTicker?: Record<string, PricePoint[]>;
+          riskOffAsset?: string;
+          dates: string[];
           annualizedInflation: number;
           endDate: string;
           finalEtfPrice: number;
           }) {
-          const [page, setPage] = useState(0);
-
-          // Build date→price lookups per risk-off ticker
-          const riskOffLookups = useMemo(() => {
-          if (!riskOffPricesByTicker) return [];
-          const tickers = Object.keys(riskOffPricesByTicker);
-          return tickers.map((ticker) => {
-          const map = new Map<string, number>();
-          const points = riskOffPricesByTicker[ticker];
-          if (points) {
-          for (const p of points) {
-          if (Number.isFinite(p.close)) map.set(p.date, p.close);
-          }
-          }
-          return map;
-          });
-          }, [riskOffPricesByTicker]);
+  const [page, setPage] = useState(0);
+  const riskOffLookups = useMemo(
+    () => buildRiskOffLookups(riskOffAsset, dates, riskOffPricesByTicker),
+    [riskOffAsset, dates, riskOffPricesByTicker]
+  );
 
   const pageSafe = Math.min(page, Math.max(0, Math.ceil(tradeRows.length / TRADES_PAGE_SIZE) - 1));
   const paged = tradeRows.slice(pageSafe * TRADES_PAGE_SIZE, (pageSafe + 1) * TRADES_PAGE_SIZE);
@@ -472,7 +467,7 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
               </td>
               <td className={`py-2.5 pr-4 ${row.actionToneClass}`}>
                 {row.action}
-                {row.trigger && <SmaTriggerBadge trigger={row.trigger} vol={row.triggerVol} rsi={row.triggerRsi} />}
+                {row.trigger && <SmaTriggerBadge trigger={row.trigger} vol={row.triggerVol} rsi={row.triggerRsi} shock={row.triggerShock} />}
               </td>
               <td className={`py-2.5 pr-4 text-right ${riskOffReturn == null ? "" : riskOffReturn >= 0 ? "text-positive" : "text-negative"}`}>
                 {riskOffReturn == null ? "\u2014" : formatSignedNumber(riskOffReturn, "", "%")}
