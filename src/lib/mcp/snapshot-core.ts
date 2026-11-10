@@ -132,6 +132,7 @@ function summarizeSweepRow(row: SmaComparisonRow) {
     worstMaxDrawdownPct: row.biggestMaxDrawdown,
     winRatePct: row.winRate,
     avgTrades: row.avgTrades,
+    avgRiskOffPct: row.avgRiskOffPct,
   };
 }
 

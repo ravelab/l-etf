@@ -9,14 +9,19 @@ import { McpToolError } from "@/lib/mcp/tool-result";
 
 import { SMA_VOL_GATE_PARAMS_TEXT } from "@/lib/simulation/vol-gate";
 import { SMA_RSI_BRAKE_PARAMS_TEXT } from "@/lib/simulation/rsi-brake";
+import { LIMIT_ORDER_OFFSET_DOLLARS } from "@/lib/constants";
 
 const METHODOLOGY = `# l-etf simulation methodology (summary)
 
 - **Simulated LETFs** apply daily leverage (2x/3x) to the underlying index's
   total-return series, then deduct the fund expense ratio and a modeled daily
   financing (borrowing) cost. They are models, not the real ETFs.
-- **Trading costs**: an entry spread is compounded from the start of a window;
-  an exit spread is deducted from the final value only.
+- **Trading costs**: each side of a regular-hours LETF or risk-off trade pays a
+  marketable limit order filled $${LIMIT_ORDER_OFFSET_DOLLARS.toFixed(2)} through the
+  quote (as a fraction of a recent share price), plus half the sell-side SEC
+  Section 31 fee and FINRA TAF, since every round trip sells once. After-hours
+  fills use wider modeled spreads. An entry cost is compounded from the start of
+  a window; an exit cost is deducted from the final value only.
 - **SMA timing**: when enabled, the strategy holds the LETF while the index is
   above its SMA (times an upper buffer) and switches to the chosen risk-off
   asset when it falls below (times a lower buffer). Execution defaults to
@@ -36,7 +41,9 @@ const METHODOLOGY = `# l-etf simulation methodology (summary)
 - **Futures**: carry applies to notional per calendar day. Production backtests
   model SGOV/VGSH Treasury collateral, including its costs; margin constrains
   capacity rather than being an expense or a cash reserve. Treasury holdings do
-  not also earn cash-sweep interest.
+  not also earn cash-sweep interest. Existing SGOV/VGSH collateral counts toward
+  a Treasury risk-off target rather than being swapped, so a futures sleeve
+  risk-off into VGSH mostly holds SGOV and can diverge from the LETF twin.
 - **Default risk-off allocation**: MCP backtest tools retain the shared
   BRK.B+GLDM+VGSH basket. Tool pages default to SPX BRK.B+GLDM and NDX VGSH;
   specify riskOffAsset explicitly for comparable single-strategy runs.

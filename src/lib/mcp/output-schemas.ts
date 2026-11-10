@@ -94,6 +94,8 @@ const sweepRowSchema = z.object({
   winRatePct: metric.optional(),
   avgTrades: metric,
   avgWindowYears: metric.optional(),
+  /** Average share of each window's trading days spent risk-off. */
+  avgRiskOffPct: metric.optional(),
 });
 
 const percentileBlock = z.object({

@@ -22,7 +22,9 @@ snapshots enable `treasuryCollateral` in the same engine.
   VGSH bought at entry is the last to go and its share decays as the account grows.
 - Use Treasury total-return series, including their embedded fund expenses.
   These holdings receive no additional cash-interest credit.
-- Charge Treasury half-spreads and commissions. Small adjustments stay in cash.
+- Charge Treasury commissions and a limit order one cent through the quote
+  (`COLLATERAL_LIMIT_ORDER_OFFSET_DOLLARS`, vs two cents for regime trades),
+  plus SEC/FINRA sell fees. Small adjustments stay in cash.
   Cash-constrained maintenance buys use the bot’s 0.1% sizing buffer.
 - Eligible positive securities cash earns benchmark minus 0.50%, excluding the
   first $10k and scaling the rate by NAV below $100k. Positive interest accrues

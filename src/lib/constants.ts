@@ -163,6 +163,17 @@ export function getSymbolSpread(symbol: string, afterHours: boolean): number {
 }
 
 /**
+ * Futures collateral (SGOV/VGSH) maintenance is not time-sensitive, so it is
+ * placed one cent through the quote rather than LIMIT_ORDER_OFFSET_DOLLARS.
+ */
+export const COLLATERAL_LIMIT_ORDER_OFFSET_DOLLARS = 0.01;
+
+/** Per-side cost (fraction) of a collateral order: the 1-cent limit offset plus half the sell fees. */
+export function getCollateralTradeCost(ticker: "SGOV" | "VGSH"): number {
+  return COLLATERAL_LIMIT_ORDER_OFFSET_DOLLARS / LIMIT_ORDER_REFERENCE_PRICES[ticker] + regulatoryFeePerSide(ticker);
+}
+
+/**
  * Returns the average half-spread cost (fraction) for a (possibly composite) risk-off asset.
  */
 export function getRiskOffSpread(riskOffAsset: string, afterHours: boolean): number {

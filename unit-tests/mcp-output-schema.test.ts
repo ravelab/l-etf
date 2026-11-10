@@ -183,9 +183,12 @@ test("compare_strategies validates on the flat ranking branch", async () => {
     },
   });
   assert.notEqual(res.isError, true, JSON.stringify(res.content));
-  const data = res.structuredContent as { results: unknown[]; mode: string };
+  const data = res.structuredContent as { results: { avgRiskOffPct?: number }[]; mode: string };
   assert.equal(data.mode, "sma_on_off");
   assert.ok(data.results.length >= 2);
+  const riskOffShares = data.results.map((r) => r.avgRiskOffPct ?? 0);
+  assert.ok(Math.max(...riskOffShares) > 0, "the SMA row reports time spent risk-off");
+  assert.ok(riskOffShares.every((p) => p >= 0 && p <= 100));
   await client.close();
 });
 

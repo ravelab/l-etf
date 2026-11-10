@@ -80,6 +80,7 @@ export interface FormattedSweepRow {
   winRatePct?: number;
   avgTrades: number;
   avgWindowYears?: number;
+  avgRiskOffPct?: number;
 }
 
 /** Compact a rolling-window aggregate row for tool output. */
@@ -96,5 +97,6 @@ export function formatSweepRow(id: string, label: string, row: SmaComparisonRow)
     winRatePct: row.winRate,
     avgTrades: row.avgTrades,
     avgWindowYears: row.avgWindowYears,
+    avgRiskOffPct: row.avgRiskOffPct,
   };
 }

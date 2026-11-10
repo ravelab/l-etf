@@ -19,7 +19,7 @@ Reading results:
 - SMA timing includes the default vol gate and RSI crash brake (\`smaVolGate\`). \`get_sma_signals\` reports deterministic exit boundaries and constant-decline scenarios, not exit probabilities. Do not present these thresholds as forecasts.
 - An SMA config is expanded into two results, \`<id>-base\` (no SMA) and \`<id>-sma\`. Select by id; never assume the first result is the one you asked for.
 - Sweeps may stop early on the compute budget. When a result says \`truncated\`, it covers only \`evaluatedConfigs\` of \`totalConfigs\` — narrow the range or widen the step rather than presenting it as complete.
-- Results are nominal unless a field says otherwise. Backtests bake in expense ratios, modeled financing costs, and entry/exit spreads.
+- Results are nominal unless a field says otherwise. Backtests bake in expense ratios, modeled financing costs, and entry/exit trading costs.
 
 Cost and etiquette:
 - The rolling-window sweep tools are compute-heavy and rate-limited per IP. Send a \`progressToken\` on those requests to receive progress notifications instead of waiting blind.

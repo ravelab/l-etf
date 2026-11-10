@@ -1,4 +1,4 @@
-import { getSymbolSpread } from "@/lib/constants";
+import { getCollateralTradeCost } from "@/lib/constants";
 
 /** Standalone-account approximation of ~/futures/src/treasury/sleeve.ts.
  * No fixed cash reserve; the securities pool is invested near close.
@@ -68,7 +68,7 @@ export function createFuturesCollateral(params: {
   }
   function trade(t: Ticker, qty: number, date: string): CollateralTrade {
     const fees = Math.max(1, Math.abs(qty) * 0.005) * params.dollarScale(date);
-    const spread = Math.abs(qty) * quotes[t] * getSymbolSpread(t, false);
+    const spread = Math.abs(qty) * quotes[t] * getCollateralTradeCost(t);
     holdings[t] = Math.max(0, holdings[t] + qty * quotes[t]);
     return { symbol: t, quantity: qty, quantityAfter: holdings[t] / quotes[t], price: quotes[t], fees, spread };
   }

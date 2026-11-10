@@ -11,6 +11,7 @@ import { pageMetadata } from "@/lib/seo";
 import {
   FINRA_TAF_PER_SHARE,
   LIMIT_ORDER_OFFSET_DOLLARS,
+  COLLATERAL_LIMIT_ORDER_OFFSET_DOLLARS,
   SEC_SECTION_31_FEE_RATE,
   getSymbolSpread,
 } from "@/lib/constants";
@@ -417,7 +418,11 @@ const FAQ_DATA: FAQItem[] = [
         <ul className="list-disc list-inside space-y-1 ml-4">
           <li>Uses explicit futures costs such as IBKR-style fees and spread assumptions.</li>
           <li>Caps position size by a maintenance-margin requirement on each contract&apos;s notional.</li>
-          <li>Holds idle collateral in short-term Treasury ETFs (SGOV and VGSH).</li>
+          <li>
+            Holds idle collateral in short-term Treasury ETFs (SGOV and VGSH). Those routine
+            top-ups are not urgent, so they are modeled as limit orders{" "}
+            {Math.round(COLLATERAL_LIMIT_ORDER_OFFSET_DOLLARS * 100)} cent through the price.
+          </li>
           <li>
             Tracks futures-specific diagnostics like leverage delta, excess liquidity, and
             transaction-level roll behavior.
