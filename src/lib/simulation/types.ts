@@ -144,6 +144,8 @@ export interface SmaComparisonRow {
   avgMaxDrawdown: number;
   biggestMaxDrawdown: number;
   avgTrades: number;
+  /** Average share of each window's trading days held risk-off, in percent. */
+  avgRiskOffPct?: number;
   avgTradingCostPct: number;
   avgWindowYears?: number;
   historyWrapApplied?: boolean;

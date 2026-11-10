@@ -21,8 +21,10 @@ import {
   computeOptionalNonLeveragedMetrics,
   computeRenormalizedPathMetrics,
   finalizeTradingCosts,
+  getRangeRiskOffDays,
   getRangeTradeCount,
   getRangeTradeValueSum,
+  riskOffPercent,
   selectEdgeSpreads,
 } from "./window-calculations";
 
@@ -34,6 +36,7 @@ interface PrecomputedConfigDailyValues {
   smaPrices?: number[];
   timestamps: number[];
   riskOffStateByIndex?: Int8Array;
+  riskOffDayPrefix?: Uint32Array;
   nonLeveragedValues?: number[];
   perTransitionSpreadFraction?: number;
   tradeDayIndices?: number[];
@@ -139,6 +142,7 @@ function buildWindowSimulation(
     totalReturnPct: ((tradingCosts.finalValue - CONSTANT_INITIAL_INVESTMENT) / CONSTANT_INITIAL_INVESTMENT) * 100,
     tradeCount: getRangeTradeCount(precomputed, startIdx, endIdx),
     totalTradingCostPct: tradingCosts.totalTradingCostPct,
+    riskOffPct: riskOffPercent(getRangeRiskOffDays(precomputed, startIdx, endIdx), endIdx - startIdx),
     usedHistoryWrap: false,
   };
 }

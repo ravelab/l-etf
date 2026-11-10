@@ -88,24 +88,65 @@ export const LABEL_INDEX_NASDAQ100_TR = "QQQ";
  *
  * After-hours multipliers: spreads widen ~4-5x for liquid names (TQQQ, UPRO,
  * BRK.B, SGOV) and ~3-4x for less liquid names due to thinner order books.
+ *
+ * Regular hours for the LETFs and risk-off assets instead model the user's
+ * execution: a marketable limit order priced LIMIT_ORDER_OFFSET_DOLLARS through
+ * the quote, filled at that limit. The dollar offset becomes a fraction via
+ * each ticker's closing share price on 2026-11-09; refresh the prices when they
+ * drift far (e.g. after a reverse split).
  */
+export const LIMIT_ORDER_OFFSET_DOLLARS = 0.02;
+const LIMIT_ORDER_REFERENCE_PRICES: Record<string, number> = {
+  TQQQ: 57.58,
+  UPRO: 137.91,
+  QLD: 79.15,
+  SSO: 66.85,
+  SGOV: 100.5,
+  VGSH: 57.83,
+  GLDM: 81.91,
+  "BRK.B": 569, // BRK-A 853,500 / 1,500
+};
+const limitOrderCost = (ticker: string) =>
+  LIMIT_ORDER_OFFSET_DOLLARS / LIMIT_ORDER_REFERENCE_PRICES[ticker];
+
 const SPREAD_COSTS: Record<string, { regularHours: number; afterHours: number }> = {
   // Risk-on (leveraged ETFs)
-  TQQQ: { regularHours: 0.0001, afterHours: 0.0010 },  // ~$0.01 on ~$60
-  UPRO: { regularHours: 0.0001, afterHours: 0.0010 },  // ~$0.01 on ~$80
-  QLD:  { regularHours: 0.0002, afterHours: 0.0012 },  // ~$0.02 on ~$95
-  SSO:  { regularHours: 0.0002, afterHours: 0.0012 },  // ~$0.02 on ~$90
+  TQQQ: { regularHours: limitOrderCost("TQQQ"), afterHours: 0.0010 },
+  UPRO: { regularHours: limitOrderCost("UPRO"), afterHours: 0.0010 },
+  QLD:  { regularHours: limitOrderCost("QLD"), afterHours: 0.0012 },
+  SSO:  { regularHours: limitOrderCost("SSO"), afterHours: 0.0012 },
   // Risk-off
-  SGOV:    { regularHours: 0.0001, afterHours: 0.0006 },  // ~$0.01 on ~$100
-  VGSH:    { regularHours: 0.0002, afterHours: 0.0008 },  // ~$0.01 on ~$58
-  GLDM:    { regularHours: 0.0002, afterHours: 0.0010 },  // ~$0.01 on ~$50
-  "BRK.B": { regularHours: 0.0002, afterHours: 0.0008 },  // ~$0.05 on ~$480
+  SGOV:    { regularHours: limitOrderCost("SGOV"), afterHours: 0.0006 },
+  VGSH:    { regularHours: limitOrderCost("VGSH"), afterHours: 0.0008 },
+  GLDM:    { regularHours: limitOrderCost("GLDM"), afterHours: 0.0010 },
+  "BRK.B": { regularHours: limitOrderCost("BRK.B"), afterHours: 0.0008 },
   VOO:     { regularHours: 0.0001, afterHours: 0.0006 },  // ~$0.01 on ~$500
   QQQ:     { regularHours: 0.0001, afterHours: 0.0008 },  // ~$0.01 on ~$500
 };
 
+/** SEC Section 31 fee on sale proceeds: $20.60 per million from 2026-04-04. */
+export const SEC_SECTION_31_FEE_RATE = 20.6 / 1_000_000;
 /**
- * Returns the half-spread cost (fraction) for a single symbol.
+ * FINRA Trading Activity Fee per share sold (2026 schedule; paused Oct-Dec 2026,
+ * resumes 2027-01-01). Its $9.79 per-trade cap is ignored, which overcharges
+ * only sales above ~50k shares, by cents.
+ */
+export const FINRA_TAF_PER_SHARE = 0.000195;
+
+/**
+ * Both regulatory fees apply to sells only. Every round trip sells each asset
+ * once, so half the sell fee is charged on each side of every trade; tickers
+ * without a reference price pay the SEC fee alone (their TAF is under 0.01 bp).
+ */
+function regulatoryFeePerSide(ticker: string): number {
+  const price = LIMIT_ORDER_REFERENCE_PRICES[ticker];
+  const taf = price ? FINRA_TAF_PER_SHARE / price : 0;
+  return (SEC_SECTION_31_FEE_RATE + taf) / 2;
+}
+
+/**
+ * Returns the per-side trading cost (fraction) for a single symbol: the
+ * half-spread or limit-order offset plus half the sell-side regulatory fees.
  * Handles strategy names/IDs by stripping common suffixes.
  */
 export function getSymbolSpread(symbol: string, afterHours: boolean): number {
@@ -117,7 +158,8 @@ export function getSymbolSpread(symbol: string, afterHours: boolean): number {
     .replace(/-sma.*$/, "")
     .replace(/^(SPX|S&P)$/, "VOO")    // Map "SPX" / legacy "S&P 500" -> VOO
     .replace(/^(NDX|Nasdaq)$/, "QQQ"); // Map "NDX" / legacy "Nasdaq 100" -> QQQ
-  return SPREAD_COSTS[ticker]?.[field] ?? 0;
+  const spread = SPREAD_COSTS[ticker]?.[field];
+  return spread == null ? 0 : spread + regulatoryFeePerSide(ticker);
 }
 
 /**

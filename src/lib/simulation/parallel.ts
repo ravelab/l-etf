@@ -22,10 +22,13 @@ import {
   computeRenormalizedPathMetrics,
   computeRenormalizedEndpointMetrics,
   finalizeTradingCosts,
+  buildRiskOffDayPrefix,
+  getRangeRiskOffDays,
   getRangeTradeCount,
   getRangeTradeValueSum,
   renormalizeSeriesFromIndex,
   resolveEdgeRiskOffStates,
+  riskOffPercent,
   selectEdgeSpreads,
 } from "./window-calculations";
 import { buildDrawdownRangeQuery, type DrawdownRangeQuery } from "./drawdown-range";
@@ -84,6 +87,8 @@ interface PrecomputedConfigDailyValues {
   smaPrices?: number[];
   timestamps: number[];
   riskOffStateByIndex?: Int8Array;
+  /** Prefix count of risk-off days for O(1) window shares. Length = n + 1. */
+  riskOffDayPrefix?: Uint32Array;
   nonLeveragedValues?: number[];
   perTransitionSpreadPct?: number;
   /** Set of date-array indices where a trade (SMA signal) occurs */
@@ -331,6 +336,7 @@ function extractRegularWindowSimulation(
     totalReturnPct: ((tradingCosts.finalValue - CONSTANT_INITIAL_INVESTMENT) / CONSTANT_INITIAL_INVESTMENT) * 100,
     tradeCount: getRangeTradeCount(precomputed, startIdx, endIdx),
     totalTradingCostPct: tradingCosts.totalTradingCostPct,
+    riskOffPct: riskOffPercent(getRangeRiskOffDays(precomputed, startIdx, endIdx), endIdx - startIdx),
     usedHistoryWrap: false,
   };
 }
@@ -464,6 +470,7 @@ export function precomputeAllConfigDailyValues(
       smaPrices: result.smaPrices,
       timestamps: context.timestamps,
       riskOffStateByIndex,
+      riskOffDayPrefix: buildRiskOffDayPrefix(riskOffStateByIndex, context.dates.length),
       nonLeveragedValues: context.nonLeveragedValues,
       perTransitionSpreadPct,
       perTransitionSpreadFraction,
@@ -577,6 +584,7 @@ async function precomputeAllConfigDailyValuesAsync(
       smaPrices: result.smaPrices,
       timestamps: context.timestamps,
       riskOffStateByIndex,
+      riskOffDayPrefix: buildRiskOffDayPrefix(riskOffStateByIndex, context.dates.length),
       nonLeveragedValues: context.nonLeveragedValues,
       perTransitionSpreadPct,
       perTransitionSpreadFraction,

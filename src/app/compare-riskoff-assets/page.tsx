@@ -25,7 +25,7 @@ import { runParallelVariantSummaries } from "@/lib/simulation/parallel";
 import { runCompareSweep } from "@/lib/compare-sweep-runner";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
 import { useRefreshEndDateOnInitialVisit } from "@/lib/hooks/use-refresh-end-date";
-import { getBestSweepRow, getSweepTradesPerYear } from "@/lib/sweep";
+import { getBestSweepRow, getSweepRiskOffPct, getSweepTradesPerYear } from "@/lib/sweep";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
 import type { RunSummary } from "@/lib/run-summary";
 import { buildRunSummary } from "@/lib/run-summary";
@@ -458,6 +458,8 @@ export function CompareRiskOffAssetsPageContent({
     () => getSweepTradesPerYear(sweepRows2, display?.summary.windowLength),
     [sweepRows2, display]
   );
+  const riskOffPct = useMemo(() => getSweepRiskOffPct(sweepRows), [sweepRows]);
+  const riskOffPct2 = useMemo(() => getSweepRiskOffPct(sweepRows2), [sweepRows2]);
   const formatAsset = useCallback((row: SmaComparisonRow) => rows[row.parameterValue]?.displayLabel ?? "?", [rows]);
   const formatAsset2 = useCallback((row: SmaComparisonRow) => rows2[row.parameterValue]?.displayLabel ?? "?", [rows2]);
   const formatFinalValuePct = useCallback(
@@ -549,7 +551,7 @@ export function CompareRiskOffAssetsPageContent({
             {display.comboLabels && <h2 className="text-lg font-semibold">{display.comboLabels[0]}</h2>}
             <Card>
               <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-                <SectionTitleWithInflation className="text-lg font-semibold" title={display.comboLabels ? `${display.comboLabels[0]} — Performance by Risk-Off Asset` : "Performance by Risk-Off Asset"} startDate={primaryDisplayStartDate} inflationPct={primaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear} />
+                <SectionTitleWithInflation className="text-lg font-semibold" title={display.comboLabels ? `${display.comboLabels[0]} — Performance by Risk-Off Asset` : "Performance by Risk-Off Asset"} startDate={primaryDisplayStartDate} inflationPct={primaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear} riskOffPct={riskOffPct} />
                 {hateDrawdownToggle}
               </div>
               <SweepComparisonTable
@@ -575,7 +577,7 @@ export function CompareRiskOffAssetsPageContent({
             <h2 className="text-lg font-semibold">{display.comboLabels[1]}</h2>
             <Card>
               <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-                <SectionTitleWithInflation className="text-lg font-semibold" title={`${display.comboLabels[1]} — Performance by Risk-Off Asset`} startDate={secondaryDisplayStartDate} inflationPct={secondaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear2} />
+                <SectionTitleWithInflation className="text-lg font-semibold" title={`${display.comboLabels[1]} — Performance by Risk-Off Asset`} startDate={secondaryDisplayStartDate} inflationPct={secondaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear2} riskOffPct={riskOffPct2} />
               </div>
               <SweepComparisonTable
                 resultTableTestId="snapshot-tool-sweep-1"

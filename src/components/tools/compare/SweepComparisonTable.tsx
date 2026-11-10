@@ -22,6 +22,7 @@ type SweepSortKey =
   | "avgMaxDrawdown"
   | "biggestMaxDrawdown"
   | "avgTrades"
+  | "avgRiskOffPct"
   | "avgTradingCostPct";
 
 const PAGE_SIZE = 10;
@@ -99,7 +100,9 @@ export function SweepComparisonTable({
     bestRealCagr: (r) => r.bestReturn - inflationPct,
     worstRealCagr: (r) => r.worstReturn - inflationPct,
     avgTrades: (r) => r.avgTrades / Math.max(1e-9, yearsForRow(r)),
+    avgRiskOffPct: (r) => r.avgRiskOffPct ?? 0,
   };
+  const showRiskOff = showAvgTrades && rows.some((r) => r.avgRiskOffPct != null);
 
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -150,6 +153,11 @@ export function SweepComparisonTable({
               {showAvgTrades && (
                 <th className="pb-2 pr-4 font-medium w-28 [&_button]:flex [&_button]:whitespace-normal [&_button]:text-left">
                   <SortButton label="Avg Trades per Year" active={sortKey === "avgTrades"} dir={sortDir} onClick={() => toggleSort("avgTrades")} />
+                </th>
+              )}
+              {showRiskOff && (
+                <th className="pb-2 pr-4 font-medium w-24 [&_button]:flex [&_button]:whitespace-normal [&_button]:text-left">
+                  <SortButton label="Time Risk-Off" active={sortKey === "avgRiskOffPct"} dir={sortDir} onClick={() => toggleSort("avgRiskOffPct")} />
                 </th>
               )}
               <th className="pb-2 pr-4 font-medium w-28 [&_button]:flex [&_button]:whitespace-normal [&_button]:text-left">
@@ -228,6 +236,11 @@ export function SweepComparisonTable({
                   </td>
                   {showAvgTrades && (
                     <td className="py-2.5 pr-4 text-right tabular-nums">{(row.avgTrades / Math.max(1e-9, yearsForRow(row))).toFixed(2)}</td>
+                  )}
+                  {showRiskOff && (
+                    <td className="py-2.5 pr-4 text-right tabular-nums">
+                      {row.avgRiskOffPct != null ? `${row.avgRiskOffPct.toFixed(1)}%` : "—"}
+                    </td>
                   )}
                   <td className="py-2.5 pr-4 text-right text-muted">{formatCostPercent(row.avgTradingCostPct)}</td>
                   <td className="py-2.5 pr-4 text-right text-positive">
@@ -308,6 +321,9 @@ export function SweepComparisonTable({
                   </td>
                   {showAvgTrades && (
                     <td className="py-2.5 pr-4 text-right">0.0</td>
+                  )}
+                  {showRiskOff && (
+                    <td className="py-2.5 pr-4 text-right tabular-nums">0.0%</td>
                   )}
                   <td className="py-2.5 pr-4 text-right text-muted">{formatCostPercent(baseline.avgTradingCostPct)}</td>
                   <td className="py-2.5 pr-4 text-right text-positive">

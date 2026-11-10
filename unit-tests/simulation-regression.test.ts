@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { simulateBacktest } from "../src/lib/simulation/engine";
+import { getSymbolSpread } from "../src/lib/constants";
 import type { PricePoint, RatePoint, EtfConfig } from "../src/lib/simulation/types";
 
 // Mock data for deterministic regression
@@ -33,9 +34,8 @@ test("simulateBacktest (No SMA) matches exact mathematical expectation", () => {
   const result = simulateBacktest(mockPrices, mockRates, [uproConfig]);
   const etf = result.etfResults[0];
   
-  // Day 0: 1 * (1 - 0.0001 entry spread) = 0.9999
-  // Entry spread for UPRO is 0.01% = 0.0001
-  assert.equal(Math.abs(etf.dailyValues[0] - 0.9999) < 1e-9, true);
+  // Day 0: 1 * (1 - UPRO's regular-hours entry spread)
+  assert.equal(Math.abs(etf.dailyValues[0] - (1 - getSymbolSpread("UPRO", false))) < 1e-9, true);
   
   // Day 1: +1% index. 
   // R_LETF = 3 * 0.01 - (0.91/100/252) - 2 * (0.05/360 + swapSpread)

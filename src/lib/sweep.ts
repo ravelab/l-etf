@@ -59,6 +59,18 @@ export function getSweepTradesPerYear(
   return allSame ? first : undefined;
 }
 
+/**
+ * Get the average share of time spent risk-off for a sweep. Returns the value
+ * if it's the same for all rows, otherwise undefined.
+ */
+export function getSweepRiskOffPct(rows: SmaComparisonRow[]): number | undefined {
+  if (rows.length === 0) return undefined;
+  const first = rows[0].avgRiskOffPct;
+  if (first == null) return undefined;
+  const allSame = rows.every((r) => r.avgRiskOffPct != null && Math.abs(r.avgRiskOffPct - first) < 1e-6);
+  return allSame ? first : undefined;
+}
+
 export function createSweepChartOptions(p: {
   title: (items: TooltipItem<"line">[]) => string;
   xTick: (value: number | string) => string | number;

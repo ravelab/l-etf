@@ -15,6 +15,8 @@ export interface RollingSimulationPoint extends SimulationSummary {
   totalReturnPct: number;
   tradeCount: number;
   totalTradingCostPct: number;
+  /** Share of the window's trading days held risk-off, in percent. */
+  riskOffPct?: number;
 }
 
 export interface RollingWindow {
@@ -529,6 +531,9 @@ export function summarizeSmaRow(
     : simulations.map((s) => s.cagr);
   const drawdowns = simulations.map((s) => s.maxDrawdownPct);
   const trades = simulations.map((s) => s.tradeCount);
+  const riskOffPcts = simulations.every((s) => s.riskOffPct != null)
+    ? simulations.map((s) => s.riskOffPct as number)
+    : null;
   const tradingCosts = simulations.map((s) => s.totalTradingCostPct);
   const windowYearsPerSim = simulations.map((s) => {
     const startMs = new Date(`${s.startDate}T00:00:00Z`).getTime();
@@ -582,6 +587,7 @@ export function summarizeSmaRow(
     avgMaxDrawdown: average(drawdowns),
     biggestMaxDrawdown: Math.max(...drawdowns),
     avgTrades: average(trades),
+    ...(riskOffPcts ? { avgRiskOffPct: average(riskOffPcts) } : {}),
     avgTradingCostPct: average(tradingCosts),
     avgWindowYears: average(windowYearsPerSim),
     historyWrapApplied: wrappedSimulationCount > 0,

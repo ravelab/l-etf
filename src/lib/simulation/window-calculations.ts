@@ -5,6 +5,7 @@ interface TradeIndexedDailyValues {
   tradeDayIndices?: number[];
   tradeCountPrefix?: Uint32Array;
   tradeValuePrefix?: Float64Array;
+  riskOffDayPrefix?: Uint32Array;
 }
 
 interface SpreadInputs {
@@ -29,6 +30,54 @@ export function getRangeTradeCount(
     count += 1;
   }
   return count;
+}
+
+/** Prefix count of risk-off days: entry `i + 1` counts indices `0..i` whose regime is risk-off. */
+export function buildRiskOffDayPrefix(riskOffStateByIndex: Int8Array | undefined, length: number): Uint32Array {
+  const prefix = new Uint32Array(length + 1);
+  for (let i = 0; i < length; i++) {
+    prefix[i + 1] = prefix[i] + (riskOffStateByIndex?.[i] === 1 ? 1 : 0);
+  }
+  return prefix;
+}
+
+/** Trading days `[startIdx, endIdx)` of a window that were held risk-off. */
+export function getRangeRiskOffDays(
+  precomputed: TradeIndexedDailyValues,
+  startIdx: number,
+  endIdx: number
+): number {
+  if (!precomputed.riskOffDayPrefix || endIdx <= startIdx) return 0;
+  return precomputed.riskOffDayPrefix[endIdx] - precomputed.riskOffDayPrefix[startIdx];
+}
+
+/**
+ * Risk-off days `[fromIdx, toIdx)` of a resimulated tail, starting from its seed
+ * regime and applying its own signals in date order.
+ */
+export function countRiskOffDays(
+  dates: string[],
+  signals: ReadonlyArray<{ date: string; type: "buy" | "sell" }>,
+  fromIdx: number,
+  toIdx: number,
+  initialInvested: boolean
+): number {
+  let invested = initialInvested;
+  let cursor = 0;
+  let riskOffDays = 0;
+  for (let i = fromIdx; i < toIdx; i++) {
+    while (cursor < signals.length && signals[cursor].date <= dates[i]) {
+      invested = signals[cursor].type === "buy";
+      cursor++;
+    }
+    if (!invested) riskOffDays++;
+  }
+  return riskOffDays;
+}
+
+/** Share of a window's trading days held risk-off, in percent. */
+export function riskOffPercent(riskOffDays: number, totalDays: number): number {
+  return totalDays > 0 ? (riskOffDays / totalDays) * 100 : 0;
 }
 
 export function getRangeTradeValueSum(

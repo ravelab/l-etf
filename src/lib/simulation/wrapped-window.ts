@@ -8,9 +8,12 @@ import { adjustedOpenFromPricePoint } from "../utils";
 import {
   computeOptionalNonLeveragedMetrics,
   computeRenormalizedPathMetrics,
+  countRiskOffDays,
   finalizeTradingCosts,
+  getRangeRiskOffDays,
   getRangeTradeCount,
   getRangeTradeValueSum,
+  riskOffPercent,
   selectEdgeSpreads,
 } from "./window-calculations";
 
@@ -23,6 +26,7 @@ export interface WrappedPrecomputedConfigDailyValues {
   tradeDayIndices?: number[];
   tradeCountPrefix?: Uint32Array;
   tradeValuePrefix?: Float64Array;
+  riskOffDayPrefix?: Uint32Array;
   riskOnSpread?: number;
   riskOffSpread?: number;
   riskOnSpreadRegular?: number;
@@ -407,6 +411,10 @@ export function extractOptimizedWrappedWindowResult(
 
   const realTradeCount = getRangeTradeCount(precomputed, actualWindowStart, realEndIdx);
   const cagr = calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, window.startDate, window.endDate);
+  const tailEndIdx = tailDates.length - 1;
+  const riskOffDays = getRangeRiskOffDays(precomputed, actualWindowStart, realEndIdx)
+    + countRiskOffDays(tailDates, tailEtfResult.smaSignals, tailJoinOffset, tailEndIdx, initialInvested);
+  const totalDays = (realEndIdx - actualWindowStart) + (tailEndIdx - tailJoinOffset);
 
   return {
     startDate: window.startDate,
@@ -419,6 +427,7 @@ export function extractOptimizedWrappedWindowResult(
     totalReturnPct: ((finalValue - CONSTANT_INITIAL_INVESTMENT) / CONSTANT_INITIAL_INVESTMENT) * 100,
     tradeCount: realTradeCount + tailTradeCount,
     totalTradingCostPct: tradingCosts.totalTradingCostPct,
+    riskOffPct: riskOffPercent(riskOffDays, totalDays),
     usedHistoryWrap: true,
   };
 }
@@ -511,6 +520,9 @@ export function extractCachedWrappedWindowResult(
 
   const realTradeCount = getRangeTradeCount(precomputed, actualWindowStart, realEndIdx);
   const cagr = calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, window.startDate, window.endDate);
+  const riskOffDays = getRangeRiskOffDays(precomputed, actualWindowStart, realEndIdx)
+    + countRiskOffDays(cache.tailDates, cache.smaSignals, cache.tailJoinOffset, tailEndOffset, cache.initialInvested);
+  const totalDays = (realEndIdx - actualWindowStart) + (tailEndOffset - cache.tailJoinOffset);
 
   return {
     startDate: window.startDate,
@@ -523,6 +535,7 @@ export function extractCachedWrappedWindowResult(
     totalReturnPct: ((finalValue - CONSTANT_INITIAL_INVESTMENT) / CONSTANT_INITIAL_INVESTMENT) * 100,
     tradeCount: realTradeCount + tailTradeCount,
     totalTradingCostPct: tradingCosts.totalTradingCostPct,
+    riskOffPct: riskOffPercent(riskOffDays, totalDays),
     usedHistoryWrap: true,
   };
 }

@@ -281,24 +281,35 @@ function holdingBoth(params: SleeveParams, riskOffAsset: "SGOV" | "VGSH"): Sleev
 }
 
 test("dual sleeve: different baskets reset in kind, buying only on risk-off entry", () => {
+  const primary = holdingBoth(sleeve("sp500", 4.5, NORMAL_SP, 4.5), "SGOV");
+  const secondary = holdingBoth(sleeve("nasdaq100", 3.5, NORMAL_NQ), "VGSH");
   const fund = simulateDualSleeveFuturesStrategy({
     displayName: "Max 4.5x SPX / Max 3.5x NDX SMA",
     initialEquity: 30_000,
-    primary: holdingBoth(sleeve("sp500", 4.5, NORMAL_SP, 4.5), "SGOV"),
-    secondary: holdingBoth(sleeve("nasdaq100", 3.5, NORMAL_NQ), "VGSH"),
+    primary,
+    secondary,
   });
   const final = fund.etfResult.dailyValues.at(-1) ?? 0;
   assert.ok(Number.isFinite(final) && final > 0, "fund must end at a finite positive value");
 
-  // A reset moves holdings without trading, so a basket is only ever bought on a
-  // day some sleeve flattened its futures to go risk-off.
-  const flattenDates = new Set(
-    fund.transactions.filter((r) => r.instrument === "futures" && r.action === "sell").map((r) => r.date)
-  );
+  // A reset moves holdings without trading, so a basket is only ever bought on the
+  // session after some sleeve's sell signal. That is not always a day a futures
+  // position was flattened: the leverage cap can round a small sleeve down to zero
+  // contracts while it is still risk-on, leaving nothing to sell on the exit.
+  const fundDates = fund.etfResult.dates;
+  const riskOffEntryDates = new Set<string>([fundDates[0]!]);
+  for (const params of [primary, secondary]) {
+    const solo = simulateFuturesSmaStrategy({ ...params, initialEquity: 15_000 });
+    for (const signal of solo.etfResult.smaSignals ?? []) {
+      if (signal.type !== "sell") continue;
+      const next = fundDates.find((date) => date > signal.date);
+      if (next) riskOffEntryDates.add(next);
+    }
+  }
   const buys = fund.transactions.filter((r) => r.instrument === "riskoff" && r.action === "buy");
   assert.ok(buys.some((r) => r.symbol === "SGOV") && buys.some((r) => r.symbol === "VGSH"));
   for (const row of buys) {
-    assert.ok(flattenDates.has(row.date) || row.date === fund.etfResult.dates[0], `${row.date}: ${row.symbol} bought without a risk-off entry`);
+    assert.ok(riskOffEntryDates.has(row.date), `${row.date}: ${row.symbol} bought without a risk-off entry`);
   }
   // Each sleeve buys only its own basket; the other's ticker is only ever sold.
   const reentrySells = fund.transactions.filter((r) => r.instrument === "riskoff" && r.action === "sell" && !r.isEndLiquidation);

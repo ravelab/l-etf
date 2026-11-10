@@ -8,6 +8,17 @@ import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata } from "@/lib/seo";
+import {
+  FINRA_TAF_PER_SHARE,
+  LIMIT_ORDER_OFFSET_DOLLARS,
+  SEC_SECTION_31_FEE_RATE,
+  getSymbolSpread,
+} from "@/lib/constants";
+
+/** Rendered from the engine's cost table so the FAQ cannot drift from what runs. */
+const TRADING_COST_FAQ_TICKERS = ["TQQQ", "UPRO", "QLD", "SSO", "SGOV", "VGSH", "GLDM", "BRK.B", "VOO", "QQQ"] as const;
+
+const formatCostPct = (fraction: number) => `${(fraction * 100).toFixed(3)}%`;
 
 /** Rendered from the engine's gate table so the FAQ cannot drift from what runs. */
 const VOL_GATE_FAQ_ROWS = [
@@ -192,8 +203,8 @@ const FAQ_DATA: FAQItem[] = [
         <p className="mb-3">
           This app lets you test that idea over long history. The simulated
           <strong className="text-foreground"> UPRO</strong> data goes back more than 140 years,
-          and the simulated <strong className="text-foreground">TQQQ</strong> data goes back more
-          than 55 years.
+          and the simulated <strong className="text-foreground">TQQQ</strong> data goes back about
+          100 years, to 1926, using a proxy before the Nasdaq-100 launched in 1985.
         </p>
         <p>
           This approach tends to look best when markets trend upward or when the rule avoids major
@@ -240,10 +251,10 @@ const FAQ_DATA: FAQItem[] = [
           <li>Higher inflation-adjusted returns</li>
           <li>Better results in bad historical periods</li>
           <li>Smaller losses from peak to bottom</li>
-          <li>Trading frequency near one risk-on/off switch every two years</li>
+          <li>Trading frequency near one risk-on/off switch every three years</li>
         </ul>
         <p className="mt-3">
-          The trading-frequency penalty is lowest at 0.5 switches per year. One
+          The trading-frequency penalty is lowest at 0.3 switches per year. One
           switch per year has a modest penalty, and the penalty increases for
           both rarer and more frequent switches, with a stronger
           penalty for rare switching. An exit and a
@@ -252,11 +263,12 @@ const FAQ_DATA: FAQItem[] = [
         </p>
         <p className="mt-3">
           Calibration also tests neighboring parameters: one SMA day and 0.1
-          percentage point in either buffer. Its final score subtracts half
-          the gap between the band&apos;s base score and its worst neighbor&apos;s
-          base score, when that neighbor scores lower. This retains half the base-score advantage while penalizing
-          sharp drops nearby. Better neighbors never increase the base score. If the plateau center shares
-          the highest final score, calibration keeps that center.
+          percentage point in either buffer. A neighbor may score up to 5% below
+          the band&apos;s base score without penalty; beyond that, the final score
+          subtracts half of the remaining gap to the worst neighbor. This tolerates
+          small dips nearby while penalizing sharp cliffs. Better neighbors never
+          increase the base score. If the plateau center shares the highest final
+          score, calibration keeps that center.
         </p>
         <p className="mt-3">
           Use it as a sorting aid, then look at the actual return, drawdown, and trade-count numbers
@@ -313,56 +325,83 @@ const FAQ_DATA: FAQItem[] = [
     answer: (
       <>
         <p className="mb-3">
-          When the strategy switches, the app subtracts an estimated trading cost. This is meant to
-          represent the bid-ask spread: the small cost of buying at the ask and selling at the bid.
+          When the strategy switches, the app subtracts an estimated trading cost. A switch means
+          selling one asset and buying another, so the cost is charged on the leveraged ETF side and
+          on the risk-off side. If the risk-off asset is a mix, the cost is averaged across the assets
+          in the mix.
         </p>
         <p className="mb-3">
-          A switch means selling one asset and buying another. The app charges a spread cost on the
-          leveraged ETF side and on the risk-off side. If the risk-off asset is a mix, it averages the
-          spread cost across the assets in the mix.
-        </p>
-        <p className="mb-3">
-          Regular-session trades use tighter spreads. Same-day close execution uses wider spreads to
-          be more conservative.
+          Regular-session trades assume a marketable limit order priced{" "}
+          {Math.round(LIMIT_ORDER_OFFSET_DOLLARS * 100)} cents through the current price and filled at
+          that limit, the worst case for such an order. The cents are converted to a percentage using
+          each fund&apos;s recent share price, so a cheaper share pays a larger percentage. Many fills
+          land at the bid or ask instead, so this leans slightly conservative. Same-day close execution
+          uses wider extended-hours spreads.
         </p>
         <p className="mb-2 font-medium text-foreground">
-          Assumed half-spread fractions: regular session / wider close spread
+          Assumed cost per side: regular session / close execution
         </p>
         <ul className="list-disc list-inside space-y-1 ml-4 text-sm">
-          <li>
-            <strong className="text-foreground">TQQQ:</strong> 0.0001 / 0.0010
-          </li>
-          <li>
-            <strong className="text-foreground">UPRO:</strong> 0.0001 / 0.0010
-          </li>
-          <li>
-            <strong className="text-foreground">QLD:</strong> 0.0002 / 0.0012
-          </li>
-          <li>
-            <strong className="text-foreground">SSO:</strong> 0.0002 / 0.0012
-          </li>
-          <li>
-            <strong className="text-foreground">SGOV:</strong> 0.0001 / 0.0006
-          </li>
-          <li>
-            <strong className="text-foreground">VGSH:</strong> 0.0002 / 0.0008
-          </li>
-          <li>
-            <strong className="text-foreground">GLDM:</strong> 0.0002 / 0.0010
-          </li>
-          <li>
-            <strong className="text-foreground">BRK.B:</strong> 0.0002 / 0.0008
-          </li>
-          <li>
-            <strong className="text-foreground">VOO:</strong> 0.0001 / 0.0006
-          </li>
-          <li>
-            <strong className="text-foreground">QQQ:</strong> 0.0001 / 0.0008
-          </li>
+          {TRADING_COST_FAQ_TICKERS.map((ticker) => (
+            <li key={ticker}>
+              <strong className="text-foreground">{ticker}:</strong>{" "}
+              {formatCostPct(getSymbolSpread(ticker, false))} / {formatCostPct(getSymbolSpread(ticker, true))}
+            </li>
+          ))}
         </ul>
         <p className="mt-3 text-sm text-muted">
-          Example: 0.0001 means 0.01% of the traded amount for that side of the trade. Brokerage
-          commissions are not modeled separately.
+          A percentage is of the traded amount for that side of the trade (1 basis point = 0.01%).
+          It includes the regulatory fees charged on sales: the SEC fee (
+          {(SEC_SECTION_31_FEE_RATE * 1_000_000).toFixed(2)} dollars per million sold) and
+          FINRA&apos;s trading activity fee (${FINRA_TAF_PER_SHARE} per share sold). Since every
+          round trip sells each asset once, half of those fees is charged on each side. Commissions
+          are not modeled, since most US brokers charge none for ETFs.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "placing-trades",
+    question: "Should I use market or limit orders, and how large can a market order be?",
+    answer: (
+      <>
+        <p className="mb-3">
+          For a typical account, a market order placed after the opening rush (around 10:00 am
+          Eastern) is fine. By then spreads have settled to about a penny for these funds, and
+          commission-free brokers route retail orders to market makers who usually fill them at the
+          quoted bid or ask or slightly better. That matches the cost the simulation charges.
+        </p>
+        <p className="mb-3">
+          Larger orders are different. Only a limited number of shares sit at the best price at any
+          moment, so a very large market order fills through several price levels and pays more.
+          Nothing is liquidated; you just get a worse average price. Rough upper limits for a single
+          market order (rules of thumb from typical liquidity, not measured):
+        </p>
+        <ul className="list-disc list-inside space-y-1 ml-4 text-sm mb-3">
+          <li><strong className="text-foreground">TQQQ:</strong> about $500k–$1M</li>
+          <li><strong className="text-foreground">UPRO:</strong> about $200k–$300k</li>
+          <li><strong className="text-foreground">SGOV:</strong> about $200k–$500k</li>
+          <li><strong className="text-foreground">BRK.B:</strong> about $500k</li>
+          <li><strong className="text-foreground">VGSH, GLDM:</strong> about $100k–$200k</li>
+        </ul>
+        <p className="mb-3">
+          A quick check before sending: if your share count is smaller than the size shown at the ask
+          (when buying) or the bid (when selling), a market order fills at that price.
+        </p>
+        <p className="mb-3">
+          Above those sizes, use a marketable limit order a cent or two through the price (above the
+          ask to buy, below the bid to sell). It fills just as fast as a market order when there is
+          enough liquidity, but caps what you pay. If the price runs away, the order fills partially
+          and the rest waits at your limit until it fills, you cancel it, or it expires; re-price the
+          remainder. For very large switches (millions of dollars), split the order into pieces of
+          $250k–$1M over 15–60 minutes, especially in UPRO, the least liquid of these funds. A
+          single multi-million-dollar market order can cost 10–40 times the simulated spread.
+        </p>
+        <p className="text-sm text-muted">
+          Timing also matters, though it is not a cost: the default simulation fills at the next
+          day&apos;s official open, while a 10:00 am trade fills about 30 minutes later. A 3x fund can
+          move 0.5–1% in that half hour either way, so any single switch can land somewhat better or
+          worse than the backtest.
         </p>
       </>
     ),
@@ -377,7 +416,8 @@ const FAQ_DATA: FAQItem[] = [
         </p>
         <ul className="list-disc list-inside space-y-1 ml-4">
           <li>Uses explicit futures costs such as IBKR-style fees and spread assumptions.</li>
-          <li>Applies maintenance-margin scenarios (Normal, Stress, Crisis, Extreme).</li>
+          <li>Caps position size by a maintenance-margin requirement on each contract&apos;s notional.</li>
+          <li>Holds idle collateral in short-term Treasury ETFs (SGOV and VGSH).</li>
           <li>
             Tracks futures-specific diagnostics like leverage delta, excess liquidity, and
             transaction-level roll behavior.
@@ -594,9 +634,9 @@ const FAQ_DATA: FAQItem[] = [
           We have actual UPRO, TQQQ, SSO, and QLD prices going back to their launch dates. The
           app runs the simulation against those real prices and adjusts the two numbers until the
           simulated NAV tracks the real ETF as closely as possible day by day, over the full
-          15-20 year history. The fitter looks at four kinds of error at once (day-to-day
-          tracking, long-term drift, average gap, worst gap) and picks the parameters that
-          minimize the combined score. This calibration re-runs automatically on the first
+          15-20 year history. The fitter looks at five kinds of error at once (day-to-day
+          tracking, long-term drift, average gap, worst gap, and the final-return gap) and picks
+          the parameters that minimize the combined score. This calibration re-runs automatically on the first
           Monday of each month, and the table below is read straight out of the model the
           simulation uses.
         </p>
@@ -627,10 +667,10 @@ const FAQ_DATA: FAQItem[] = [
           </table>
         </div>
         <p className="mb-3">
-          A few sanity checks fall out of this. 3x funds have higher rate sensitivities than 2x —
-          banks charge more for taking on more leverage. Nasdaq-tracking funds are slightly more
-          rate-sensitive than S&amp;P-tracking ones, which fits the intuition that a more volatile
-          index has a more expensive swap book.
+          A sanity check falls out of this: in the current fit, each 3x fund is at least as
+          rate-sensitive as its 2x sibling, and TQQQ, the 3x fund on the more volatile index, is
+          the most rate-sensitive of all. That fits the intuition that more leverage on a more
+          volatile index makes for a more expensive swap book.
         </p>
 
         <p className="mb-3">

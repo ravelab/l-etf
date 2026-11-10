@@ -46,7 +46,7 @@ import type {
   RiskOffAsset,
   SmaComparisonRow,
 } from "@/lib/simulation/types";
-import { createSweepChartOptions, getBestSweepRow, getSweepTradesPerYear, sortSweepRowsByPeriod } from "@/lib/sweep";
+import { createSweepChartOptions, getBestSweepRow, getSweepRiskOffPct, getSweepTradesPerYear, sortSweepRowsByPeriod } from "@/lib/sweep";
 import { runCompareSweep } from "@/lib/compare-sweep-runner";
 import type { EtfPreset } from "@/lib/simulation/presets";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
@@ -360,6 +360,8 @@ export function CompareBufferStrategiesPageContent({
     () => getSweepTradesPerYear(rows2, display?.summary.windowLength),
     [rows2, display]
   );
+  const riskOffPct = useMemo(() => getSweepRiskOffPct(rows), [rows]);
+  const riskOffPct2 = useMemo(() => getSweepRiskOffPct(rows2), [rows2]);
 
   const chartRows = useMemo(
     () => sortSweepRowsByPeriod(rows),
@@ -973,14 +975,14 @@ export function CompareBufferStrategiesPageContent({
               <>
                 <Card>
                   <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-                    <SectionTitleWithInflation className="text-lg font-semibold" title={`${display.comboLabels[0]} — Buffer Comparison`} startDate={primaryDisplayStartDate} inflationPct={primaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear} />
+                    <SectionTitleWithInflation className="text-lg font-semibold" title={`${display.comboLabels[0]} — Buffer Comparison`} startDate={primaryDisplayStartDate} inflationPct={primaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear} riskOffPct={riskOffPct} />
                     {hateDrawdownToggle}
                   </div>
                   <SweepComparisonTable resultTableTestId="snapshot-tool-sweep-0" rows={rows} inflationPct={inflPct} windowYears={display.summary.windowLength} firstColumnLabel="Buffer (%)" formatFirstColumn={(r) => `${r.parameterValue}%`} getBacktestUrl={(row, dates) => buildBacktestUrl(row, dates, 0)} baseline={baseline} startDate={display.summary.startDate} showStartDate={false} hateDrawdown={hateDrawdown} showAvgTrades={avgTradesPerYear === undefined} />
                 </Card>
                 <Card>
                   <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-                    <SectionTitleWithInflation className="text-lg font-semibold" title={`${display.comboLabels[1]} — Buffer Comparison`} startDate={secondaryDisplayStartDate} inflationPct={secondaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear2} />
+                    <SectionTitleWithInflation className="text-lg font-semibold" title={`${display.comboLabels[1]} — Buffer Comparison`} startDate={secondaryDisplayStartDate} inflationPct={secondaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear2} riskOffPct={riskOffPct2} />
                   </div>
                   <SweepComparisonTable resultTableTestId="snapshot-tool-sweep-1" rows={rows2} inflationPct={inflPct} windowYears={display.summary.windowLength} firstColumnLabel="Buffer (%)" formatFirstColumn={(r) => `${r.parameterValue}%`} getBacktestUrl={(row, dates) => buildBacktestUrl(row, dates, 1)} baseline={baseline2} startDate={display.summary.startDate} showStartDate={false} hateDrawdown={hateDrawdown} showAvgTrades={avgTradesPerYear2 === undefined} />
                 </Card>
@@ -988,7 +990,7 @@ export function CompareBufferStrategiesPageContent({
             ) : (
               <Card>
                 <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-                  <SectionTitleWithInflation className="text-lg font-semibold" title="Buffer Comparison" startDate={primaryDisplayStartDate} inflationPct={primaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear} />
+                  <SectionTitleWithInflation className="text-lg font-semibold" title="Buffer Comparison" startDate={primaryDisplayStartDate} inflationPct={primaryInflationPctForDisplay} avgTradesPerYear={avgTradesPerYear} riskOffPct={riskOffPct} />
                   {hateDrawdownToggle}
                 </div>
                 <SweepComparisonTable resultTableTestId="snapshot-tool-sweep-main" rows={rows} inflationPct={inflPct} windowYears={display.summary.windowLength} firstColumnLabel="Buffer (%)" formatFirstColumn={(r) => `${r.parameterValue}%`} getBacktestUrl={buildBacktestUrl} baseline={baseline} startDate={display.summary.startDate} showStartDate={false} hateDrawdown={hateDrawdown} showAvgTrades={avgTradesPerYear === undefined} />

@@ -3,12 +3,18 @@ import assert from "node:assert/strict";
 import {
   CONSTANT_INITIAL_INVESTMENT,
 } from "../src/lib/constants";
+import { getSweepRiskOffPct } from "../src/lib/sweep";
+import type { SmaComparisonRow } from "../src/lib/simulation/types";
 import {
+  buildRiskOffDayPrefix,
   computeEntryAdjustedFactor,
   computeOptionalNonLeveragedMetrics,
   computeRenormalizedPathMetrics,
+  countRiskOffDays,
   finalizeTradingCosts,
+  getRangeRiskOffDays,
   getRangeTradeCount,
+  riskOffPercent,
   getRangeTradeValueSum,
   renormalizeSeriesFromIndex,
   resolveEdgeRiskOffStates,
@@ -133,4 +139,35 @@ test("spread selection and cost finalization share entry and exit math", () => {
   assert.equal(costs.totalDollarCost, 4.202);
   assert.equal(costs.finalValue, 1198.8);
   assert.equal(costs.totalTradingCostPct, (4.202 / 1198.8) * 100);
+});
+
+test("risk-off day prefix counts each window's risk-off days in O(1)", () => {
+  const state = Int8Array.from([0, 1, 1, 0, 1]);
+  const precomputed = { dailyValues: [], riskOffDayPrefix: buildRiskOffDayPrefix(state, state.length) };
+  assert.deepEqual(Array.from(precomputed.riskOffDayPrefix), [0, 0, 1, 2, 2, 3]);
+  assert.equal(getRangeRiskOffDays(precomputed, 0, 4), 2);
+  assert.equal(getRangeRiskOffDays(precomputed, 2, 5), 2);
+  assert.equal(getRangeRiskOffDays(precomputed, 3, 3), 0);
+  assert.equal(getRangeRiskOffDays({ dailyValues: [] }, 0, 4), 0);
+  assert.equal(riskOffPercent(2, 4), 50);
+  assert.equal(riskOffPercent(0, 0), 0);
+});
+
+test("tail risk-off days start from the seed regime and follow its signals", () => {
+  const dates = ["d0", "d1", "d2", "d3", "d4"];
+  const signals = [
+    { date: "d2", type: "buy" as const },
+    { date: "d3", type: "sell" as const },
+  ];
+  assert.equal(countRiskOffDays(dates, signals, 0, 4, false), 3);
+  assert.equal(countRiskOffDays(dates, signals, 0, 4, true), 1);
+  assert.equal(countRiskOffDays(dates, [], 1, 4, false), 3);
+});
+
+test("sweep risk-off share is reported only when every row agrees", () => {
+  const row = (avgRiskOffPct?: number) => ({ avgRiskOffPct }) as SmaComparisonRow;
+  assert.equal(getSweepRiskOffPct([row(23.4), row(23.4)]), 23.4);
+  assert.equal(getSweepRiskOffPct([row(23.4), row(30)]), undefined);
+  assert.equal(getSweepRiskOffPct([row(23.4), row()]), undefined);
+  assert.equal(getSweepRiskOffPct([]), undefined);
 });
