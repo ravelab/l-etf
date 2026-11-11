@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { resolveBacktest } from "@/lib/mcp/backtest-config";
 import { buildBufferConfigs } from "@/lib/mcp/compare-configs";
 import { runRollingSweep } from "@/lib/mcp/sweep-core";
-import { runLetfComparison } from "@/lib/mcp/letf-compare-core";
+import { LETF_FUND_PRESET_LABEL, runLetfComparison } from "@/lib/mcp/letf-compare-core";
 import { runCompareBacktests } from "@/lib/mcp/backtest-compare-core";
 import { runFuturesBacktestCore } from "@/lib/mcp/tools/run-futures-backtest";
 import { McpToolError } from "@/lib/mcp/tool-result";
@@ -34,6 +34,24 @@ test("compare_letfs: percentile stats per simulated preset", async () => {
   }
   // Sorted by median CAGR, descending.
   assert.ok(rows[0].cagrPct.p50 >= rows[rows.length - 1].cagrPct.p50);
+});
+
+test("compare_letfs adds the TQQQ/UPRO fund row to SMA runs, between its sleeves", async () => {
+  const run = (includeLetfFund: boolean) => runLetfComparison({
+    presets: ["UPRO", "TQQQ"],
+    smaEnabled: true,
+    includeLetfFund,
+    windowLength: 10,
+    startDate: "1990-01-01",
+    endDate: "2020-01-02",
+  });
+  const rows = await run(true);
+  const fund = rows.find((r) => r.preset === LETF_FUND_PRESET_LABEL);
+  assert.ok(fund, "fund row present");
+  assert.equal(fund.index, "sp500+nasdaq100");
+  const [upro, tqqq] = ["UPRO", "TQQQ"].map((p) => rows.find((r) => r.preset === p)!.avgCagrPct);
+  assert.ok(fund.avgCagrPct > Math.min(upro, tqqq) && fund.avgCagrPct < Math.max(upro, tqqq), "between its sleeves");
+  assert.equal((await run(false)).some((r) => r.preset === LETF_FUND_PRESET_LABEL), false);
 });
 
 test("compare_letfs rejects real-ETF presets", async () => {

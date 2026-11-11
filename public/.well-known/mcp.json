@@ -55,7 +55,7 @@
       },
       {
         "name": "compare_letfs",
-        "description": "Compare leveraged-ETF presets across rolling windows with p10/p50/p90 percentile distributions."
+        "description": "Compare leveraged-ETF presets across rolling windows with p10/p50/p90 percentile distributions; SMA runs include the TQQQ/UPRO two-sleeve fund."
       },
       {
         "name": "run_futures_backtest",

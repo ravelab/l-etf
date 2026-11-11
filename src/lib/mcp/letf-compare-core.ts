@@ -5,6 +5,7 @@
 // computes percentiles.
 
 import { runParallelVariants } from "@/lib/simulation/parallel";
+import { runLetfFundRollingWindows } from "@/lib/simulation/letf-fund-rolling";
 import { percentile } from "@/lib/strategy-percentiles";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import type { EtfConfig } from "@/lib/simulation/types";
@@ -26,6 +27,8 @@ interface LetfCompareInput {
   riskOffAsset?: RiskOffAsset;
   smaExecutionMode?: NonNullable<EtfConfig["smaExecutionMode"]>;
   smaVolGate?: boolean;
+  /** Add the UPRO/TQQQ two-sleeve fund row (SMA runs only), as the Strategies page does. */
+  includeLetfFund?: boolean;
   windowLength: number;
   /** Called after each index group finishes; groups are the natural step here. */
   onGroupProgress?: (completedGroups: number, totalGroups: number) => void;
@@ -33,9 +36,12 @@ interface LetfCompareInput {
   endDate?: string;
 }
 
+export const LETF_FUND_PRESET_LABEL = "TQQQ/UPRO SMA";
+
 interface LetfCompareRow {
   preset: string;
-  index: IndexKey;
+  /** "sp500+nasdaq100" for the two-sleeve fund. */
+  index: string;
   windows: number;
   winRatePct: number;
   avgCagrPct: number;
@@ -84,52 +90,77 @@ export async function runLetfComparison(input: LetfCompareInput): Promise<LetfCo
   const startDate = input.startDate ?? "1885-01-01";
   const endDate = input.endDate ?? new Date().toISOString().slice(0, 10);
 
-  // Resolve presets, reject real ones, group by index.
-  const byIndex = new Map<IndexKey, Array<{ label: string; config: EtfConfig }>>();
-  for (const key of input.presets) {
-    const { def, simulated, index } = presetDefFromKey(key);
-    if (!simulated) {
-      throw new McpToolError(
-        `Preset "${key}" is a real-ETF series; compare_letfs uses simulated series over long history. Use its simulated variant.`,
-      );
-    }
-    const smaPeriod = input.smaPeriod ?? getDefaultSmaPeriod(index);
-    const config = makeSweepEtfConfig(def, {
+  const buildConfig = (key: string): EtfConfig => {
+    const { def, index } = presetDefFromKey(key);
+    return makeSweepEtfConfig(def, {
       id: key,
       name: key,
       smaEnabled: input.smaEnabled,
-      smaPeriod,
+      smaPeriod: input.smaPeriod ?? getDefaultSmaPeriod(index),
       smaUpperBuffer: input.smaUpperBuffer ?? getDefaultSmaUpperBuffer(index),
       smaLowerBuffer: input.smaLowerBuffer ?? getDefaultSmaLowerBuffer(index),
       riskOffAsset: input.riskOffAsset ?? DEFAULT_RISK_OFF_ASSET,
       smaExecutionMode: input.smaExecutionMode,
       smaVolGate: input.smaVolGate ?? DEFAULT_SMA_VOL_GATE,
     });
-    const bucket = byIndex.get(index) ?? [];
-    bucket.push({ label: key, config });
-    byIndex.set(index, bucket);
-  }
+  };
 
-  const rows: LetfCompareRow[] = [];
-  let completedGroups = 0;
-  for (const [index, variants] of byIndex) {
-    const warmUpDays = input.smaEnabled ? Math.max(...variants.map((v) => v.config.smaPeriod)) : 0;
+  const loadIndexGroup = async (index: IndexKey, configs: EtfConfig[]) => {
+    const warmUpDays = input.smaEnabled ? Math.max(...configs.map((config) => config.smaPeriod)) : 0;
     const warmUpStart = getMarketDataWarmUpStartDate(startDate, warmUpDays);
     const [prices, rates] = await Promise.all([
       loadIndexPrices(index, warmUpStart, endDate),
       loadBorrowRates(warmUpStart, endDate),
     ]);
-    if (prices.length < 2) continue;
+    if (prices.length < 2) return null;
+    if (!input.smaEnabled) return { prices, rates };
+    const assets = Array.from(new Set(configs.map((config) => config.riskOffAsset)));
+    const raw = await loadRiskOffRawSeriesForAssets(assets, warmUpStart, endDate);
+    const aligned = alignRiskOffPriceSeries(prices, raw);
+    return {
+      prices,
+      rates,
+      riskOffValuesByAsset: aligned.closeValuesByAsset,
+      riskOffOpenValuesByAsset: aligned.openValuesByAsset,
+    };
+  };
 
-    let riskOffValuesByAsset;
-    let riskOffOpenValuesByAsset;
-    if (input.smaEnabled) {
-      const assets = Array.from(new Set(variants.map((v) => v.config.riskOffAsset)));
-      const raw = await loadRiskOffRawSeriesForAssets(assets, warmUpStart, endDate);
-      const aligned = alignRiskOffPriceSeries(prices, raw);
-      riskOffValuesByAsset = aligned.closeValuesByAsset;
-      riskOffOpenValuesByAsset = aligned.openValuesByAsset;
+  // Resolve presets, reject real ones, group by index.
+  const byIndex = new Map<IndexKey, Array<{ label: string; config: EtfConfig }>>();
+  for (const key of input.presets) {
+    const { simulated, index } = presetDefFromKey(key);
+    if (!simulated) {
+      throw new McpToolError(
+        `Preset "${key}" is a real-ETF series; compare_letfs uses simulated series over long history. Use its simulated variant.`,
+      );
     }
+    const bucket = byIndex.get(index) ?? [];
+    bucket.push({ label: key, config: buildConfig(key) });
+    byIndex.set(index, bucket);
+  }
+
+  const fundSleeves = input.smaEnabled && input.includeLetfFund
+    ? { sp500: buildConfig("UPRO"), nasdaq100: buildConfig("TQQQ") }
+    : null;
+  if (fundSleeves) {
+    for (const index of ["sp500", "nasdaq100"] as const) {
+      if (!byIndex.has(index)) byIndex.set(index, []);
+    }
+  }
+
+  const rows: LetfCompareRow[] = [];
+  const loadedByIndex = new Map<IndexKey, Awaited<ReturnType<typeof loadIndexGroup>>>();
+  let completedGroups = 0;
+  for (const [index, variants] of byIndex) {
+    const groupConfigs = [...variants.map((v) => v.config), ...(fundSleeves ? [fundSleeves[index]] : [])];
+    const loaded = await loadIndexGroup(index, groupConfigs);
+    if (!loaded) continue;
+    loadedByIndex.set(index, loaded);
+    if (variants.length === 0) {
+      input.onGroupProgress?.(++completedGroups, byIndex.size);
+      continue;
+    }
+    const { prices, rates, riskOffValuesByAsset, riskOffOpenValuesByAsset } = loaded;
 
     const results = await runParallelVariants({
       prices,
@@ -148,6 +179,21 @@ export async function runLetfComparison(input: LetfCompareInput): Promise<LetfCo
       rows.push({ preset: label, index, ...pctStats(simulations) });
     }
     input.onGroupProgress?.(++completedGroups, byIndex.size);
+  }
+
+  const spx = loadedByIndex.get("sp500");
+  const ndx = loadedByIndex.get("nasdaq100");
+  if (fundSleeves && spx && ndx) {
+    const runs = await runLetfFundRollingWindows({
+      spx: { ...spx, config: fundSleeves.sp500 },
+      ndx: { ...ndx, config: fundSleeves.nasdaq100 },
+      rates: spx.rates,
+      windowLength: input.windowLength,
+      startDate,
+      endDate,
+      historyWrap: false,
+    });
+    if (runs.length > 0) rows.push({ preset: LETF_FUND_PRESET_LABEL, index: "sp500+nasdaq100", ...pctStats(runs) });
   }
 
   if (rows.length === 0) throw new McpToolError("No valid rolling windows for these presets and range.");

@@ -105,7 +105,17 @@ import {
   filterPricesByDates,
   intersectCommonDates,
 } from "../src/lib/utils";
-import { buildStrategyVariants, buildStrategyYearlyGrowthSeries, normalizeStrategyLabel, shouldIncludeStrategyChartLabel } from "../src/lib/strategy-page-data";
+import {
+  buildStrategyVariants,
+  buildStrategyYearlyGrowthSeries,
+  getDistributionComparisonLabels,
+  LETF_FUND_STRATEGY_LABEL,
+  normalizeStrategyLabel,
+  shouldIncludeStrategyChartLabel,
+  strategyFamiliesForLabel,
+  type StrategyFamily,
+} from "../src/lib/strategy-page-data";
+import { runLetfFundRollingWindows } from "../src/lib/simulation/letf-fund-rolling";
 import { buildSgovFinalValuesByWindow } from "../src/lib/sgov-benchmark";
 import { computeWinRatesByWindowLength, type WinRatesByWindow } from "../src/lib/simulation/win-rates";
 import { readSmaCalibrationSnapshot } from "../src/lib/sma-calibration";
@@ -172,6 +182,7 @@ type DistributionSnapshot = {
     avg: number;
     p90: number;
     categoryWinRates: DistributionCategoryWinRates;
+    categoryWinRatesByFamily?: Partial<Record<StrategyFamily, DistributionCategoryWinRates>>;
   }>;
 };
 
@@ -182,6 +193,7 @@ type YearlyGrowthSeries = {
 };
 
 const DISTRIBUTION_LABEL_ORDER = [
+  LETF_FUND_STRATEGY_LABEL,
   "TQQQ SMA Next Open",
   "TQQQ",
   LABEL_INDEX_NASDAQ100_TR,
@@ -848,9 +860,29 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     }),
   ]);
 
+  const fundRuns = await runLetfFundRollingWindows({
+    spx: {
+      prices: sp500Prices,
+      config: sp500Variants.find((v) => v.label === "UPRO SMA Next Open")!.config,
+      riskOffValuesByAsset: riskOffForSp500.closeValuesByAsset,
+      riskOffOpenValuesByAsset: riskOffForSp500.openValuesByAsset,
+    },
+    ndx: {
+      prices: nasdaqPrices,
+      config: nasdaqVariants.find((v) => v.label === "TQQQ SMA Next Open")!.config,
+      riskOffValuesByAsset: riskOffForNasdaq.closeValuesByAsset,
+      riskOffOpenValuesByAsset: riskOffForNasdaq.openValuesByAsset,
+    },
+    rates,
+    windowLength: shared.windowLength,
+    startDate: shared.startDate,
+    endDate: shared.endDate,
+  });
+
   const strategyResults: StrategyResult[] = [
     ...sp500Results.map(({ label, simulations }) => ({ label, runs: simulations })),
     ...nasdaqResults.map(({ label, simulations }) => ({ label, runs: simulations })),
+    ...(fundRuns.length > 0 ? [{ label: LETF_FUND_STRATEGY_LABEL, runs: fundRuns }] : []),
   ];
   const snapshotSummary = {
     rows: strategyResults.map((result, idx) => summarizeSmaRow(idx, result.runs, inflationData.monthlyCpi)),
@@ -1372,29 +1404,6 @@ function buildVariantSummary(label: string, runs: RollingSimulationPoint[]): Var
   };
 }
 
-function getDistributionComparisonLabels(label: string): {
-  vsSma?: string;
-  vsNonSma?: string;
-  vsUnleveraged?: string;
-} {
-  switch (label) {
-    case "TQQQ SMA Next Open":
-      return { vsNonSma: "TQQQ", vsUnleveraged: LABEL_INDEX_NASDAQ100_TR };
-    case "TQQQ":
-      return { vsSma: "TQQQ SMA Next Open", vsUnleveraged: LABEL_INDEX_NASDAQ100_TR };
-    case LABEL_INDEX_NASDAQ100_TR:
-      return { vsSma: "TQQQ SMA Next Open", vsNonSma: "TQQQ" };
-    case "UPRO SMA Next Open":
-      return { vsNonSma: "UPRO", vsUnleveraged: LABEL_INDEX_SP500_TR };
-    case "UPRO":
-      return { vsSma: "UPRO SMA Next Open", vsUnleveraged: LABEL_INDEX_SP500_TR };
-    case LABEL_INDEX_SP500_TR:
-      return { vsSma: "UPRO SMA Next Open", vsNonSma: "UPRO" };
-    default:
-      return {};
-  }
-}
-
 function compareValuesWithTie(left: number, right: number): number {
   if (left > right) return 1;
   if (left < right) return 0;
@@ -1479,19 +1488,26 @@ function buildCompareLetfsDistributionSnapshot(
         .filter(Number.isFinite)
         .sort((a, b) => a - b);
       if (values.length === 0) return null;
-      const comparisons = getDistributionComparisonLabels(series.label);
+      const families = strategyFamiliesForLabel(series.label);
+      const ratesFor = (family: StrategyFamily | undefined): DistributionCategoryWinRates => {
+        const comparisons = family ? getDistributionComparisonLabels(series.label, family) : {};
+        return {
+          vsSma: computeWinRate(series.label, comparisons.vsSma),
+          vsNonSma: computeWinRate(series.label, comparisons.vsNonSma),
+          vsUnleveraged: computeWinRate(series.label, comparisons.vsUnleveraged),
+          vsSgov: computeWinRateVsSgov(series.label),
+        };
+      };
       return {
         label: series.label,
         p10: percentile(values, 0.1),
         p50: percentile(values, 0.5),
         avg: values.reduce((sum, value) => sum + value, 0) / values.length,
         p90: percentile(values, 0.9),
-        categoryWinRates: {
-          vsSma: computeWinRate(series.label, comparisons.vsSma),
-          vsNonSma: computeWinRate(series.label, comparisons.vsNonSma),
-          vsUnleveraged: computeWinRate(series.label, comparisons.vsUnleveraged),
-          vsSgov: computeWinRateVsSgov(series.label),
-        },
+        categoryWinRates: ratesFor(families[0]),
+        ...(families.length > 1
+          ? { categoryWinRatesByFamily: Object.fromEntries(families.map((family) => [family, ratesFor(family)])) }
+          : {}),
       };
     })
     .filter((row): row is DistributionSnapshot["rows"][number] => row !== null)

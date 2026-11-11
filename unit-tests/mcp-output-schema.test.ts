@@ -274,6 +274,14 @@ test("compare_backtests and compare_letfs validate against their schemas", async
   });
   assert.notEqual(letfs.isError, true, JSON.stringify(letfs.content));
   assert.ok((letfs.structuredContent as { results: unknown[] }).results.length > 0);
+
+  const gated = await client.callTool({
+    name: "compare_letfs",
+    arguments: { presets: ["UPRO", "TQQQ"], smaEnabled: true, windowLength: 10, startDate: "1990-01-01", endDate: "2020-01-01" },
+  });
+  assert.notEqual(gated.isError, true, JSON.stringify(gated.content));
+  const results = (gated.structuredContent as { results: Array<{ preset: string }> }).results;
+  assert.ok(results.some((r) => r.preset === "TQQQ/UPRO SMA"), "SMA runs carry the fund row");
   await client.close();
 });
 

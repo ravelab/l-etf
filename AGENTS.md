@@ -316,6 +316,13 @@ next-day-open execution. A fixed-dollar cost or another execution mode breaks th
 composition. The reset settles in cash, unlike the futures fund's in-kind
 transfer; only the staying sleeve's basket trade is charged.
 
+The Strategies page shows the same fund over rolling windows
+(`letf-fund-rolling.ts`, label `LETF_FUND_STRATEGY_LABEL`, in both family cards).
+Each window reopens at 50/50, so it cannot be sliced from one long fund path:
+it renormalizes each sleeve's whole-history path (plus its history-wrap tail)
+per window and composes through `composeLetfFundPath`, the core the backtest
+composer also uses. Its test pins no-exit windows to the engine's own rows.
+
 External timing rules plug in through `signal-rules.ts`: add a `SignalRule` (a
 regime array from index closes; `three-gate.ts` is the example) to
 `BUILT_IN_SIGNAL_RULES` and it appears in the page's "Extra Strategies" picker

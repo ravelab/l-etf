@@ -51,6 +51,74 @@ function exitFraction(result: EtfResult): number {
   return last > 0 ? Math.min(1, Math.max(0, result.finalValue / last)) : 1;
 }
 
+/** One sleeve as {@link composeLetfFundPath} walks it, on the fund's calendar. */
+export type LetfFundPathSleeve = {
+  /** The sleeve's own day index on each fund day, or -1 when it did not trade that day. */
+  dayIndex: ArrayLike<number>;
+  dailyValues: ArrayLike<number>;
+  /** Regime held on each of the sleeve's own days (see {@link heldRiskOnByDay}). */
+  heldRiskOn: ArrayLike<boolean>;
+  /** Dollars the sleeve opens with on the first fund day, net of its entry spread. */
+  startValue: number;
+  riskOffAsset: string;
+  /** Share of its last value the sleeve keeps after its closing trade. */
+  exitFraction: number;
+  totalTradingCostPct: number;
+};
+
+/**
+ * The fund's path over fund days `[firstDay, firstDay + dayCount)`. Both sleeves
+ * must have traded on `firstDay`.
+ */
+export function composeLetfFundPath(
+  sleeves: readonly [LetfFundPathSleeve, LetfFundPathSleeve],
+  firstDay: number,
+  dayCount: number
+): { dailyValues: number[]; finalValue: number; totalTradingCostPct: number } {
+  const sameBasket = sleeves[0].riskOffAsset === sleeves[1].riskOffAsset;
+  let value = sleeves.map((sleeve) => sleeve.startValue);
+  const cursor = sleeves.map((sleeve) => sleeve.dayIndex[firstDay]);
+  const dailyValues = [value[0] + value[1]];
+  let resetCost = 0;
+
+  for (let k = firstDay + 1; k < firstDay + dayCount; k++) {
+    const nextIdx = sleeves.map((sleeve) => sleeve.dayIndex[k]);
+    const bothWereRiskOff = sleeves.every((sleeve, s) => !sleeve.heldRiskOn[cursor[s]]);
+    const turning = nextIdx.map((i, s) => i >= 0 && sleeves[s].heldRiskOn[i]);
+    if (bothWereRiskOff && turning.some(Boolean)) {
+      const fund = value[0] + value[1];
+      const staying = turning.findIndex((t) => !t);
+      const cost = !sameBasket && staying >= 0
+        ? Math.abs(value[staying] - fund / 2) * getRiskOffSpread(sleeves[staying].riskOffAsset, false)
+        : 0;
+      resetCost += cost;
+      value = [(fund - cost) / 2, (fund - cost) / 2];
+    }
+    value = value.map((v, s) => {
+      const i = nextIdx[s];
+      if (i < 0) return v;
+      const prev = sleeves[s].dailyValues[cursor[s]];
+      const growth = prev > 0 ? sleeves[s].dailyValues[i] / prev : 0;
+      cursor[s] = i;
+      return v * growth;
+    });
+    dailyValues.push(value[0] + value[1]);
+  }
+
+  const finalValue = value.reduce((sum, v, s) => sum + v * sleeves[s].exitFraction, 0);
+  // Each sleeve's costs scale with the share of the fund it ended with; approximate
+  // across resets, exact (to rounding) when none fires.
+  const sleeveCosts = sleeves.reduce(
+    (sum, sleeve, s) => sum + (sleeve.totalTradingCostPct / 100) * value[s] * sleeve.exitFraction,
+    0
+  );
+  return {
+    dailyValues,
+    finalValue,
+    totalTradingCostPct: finalValue > 0 ? ((sleeveCosts + resetCost) / finalValue) * 100 : 0,
+  };
+}
+
 /**
  * The fund's daily values on the union of the sleeves' calendars, or null when the
  * sleeves do not start together (a 50/50 fund needs both from day one).
@@ -65,48 +133,20 @@ export function composeLetfDualSleeveFund(params: {
   if (sleeves.some(({ result }) => result.dates.length < 2 || !(result.dailyValues[0] > 0))) return null;
   if (sleeves[0].result.dates[0] !== sleeves[1].result.dates[0]) return null;
 
-  const held = sleeves.map(({ result }) => heldRiskOnByDay(result));
-  const dayIndexByDate = sleeves.map(({ result }) => new Map(result.dates.map((date, i) => [date, i])));
   const dates = [...new Set(sleeves.flatMap(({ result }) => result.dates))].sort();
-  const sameBasket = sleeves[0].riskOffAsset === sleeves[1].riskOffAsset;
-
-  // Each sleeve opens with half the fund, already net of its own entry spread.
-  let value = sleeves.map(({ result }) => result.dailyValues[0] / 2);
-  const cursor = sleeves.map(() => 0);
-  const dailyValues = [value[0] + value[1]];
-  let resetCost = 0;
-
-  for (let k = 1; k < dates.length; k++) {
-    const nextIdx = dayIndexByDate.map((byDate) => byDate.get(dates[k]));
-    const bothWereRiskOff = held.every((h, s) => !h[cursor[s]]);
-    const turning = nextIdx.map((i, s) => i !== undefined && held[s][i]);
-    if (bothWereRiskOff && turning.some(Boolean)) {
-      const fund = value[0] + value[1];
-      const staying = turning.findIndex((t) => !t);
-      const cost = !sameBasket && staying >= 0
-        ? Math.abs(value[staying] - fund / 2) * getRiskOffSpread(sleeves[staying].riskOffAsset, false)
-        : 0;
-      resetCost += cost;
-      value = [(fund - cost) / 2, (fund - cost) / 2];
-    }
-    value = value.map((v, s) => {
-      const i = nextIdx[s];
-      if (i === undefined) return v;
-      const prev = sleeves[s].result.dailyValues[cursor[s]];
-      const growth = prev > 0 ? sleeves[s].result.dailyValues[i] / prev : 0;
-      cursor[s] = i;
-      return v * growth;
-    });
-    dailyValues.push(value[0] + value[1]);
-  }
-
-  const finalValue = value.reduce((sum, v, s) => sum + v * exitFraction(sleeves[s].result), 0);
-  // Each sleeve's costs scale with the share of the fund it ended with; approximate
-  // across resets, exact (to rounding) when none fires.
-  const sleeveCosts = sleeves.reduce(
-    (sum, { result }, s) => sum + (result.totalTradingCostPct / 100) * value[s] * exitFraction(result),
-    0
-  );
+  const [primary, secondary] = sleeves.map(({ result, riskOffAsset }): LetfFundPathSleeve => {
+    const indexByDate = new Map(result.dates.map((date, i) => [date, i]));
+    return {
+      dayIndex: dates.map((date) => indexByDate.get(date) ?? -1),
+      dailyValues: result.dailyValues,
+      heldRiskOn: heldRiskOnByDay(result),
+      startValue: result.dailyValues[0] / 2,
+      riskOffAsset,
+      exitFraction: exitFraction(result),
+      totalTradingCostPct: result.totalTradingCostPct,
+    };
+  });
+  const { dailyValues, finalValue, totalTradingCostPct } = composeLetfFundPath([primary, secondary], 0, dates.length);
   const drawdown = calcMaxDrawdown(dailyValues, dates);
   const months = calcMonthlyExtremes(dailyValues, dates);
 
@@ -132,7 +172,7 @@ export function composeLetfDualSleeveFund(params: {
     // Two SMAs drive it, so there is no single SMA line or signal list to chart.
     smaSignals: [],
     smaPrices: [],
-    totalTradingCostPct: finalValue > 0 ? ((sleeveCosts + resetCost) / finalValue) * 100 : 0,
+    totalTradingCostPct,
   };
 }
 

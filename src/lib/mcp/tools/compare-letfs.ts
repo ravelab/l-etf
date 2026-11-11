@@ -33,7 +33,9 @@ export function registerCompareLetfs(server: McpServer): void {
       description:
         "Compare simulated leveraged-ETF presets (UPRO, TQQQ, SSO, QLD) across every historical rolling " +
         "window and return percentile outcome distributions (p10/p50/p90 CAGR and final multiple, win " +
-        "rate vs 1x, median drawdown). Set `smaEnabled` to gate each with SMA timing + risk-off. " +
+        "rate vs 1x, median drawdown). Set `smaEnabled` to gate each with SMA timing + risk-off; SMA runs " +
+        "also add the TQQQ/UPRO fund row (half in each SMA strategy, reset to 50/50 only when both are " +
+        "risk-off and one re-enters; win rate is vs a 50/50 SPX/NDX hold) unless `includeLetfFund` is false. " +
         "Simulated series only. NOT investment advice.",
       inputSchema: z.object({
         presets: z.array(presetSchema).min(1).max(MAX_COMPARE_PRESETS).optional(),
@@ -45,6 +47,8 @@ export function registerCompareLetfs(server: McpServer): void {
         riskOffAsset: riskOffAssetSchema.optional(),
         smaExecutionMode: smaExecutionModeSchema.optional(),
         smaVolGate: smaVolGateSchema.optional(),
+        includeLetfFund: z.boolean().optional()
+          .describe("Add the TQQQ/UPRO two-sleeve fund row when smaEnabled (default true)."),
         startDate: isoDate.optional(),
         endDate: isoDate.optional(),
       }),
@@ -67,6 +71,7 @@ export function registerCompareLetfs(server: McpServer): void {
           riskOffAsset: args.riskOffAsset as never,
           smaExecutionMode: args.smaExecutionMode,
           smaVolGate: args.smaVolGate,
+          includeLetfFund: args.includeLetfFund ?? true,
           windowLength,
           onGroupProgress: (completed, total) =>
             onProgress?.(completed / total, `${completed}/${total} index groups`),

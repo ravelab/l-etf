@@ -121,12 +121,6 @@ function DateRangeLink({
   );
 }
 
-function formatMonthLinkLabel(dates?: { start: string; end: string }): string | undefined {
-  // The span starts at the prior month's close (the measurement base), so the
-  // month being labeled is the one the span ends in.
-  return dates?.end.slice(0, 7).replace("-", "/");
-}
-
 type SortKey =
   | "name"
   | "startDate"
@@ -140,8 +134,6 @@ type SortKey =
   | "realCagr"
   | "afterTaxRealCagr"
   | "inflationPct"
-  | "bestMonth"
-  | "worstMonth"
   | "totalTradingCostPct";
 
 type ResultsTableVariant = "backtest" | "futures";
@@ -388,16 +380,6 @@ function ResultsTableImpl({
             <th className="pb-2 pr-4 font-medium">
               <SortButton label="Total Trade Cost" active={sortKey === "totalTradingCostPct"} dir={sortDir} onClick={() => toggleSort("totalTradingCostPct")} />
             </th>
-            {variant === "backtest" && (
-              <>
-                <th className="pb-2 pr-4 font-medium">
-                  <SortButton label="Best Month" active={sortKey === "bestMonth"} dir={sortDir} onClick={() => toggleSort("bestMonth")} />
-                </th>
-                <th className="pb-2 pr-4 font-medium">
-                  <SortButton label="Worst Month" active={sortKey === "worstMonth"} dir={sortDir} onClick={() => toggleSort("worstMonth")} />
-                </th>
-              </>
-            )}
             {variant === "futures" && (
               <>
                 <th className="pb-2 pr-4 font-medium whitespace-nowrap">
@@ -469,26 +451,6 @@ function ResultsTableImpl({
               <td className="py-2.5 pr-4 text-muted">
                 {formatPercent(r.totalTradingCostPct ?? 0)}
               </td>
-              {variant === "backtest" && (
-                <>
-                  <td className="py-2.5 pr-4 text-positive">
-                    {formatPercent(r.bestMonth ?? 0)}
-                    <DateRangeLink
-                      dates={r.bestMonthDates}
-                      href={buildMetricBacktestUrl(r.bestMonthDates)}
-                      label={formatMonthLinkLabel(r.bestMonthDates)}
-                    />
-                  </td>
-                  <td className="py-2.5 pr-4 text-negative">
-                    {formatPercent(r.worstMonth ?? 0)}
-                    <DateRangeLink
-                      dates={r.worstMonthDates}
-                      href={buildMetricBacktestUrl(r.worstMonthDates)}
-                      label={formatMonthLinkLabel(r.worstMonthDates)}
-                    />
-                  </td>
-                </>
-              )}
               {variant === "futures" && (
                 <>
                   <td className="py-2.5 pr-4 text-muted tabular-nums whitespace-nowrap">

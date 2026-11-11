@@ -61,8 +61,61 @@ export function formatStrategyLabelForDisplay(label: string, tradeAfterHours: bo
   return volGate ? shown.replace(/ SMA\b/, " SMA Vol RSI") : shown;
 }
 
+/**
+ * The UPRO/TQQQ two-sleeve fund (letf-dual-sleeve.ts). It holds both indexes, so it
+ * belongs to both families and appears in each family's distribution.
+ */
+export const LETF_FUND_STRATEGY_LABEL = "TQQQ/UPRO SMA Next Open";
+
+export type StrategyFamily = "sp500" | "nasdaq100";
+
+const FAMILY_TICKERS: Record<StrategyFamily, { lead: string; second: string; index: string }> = {
+  sp500: { lead: "UPRO", second: "SSO", index: LABEL_INDEX_SP500_TR },
+  nasdaq100: { lead: "TQQQ", second: "QLD", index: LABEL_INDEX_NASDAQ100_TR },
+};
+
+export function strategyFamiliesForLabel(label: string): StrategyFamily[] {
+  const normalized = normalizeStrategyLabel(label);
+  if (normalized === LETF_FUND_STRATEGY_LABEL) return ["sp500", "nasdaq100"];
+  return (Object.keys(FAMILY_TICKERS) as StrategyFamily[]).filter((family) => {
+    const { lead, second, index } = FAMILY_TICKERS[family];
+    if (normalized === index) return true;
+    return [lead, second].some((ticker) =>
+      normalized === ticker || normalized === `${ticker} SMA Next Open` ||
+      normalized === `${ticker} SMA Close` || normalized === `${ticker} SMA Next Close`
+    );
+  });
+}
+
+/** The rows a distribution row's "Beats …" columns compare it against, within one family's card. */
+export function getDistributionComparisonLabels(label: string, family: StrategyFamily): {
+  vsSma?: string;
+  vsNonSma?: string;
+  vsUnleveraged?: string;
+} {
+  const { lead, second, index } = FAMILY_TICKERS[family];
+  const leadSma = `${lead} SMA Next Open`;
+  switch (label) {
+    case LETF_FUND_STRATEGY_LABEL:
+      return { vsSma: leadSma, vsNonSma: lead, vsUnleveraged: index };
+    case leadSma:
+      return { vsNonSma: lead, vsUnleveraged: index };
+    case `${second} SMA Next Open`:
+      return { vsNonSma: second, vsUnleveraged: index };
+    case lead:
+      return { vsSma: leadSma, vsUnleveraged: index };
+    case second:
+      return { vsSma: `${second} SMA Next Open`, vsUnleveraged: index };
+    case index:
+      return { vsSma: leadSma, vsNonSma: lead };
+    default:
+      return {};
+  }
+}
+
 export function shouldIncludeStrategyChartLabel(label: string): boolean {
   const normalized = normalizeStrategyLabel(label);
+  if (normalized === LETF_FUND_STRATEGY_LABEL) return true;
   if (normalized === LABEL_INDEX_SP500_TR || normalized === LABEL_INDEX_NASDAQ100_TR) return true;
   if (normalized === "UPRO" || normalized === "TQQQ" || normalized === "SSO" || normalized === "QLD") return true;
   if (normalized === "UPRO SMA Next Open") return true;
