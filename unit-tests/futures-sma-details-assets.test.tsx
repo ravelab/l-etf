@@ -117,3 +117,24 @@ describe("futures ledger Assets column", () => {
     expect(assetsCell(0)).toHaveTextContent("—");
   });
 });
+
+describe("futures ledger Front/Deferred columns", () => {
+  it("shows a micro leg as a tenth of a full contract instead of rounding it away", () => {
+    render(
+      <FuturesSmaDetails
+        annualizedInflation={0}
+        monthlyCpi={[]}
+        strategy={{
+          ...strategy([
+            tx({ date: dates[0], action: "buy", instrument: "futures", symbol: "NQM88", qtyDelta: 4, qtyAfter: 4, fillPrice: 183 }),
+            tx({ date: dates[0], action: "buy", instrument: "futures", symbol: "MNQM88", qtyDelta: 8, qtyAfter: 4.8, fillPrice: 183 }),
+          ]),
+          index: "nasdaq100",
+        }}
+      />,
+    );
+    expect(cell(0, "Front").textContent).toBe("4");
+    expect(cell(1, "Front").textContent).toBe("4.8");
+    expect(cell(1, "Qty Δ").textContent).toBe("+8");
+  });
+});

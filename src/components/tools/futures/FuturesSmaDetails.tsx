@@ -68,6 +68,15 @@ function formatLedgerQty(value: number): string {
   return isCompact(value) ? formatCompactNumber(value) : formatQty(value);
 }
 
+/**
+ * Front/Deferred are full-contract equivalents, where an MES/MNQ counts a tenth
+ * (4 NQ + 8 MNQ is 4.8), so keep one decimal rather than rounding a micro away.
+ */
+function formatContractEquivalent(value: number): string {
+  if (isCompact(value)) return formatCompactNumber(value);
+  return Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "0";
+}
+
 /** Index-like fill price: two decimals under 1K, K/M/B above. */
 function formatIndexLikePrice(value: number): string {
   if (!Number.isFinite(value)) return "—";
@@ -565,14 +574,14 @@ function FuturesSmaDetailsImpl({
                       {row.instrument === "futures" &&
                       row.frontQtyAfter != null &&
                       row.backQtyAfter != null
-                        ? formatLedgerQty(row.frontQtyAfter)
+                        ? formatContractEquivalent(row.frontQtyAfter)
                         : "—"}
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums text-muted">
                       {row.instrument === "futures" &&
                       row.frontQtyAfter != null &&
                       row.backQtyAfter != null
-                        ? formatLedgerQty(row.backQtyAfter)
+                        ? formatContractEquivalent(row.backQtyAfter)
                         : "—"}
                     </td>
                     <td className="py-2.5 pr-4 min-w-0 whitespace-normal break-words text-right tabular-nums">
