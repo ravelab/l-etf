@@ -18,7 +18,7 @@ async function main() {
   const [sp,nq,rates,cpi,raw] = await Promise.all([loadIndexPrices('sp500',warm,requestedEnd),loadIndexPrices('nasdaq100',warm,requestedEnd),loadBorrowRates(warm,requestedEnd),loadInflation(warm,requestedEnd),loadRiskOffRawSeriesForAssets(['BRK.B+GLDM','VGSH','SGOV'],warm,requestedEnd)]);
   const end = [sp.at(-1)!.date,nq.at(-1)!.date,...Object.values(raw).map(p=>p.at(-1)!.date)].sort()[0];
   const windows = [{id:'full',start,end},{id:'train',start,end:'2007-12-31'},{id:'test',start:'2008-01-02',end},{id:'recent',start:'2016-01-04',end}];
-  const steps = buildFuturesLadderPlan({showEmulations:false,hasNasdaqData:true,yearSpan:38,bands,dualRiskOffAssets:DEFAULT_RISK_OFF_ASSETS}).filter(s=>s.secondary);
+  const steps = buildFuturesLadderPlan({showEmulations:false,hasNasdaqData:true,bands,dualRiskOffAssets:DEFAULT_RISK_OFF_ASSETS}).filter(s=>s.secondary);
   if(steps.length!==1) throw new Error('Expected exactly one dual-sleeve rung');
   const plans = new Map<string,DualSleeveFuturesParams>();
   for(const w of windows) {

@@ -64,14 +64,11 @@ const EMULATION_PAIRS = [
   { index: "nasdaq100", leverage: 2, configId: "qld", presetKey: "QLD" },
 ] as const;
 
-/** Windows longer than this drop the mid ladder rungs — the sims get expensive. */
-const LONG_WINDOW_YEARS = 90;
-
+/** Run the full ladder for every date range; duration must never prune strategies. */
 export function buildFuturesLadderPlan(params: {
   /** Emulation mode runs only the rungs that have an LETF twin. */
   showEmulations: boolean;
   hasNasdaqData: boolean;
-  yearSpan: number;
   bands: SmaBandsByIndex;
   /**
    * Per-index risk-off assets for every rung on that index, single-index or a
@@ -80,7 +77,7 @@ export function buildFuturesLadderPlan(params: {
    */
   dualRiskOffAssets?: DualRiskOffAssets;
 }): FuturesLadderStep[] {
-  const { showEmulations, hasNasdaqData, yearSpan, bands, dualRiskOffAssets } = params;
+  const { showEmulations, hasNasdaqData, bands, dualRiskOffAssets } = params;
   const bandFor = (index: IndexKey): SmaBand => bands[index as keyof SmaBandsByIndex];
   const riskOffFor = (index: IndexKey): { riskOffAsset?: RiskOffAsset } =>
     dualRiskOffAssets ? { riskOffAsset: dualRiskOffAssets[index as keyof DualRiskOffAssets] } : {};
@@ -123,14 +120,6 @@ export function buildFuturesLadderPlan(params: {
       ...riskOffFor("nasdaq100"),
     },
   };
-
-  if (yearSpan > LONG_WINDOW_YEARS) {
-    return [
-      maxSpx,
-      ...(hasNasdaqData ? [maxSpxWithNdx] : []),
-      { index: "sp500", leverage: 3, sma: sp, ...riskOffFor("sp500") },
-    ];
-  }
 
   return [
     maxSpx,

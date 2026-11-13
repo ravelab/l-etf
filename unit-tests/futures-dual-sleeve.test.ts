@@ -241,7 +241,6 @@ test("futures plan: the dual-sleeve rung carries each index's own band", () => {
   const plan = buildFuturesLadderPlan({
     showEmulations: false,
     hasNasdaqData: true,
-    yearSpan: 20,
     bands: BANDS,
   });
   const dual = plan.find((step) => step.secondary);
@@ -258,27 +257,24 @@ test("futures plan: the dual-sleeve rung carries each index's own band", () => {
   assert.deepEqual(dual.secondary?.sma, BANDS.nasdaq100);
 });
 
-test("futures plan: the dual-sleeve rung drops with no NDX data, and survives a long window", () => {
+test("futures plan: the dual-sleeve rung depends on NDX availability and emulation mode", () => {
   const noNdx = buildFuturesLadderPlan({
     showEmulations: false,
     hasNasdaqData: false,
-    yearSpan: 20,
     bands: BANDS,
   });
   assert.equal(noNdx.some((step) => step.secondary), false, "no NDX data means no NDX sleeve");
 
-  const long = buildFuturesLadderPlan({
+  const normal = buildFuturesLadderPlan({
     showEmulations: false,
     hasNasdaqData: true,
-    yearSpan: 140,
     bands: BANDS,
   });
-  assert.equal(long.some((step) => step.secondary), true, "the fund runs on long windows too");
+  assert.equal(normal.some((step) => step.secondary), true, "the fund runs whenever NDX data is available");
 
   const emulations = buildFuturesLadderPlan({
     showEmulations: true,
     hasNasdaqData: true,
-    yearSpan: 20,
     bands: BANDS,
   });
   assert.equal(
@@ -346,7 +342,6 @@ test("futures plan: per-sleeve risk-off overrides reach the fund and share one h
   const steps = buildFuturesLadderPlan({
     showEmulations: false,
     hasNasdaqData: true,
-    yearSpan: 20,
     bands: BANDS,
     dualRiskOffAssets: { sp500: "BRK.B", nasdaq100: "VGSH" },
   });

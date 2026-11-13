@@ -43,7 +43,6 @@ test("futures run plans: a step with a second sleeve runs as a fund, not as its 
   const steps = buildFuturesLadderPlan({
     showEmulations: false,
     hasNasdaqData: true,
-    yearSpan: 20,
     bands: BANDS,
   });
   const dualSteps = steps.filter((step) => step.secondary);
@@ -69,7 +68,6 @@ test("futures run plans: single rungs keep their label and full equity", () => {
   const steps = buildFuturesLadderPlan({
     showEmulations: false,
     hasNasdaqData: true,
-    yearSpan: 20,
     bands: BANDS,
   });
   const plans = buildFuturesRunPlans({ steps, initialEquity: 100_000, sleeveParams });
@@ -89,7 +87,6 @@ test("futures transactions filter: the snapshot keeps exactly what the page list
   const steps = buildFuturesLadderPlan({
     showEmulations: false,
     hasNasdaqData: true,
-    yearSpan: 20,
     bands: BANDS,
   });
   const listed = steps.filter((step) =>

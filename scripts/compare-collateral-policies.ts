@@ -27,7 +27,7 @@ async function main() {
   const endDate = [sp.at(-1)!.date, nq.at(-1)!.date, ...Object.values(raw).map(p => p.at(-1)!.date)].sort()[0];
   const prices = { sp500: sp.filter(p => p.date <= endDate), nasdaq100: nq.filter(p => p.date <= endDate) };
   const aligned = { sp500: alignRiskOffPriceSeries(prices.sp500.filter(p => p.date >= startDate), raw), nasdaq100: alignRiskOffPriceSeries(prices.nasdaq100.filter(p => p.date >= startDate), raw) };
-  const steps = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, yearSpan: 38, bands, dualRiskOffAssets: DEFAULT_RISK_OFF_ASSETS });
+  const steps = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, bands, dualRiskOffAssets: DEFAULT_RISK_OFF_ASSETS });
   const output: unknown[] = [];
   const scenarios = [
     { id: "vgsh-only", policy: "vgsh-only", entryVgshPct: 100 },

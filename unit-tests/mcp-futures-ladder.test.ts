@@ -148,7 +148,7 @@ test("a range predating Nasdaq data drops the NDX rungs instead of faking them",
   });
   assert.equal(result.rungs.some((r) => r.dualSleeve), false, "no dual sleeve without NDX data");
   assert.equal(result.rungs.some((r) => r.index === "nasdaq100"), false, "no NDX rungs either");
-  assert.ok(result.rungs.length > 0, "the SPX rungs still run");
+  assert.equal(result.rungs.length, 3, "all three SPX rungs still run, regardless of window length");
 });
 
 test("a range inside Nasdaq data keeps the NDX rungs", async () => {
@@ -173,4 +173,15 @@ test("the dual-sleeve fund is genuinely distinct from the SPX rung it shares a l
     Math.abs(dual.cagrPct - spxOnly.cagrPct) > 0.5,
     `dual ${dual.cagrPct.toFixed(2)}% vs SPX-only ${spxOnly.cagrPct.toFixed(2)}% — the NDX sleeve is doing nothing`,
   );
+});
+
+
+test("a century-long futures run keeps the same six strategies as both index-start shortcuts", async () => {
+  for (const startDate of ["1926-07-01", "1985-01-31", "1988-04-06"]) {
+    const result = await runFuturesLadder({ showEmulations: false, startDate, endDate: "2026-11-10" });
+    assert.deepEqual(result.rungs.map(r => [r.index, r.targetLeverage, r.dualSleeve]), [
+      ["sp500", 4.5, false], ["sp500", 4.5, true], ["sp500", 5, false],
+      ["sp500", 3, false], ["nasdaq100", 4, false], ["nasdaq100", 3, false],
+    ], `${startDate}: a date range must not trim the normal ladder`);
+  }
 });

@@ -551,16 +551,12 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
 
   // Same builder the page uses, so the pre-rendered snapshot cannot describe a
   // different strategy than a live run does.
-  const yearSpan =
-    (new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) /
-    (1000 * 60 * 60 * 24 * 365.25);
   // The canned page is the default ladder view; "Check Emulations" is a click away
   // and runs live. Both the plan and the kept transaction logs follow this flag.
   const showEmulations = false;
   const futuresPlan = buildFuturesLadderPlan({
     showEmulations,
     hasNasdaqData: hasNqData,
-    yearSpan,
     bands: {
       sp500: {
         period: shared.smaSpPeriod,

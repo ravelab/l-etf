@@ -177,6 +177,12 @@ page renders *off* a run — currently which rungs list their trades
 (`showsFuturesTransactions`) — is shared the same way, because the snapshot
 keeps `transactions[]` only for those.
 
+The futures ladder must run every normal rung for every start/end date. Do not
+prune strategies to save runtime on long windows. `buildFuturesLadderPlan` has no
+window-length input: the former >90-year shortcut silently removed 5x SPX and
+both standalone NDX rungs from century-long runs. Only explicit emulation mode
+or unavailable index data changes which strategies are included.
+
 ## Futures engine: total-return invariant
 
 `src/lib/simulation/futures.ts` must keep a held position earning exactly

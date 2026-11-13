@@ -78,12 +78,9 @@ function findLadderRung(
   band: SmaBand,
   showEmulations: boolean,
 ): boolean {
-  const yearSpan =
-    (Date.parse(params.endDate) - Date.parse(params.startDate)) / (365.25 * 24 * 3600 * 1000);
   const plan = buildFuturesLadderPlan({
     showEmulations,
     hasNasdaqData: true,
-    yearSpan,
     bands: { sp500: band, nasdaq100: band },
   });
   return plan.some(

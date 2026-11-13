@@ -184,3 +184,12 @@ test("the volatility gate survives the link in both directions", () => {
   assert.equal(new URL(futuresLadderPermalink(FUTURES_RUN)!).searchParams.get("vg"), "1");
   assert.equal(new URL(futuresLadderPermalink({ ...FUTURES_RUN, smaVolGate: false })!).searchParams.get("vg"), null);
 });
+
+
+test("century-long runs keep deep links for the complete standard ladder", () => {
+  for (const [index, targetLeverage] of [["sp500", 5], ["nasdaq100", 4]] as const) {
+    const link = futuresLadderPermalink({ ...FUTURES_RUN, index, targetLeverage, maxLeverage: undefined, startDate: "1926-07-01", endDate: "2026-11-10" });
+    assert.ok(link, `${index} ${targetLeverage}x must remain available on long runs`);
+    assert.equal(new URL(link).searchParams.get("em"), null);
+  }
+});

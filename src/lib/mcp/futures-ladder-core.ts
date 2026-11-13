@@ -136,13 +136,10 @@ export async function runFuturesLadder(params: {
   // Dropping the rung is the honest answer; the plain SPX rungs still run.
   const hasNasdaqData =
     nqPrices.length > bands.nasdaq100.period && (nqPrices[0]?.date ?? "9999") <= startDate;
-  const yearSpan =
-    (Date.parse(endDate) - Date.parse(startDate)) / (1000 * 60 * 60 * 24 * 365.25);
 
   const steps = buildFuturesLadderPlan({
     showEmulations: params.showEmulations,
     hasNasdaqData,
-    yearSpan,
     bands,
     dualRiskOffAssets,
   });

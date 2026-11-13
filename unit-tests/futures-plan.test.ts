@@ -21,7 +21,6 @@ test("futures plan: every emulation rung matches its LETF twin's SMA rule", () =
   const plan = buildFuturesLadderPlan({
     showEmulations: true,
     hasNasdaqData: true,
-    yearSpan: 20,
     bands: BANDS,
   });
   const configs = buildEmulationEtfConfigs({
@@ -50,7 +49,6 @@ test("futures plan: bands are carried asymmetrically, never collapsed to one sid
     const plan = buildFuturesLadderPlan({
       showEmulations,
       hasNasdaqData: true,
-      yearSpan: 20,
       bands: BANDS,
     });
     assert.equal(plan.length > 0, true);
@@ -71,7 +69,6 @@ test("futures plan: Nasdaq rungs and twins both drop when NDX data is missing", 
   const plan = buildFuturesLadderPlan({
     showEmulations: true,
     hasNasdaqData: false,
-    yearSpan: 20,
     bands: BANDS,
   });
   const configs = buildEmulationEtfConfigs({
@@ -84,25 +81,26 @@ test("futures plan: Nasdaq rungs and twins both drop when NDX data is missing", 
   assert.equal(plan.length, configs.length, "the two sides must drop the same rungs");
 });
 
-test("futures plan: long windows trim the mid ladder rungs", () => {
-  const short = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, yearSpan: 20, bands: BANDS });
-  const long = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, yearSpan: 140, bands: BANDS });
-  assert.equal(long.length < short.length, true, "a 140-year window should run fewer sims");
-  assert.equal(long.some((s) => s.maxLeverage === 4.5), true, "the capped rung always runs");
+test("futures plan: the standard ladder always includes every supported rung", () => {
+  const plan = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, bands: BANDS });
+  assert.deepEqual(plan.map(step => [step.index, step.leverage, Boolean(step.secondary)]), [
+    ["sp500", 4.5, false], ["sp500", 4.5, true], ["sp500", 5, false],
+    ["sp500", 3, false], ["nasdaq100", 4, false], ["nasdaq100", 3, false],
+  ]);
+  const spxOnly = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: false, bands: BANDS });
+  assert.deepEqual(spxOnly.map(step => step.leverage), [4.5, 5, 3]);
 });
 
 test("futures plan: per-index risk-off overrides reach every rung, not just the two-sleeve fund", () => {
   const dualRiskOffAssets = { sp500: "BRK.B", nasdaq100: "VGSH" } as const;
-  for (const yearSpan of [20, 100]) {
-    const plan = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, yearSpan, bands: BANDS, dualRiskOffAssets });
-    assert.equal(plan.some((s) => !s.secondary), true);
-    for (const step of plan) {
-      assert.equal(step.riskOffAsset, dualRiskOffAssets[step.index as "sp500" | "nasdaq100"], `${step.leverage}x ${step.index}`);
-      if (step.secondary) assert.equal(step.secondary.riskOffAsset, dualRiskOffAssets.nasdaq100);
-    }
+  const plan = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, bands: BANDS, dualRiskOffAssets });
+  assert.equal(plan.some((s) => !s.secondary), true);
+  for (const step of plan) {
+    assert.equal(step.riskOffAsset, dualRiskOffAssets[step.index as "sp500" | "nasdaq100"], `${step.leverage}x ${step.index}`);
+    if (step.secondary) assert.equal(step.secondary.riskOffAsset, dualRiskOffAssets.nasdaq100);
   }
 
-  const emulation = buildFuturesLadderPlan({ showEmulations: true, hasNasdaqData: true, yearSpan: 20, bands: BANDS, dualRiskOffAssets });
+  const emulation = buildFuturesLadderPlan({ showEmulations: true, hasNasdaqData: true, bands: BANDS, dualRiskOffAssets });
   assert.equal(emulation.every((s) => s.riskOffAsset === undefined), true, "emulation rungs must keep the run's asset");
 });
 

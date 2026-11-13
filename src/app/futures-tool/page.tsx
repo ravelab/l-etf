@@ -568,7 +568,6 @@ export function FuturesPageContent({
 
       // "Check Emulations" compares LETF SMAs to the nearest futures ladders only — skip 4.5×/4× SPX
       // and 4× NDX so we do not pay for extra sims; SPX futures line is 3× (not 4×).
-      const yearSpan = (new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
       // One band per index feeds both the ladders and their LETF twins below, so
       // the pair cannot disagree about its own SMA rule (see futures-plan.ts).
       const smaBands: SmaBandsByIndex = {
@@ -578,7 +577,6 @@ export function FuturesPageContent({
       const futuresPlan = buildFuturesLadderPlan({
         showEmulations,
         hasNasdaqData: hasNqData,
-        yearSpan,
         bands: smaBands,
         dualRiskOffAssets: riskOffAssets,
       });
