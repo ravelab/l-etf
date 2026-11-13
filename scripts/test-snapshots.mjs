@@ -35,6 +35,9 @@ function smaBufferUrlEntries(source) {
   if (lowerSp != null) entries.smatspL = lowerSp;
   if (upperNq != null) entries.smatnqU = upperNq;
   if (lowerNq != null) entries.smatnqL = lowerNq;
+  // A link carrying the SMA buffers but no `vg` flag means the gate is off
+  // (`parseSmaVolGateUrlParam`), so a snapshot taken with it on must say so.
+  if (source.smaVolGate === true) entries.vg = 1;
   return entries;
 }
 
