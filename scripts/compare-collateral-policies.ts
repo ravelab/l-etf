@@ -81,7 +81,7 @@ async function main() {
   }
   mkdirSync("benchmark-results", { recursive: true });
   writeFileSync("benchmark-results/collateral-above-sma.json", JSON.stringify({ bands, leverageTolerancePct, riskOffAssets: DEFAULT_RISK_OFF_ASSETS,
-    note: "Reserve = combined Treasury dollar holdings, excluding cash and futures notional. Daily averages exclude empty pools. Final mix is before forced liquidation. The fund uses the engine's actual two-sleeve in-kind resets. Default: buy SGOV while account holdings are below 200 equivalent shares or 1% of the Treasury pool; otherwise buy VGSH. Physical maintenance is netted account-wide; daily closes proxy live maintenance.", results: output }, null, 2));
+    note: "Reserve = combined Treasury dollar holdings, excluding cash and futures notional. Daily averages exclude empty pools. Final mix is before forced liquidation. The fund uses the engine's actual two-sleeve in-kind resets. Default: buy SGOV while account holdings are below 200 equivalent shares or 5% of the Treasury pool; otherwise buy VGSH. Physical maintenance is netted account-wide; daily closes proxy live maintenance.", results: output }, null, 2));
 }
 function single(params: FuturesStrategyParams, observe: (date: string, h: TreasuryHoldings) => void) {
   const sleeve = createFuturesSleeve(params);

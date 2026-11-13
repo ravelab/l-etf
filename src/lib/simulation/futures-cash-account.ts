@@ -73,7 +73,7 @@ export class FuturesCashAccount {
   }
 
   /** One physical Treasury pool: net cash before ordering, sell SGOV account-wide
-   * first, and replenish SGOV below 200 shares OR 1% of the Treasury pool.
+   * first, and replenish SGOV below 200 shares OR 5% of the Treasury pool.
    * Ownership and costs stay attributed to the sleeve executing each leg.
    */
   close() {
@@ -118,7 +118,7 @@ export class FuturesCashAccount {
       // Historical total-return series use $100 CPI-scaled share equivalents,
       // matching the collateral helper's order sizing rather than synthetic prices.
       const sgovPrice = 100 * (this.members[0]?.dollarScale() ?? 1);
-      const needsSgov = sgov / sgovPrice < 200 || sgov < treasuries * 0.01;
+      const needsSgov = sgov / sgovPrice < 200 || sgov < treasuries * 0.05;
       const preferVgsh = sgovBufferEnabled ? !needsSgov
         : this.members.some(m => m.riskOnEntry()) || (vgsh > 0 && vgsh >= available - vgsh);
       // Apply the share minimum to the physical order, not separately to two

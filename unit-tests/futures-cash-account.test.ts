@@ -47,9 +47,9 @@ test("margin cash plus 5% is retained, earns no Treasury return, and is not an e
 
 test("default purchase policy uses held SGOV shares OR its share of the whole Treasury pool", () => {
   for (const [sgov, vgsh, expected] of [
-    [0, 0, "SGOV"], [19_900, 80_100, "SGOV"], // <200 shares, already >1%
-    [20_000, 1_980_000, "VGSH"], // exactly 200 shares AND exactly 1%
-    [20_000, 1_980_001, "SGOV"], // >=200 shares, below 1%
+    [0, 0, "SGOV"], [19_900, 80_100, "SGOV"], // <200 shares, already >5%
+    [20_000, 380_000, "VGSH"], // exactly 200 shares AND exactly 5%
+    [20_000, 380_001, "SGOV"], // >=200 shares, below 5%
     [20_100, 79_900, "VGSH"],
   ] as const) {
     const account = new FuturesCashAccount();
@@ -64,10 +64,10 @@ test("default purchase policy uses held SGOV shares OR its share of the whole Tr
 
 test("SGOV buffer is measured across both sleeves and does not fall back to VGSH for a small order", () => {
   const account = new FuturesCashAccount();
-  const a = member(account, 540_000, 0), b = member(account, 540_000, 0);
+  const a = member(account, 240_000, 0), b = member(account, 240_000, 0);
   for (const m of [a, b]) {
     m.m.sgovBufferEnabled = () => true;
-    m.collateral.writeHoldings({ SGOV: 10_000, VGSH: 490_000 });
+    m.collateral.writeHoldings({ SGOV: 10_000, VGSH: 190_000 });
   }
   account.close();
   assert.deepEqual([...a.trades, ...b.trades].map(t => t.symbol), ["VGSH"], "each sleeve has 100 SGOV shares but the account has 200");
