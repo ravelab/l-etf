@@ -488,12 +488,25 @@ export function shouldDeliverSmaPushNotification(params: {
   currentFingerprint: string;
   previousFingerprint: string | null;
   pendingInitialNotification: boolean;
+  notifyEveryClose?: boolean;
+  hasNewClose?: boolean;
 }): boolean {
   return (
     params.force ||
     params.pendingInitialNotification ||
+    (params.notifyEveryClose === true && params.hasNewClose === true) ||
     params.previousFingerprint !== params.currentFingerprint
   );
+}
+
+/** Compare market dates, never snapshot/build timestamps. Disabled indices cannot trigger a daily alert. */
+export function hasNewSmaPushClose(
+  current: SmaSignalSnapshot,
+  previous: SmaSignalSnapshot | null,
+  config: SmaSignalConfig,
+): boolean {
+  return (config.smaSpEnabled && current.sp500.indexDate > (previous?.sp500.indexDate ?? "")) ||
+    (config.smaNqEnabled && current.nasdaq100.indexDate > (previous?.nasdaq100.indexDate ?? ""));
 }
 
 async function sendPushNotification(
@@ -658,12 +671,13 @@ export async function sendSmaPushNotifications(
       const previousFingerprint = previous?.fingerprint ?? null;
       const pendingInitialNotification = previous?.pendingInitialNotification ?? false;
       const changed = previousFingerprint !== fingerprint;
-      const subscriptionForce = force || Boolean(subscription.smaConfig.notifyEveryClose);
       const shouldSend = shouldDeliverSmaPushNotification({
-        force: subscriptionForce,
+        force,
         currentFingerprint: fingerprint,
         previousFingerprint,
         pendingInitialNotification,
+        notifyEveryClose: subscription.smaConfig.notifyEveryClose,
+        hasNewClose: hasNewSmaPushClose(current, previous?.snapshot ?? null, subscription.smaConfig),
       });
 
       console.log(

@@ -55,6 +55,10 @@ async function maybeNotifySmaAlerts(
   cronBuildMarker: Record<string, unknown> | null,
   marketDataAdvanced: boolean,
 ) {
+  if (process.env.VERCEL_ENV !== "production") {
+    console.log("[build:vercel] Skipping SMA push alerts: not a production build");
+    return;
+  }
   if (!isCronBuildMarkerStorageReady()) {
     console.log("[build:vercel] Skipping SMA push alerts: cron build marker storage is not configured");
     return;
@@ -152,7 +156,10 @@ async function main() {
   const forceSnapshots = process.env.FORCE_SNAPSHOTS === "1";
   const forceSmaCalibration = process.env.FORCE_SMA_CALIBRATION === "1";
 
-  const cronBuildMarker = await readCronTriggeredBuildMarker();
+  // A preview must never consume production's pending cron marker or run its tasks.
+  const cronBuildMarker = process.env.VERCEL_ENV === "production"
+    ? await readCronTriggeredBuildMarker()
+    : null;
   const isDeployHookBuild = cronBuildMarker !== null;
   const weekly = await isFirstTradingDayOfWeek(currentNyDate);
   console.log(`[build:vercel] First trading day of week? ${weekly.should} (${weekly.reason})`);

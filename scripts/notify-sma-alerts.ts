@@ -23,6 +23,10 @@ function parseForceMode(): boolean {
 }
 
 async function main() {
+  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") {
+    console.log("[push-alerts] Skipping: notifications are disabled in non-production deployments");
+    return;
+  }
   const force = parseForceMode();
 
   if (!isPushInfrastructureReady()) {

@@ -11,10 +11,40 @@ import {
   shouldSeedInitialSmaPushNotification,
   shouldDeliverSmaPushNotification,
   SMA_PUSH_DELIVERY_OPTIONS,
+  hasNewSmaPushClose,
 } from "@/lib/push/server";
 import { pushSmaConfigSchema, pushSubscribePayloadSchema } from "@/lib/push/schema";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
+
+test("daily alerts follow enabled market closes, not deployment timestamps", () => {
+  const config = pushSmaConfigSchema.parse({
+    smaSpPeriod: 178, smaSpUpperBuffer: 3.4, smaSpLowerBuffer: 5.5, smaSpEnabled: true,
+    smaNqPeriod: 136, smaNqUpperBuffer: 9.6, smaNqLowerBuffer: 17.9, smaNqEnabled: true,
+    notifyEveryClose: true,
+  });
+  const snapshot = (spDate: string, nqDate = spDate, timestamp = "2026-11-12T21:00:00Z"): SmaSignalSnapshot => {
+    const status = { signal: "hold", indexValue: 100, smaValue: 95, percentDiff: 5.26,
+      signalLabel: "Buy L-ETFs", signalEmoji: "🟢" } as const;
+    return { sp500: { ...status, indexDate: spDate }, nasdaq100: { ...status, indexDate: nqDate }, timestamp };
+  };
+  const previous = snapshot("2026-11-12");
+  const decision = (current: SmaSignalSnapshot, options: Partial<Parameters<typeof shouldDeliverSmaPushNotification>[0]> = {}) =>
+    shouldDeliverSmaPushNotification({ force: false, pendingInitialNotification: false,
+      previousFingerprint: "risk-on|risk-on", currentFingerprint: "risk-on|risk-on", notifyEveryClose: true,
+      hasNewClose: hasNewSmaPushClose(current, previous, config), ...options });
+  // A preview followed by promotion, or a later code-only deployment, has the same market close.
+  assert.equal(decision(snapshot("2026-11-12", "2026-11-12", "2026-11-13T04:49:24Z")), false);
+  assert.equal(decision(snapshot("2026-11-13")), true);
+  assert.equal(decision(snapshot("2026-11-13"), { notifyEveryClose: false }), false);
+  assert.equal(decision(snapshot("2026-11-11")), false, "stale builds cannot count as a new close");
+  assert.equal(decision(previous, { pendingInitialNotification: true }), true);
+  assert.equal(decision(previous, { force: true }), true);
+  assert.equal(decision(previous, { currentFingerprint: "risk-off|risk-on" }), true, "real signal changes still alert");
+  assert.equal(hasNewSmaPushClose(snapshot("2026-11-13", "2026-11-12"), previous, { ...config, smaSpEnabled: false }), false);
+  assert.equal(hasNewSmaPushClose(snapshot("2026-11-12", "2026-11-13"), previous, { ...config, smaNqEnabled: false }), false);
+  assert.equal(hasNewSmaPushClose(snapshot("2026-11-13"), previous, { ...config, smaSpEnabled: false, smaNqEnabled: false }), false);
+});
 
 test("formats SMA push parameters compactly", () => {
   assert.equal(

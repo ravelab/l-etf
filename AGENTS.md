@@ -27,6 +27,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   unvalidated endpoint is a blind SSRF that also hands an attacker a signed VAPID
   JWT. Extend the host lists for a new browser's push service; never relax them
   to accept arbitrary hosts.
+- Daily SMA push alerts compare the enabled indices' `indexDate` against the last
+  delivered snapshot. Never implement `notifyEveryClose` as `force`: successive
+  preview/production builds can load the same newer CSV tail and repeat the alert.
+  Only production builds may send alerts or consume the production cron marker;
+  local `notify:sma-alerts -- --force` remains an explicit operational override.
 
 ## Branches and CI
 
