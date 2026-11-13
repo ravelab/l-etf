@@ -27,11 +27,11 @@ snapshots enable `treasuryCollateral` in the same engine.
   funding rule; statutory release times are not available in daily price data.
 - Default `treasuryBuyPreference: "sgov-buffer"` buys SGOV if the existing
   physical account holds fewer than 200 SGOV share-equivalents **or** SGOV is
-  below 5% of combined SGOV+VGSH market value. Otherwise new cash buys VGSH.
-  Exactly 200 shares and exactly 5% meets both minimums and selects VGSH. The
+  below 20% of combined SGOV+VGSH market value. Otherwise new cash buys VGSH.
+  Exactly 200 shares and exactly 20% meets both minimums and selects VGSH. The
   share threshold uses $100 CPI-scaled SGOV equivalents in synthetic history.
   The whole new purchase goes to the selected ETF; this is not a forced
-  rebalance to 5%. Entry days and NDX use the same rule. Existing holdings are
+  rebalance to 20%. Entry days and NDX use the same rule. Existing holdings are
   retained, and sales prefer SGOV account-wide before VGSH.
 - The two-index fund shares one physical Treasury pool and one cash-account
   transfer band. Close maintenance nets both virtual securities wallets first,

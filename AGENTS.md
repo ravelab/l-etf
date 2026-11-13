@@ -263,9 +263,9 @@ The live-policy reference is `~/futures/src/treasury/sleeve.ts` and its executio
 code. The dual-sleeve runner shares one `FuturesCashAccount`: net physical Treasury
 maintenance once after BOTH sleeves step, SGOV-first sales across the account,
 then in-kind ownership allocation by securities wallets. Default `sgov-buffer`
-buys SGOV when existing account holdings are below 200 share-equivalents OR 5%
+buys SGOV when existing account holdings are below 200 share-equivalents OR 20%
 of SGOV+VGSH value; otherwise buys VGSH. Both comparisons are strict (exactly
-200 shares and exactly 5% selects VGSH). This also applies to entry days and NDX.
+200 shares and exactly 20% selects VGSH). This also applies to entry days and NDX.
 If the selected ticker's order is below the order minimum, keep cash; do not
 fall back to the other ETF merely to bypass the SGOV buffer.
 Do not book sells and buys merely to move virtual reserves between sleeves.

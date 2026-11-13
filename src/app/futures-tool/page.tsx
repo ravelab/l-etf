@@ -890,7 +890,7 @@ export function FuturesPageContent({
         </SharedToolInputs>
 
         <p className="text-xs text-muted">
-          Standalone futures account: Treasury purchases go to SGOV when the account holds fewer than 200 SGOV share-equivalents or SGOV is below 5% of its Treasury holdings; otherwise they go to VGSH. Sales prefer SGOV. The fund shares one Treasury pool, with a 200-share-equivalent order minimum.
+          Standalone futures account: Treasury purchases go to SGOV when the account holds fewer than 200 SGOV share-equivalents or SGOV is below 20% of its Treasury holdings; otherwise they go to VGSH. Sales prefer SGOV. The fund shares one Treasury pool, with a 200-share-equivalent order minimum.
           Commodities cash retains estimated futures margin plus a 5% buffer; eligible excess sweeps to securities the following session. No core equity holdings or box loans are included.
           Daily opens approximate 10:00 a.m. execution; closes approximate pre-close Treasury maintenance.
           Futures margin, Treasury haircuts and the 0.35% annual funding premium are estimates, not historical broker quotes.

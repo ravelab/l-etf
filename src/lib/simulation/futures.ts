@@ -235,7 +235,7 @@ export type FuturesStrategyParams = {
   riskOffOpenByTicker?: Record<string, number[]>;
   /** Enable the standalone Treasury collateral model; requires SGOV/VGSH price arrays. */
   treasuryCollateral?: boolean;
-  /** Default sgov-buffer: buy SGOV below 200 shares OR 5% of Treasury holdings;
+  /** Default sgov-buffer: buy SGOV below 200 shares OR 20% of Treasury holdings;
    * otherwise VGSH. The other preferences retain historical comparison policies. */
   treasuryBuyPreference?: "sgov-buffer" | "ndx-vgsh" | "vgsh-only" | "vgsh-above-sma" | "entry-only";
   /** Percentage of a risk-on entry purchase routed to VGSH; default 100. Scenario analysis only unless specified. */
