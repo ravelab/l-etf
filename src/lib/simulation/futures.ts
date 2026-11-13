@@ -1,24 +1,74 @@
-import { createFuturesCollateral, collateralCashInterest, type CollateralTrade, isTreasuryTicker, planRiskOffPurchases, type TreasuryHoldings } from "./futures-collateral";
-import type { PricePoint, RatePoint, IndexKey, EtfResult, RiskOffAsset, SmaSignal } from "@/lib/simulation/types";
+import {
+  createFuturesCollateral,
+  collateralCashInterest,
+  type CollateralTrade,
+  isTreasuryTicker,
+  planRiskOffPurchases,
+  type TreasuryHoldings,
+} from "./futures-collateral";
+import type { PricePoint, RatePoint, IndexKey, EtfResult, RiskOffAsset } from "@/lib/simulation/types";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { generateSmaSignals } from "@/lib/simulation/sma";
 import { smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 import { riskOffCloseMarkPrice, riskOffOpenTradePrice } from "@/lib/simulation/risk-off";
-import { formatRiskOffLiquidationAbbrev, getSymbolSpread, getRiskOffFetchTickers } from "@/lib/constants";
+import { formatRiskOffLiquidationAbbrev, getRiskOffFetchTickers } from "@/lib/constants";
 import { DEFAULT_LEVERAGE_TOLERANCE_PCT } from "@/lib/simulation/defaults";
 import {
-  calcCagr,
-  calcMaxDrawdown,
-  calcMonthlyExtremes,
-  calcSortinoRatio,
-} from "@/lib/simulation/metrics";
-
-type FuturesContractSymbol = "ES" | "NQ" | "MES" | "MNQ";
-
-/** Micro roots first: "MESZ26" must not be read as an ES listing. */
-const FUTURES_LISTING_PATTERN = /^(MES|MNQ|ES|NQ)([HMUZ])(\d{2})/;
-
-type FuturesMonthCode = "H" | "M" | "U" | "Z"; // Mar/Jun/Sep/Dec
+  DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
+  type FuturesContractSymbol,
+  addCalendarDaysIso,
+  advanceQuarterlySymbol,
+  buildRollDateMap,
+  calendarDaysBetweenIso,
+  chooseContract,
+  contractSymbolsSortedForReduction,
+  familyOfSymbol,
+  futuresBasisFillPrice,
+  futuresCarryForHoldingPeriod,
+  getContractMultiplier,
+  microFamilyOf,
+  newTradesContractLabel,
+  reconcileLots,
+  rollSnapForSymbolFromMap,
+  stripFuturesLedgerSuffix,
+  sumLots,
+} from "./futures-contracts";
+import {
+  FEE_SCHEDULE_ANCHOR_CPI,
+  FEE_SCHEDULE_ANCHOR_DATE,
+  IBKR_FEE_PER_CONTRACT,
+  buildInflationDollarCostScaleLookup,
+  getFuturesHalfSpreadPerContract,
+  getRiskOffCommission,
+  getTransactionSpreadCost,
+} from "./futures-costs";
+import {
+  buildEtfResult,
+  clampToFinite,
+  computeLeverageDeltaPct,
+  enforceMinimumQty,
+  formatLeverageLabel,
+  futuresLegLeverageDeltaPct,
+  futuresPortfolioLeverageDeltaPctFromLots,
+  maxQtyByLeverage,
+  maxQtyByMaintenance,
+  targetQty,
+  totalFuturesNotionalAtMark,
+} from "./futures-sizing";
+export {
+  DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
+  buildRollDateMap,
+  futuresCarryForHoldingPeriod,
+  futuresContractExpiryEpochMs,
+  futuresListingMultiplier,
+  getQuarterlyFuturesRollTradingDay,
+} from "./futures-contracts";
+export { buildInflationDollarCostScaleLookup, getFuturesHalfSpreadPerContract } from "./futures-costs";
+export {
+  buildEtfResult,
+  futuresFrontBackQtyAfterEachTransaction,
+  futuresFrontBackQtysFromLots,
+} from "./futures-sizing";
 
 export type FuturesTransactionRow = {
   date: string;
@@ -126,839 +176,27 @@ export type FuturesSleeve = {
 };
 
 const DEFAULT_CASH_INTEREST_SPREAD_ANNUAL = 0.005; // 0.50%/yr haircut vs SOFR-like series
+
 // ES/NQ do not roll at fair value: the roll's implied financing has run roughly
 // +25 to +50bp over 3M OIS post-2010 (balance-sheet costs), NQ at or above ES.
 // This is the futures analogue of the LETF swap spread — but a genuinely level
 // premium, not one proportional to the rate. Charged on notional, so unlike the
 // cash-sweep haircut (which only touches 1x collateral) it scales with leverage.
 const DEFAULT_FUTURES_FUNDING_SPREAD_ANNUAL = 0.0035; // 0.35%/yr over the risk-free rate
+
 const DEFAULT_CASH_INTEREST_FREE_CASH = 10_000;
+
 const DIVIDEND_EMA_LOOKBACK_DAYS = 63;
+
 const MAX_ABS_DIVIDEND_DAILY = 0.05 / 252; // clamp inferred q to +/-5% annualized
 
 // Coarse, stable approximation for margin. We use a fraction of notional to produce
 // a meaningful "Excess Liquidity" series without pretending to be an exact broker.
 const DEFAULT_MAINT_MARGIN_RATE = 0.08; // 8% of notional
 
-/**
- * IBKR's all-in cost to trade one contract, per side, quoted in FEE_SCHEDULE_ANCHOR
- * dollars: $0.85 IBKR execution plus CME exchange/clearing/regulatory (~$1.39 on ES,
- * ~$1.60 on NQ).
- */
-const IBKR_FEE_PER_CONTRACT: Record<FuturesContractSymbol, number> = {
-  ES: 2.24,
-  NQ: 2.45,
-  // Micro E-minis: $0.25 IBKR execution plus ~$0.37 CME/NFA. About 2.7x an E-mini
-  // per dollar of notional, which is why micros only carry a sleeve's remainder.
-  MES: 0.62,
-  MNQ: 0.62,
-};
-/**
- * The dollars every fixed-dollar broker constant here is quoted in: CPI-U at this date.
- * Older trades pay the CPI-deflated equivalent, so a 1970 fill is charged a 1970-nominal
- * commission rather than a 2026 one. The level is spelled out instead of read off the CPI
- * series because that series is truncated at the simulation's end date — a window ending
- * in 1980 carries no 2026 row to anchor on.
- */
-const FEE_SCHEDULE_ANCHOR_DATE = "2026-07-01";
-const FEE_SCHEDULE_ANCHOR_CPI = 332.813;
-const DEFAULT_RISKOFF_COMMISSION_PER_SHARE = 0.005;
-const DEFAULT_RISKOFF_MIN_COMMISSION = 1.0;
-const DEFAULT_RISKOFF_MAX_COMMISSION_PCT_NOTIONAL = 0.01;
-
 /** Net annual cash-sweep yield (percent points) implied by daily borrow minus broker spread (/360). */
 function sweepNetAnnualPctFromRateDaily(rateDaily: number, spreadAnnual: number): number {
   return Math.max(0, rateDaily - spreadAnnual / 360) * 360 * 100;
-}
-
-/** Whole calendar days from ISO date a to b (b − a). E.g. Fri → Mon = 3. */
-function calendarDaysBetweenIso(isoA: string, isoB: string): number {
-  const t = (s: string) =>
-    Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)));
-  return Math.round((t(isoB) - t(isoA)) / 86_400_000);
-}
-
-function addCalendarDaysIso(date: string, days: number): string {
-  const d = new Date(Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))));
-  d.setUTCDate(d.getUTCDate() + days);
-  return iso(d);
-}
-
-function getContractMultiplier(contract: FuturesContractSymbol): number {
-  switch (contract) {
-    case "ES":
-      return 50;
-    case "NQ":
-      return 20;
-    case "MES":
-      return 5;
-    case "MNQ":
-      return 2;
-  }
-}
-
-/** Family of a dated listing ("MESZ26" → "MES"); null for anything else. */
-function familyOfSymbol(symbol: string): FuturesContractSymbol | null {
-  const match = FUTURES_LISTING_PATTERN.exec(symbol);
-  return match ? (match[1] as FuturesContractSymbol) : null;
-}
-
-function microFamilyOf(family: FuturesContractSymbol): FuturesContractSymbol {
-  return family === "ES" || family === "MES" ? "MES" : "MNQ";
-}
-
-function isMicroFamily(family: FuturesContractSymbol | null): boolean {
-  return family === "MES" || family === "MNQ";
-}
-
-function thirdFriday(year: number, month1to12: number): Date {
-  // month1to12: 1=Jan .. 12=Dec
-  const first = new Date(Date.UTC(year, month1to12 - 1, 1));
-  const firstDow = first.getUTCDay(); // 0=Sun..5=Fri
-  const friday = 5;
-  const daysToFirstFriday = (friday - firstDow + 7) % 7;
-  const firstFridayDate = 1 + daysToFirstFriday;
-  const thirdFridayDate = firstFridayDate + 14;
-  return new Date(Date.UTC(year, month1to12 - 1, thirdFridayDate));
-}
-
-function monthCodeFromQuarterMonth(month: 3 | 6 | 9 | 12): FuturesMonthCode {
-  switch (month) {
-    case 3:
-      return "H";
-    case 6:
-      return "M";
-    case 9:
-      return "U";
-    case 12:
-      return "Z";
-  }
-}
-
-function quarterMonthFromMonthCode(code: FuturesMonthCode): 3 | 6 | 9 | 12 {
-  switch (code) {
-    case "H":
-      return 3;
-    case "M":
-      return 6;
-    case "U":
-      return 9;
-    case "Z":
-      return 12;
-  }
-}
-
-function iso(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-/** UTC-midnight epoch and calendar year of one `YYYY-MM-DD` trade date. */
-type TradeDayStamp = { readonly year: number; readonly epochMs: number };
-
-type ContractSymbolParts = { readonly quarterMonth: 3 | 6 | 9 | 12; readonly yy: number };
-
-/**
- * Symbol parses, expiry dates and trade-date epochs are pure functions of their
- * inputs, yet they are re-derived on *every* futures mark — a multi-decade run
- * across several ladder rungs takes millions of marks — so all three are memoized.
- * Keys are bounded by the distinct contract symbols and index calendar dates in the
- * loaded data, so the maps stay small and their values can never go stale.
- */
-const tradeDayStampCache = new Map<string, TradeDayStamp>();
-const contractSymbolPartsCache = new Map<string, ContractSymbolParts | null>();
-const contractExpiryEpochCache = new Map<number, number>();
-
-/** Per-day stamp hoisted out of the per-mark path: a lookup instead of a `Date` allocation. */
-function tradeDayStamp(tradeDate: string): TradeDayStamp {
-  const cached = tradeDayStampCache.get(tradeDate);
-  if (cached) return cached;
-  const stamp: TradeDayStamp = {
-    year: Number(tradeDate.slice(0, 4)),
-    epochMs: new Date(`${tradeDate}T00:00:00Z`).getTime(),
-  };
-  tradeDayStampCache.set(tradeDate, stamp);
-  return stamp;
-}
-
-function resolveTwoDigitYear(yy: number, tradeYear: number): number {
-  let year = Math.floor(tradeYear / 100) * 100 + yy;
-  if (year < tradeYear - 50) year += 100;
-  if (year > tradeYear + 50) year -= 100;
-  return year;
-}
-
-function parseContractSymbolParts(symbol: string): ContractSymbolParts | null {
-  const cached = contractSymbolPartsCache.get(symbol);
-  if (cached !== undefined) return cached;
-  const match = symbol.match(FUTURES_LISTING_PATTERN);
-  const parts: ContractSymbolParts | null = match
-    ? {
-        quarterMonth: quarterMonthFromMonthCode(match[2] as FuturesMonthCode),
-        yy: Number(match[3]),
-      }
-    : null;
-  contractSymbolPartsCache.set(symbol, parts);
-  return parts;
-}
-
-function thirdFridayEpochMs(year: number, quarterMonth: 3 | 6 | 9 | 12): number {
-  // Quarter months are 3/6/9/12, so `year * 12 + quarterMonth` cannot collide.
-  const key = year * 12 + quarterMonth;
-  const cached = contractExpiryEpochCache.get(key);
-  if (cached !== undefined) return cached;
-  const epochMs = thirdFriday(year, quarterMonth).getTime();
-  contractExpiryEpochCache.set(key, epochMs);
-  return epochMs;
-}
-
-/**
- * Expiry epoch (ms) of a contract symbol, read through `tradeYear`'s century window.
- * `null` only when the symbol is not a quarterly ES/NQ listing.
- */
-function getContractExpiryEpochMs(symbol: string, tradeYear: number): number | null {
-  const parts = parseContractSymbolParts(symbol);
-  if (!parts) return null;
-  return thirdFridayEpochMs(resolveTwoDigitYear(parts.yy, tradeYear), parts.quarterMonth);
-}
-
-/** Dollars per index point of an ES/NQ/MES/MNQ listing (e.g. "NQM88"); null for anything else. */
-export function futuresListingMultiplier(symbol: string): number | null {
-  const family = familyOfSymbol(symbol);
-  return family ? getContractMultiplier(family) : null;
-}
-
-/** Expiry of a listing as seen from `tradeDate` (two-digit years resolve against it); null if unparseable. */
-export function futuresContractExpiryEpochMs(symbol: string, tradeDate: string): number | null {
-  return getContractExpiryEpochMs(symbol, tradeDayStamp(tradeDate).year);
-}
-
-function daysToContractExpiry(symbol: string, tradeDate: string): number {
-  const stamp = tradeDayStamp(tradeDate);
-  const expiryMs = getContractExpiryEpochMs(symbol, stamp.year);
-  if (expiryMs == null) return 0;
-  const days = (expiryMs - stamp.epochMs) / (24 * 60 * 60 * 1000);
-  return Number.isFinite(days) ? Math.max(0, days) : 0;
-}
-
-function futuresBasisFillPrice(params: {
-  spotPrice: number;
-  symbol: string;
-  tradeDate: string;
-  rateDaily: number;
-  dividendDaily: number;
-}): number {
-  const spot = params.spotPrice;
-  if (!Number.isFinite(spot) || spot <= 0) return spot;
-  const days = daysToContractExpiry(params.symbol, params.tradeDate);
-  if (days <= 0) return spot;
-  const rateAnnual = Number.isFinite(params.rateDaily) ? params.rateDaily * 360 : 0;
-  const dividendAnnual = Number.isFinite(params.dividendDaily) ? params.dividendDaily * 252 : 0;
-  const basisFactor = 1 + ((rateAnnual - dividendAnnual) * days / 365.25);
-  return Number.isFinite(basisFactor) && basisFactor > 0 ? spot * basisFactor : spot;
-}
-
-/**
- * Financing charged to an open futures position between two index rows, as a
- * fraction of the prior close.
- *
- * Rate accrues per calendar day (so weekends/holidays cost the same as the cash
- * sweep credits them), but the dividend is the *realized* payout across that
- * same span, taken straight from the total-return series — one row already
- * covers the whole gap, so it must not be re-scaled by `calendarDays`.
- *
- * Using the realized dividend rather than a smoothed estimate is what makes a
- * held position earn exactly `indexTotalReturn − (rate + fundingSpread) × days`: price return plus
- * the dividend it gives up equals the total return by construction. That keeps
- * the futures path on the same index the LETF engine compounds (`adj_close`)
- * instead of on the raw `close` column, which for spliced history is a
- * different series and disagrees with it by up to 3% on some days.
- */
-export function futuresCarryForHoldingPeriod(params: {
-  rateDaily: number;
-  /** Annual premium the contract's embedded financing carries over the risk-free rate. */
-  fundingSpreadAnnual?: number;
-  /** Dividend paid over the whole holding period, as a fraction of the prior close. */
-  dividendForPeriod: number;
-  calendarDays: number;
-}): number {
-  const days = Math.max(0, params.calendarDays);
-  if (days <= 0) return 0;
-  const spreadAnnual = Number.isFinite(params.fundingSpreadAnnual)
-    ? (params.fundingSpreadAnnual as number)
-    : 0;
-  const rateAnnual = (Number.isFinite(params.rateDaily) ? params.rateDaily * 360 : 0) + spreadAnnual;
-  const dividend = Number.isFinite(params.dividendForPeriod) ? params.dividendForPeriod : 0;
-  const carry = ((rateAnnual * days) / 365.25) - dividend;
-  return Number.isFinite(carry) ? carry : 0;
-}
-
-export function buildRollDateMap(dates: string[], daysBeforeExpiry = 4): Map<string, string> {
-  // key: `${year}-${quarterMonth}` (quarterMonth in 3,6,9,12), value: roll date (YYYY-MM-DD)
-  const dateSet = new Set(dates);
-  if (dates.length === 0) return new Map();
-  const startYear = Number(dates[0].slice(0, 4));
-  const endYear = Number(dates[dates.length - 1].slice(0, 4));
-  const map = new Map<string, string>();
-  for (let y = startYear; y <= endYear; y++) {
-    for (const m of [3, 6, 9, 12] as const) {
-      const expiry = thirdFriday(y, m);
-      const rollTarget = new Date(expiry.getTime() - daysBeforeExpiry * 24 * 60 * 60 * 1000);
-      let snap = iso(rollTarget);
-      if (!dateSet.has(snap)) {
-        let found: string | null = null;
-        for (let back = 1; back <= 10; back++) {
-          const d = new Date(rollTarget.getTime() - back * 24 * 60 * 60 * 1000);
-          const candidate = iso(d);
-          if (dateSet.has(candidate)) {
-            found = candidate;
-            break;
-          }
-        }
-        if (found) snap = found;
-      }
-      if (dateSet.has(snap)) map.set(`${y}-${m}`, snap);
-    }
-  }
-  return map;
-}
-
-function frontContractLabelForDate(
-  family: FuturesContractSymbol,
-  date: string,
-  rollDateByQuarter: Map<string, string>
-): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  let year = d.getUTCFullYear();
-  let qMonth: 3 | 6 | 9 | 12 = 3;
-  const month = d.getUTCMonth() + 1;
-  if (month <= 3) qMonth = 3;
-  else if (month <= 6) qMonth = 6;
-  else if (month <= 9) qMonth = 9;
-  else qMonth = 12;
-
-  const rollDate = rollDateByQuarter.get(`${year}-${qMonth}`);
-  if (rollDate && date >= rollDate) {
-    if (qMonth === 12) {
-      qMonth = 3;
-      year += 1;
-    } else {
-      qMonth = (qMonth + 3) as 6 | 9 | 12;
-    }
-  }
-  const code = monthCodeFromQuarterMonth(qMonth);
-  const yy = String(year).slice(-2);
-  return `${family}${code}${yy}`;
-}
-
-function parseQuarterlyFutureSymbol(
-  symbol: string,
-  anchorTradeDate: string
-): {
-  family: FuturesContractSymbol;
-  expiryYear: number;
-  quarterMonth: 3 | 6 | 9 | 12;
-} | null {
-  const match = symbol.match(/^(MES|MNQ|ES|NQ)([HMUZ])(\d{2})$/);
-  if (!match) return null;
-  const family = match[1] as FuturesContractSymbol;
-  const year2 = Number(match[3]);
-  const monthCode = match[2] as FuturesMonthCode;
-  const expiryYear = resolveTwoDigitYear(year2, tradeDayStamp(anchorTradeDate).year);
-  const quarterMonth = quarterMonthFromMonthCode(monthCode);
-  return { family, expiryYear, quarterMonth };
-}
-
-function advanceQuarterlySymbol(symbol: string, anchorTradeDate: string): string {
-  const p = parseQuarterlyFutureSymbol(symbol, anchorTradeDate);
-  if (!p) return symbol;
-  const { quarterMonth, family } = p;
-  let { expiryYear } = p;
-  let nextQ: 3 | 6 | 9 | 12;
-  if (quarterMonth === 12) {
-    nextQ = 3;
-    expiryYear += 1;
-  } else {
-    nextQ = (quarterMonth + 3) as 6 | 9 | 12;
-  }
-  const code = monthCodeFromQuarterMonth(nextQ);
-  const yy = String(expiryYear).slice(-2);
-  return `${family}${code}${yy}`;
-}
-
-/**
- * Same roll snap as `buildRollDateMap` for one contract's expiry (3rd Friday of its listing quarter).
- */
-function rollSnapForSymbol(
-  symbol: string,
-  anchorTradeDate: string,
-  dates: string[],
-  daysBeforeExpiry: number
-): string | null {
-  const expiryMs = getContractExpiryEpochMs(symbol, tradeDayStamp(anchorTradeDate).year);
-  if (expiryMs == null) return null;
-  const dateSet = new Set(dates);
-  const rollTarget = new Date(expiryMs - daysBeforeExpiry * 24 * 60 * 60 * 1000);
-  let snap = iso(rollTarget);
-  if (!dateSet.has(snap)) {
-    let found: string | null = null;
-    for (let back = 1; back <= 10; back++) {
-      const d = new Date(rollTarget.getTime() - back * 24 * 60 * 60 * 1000);
-      const candidate = iso(d);
-      if (dateSet.has(candidate)) {
-        found = candidate;
-        break;
-      }
-    }
-    if (found) snap = found;
-  }
-  return dateSet.has(snap) ? snap : null;
-}
-
-function rollSnapForSymbolFromMap(
-  symbol: string,
-  anchorTradeDate: string,
-  rollDateByQuarter: Map<string, string>
-): string | null {
-  const parsed = parseQuarterlyFutureSymbol(symbol, anchorTradeDate);
-  if (!parsed) return null;
-  return rollDateByQuarter.get(`${parsed.expiryYear}-${parsed.quarterMonth}`) ?? null;
-}
-
-/** In the contract's expiry **calendar month** (and year), new trades use the **next** quarter's symbol. */
-function newTradesContractLabel(
-  family: FuturesContractSymbol,
-  date: string,
-  rollDateByQuarter: Map<string, string>
-): string {
-  const base = frontContractLabelForDate(family, date, rollDateByQuarter);
-  const p = parseQuarterlyFutureSymbol(base, date);
-  if (!p) return base;
-  const d = new Date(`${date}T00:00:00Z`);
-  if (d.getUTCFullYear() === p.expiryYear && d.getUTCMonth() + 1 === p.quarterMonth) {
-    return advanceQuarterlySymbol(base, date);
-  }
-  return base;
-}
-
-function sumLots(lots: Map<string, number>): number {
-  let s = 0;
-  for (const q of lots.values()) s += q;
-  return s;
-}
-
-function reconcileLots(lots: Map<string, number>): void {
-  for (const [k, v] of [...lots.entries()]) {
-    if (v <= 0) lots.delete(k);
-  }
-}
-
-/**
- * Sell nearer-expiry (calendar front) legs first when shrinking so reductions peel the
- * contracts that would otherwise need rolling soonest, avoiding redundant roll fees on
- * inventory you are exiting anyway.
- */
-function contractSymbolsSortedForReduction(lots: Map<string, number>, anchorDate: string): string[] {
-  const anchorYear = tradeDayStamp(anchorDate).year;
-  // Micros before full contracts: they cost more to hold through every roll, and
-  // draining them first keeps a reduction exact (see `microFutures`).
-  const microRank = (sym: string) => (isMicroFamily(familyOfSymbol(sym)) ? 0 : 1);
-  return [...lots.entries()]
-    .filter(([, q]) => q > 0)
-    .sort((a, b) => {
-      const byMicro = microRank(a[0]) - microRank(b[0]);
-      if (byMicro !== 0) return byMicro;
-      const expA = getContractExpiryEpochMs(a[0], anchorYear) ?? 0;
-      const expB = getContractExpiryEpochMs(b[0], anchorYear) ?? 0;
-      return expA - expB;
-    })
-    .map(([sym]) => sym);
-}
-
-function totalFuturesNotionalAtMark(params: {
-  lots: Map<string, number>;
-  contract: FuturesContractSymbol;
-  mark: (sym: string) => number;
-}): number {
-  const mult = getContractMultiplier(params.contract);
-  let n = 0;
-  for (const [sym, q] of params.lots) {
-    if (q <= 0) continue;
-    const px = params.mark(sym);
-    if (Number.isFinite(px) && px > 0) n += Math.abs(q) * mult * px;
-  }
-  return n;
-}
-
-function futuresPortfolioLeverageDeltaPctFromLots(params: {
-  lots: Map<string, number>;
-  contract: FuturesContractSymbol | null;
-  equity: number;
-  targetLeverage: number;
-  mark: (sym: string) => number;
-}): number {
-  if (
-    !Number.isFinite(params.targetLeverage) ||
-    params.targetLeverage <= 0 ||
-    !Number.isFinite(params.equity) ||
-    params.equity <= 0
-  ) {
-    return 0;
-  }
-  // Flat book (e.g. risk-off cash, or sizing pass with `contract: null` while qty is 0):
-  // match {@link futuresLegLeverageDeltaPct}(qty=0) — 0 actual vs target ⇒ −100% at 1× target scale.
-  if (params.contract == null) {
-    return computeLeverageDeltaPct(0, params.targetLeverage);
-  }
-  const notional = totalFuturesNotionalAtMark({
-    lots: params.lots,
-    contract: params.contract,
-    mark: params.mark,
-  });
-  return computeLeverageDeltaPct(notional / params.equity, params.targetLeverage);
-}
-
-function clampToFinite(n: number, fallback = 0): number {
-  return Number.isFinite(n) ? n : fallback;
-}
-
-export function buildEtfResult(params: {
-  id: string;
-  name: string;
-  sourceIndex: IndexKey;
-  dates: string[];
-  dailyValues: number[];
-  smaSignals: SmaSignal[];
-  smaPrices: number[];
-  totalTradingCostPct: number;
-}): EtfResult {
-  const { dates, dailyValues } = params;
-  const initial = dailyValues[0] ?? 0;
-  const finalValue = dailyValues[dailyValues.length - 1] ?? 0;
-  const cagr = calcCagr(initial, finalValue, dates[0], dates[dates.length - 1]);
-  const drawdown = calcMaxDrawdown(dailyValues, dates);
-  const monthlyExtremes = calcMonthlyExtremes(dailyValues, dates);
-  const sortinoRatio = calcSortinoRatio(dailyValues);
-
-  return {
-    id: params.id,
-    name: params.name,
-    sourceIndex: params.sourceIndex,
-    dates,
-    dailyValues,
-    finalValue,
-    cagr,
-    sortinoRatio,
-    maxDrawdownPct: drawdown.pct,
-    maxDrawdownDollar: drawdown.dollar,
-    maxDrawdownDates: drawdown.maxDrawdownDates,
-    longestDrawdownDays: drawdown.longestDays,
-    longestDrawdownDates: drawdown.longestDrawdownDates,
-    bestMonth: monthlyExtremes.bestMonth,
-    bestMonthDates: monthlyExtremes.bestMonthDates,
-    worstMonth: monthlyExtremes.worstMonth,
-    worstMonthDates: monthlyExtremes.worstMonthDates,
-    smaSignals: params.smaSignals,
-    smaPrices: params.smaPrices,
-    totalTradingCostPct: params.totalTradingCostPct,
-  };
-}
-
-function computeLeverageDeltaPct(actualLeverage: number, targetLeverage: number): number {
-  if (!Number.isFinite(actualLeverage) || !Number.isFinite(targetLeverage) || targetLeverage === 0) return 0;
-  // Signed: positive when actual > target (over-leveraged after a drawdown),
-  // negative when actual < target (under-leveraged after a rally).
-  return ((actualLeverage / targetLeverage) - 1) * 100;
-}
-
-/** Leverage vs strategy target from cash equity and an open futures position (at a futures mark). */
-function futuresLegLeverageDeltaPct(params: {
-  qty: number;
-  contract: FuturesContractSymbol | null;
-  futuresMarkPrice: number;
-  equity: number;
-  targetLeverage: number;
-}): number {
-  const { qty, contract, futuresMarkPrice, equity, targetLeverage } = params;
-  if (!Number.isFinite(targetLeverage) || targetLeverage <= 0 || !Number.isFinite(equity) || equity <= 0) {
-    return 0;
-  }
-  if (qty === 0 || contract == null) {
-    return computeLeverageDeltaPct(0, targetLeverage);
-  }
-  if (!Number.isFinite(futuresMarkPrice) || futuresMarkPrice <= 0) return 0;
-  const notional = Math.abs(qty) * getContractMultiplier(contract) * futuresMarkPrice;
-  return computeLeverageDeltaPct(notional / equity, targetLeverage);
-}
-
-export function getFuturesHalfSpreadPerContract(symbol: string): number {
-  if (symbol.startsWith("MES")) return 0.625;
-  if (symbol.startsWith("MNQ")) return 0.25;
-  if (symbol.startsWith("ES")) return 6.25;
-  if (symbol.startsWith("NQ")) return 2.5;
-  return 0;
-}
-
-function getTransactionSpreadCost(params: {
-  instrument: "futures" | "riskoff";
-  symbol: string;
-  qtyDelta: number;
-  fillPrice: number;
-  dollarScale?: number;
-}): number {
-  if (params.instrument === "futures") {
-    const dollarScale = Number.isFinite(params.dollarScale) && (params.dollarScale ?? 0) > 0
-      ? (params.dollarScale as number)
-      : 1;
-    return Math.abs(params.qtyDelta) * getFuturesHalfSpreadPerContract(params.symbol) * dollarScale;
-  }
-  const spreadFrac = getSymbolSpread(params.symbol, false);
-  const notional = Math.abs(params.qtyDelta) * params.fillPrice;
-  return notional * spreadFrac;
-}
-
-function getRiskOffCommission(params: {
-  qtyDelta: number;
-  fillPrice: number;
-  dollarScale?: number;
-}): number {
-  const shares = Math.abs(params.qtyDelta);
-  const notional = shares * params.fillPrice;
-  if (!Number.isFinite(shares) || shares <= 0 || !Number.isFinite(notional) || notional <= 0) return 0;
-  const dollarScale = Number.isFinite(params.dollarScale) && (params.dollarScale ?? 0) > 0
-    ? (params.dollarScale as number)
-    : 1;
-  const variable = shares * DEFAULT_RISKOFF_COMMISSION_PER_SHARE * dollarScale;
-  const capped = Math.min(variable, notional * DEFAULT_RISKOFF_MAX_COMMISSION_PCT_NOTIONAL);
-  return Math.max(DEFAULT_RISKOFF_MIN_COMMISSION * dollarScale, capped);
-}
-
-export function buildInflationDollarCostScaleLookup(
-  monthlyCpi: Array<{ date: string; value: number }> | undefined,
-  anchorDate: string,
-  /**
-   * CPI level at `anchorDate`, used when the series stops short of it — the engine only
-   * ever sees CPI up to the simulation's end date. Without it a window ending in 1980
-   * would anchor on 1980 and charge a present-day fee schedule in 1980 dollars.
-   */
-  anchorCpiFallback?: number
-): (date: string) => number {
-  const rows = (monthlyCpi ?? [])
-    .filter((row) => Number.isFinite(row.value) && row.value > 0)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (rows.length < 2) return () => 1;
-
-  const lastRow = rows[rows.length - 1]!;
-  let anchorCpi = NaN;
-  if (lastRow.date >= anchorDate) {
-    for (const row of rows) {
-      if (row.date <= anchorDate) anchorCpi = row.value;
-      else break;
-    }
-  } else if (Number.isFinite(anchorCpiFallback) && (anchorCpiFallback as number) > 0) {
-    anchorCpi = anchorCpiFallback as number;
-  }
-  if (!Number.isFinite(anchorCpi) || anchorCpi <= 0) anchorCpi = lastRow.value;
-
-  const cpiAtOrBefore = (date: string) => {
-    let lo = 0;
-    let hi = rows.length - 1;
-    let found = -1;
-    while (lo <= hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      if (rows[mid]!.date <= date) {
-        found = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return rows[Math.max(0, found)]!.value;
-  };
-
-  return (date: string) => {
-    const cpi = cpiAtOrBefore(date);
-    const scale = cpi / anchorCpi;
-    return Number.isFinite(scale) && scale > 0 ? scale : 1;
-  };
-}
-
-function chooseContract(index: IndexKey): FuturesContractSymbol {
-  return index === "sp500" ? "ES" : "NQ";
-}
-
-function stripFuturesLedgerSuffix(symbol: string): string {
-  return symbol.replace(/\s*\((?:ROLL|LIQUIDATE)\)\s*$/i, "").trim();
-}
-
-/**
- * Split open lots into **front strip** vs **deferred** for ledger display.
- *
- * - **Single** quarterly leg (same family as `index`): all qty is front, deferred is 0.
- * - **Multiple** legs: **Front** = contracts on the **earliest** expiry quarter among held
- *   listings; **Deferred** = contracts on **later** expiries (the deferred/next quarters).
- *
- * `rollDateByQuarter` is kept for a stable call signature.
- */
-export function futuresFrontBackQtysFromLots(params: {
-  index: IndexKey;
-  tradeDate: string;
-  rollDateByQuarter: Map<string, string>;
-  lots: Map<string, number>;
-}): { frontQty: number; backQty: number } {
-  void params.rollDateByQuarter;
-  const tradeDate = params.tradeDate;
-  const entries: Array<{ q: number; exp: number }> = [];
-  for (const [sym, q] of params.lots) {
-    if (q <= 0) continue;
-    const parsed = parseQuarterlyFutureSymbol(sym, tradeDate);
-    if (!parsed) continue;
-    const expMs = getContractExpiryEpochMs(sym, tradeDayStamp(tradeDate).year) ?? 0;
-    // Full-contract equivalents: a micro is a tenth of its E-mini.
-    entries.push({ q: isMicroFamily(parsed.family) ? q / 10 : q, exp: expMs });
-  }
-  if (entries.length === 0) return { frontQty: 0, backQty: 0 };
-  if (entries.length === 1) return { frontQty: entries[0].q, backQty: 0 };
-  const minExp = Math.min(...entries.map((e) => e.exp));
-  let frontQty = 0;
-  let backQty = 0;
-  for (const e of entries) {
-    if (e.exp === minExp) frontQty += e.q;
-    else backQty += e.q;
-  }
-  return { frontQty, backQty };
-}
-
-/** Replay futures legs in ledger order; one entry per transaction (null when not a futures row). */
-export function futuresFrontBackQtyAfterEachTransaction(params: {
-  index: IndexKey;
-  transactions: FuturesTransactionRow[];
-  rollDateByQuarter: Map<string, string>;
-}): Array<{ frontQty: number; backQty: number } | null> {
-  const lots = new Map<string, number>();
-  const out: Array<{ frontQty: number; backQty: number } | null> = [];
-  for (const row of params.transactions) {
-    if (row.instrument !== "futures") {
-      out.push(null);
-      continue;
-    }
-    const sym = stripFuturesLedgerSuffix(row.symbol);
-    if (!/^(MES|MNQ|ES|NQ)[HMUZ]\d{2}$/i.test(sym)) {
-      out.push(
-        futuresFrontBackQtysFromLots({
-          index: params.index,
-          tradeDate: row.date,
-          rollDateByQuarter: params.rollDateByQuarter,
-          lots,
-        })
-      );
-      continue;
-    }
-    const nextQty = (lots.get(sym) ?? 0) + row.qtyDelta;
-    if (nextQty <= 0) lots.delete(sym);
-    else lots.set(sym, nextQty);
-    out.push(
-      futuresFrontBackQtysFromLots({
-        index: params.index,
-        tradeDate: row.date,
-        rollDateByQuarter: params.rollDateByQuarter,
-        lots,
-      })
-    );
-  }
-  return out;
-}
-
-function targetQty(params: {
-  targetNotional: number;
-  close: number;
-  contract: FuturesContractSymbol;
-}): number {
-  const mult = getContractMultiplier(params.contract);
-  const close = params.close;
-  if (!Number.isFinite(close) || close <= 0) return 0;
-  const denom = mult * close;
-  if (!Number.isFinite(denom) || denom <= 0) return 0;
-  const rawQty = params.targetNotional / denom;
-  if (!Number.isFinite(rawQty) || rawQty <= 0) return 0;
-  const floorQty = Math.floor(rawQty);
-  const ceilQty = Math.ceil(rawQty);
-  const floorGap = Math.abs(params.targetNotional - (floorQty * denom));
-  const ceilGap = Math.abs(params.targetNotional - (ceilQty * denom));
-  // Choose the integer position size that minimizes absolute leverage mismatch.
-  // On ties, keep the smaller size.
-  return ceilGap < floorGap ? ceilQty : floorQty;
-}
-
-function maxQtyByMaintenance(params: {
-  equity: number;
-  close: number;
-  contract: FuturesContractSymbol;
-  maintenanceMarginRate: number;
-}): number {
-  const equity = Math.max(0, params.equity);
-  const close = params.close;
-  if (!Number.isFinite(close) || close <= 0) return 0;
-  if (!Number.isFinite(params.maintenanceMarginRate) || params.maintenanceMarginRate <= 0) return Number.MAX_SAFE_INTEGER;
-  const perContractMaint = getContractMultiplier(params.contract) * close * params.maintenanceMarginRate;
-  if (!Number.isFinite(perContractMaint) || perContractMaint <= 0) return 0;
-  return Math.floor(equity / perContractMaint);
-}
-
-function enforceMinimumQty(params: {
-  qty: number;
-  targetNotional: number;
-  contract: FuturesContractSymbol;
-  close: number;
-}): number {
-  if (params.targetNotional <= 0) return params.qty;
-  if (params.qty > 0) return params.qty;
-  // E-minis only. If integer rounding gives 0 contracts, only floor up to 1
-  // when one contract stays within ~2x the requested notional — otherwise the
-  // floor would push tiny accounts to multiples of the requested leverage.
-  const oneContractNotional = getContractMultiplier(params.contract) * params.close;
-  if (!Number.isFinite(oneContractNotional) || oneContractNotional <= 0) return 0;
-  return oneContractNotional <= 2 * params.targetNotional ? 1 : 0;
-}
-
-function maxQtyByLeverage(params: {
-  equity: number;
-  close: number;
-  contract: FuturesContractSymbol;
-  maxLeverage: number;
-}): number {
-  const equity = Math.max(0, params.equity);
-  const close = params.close;
-  if (!Number.isFinite(equity) || equity <= 0 || !Number.isFinite(close) || close <= 0) return 0;
-  if (!Number.isFinite(params.maxLeverage) || params.maxLeverage <= 0) return Number.MAX_SAFE_INTEGER;
-  const denom = getContractMultiplier(params.contract) * close;
-  if (!Number.isFinite(denom) || denom <= 0) return 0;
-  return Math.floor((equity * params.maxLeverage) / denom);
-}
-
-function formatLeverageLabel(leverage: number): string {
-  return Number.isInteger(leverage) ? String(leverage) : leverage.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-}
-
-/** Default: roll when within this many calendar days of the quarterly 3rd-Friday expiry. */
-export const DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY = 4;
-
-/**
- * Trading day in `dates` for a quarterly leg's roll: latest session on or before
- * `(3rd Friday of that contract's expiry month) − daysBeforeExpiry` calendar days
- * (same rule as {@link buildRollDateMap} and {@link simulateFuturesSmaStrategy} `(ROLL)` legs).
- */
-export function getQuarterlyFuturesRollTradingDay(
-  symbol: string,
-  anchorTradeDate: string,
-  dates: string[],
-  daysBeforeExpiry: number = DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY
-): string | null {
-  return rollSnapForSymbol(
-    symbol,
-    anchorTradeDate,
-    dates,
-    Math.max(1, Math.round(daysBeforeExpiry))
-  );
 }
 
 export type FuturesStrategyParams = {
