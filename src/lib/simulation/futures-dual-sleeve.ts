@@ -30,6 +30,7 @@ import type {
   SleeveHoldings,
 } from "@/lib/simulation/futures";
 import type { EtfResult } from "@/lib/simulation/types";
+import type { TreasuryHoldings } from "@/lib/simulation/futures-collateral";
 
 export type DualSleeveFuturesParams = {
   /** Row name in the results table, e.g. "Max 4.5x SPX / Max 3.5x NDX SMA". */
@@ -156,7 +157,8 @@ function investedAt(sleeve: FuturesSleeve, i: number): boolean {
 }
 
 export function simulateDualSleeveFuturesStrategy(
-  params: DualSleeveFuturesParams
+  params: DualSleeveFuturesParams,
+  onCloseTreasuries?: (date: string, holdings: TreasuryHoldings) => void,
 ): FuturesStrategyResult {
   const initialEquity = Number.isFinite(params.initialEquity) ? Math.max(0, params.initialEquity) : 0;
   const half = initialEquity / 2;
@@ -208,6 +210,10 @@ export function simulateDualSleeveFuturesStrategy(
     }
 
     dailyValues.push(sleeves.reduce((sum, sleeve, s) => sum + sleeve.equityAt(cursor[s]), 0));
+    if (onCloseTreasuries) {
+      const holdings = sleeves.map(sleeve => sleeve.readHoldings());
+      onCloseTreasuries(date, combineTreasuries(holdings[0], holdings[1], 1, 1) ?? { SGOV: 0, VGSH: 0 });
+    }
   }
 
   const finished: FuturesStrategyResult[] = [];

@@ -87,6 +87,28 @@ const NORMAL_NQ = { period: 200, upper: 0, lower: 0 };
 /** An exit threshold 99% below the SMA never fires, so the sleeve is risk-on throughout. */
 const ALWAYS_ON = { period: 200, upper: 0, lower: 99 };
 
+test("Treasury observer sees the fund reserve before liquidation without changing the simulation", () => {
+  const dates = ["2026-01-02", "2026-01-05", "2026-01-06"];
+  const prices = dates.map(date => ({ date, close: 5000, open: 5000, adj_close: 5000 }));
+  const common = {
+    prices, rates: dates.map(date => ({ date, rateType: "borrow", rateValue: 0 })),
+    startDate: dates[0], endDate: dates.at(-1)!, targetLeverage: 1, smaPeriod: 2,
+    smaUpperBuffer: 99, smaLowerBuffer: 99, riskOffAsset: "VGSH" as const, treasuryCollateral: true,
+    riskOffCloseByTicker: { SGOV: [100, 100, 100], VGSH: [58, 58, 58] },
+    riskOffOpenByTicker: { SGOV: [100, 100, 100], VGSH: [58, 58, 58] },
+  };
+  const params = { displayName: "Observer test", initialEquity: 1_000_000,
+    primary: { ...common, index: "sp500" as const }, secondary: { ...common, index: "nasdaq100" as const } };
+  const closes = new Map<string, number>();
+  const observed = simulateDualSleeveFuturesStrategy(params, (date, holdings) => {
+    closes.set(date, holdings.SGOV + holdings.VGSH);
+    holdings.VGSH = 0; // A consumer receives a snapshot, never the mutable sleeve book.
+  });
+  assert.deepEqual(observed, simulateDualSleeveFuturesStrategy(params));
+  assert.deepEqual([...closes.keys()], dates);
+  assert.ok(closes.get(dates.at(-1)!)! > 900_000, "final sample precedes forced liquidation");
+});
+
 test("dual sleeve: with no trigger it is exactly two independent half-size sleeves", () => {
   // Both sleeves stay risk-on for the whole window, so "both risk-off" never happens
   // and no capital ever moves. Any difference here is the interleaving machinery

@@ -11,8 +11,8 @@ type Ticker = keyof TreasuryHoldings;
 /**
  * The risk-on entry day rebuilds the pool, and that whole purchase is VGSH: an
  * operator choice to hold 1–3y Treasuries from re-entry on, while routine
- * maintenance after it still buys SGOV first (VGSH below 200 SGOV shares) and sells
- * SGOV before VGSH, so the VGSH share decays as the account grows.
+ * maintenance also buys VGSH while the signal index is above its SMA. Otherwise
+ * maintenance buys SGOV first (VGSH below 200 SGOV shares). Sells remain SGOV-first.
  */
 const RISK_ON_ENTRY_TICKERS: readonly Ticker[] = ["VGSH"];
 export function isTreasuryTicker(ticker: string): ticker is Ticker {
@@ -97,8 +97,8 @@ export function createFuturesCollateral(params: {
     const qty = Math.max(0, Math.floor((budget - feeScale) / (quotes[t] * 1.001 + 0.005 * feeScale)));
     return qty >= minShares ? [trade(t, qty, date)] : [];
   }
-  /** `riskOnEntry`: the first risk-on close after risk-off or at the start of the run. */
-  function rebalance(equity: number, marginRequirement: number, date: string, riskOnEntry = false): CollateralTrade[] {
+  /** VGSH-only purchases on risk-on entry or when the signal index is above its SMA. */
+  function rebalance(equity: number, marginRequirement: number, date: string, vgshOnly = false, entryVgshWeight?: number): CollateralTrade[] {
     // 25% ETF haircut is a transparent conservative approximation, not an IB
     // what-if quote. Preserve the bot's 15% excess-liquidity floor at this mark.
     const target = Math.max(0, Math.min(equity, (equity * 0.85 - marginRequirement) / 0.25));
@@ -116,8 +116,13 @@ export function createFuturesCollateral(params: {
         }
         if (gap >= 0) break;
       }
+    } else if (entryVgshWeight !== undefined && entryVgshWeight < 1) {
+      // Entry-only scenario allocation. Each leg retains its own minimum order
+      // size, commissions, spread, and cash-sizing buffer. Do not swap holdings.
+      trades.push(...buy("VGSH", gap * entryVgshWeight, date));
+      trades.push(...buy("SGOV", gap * (1 - entryVgshWeight), date));
     } else {
-      for (const t of riskOnEntry ? RISK_ON_ENTRY_TICKERS : TREASURY_TICKERS) {
+      for (const t of vgshOnly ? RISK_ON_ENTRY_TICKERS : TREASURY_TICKERS) {
         const px = quotes[t];
         if (gap >= minShares * px) {
           trades.push(...buy(t, gap, date));

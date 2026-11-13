@@ -115,6 +115,83 @@ test("A risk-on entry buys its whole Treasury purchase in VGSH; maintenance afte
   assert.equal(sells[0].symbol, "SGOV", "maintenance sells SGOV before the VGSH bought at entry");
 });
 
+test("VGSH-only maintenance sends the whole top-up to VGSH and retains SGOV-first sales", () => {
+  const c = treasury([100, 100], [58, 58]);
+  c.mark(0, "2026-01-02", false);
+  c.rebalance(100_000, 0, "2026-01-02");
+  const before = c.readHoldings();
+  const topUp = c.rebalance(140_000, 0, "2026-01-02", true);
+  assert.deepEqual(topUp.map(t => t.symbol), ["VGSH"]);
+  assert.equal(c.readHoldings().SGOV, before.SGOV, "the exception does not exchange existing SGOV");
+  assert.equal(c.rebalance(100_000, 0, "2026-01-02", true)[0].symbol, "SGOV");
+});
+
+test("80/20 entry splits only the new purchase, then above-SMA top-ups buy VGSH", () => {
+  const c = treasury([100, 100], [58, 58]);
+  c.mark(0, "2026-01-02", false);
+  const buys = c.rebalance(1_000_000, 0, "2026-01-02", true, 0.8);
+  assert.deepEqual(buys.map(t => t.symbol), ["VGSH", "SGOV"]);
+  const held = c.readHoldings();
+  assert.ok(Math.abs(held.VGSH / (held.SGOV + held.VGSH) - 0.8) < 0.001);
+  assert.ok(buys.every(t => t.fees > 0 && t.spread > 0));
+  assert.deepEqual(c.rebalance(1_400_000, 0, "2026-01-02", true).map(t => t.symbol), ["VGSH"]);
+  assert.equal(c.readHoldings().SGOV, held.SGOV, "maintenance does not enforce an ongoing 80/20 target");
+  const small = treasury(); small.mark(0, "2026-01-02", false);
+  const smallEntry = small.rebalance(50_000, 0, "2026-01-02", true, 0.8);
+  assert.deepEqual(smallEntry.map(t => t.symbol), ["VGSH"], "a 20% SGOV leg below its share minimum stays in cash");
+});
+
+test("80/20 applies again on re-entry, rather than only on the simulation's first date", () => {
+  const dates = ["2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12"];
+  const closes = [100, 110, 60, 55, 120, 125, 130];
+  const series = (x: number) => dates.map(() => x);
+  const run = simulateFuturesSmaStrategy({
+    index: "sp500", prices: dates.map((date, i) => ({ date, close: closes[i], open: closes[i], adj_close: closes[i] })),
+    rates: dates.map(date => ({ date, rateType: "borrow", rateValue: 0 })), startDate: dates[0], endDate: dates.at(-1)!,
+    initialEquity: 1_000_000, targetLeverage: 1, smaPeriod: 2, smaUpperBuffer: 0, smaLowerBuffer: 0, riskOffAsset: "BRK.B",
+    treasuryCollateral: true, riskOnEntryVgshPct: 80, futuresFundingSpreadAnnual: 0,
+    riskOffCloseByTicker: { SGOV: series(100), VGSH: series(58), "BRK.B": series(500) },
+    riskOffOpenByTicker: { SGOV: series(100), VGSH: series(58), "BRK.B": series(500) },
+  });
+  const signal = run.etfResult.smaSignals.find(s => s.type === "buy")!;
+  const reentry = dates[dates.indexOf(signal.date) + 1];
+  for (const date of [dates[0], reentry]) {
+    const buys = run.transactions.filter(t => t.date === date && t.action === "buy" && t.symbol.endsWith("(COLLATERAL)"));
+    assert.deepEqual(buys.map(t => t.symbol), ["VGSH (COLLATERAL)", "SGOV (COLLATERAL)"]);
+    const value = (symbol: string) => buys.filter(t => t.symbol === symbol).reduce((sum, t) => sum + t.qtyDelta * t.fillPrice, 0);
+    assert.ok(Math.abs(value("VGSH (COLLATERAL)") / (value("VGSH (COLLATERAL)") + value("SGOV (COLLATERAL)")) - 0.8) < 0.001);
+  }
+});
+
+test("futures maintenance uses the unbuffered SMA, not the risk-on regime", () => {
+  const dates = Array.from({ length: 12 }, (_, i) => `2026-01-${String(i + 2).padStart(2, "0")}`);
+  const closes = [100, 110, 120, 130, 140, 150, 140, 130, 120, 110, 100, 90];
+  // Total return rises steadily to create daily top-ups, while the signal close
+  // crosses below its SMA without exiting the deliberately wide risk-on band.
+  const prices = dates.map((date, i) => ({ date, close: closes[i], open: closes[i], adj_close: 100 * 1.15 ** i }));
+  const series = (n: number) => dates.map(() => n);
+  const run = (policy?: "entry-only" | "vgsh-above-sma" | "ndx-vgsh", entryVgshPct?: number, index: "sp500" | "nasdaq100" = "sp500") => simulateFuturesSmaStrategy({
+    index, prices, rates: dates.map(date => ({ date, rateType: "borrow", rateValue: 0 })),
+    startDate: dates[0], endDate: dates.at(-1)!, initialEquity: 1_000_000, targetLeverage: 1,
+    smaPeriod: 2, smaUpperBuffer: 99, smaLowerBuffer: 99, riskOffAsset: "VGSH", treasuryCollateral: true,
+    treasuryBuyPreference: policy, riskOnEntryVgshPct: entryVgshPct, futuresFundingSpreadAnnual: 0,
+    riskOffCloseByTicker: { SGOV: series(100), VGSH: series(58) }, riskOffOpenByTicker: { SGOV: series(100), VGSH: series(58) },
+  });
+  const next = run("vgsh-above-sma"), prior = run("entry-only");
+  assert.deepEqual(run(), prior, "SPX default keeps entry-only VGSH preference");
+  const ndxDefault = run(undefined, undefined, "nasdaq100");
+  assert.deepEqual(ndxDefault, run("ndx-vgsh", 100, "nasdaq100"));
+  const ndxBuys = ndxDefault.transactions.filter(t => t.action === "buy" && t.symbol.endsWith("(COLLATERAL)"));
+  assert.ok(ndxBuys.some(t => t.date >= dates[6]), "NDX keeps buying below SMA");
+  assert.ok(ndxBuys.every(t => t.symbol === "VGSH (COLLATERAL)"), "all NDX Treasury purchases use VGSH");
+  assert.deepEqual(next, run("vgsh-above-sma", 100), "omitting the entry split retains the 100% VGSH default exactly");
+  const buys = next.transactions.filter(t => t.action === "buy" && t.symbol.endsWith("(COLLATERAL)"));
+  assert.ok(buys.some(t => t.date > dates[0] && t.date <= dates[5]), "rising phase creates maintenance buys");
+  assert.ok(buys.filter(t => t.date <= dates[5]).every(t => t.symbol === "VGSH (COLLATERAL)"));
+  assert.ok(buys.some(t => t.date >= dates[6] && t.symbol === "SGOV (COLLATERAL)"), "below SMA can remain risk-on and buy SGOV");
+  assert.ok(prior.transactions.some(t => t.date > dates[0] && t.date <= dates[5] && t.action === "buy" && t.symbol === "SGOV (COLLATERAL)"));
+});
+
 test("Each re-entry after a BRK.B risk-off stretch rebuilds the Treasury pool in VGSH", () => {
   const dates = ["2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12"];
   const closes = [100, 110, 60, 55, 120, 125, 130];

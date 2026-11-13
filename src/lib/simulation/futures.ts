@@ -962,6 +962,10 @@ export type FuturesStrategyParams = {
   riskOffOpenByTicker?: Record<string, number[]>;
   /** Enable the standalone Treasury collateral model; requires SGOV/VGSH price arrays. */
   treasuryCollateral?: boolean;
+  /** Default: NDX always buys VGSH; SPX routine top-ups buy SGOV first. Other policies are for comparisons. */
+  treasuryBuyPreference?: "ndx-vgsh" | "vgsh-only" | "vgsh-above-sma" | "entry-only";
+  /** Percentage of a risk-on entry purchase routed to VGSH; default 100. Scenario analysis only unless specified. */
+  riskOnEntryVgshPct?: number;
   cashInterestSpreadAnnual?: number;
   cashInterestFreeCash?: number;
   /**
@@ -1011,6 +1015,10 @@ function futuresStrategyName(params: FuturesStrategyParams, leverageLabel: strin
 }
 
 export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleeve {
+  const entryVgshWeight = (params.riskOnEntryVgshPct ?? 100) / 100;
+  if (!Number.isFinite(entryVgshWeight) || entryVgshWeight < 0 || entryVgshWeight > 1) {
+    throw new Error("riskOnEntryVgshPct must be between 0 and 100");
+  }
   const sliced = params.prices.filter((p) => p.date >= params.startDate && p.date <= params.endDate);
   if (sliced.length < 2) {
     const leverageLabel = formatLeverageLabel(params.targetLeverage);
@@ -1078,8 +1086,10 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     params.smaVolGate === true ? smaRiskOffGates(params.index) : {}
   );
   const fullInvestedByDate = new Map<string, boolean>();
+  const fullAboveSmaByDate = new Map<string, boolean>();
   for (let i = 0; i < fullDates.length; i++) {
     fullInvestedByDate.set(fullDates[i], fullSma.invested[i] ?? true);
+    fullAboveSmaByDate.set(fullDates[i], fullSmaInput[i] > fullSma.smaValues[i]);
   }
   const slicedInvested = dates.map((d) => fullInvestedByDate.get(d) ?? true);
   const slicedSmaValues = (() => {
@@ -1555,7 +1565,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       collateralMarginRequirement = totalFuturesNotionalAtMark({ lots, contract,
         mark: sym => futuresBasisFillPrice({ spotPrice: smaInput[0], symbol: sym,
           tradeDate: dates[0], rateDaily: rateLookup.getRate(dates[0]), dividendDaily: 0 }) }) * maintMarginRate;
-      bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, dates[0], true), dates[0]);
+      bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, dates[0], true, entryVgshWeight), dates[0]);
       collateralRiskOnAtLastClose = true;
       dailyEquity[0] = cash;
       dailyExcessLiquidity[0] = cash - collateralMarginRequirement - collateral.value() * 0.25;
@@ -2496,7 +2506,11 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         ? totalFuturesNotionalAtMark({ lots, contract, mark: markFuturesClose }) * maintMarginRate : 0;
       // Close is the daily-data proxy for the bot's five-minutes-before-close maintenance.
       if (wantsRiskOn) {
-        bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, date, !collateralRiskOnAtLastClose), date);
+        const vgshOnly = !collateralRiskOnAtLastClose || params.treasuryBuyPreference === "vgsh-only" ||
+          ((params.treasuryBuyPreference ?? "ndx-vgsh") === "ndx-vgsh" && params.index === "nasdaq100") ||
+          (params.treasuryBuyPreference === "vgsh-above-sma" && fullAboveSmaByDate.get(date) === true);
+        bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, date, vgshOnly,
+          !collateralRiskOnAtLastClose ? entryVgshWeight : undefined), date);
       }
       collateralRiskOnAtLastClose = wantsRiskOn;
       accrueCollateralInterest(collateralCashInterest({ equity: cash, treasuryValue: collateral.value(),

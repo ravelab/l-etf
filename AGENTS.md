@@ -1,5 +1,8 @@
 # Project agent memory
 
+- Display reports in the terminal/conversation as text or tables. Do not create
+  or open Lavish reports unless explicitly requested.
+
 This file is the project's committed home for project-intrinsic agent knowledge: build, test, release, architecture, and sharp-edge notes that should travel with the code.
 
 - Add durable project-specific notes here as they are discovered through real work.
@@ -241,10 +244,18 @@ pool; purchases are internal transfers, and only P&L/costs change it. Low-level
 callers omitting the option retain the legacy analytical cash-sweep model.
 
 The live-policy reference is `~/futures/src/treasury/sleeve.ts` and its execution
-code (some config/README comments lag). One deliberate divergence (2026-11): the
-risk-on entry close buys its whole Treasury purchase in VGSH (`riskOnEntry` on
-`rebalance`, flagged by the engine from the previous close's regime); routine
-maintenance still buys SGOV first and sells SGOV before VGSH.
+code. Both buy VGSH on risk-on entry. NDX buys VGSH on every routine top-up,
+regardless of SMA; SPX routine maintenance buys SGOV first (VGSH below its share
+minimum). Existing holdings are not swapped; sales use SGOV first within the
+owning sleeve. The live bot persists virtual ownership and per-sleeve cash claims
+inside one physical account. Migration preserves existing claims and allocates
+unowned Treasury shares by NAV. Common financing/segment cash flows use NAV
+weights, and emergency account-wide sales consume ownership proportionally.
+`treasuryBuyPreference: "entry-only"` and `"vgsh-above-sma"` are comparison
+policies; the production default is `"ndx-vgsh"`. Daily closes remain the proxy
+for live Treasury maintenance.
+Reserve composition must be sampled after `stepDay` and before `finish` liquidates
+it; the dual-sleeve runner's optional close observer preserves in-kind resets.
 Scope deliberately excludes core equities
 and box loans. See `docs/futures-collateral-model.md` for broker sources and the
 remaining approximations: daily execution proxies, estimated margin requirements/haircuts,
