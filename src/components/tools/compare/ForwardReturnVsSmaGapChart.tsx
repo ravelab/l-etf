@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarController,
   BarElement,
@@ -22,6 +22,7 @@ import { Card } from "@/components/ui/Card";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { getChartThemeColors } from "@/lib/chart-options";
 import { linkedLegendDatasetIndices, type LinkedLegendDataset } from "@/lib/chart-legend";
+import { spaceChartLabels } from "@/lib/chart-label-layout";
 import type { EtfConfig, PricePoint, RatePoint } from "@/lib/simulation/types";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import {
@@ -272,50 +273,19 @@ const raincloudPlugin: Plugin<"bar"> = {
   },
 };
 
-const PERCENTILE_LABEL_FONT = "9px system-ui, -apple-system, 'Segoe UI', sans-serif";
-const PERCENTILE_LABEL_HALO_WIDTH = 2.5;
-const PERCENTILE_LABEL_OFFSET_PX = 4;
-const PERCENTILE_LABEL_LINE_HEIGHT = 10;
-// Breathing room enforced between two labels' bounding boxes.
-const PERCENTILE_LABEL_PADDING_PX = 1.5;
+const PERCENTILE_LABEL_FONT = "10px system-ui, -apple-system, 'Segoe UI', sans-serif";
+const PERCENTILE_LABEL_HALO_WIDTH = 3;
+const PERCENTILE_LABEL_OFFSET_PX = 5;
+const PERCENTILE_LABEL_LINE_HEIGHT = 12;
+const PERCENTILE_LABEL_SPACING = 14;
+const PERCENTILE_LABEL_COLUMN_WIDTH = 56;
 
-// Rank order deciding which labels win a collision: median first, then the
-// P10/P90 endpoints, then the quartiles. At narrow widths the survivors are
-// therefore the most informative marks rather than an arbitrary subset.
-const PERCENTILE_LABEL_PRIORITY = { median: 0, min: 1, max: 2, q1: 3, q3: 4 } as const;
-
-interface PercentileLabelBox {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
-interface PercentileLabelPlacement {
+interface PercentileLabelGroup {
   x: number;
-  align: CanvasTextAlign;
-}
-
-interface PercentileLabelCandidate {
-  text: string;
-  y: number;
+  tickRight: number;
   color: string;
   halo?: string;
-  priority: number;
-  // Outward placement first, then its mirror. The edge buckets need the
-  // fallback: at ≤-18% the left-growing series and at ≥24% the right-growing
-  // one would otherwise overflow the plot area and be dropped entirely.
-  placements: PercentileLabelPlacement[];
-}
-
-function boxesOverlap(a: PercentileLabelBox, b: PercentileLabelBox): boolean {
-  const pad = PERCENTILE_LABEL_PADDING_PX;
-  return !(
-    a.right + pad < b.left ||
-    a.left - pad > b.right ||
-    a.bottom + pad < b.top ||
-    a.top - pad > b.bottom
-  );
+  labels: Array<{ text: string; anchorY: number }>;
 }
 
 const percentileMarkersPlugin: Plugin<"bar"> = {
@@ -326,10 +296,8 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
     if (!yScale) return;
     ctx.save();
 
-    // Marks are drawn per dataset, but the value labels are collected first and
-    // placed in a single global pass — otherwise a label could land on top of a
-    // neighbouring bucket's label or the other series'.
-    const candidates: PercentileLabelCandidate[] = [];
+    // Each bar has its own label column. Draw labels after every dataset's marks.
+    const groups: PercentileLabelGroup[] = [];
 
     chart.data.datasets.forEach((ds, datasetIndex) => {
       if (!chart.isDatasetVisible(datasetIndex)) return;
@@ -337,7 +305,6 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
       const fields = ds as unknown as Partial<RaincloudDatasetFields>;
       const stats = fields.percentileStats;
       const color = fields.percentileColor ?? "#888";
-      const side = fields.raincloudSide ?? -1;
       const haloColor = fields.percentileLabelHalo;
       if (!stats) return;
       meta.data.forEach((bar, idx) => {
@@ -346,11 +313,11 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
         const bx = bar.x;
         const halfWidth = Math.max(3, (bar as unknown as { width: number }).width / 2);
         const markers = [
-          { value: s.min, width: halfWidth * 0.45, lineWidth: 1.4, priority: PERCENTILE_LABEL_PRIORITY.min },
-          { value: s.q1, width: halfWidth * 0.72, lineWidth: 1.6, priority: PERCENTILE_LABEL_PRIORITY.q1 },
-          { value: s.median, width: halfWidth * 1.08, lineWidth: 2.6, priority: PERCENTILE_LABEL_PRIORITY.median },
-          { value: s.q3, width: halfWidth * 0.72, lineWidth: 1.6, priority: PERCENTILE_LABEL_PRIORITY.q3 },
-          { value: s.max, width: halfWidth * 0.45, lineWidth: 1.4, priority: PERCENTILE_LABEL_PRIORITY.max },
+          { value: s.min, width: halfWidth * 0.45, lineWidth: 1.4 },
+          { value: s.q1, width: halfWidth * 0.72, lineWidth: 1.6 },
+          { value: s.median, width: halfWidth * 1.08, lineWidth: 2.6 },
+          { value: s.q3, width: halfWidth * 0.72, lineWidth: 1.6 },
+          { value: s.max, width: halfWidth * 0.45, lineWidth: 1.4 },
         ];
 
         // Slim spine spans P10–P90; tick length encodes percentile rank.
@@ -368,23 +335,17 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
           ctx.moveTo(bx - marker.width, y);
           ctx.lineTo(bx + marker.width, y);
           ctx.stroke();
-
-          // Labels sit outward on the series' own side, so the two series'
-          // numbers grow away from each other rather than into each other.
-          const text = factorToPctLabel(marker.value);
-          if (!text) return;
-          const gap = halfWidth * 1.08 + PERCENTILE_LABEL_OFFSET_PX;
-          candidates.push({
-            text,
-            y,
-            color,
-            halo: haloColor,
-            priority: marker.priority,
-            placements: [
-              { x: bx + side * gap, align: side === 1 ? "left" : "right" },
-              { x: bx - side * gap, align: side === 1 ? "right" : "left" },
-            ],
-          });
+        });
+        groups.push({
+          x: bx + halfWidth * 1.08 + PERCENTILE_LABEL_OFFSET_PX,
+          tickRight: bx + halfWidth * 1.08,
+          color,
+          halo: haloColor,
+          // Top-to-bottom order also disambiguates coincident percentiles.
+          labels: [...markers].reverse().map((marker) => ({
+            text: factorToPctLabel(marker.value),
+            anchorY: yScale.getPixelForValue(marker.value),
+          })),
         });
       });
     });
@@ -392,39 +353,33 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
     ctx.font = PERCENTILE_LABEL_FONT;
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    const placed: PercentileLabelBox[] = [];
+    ctx.textAlign = "left";
     const halfLine = PERCENTILE_LABEL_LINE_HEIGHT / 2;
-
-    for (const candidate of [...candidates].sort((a, b) => a.priority - b.priority)) {
-      const width = ctx.measureText(candidate.text).width;
-      // Take the first placement that stays inside the plot area and clears
-      // every label already drawn; the mirror is what rescues edge buckets.
-      const fit = candidate.placements
-        .map((placement) => {
-          const left = placement.align === "left" ? placement.x : placement.x - width;
-          const box: PercentileLabelBox = {
-            left,
-            right: left + width,
-            top: candidate.y - halfLine,
-            bottom: candidate.y + halfLine,
-          };
-          return { placement, box };
-        })
-        .find(({ box }) => {
-          if (box.left < chartArea.left || box.right > chartArea.right) return false;
-          if (box.top < chartArea.top || box.bottom > chartArea.bottom) return false;
-          return !placed.some((other) => boxesOverlap(box, other));
-        });
-      if (!fit) continue;
-      placed.push(fit.box);
-      ctx.textAlign = fit.placement.align;
-      if (candidate.halo) {
-        ctx.lineWidth = PERCENTILE_LABEL_HALO_WIDTH;
-        ctx.strokeStyle = candidate.halo;
-        ctx.strokeText(candidate.text, fit.placement.x, candidate.y);
-      }
-      ctx.fillStyle = candidate.color;
-      ctx.fillText(candidate.text, fit.placement.x, candidate.y);
+    for (const group of groups) {
+      const positions = spaceChartLabels(
+        group.labels.map((label) => label.anchorY),
+        chartArea.top + halfLine,
+        chartArea.bottom - halfLine,
+        PERCENTILE_LABEL_SPACING,
+      );
+      group.labels.forEach((label, index) => {
+        const y = positions[index];
+        if (Math.abs(y - label.anchorY) > 1) {
+          ctx.strokeStyle = group.color;
+          ctx.lineWidth = 0.7;
+          ctx.beginPath();
+          ctx.moveTo(group.tickRight, label.anchorY);
+          ctx.lineTo(group.x - 2, y);
+          ctx.stroke();
+        }
+        if (group.halo) {
+          ctx.lineWidth = PERCENTILE_LABEL_HALO_WIDTH;
+          ctx.strokeStyle = group.halo;
+          ctx.strokeText(label.text, group.x, y);
+        }
+        ctx.fillStyle = group.color;
+        ctx.fillText(label.text, group.x, y);
+      });
     }
 
     ctx.restore();
@@ -579,6 +534,7 @@ export function ForwardReturnVsSmaGapChart({
   endDate,
 }: ForwardReturnVsSmaGapChartProps) {
   const colors = getChartThemeColors();
+  const [visibleSeriesCount, setVisibleSeriesCount] = useState(2);
 
   const spxResult = useMemo(
     () => spxConfig
@@ -694,8 +650,8 @@ export function ForwardReturnVsSmaGapChart({
       borderColor: "rgba(59, 130, 246, 0)",
       borderWidth: 0,
       borderSkipped: false,
-      categoryPercentage: 0.85,
-      barPercentage: 0.55,
+      categoryPercentage: 0.9,
+      barPercentage: 0.45,
       percentileColor: "rgba(59, 130, 246, 0.95)",
       percentileLabelHalo: colors.tooltipBackground,
       cloudProfiles: spxBuckets.map((bucket, index) => {
@@ -729,8 +685,8 @@ export function ForwardReturnVsSmaGapChart({
       borderColor: "rgba(249, 115, 22, 0)",
       borderWidth: 0,
       borderSkipped: false,
-      categoryPercentage: 0.85,
-      barPercentage: 0.55,
+      categoryPercentage: 0.9,
+      barPercentage: 0.45,
       percentileColor: "rgba(249, 115, 22, 0.95)",
       percentileLabelHalo: colors.tooltipBackground,
       cloudProfiles: ndxBuckets.map((bucket, index) => {
@@ -846,11 +802,12 @@ export function ForwardReturnVsSmaGapChart({
         intersect: false,
       },
       layout: {
-        padding: { left: 0, right: 0, top: 4, bottom: 0 },
+        padding: { left: 0, right: 44, top: 4, bottom: 0 },
       },
       plugins: {
         legend: {
           position: "top",
+          align: "start",
           // The legend shows one entry per series, so a click has to hide that
           // series' median and n/total lines along with its raincloud.
           onClick(_event, item, legend) {
@@ -864,6 +821,9 @@ export function ForwardReturnVsSmaGapChart({
             for (const datasetIndex of linked) {
               chart.setDatasetVisibility(datasetIndex, nextVisible);
             }
+            setVisibleSeriesCount(chart.data.datasets.filter((dataset, index) =>
+              (dataset as unknown as Partial<RaincloudDatasetFields>).percentileStats && chart.isDatasetVisible(index)
+            ).length);
             chart.update();
           },
           labels: {
@@ -1002,6 +962,8 @@ export function ForwardReturnVsSmaGapChart({
 
   const totalSpx = spxPoints.length;
   const totalNdx = ndxPoints.length;
+  const labelColumns = Math.max(1, Math.min(visibleSeriesCount, Number(totalSpx > 0) + Number(totalNdx > 0)));
+  const chartMinWidth = 160 + PERCENTILE_LABEL_COLUMN_WIDTH * binCount * labelColumns;
 
   return (
     <Card className="!p-1 md:!p-5">
@@ -1020,17 +982,17 @@ export function ForwardReturnVsSmaGapChart({
         </div>
       ) : (
         <div>
-          <div className="mb-1 flex items-center justify-between px-1 text-[11px] text-muted md:hidden">
-            <span>Swipe to explore</span>
+          <div className="mb-1 flex items-center justify-between px-1 text-[11px] text-muted">
+            <span>Scroll to explore</span>
             <span aria-hidden="true">→</span>
           </div>
           <div
-            className="max-w-full overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:overflow-visible md:pb-0"
+            className="max-w-full overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             role="region"
             aria-label="Scrollable one-year forward real return chart"
             tabIndex={0}
           >
-            <div className="h-[460px] w-[200vw] md:w-full">
+            <div className="h-[460px] w-full" style={{ minWidth: chartMinWidth }}>
               {/* ZoomableChart is typed for line charts; this mixed chart declares
                   its bar datasets explicitly, so the cast is safe at runtime. */}
               <ZoomableChart
@@ -1041,7 +1003,7 @@ export function ForwardReturnVsSmaGapChart({
           </div>
           <p className="px-1 pt-1 text-[11px] leading-relaxed text-muted">
             SMA strategy returns include risk-off periods • cloud = return density • dots = sampled outcomes (hover for
-            start date) • ticks bottom→top = P10 / P25 / P50 / P75 / P90 (P50 is longest)
+            start date) • ticks bottom→top = P10 / P25 / P50 / P75 / P90 (P50 is longest) • all five values are labeled to the right; connectors link separated labels to their ticks
           </p>
         </div>
       )}
