@@ -47,7 +47,7 @@ export const DEFAULT_FUTURES_AMOUNT = 100_000;
  * runs only when open leverage exceeds `maxLeverage * (1 + this/100)`, so the same
  * knob widens the dead band vs target and delays trims when `maxLeverage` is tight.
  */
-export const DEFAULT_LEVERAGE_TOLERANCE_PCT = 10;
+export const DEFAULT_LEVERAGE_TOLERANCE_PCT = 9;
 
 /** Convenience: pick the right default SMA period for a given index. */
 export function getDefaultSmaPeriod(index: "sp500" | "nasdaq100"): number {

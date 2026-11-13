@@ -149,7 +149,7 @@ threshold. At 42.4%, those thresholds become 4.5×1.424 = 6.408x SPX and
 3.55x/2.82x from 4.47x/3.49x at 1%. Its return difference is a different leverage
 path as well as lower transaction costs. At 10%, the thresholds are 4.95x/3.85x.
 The study initially left settings unchanged. The operator subsequently selected
-10% as the production default in l-etf and futures, including leo and mia configs.
+9% as the production default in l-etf and futures, including leo and mia configs.
 
 ### $10 million starting capital
 
@@ -169,7 +169,30 @@ recent-window comparison. More starting capital reduces contract-rounding
 sensitivity; it does not remove sensitivity to the chosen starting date.
 
 
-Production tolerance is now 10%. This is a relative band: the leverage-only
-trim thresholds are 4.95x for a 4.5x SPX target and 3.85x for a 3.5x NDX target.
+Production tolerance is now 9%. This is a relative band: the leverage-only
+trim thresholds are 4.905x for a 4.5x SPX target and 3.815x for a 3.5x NDX target.
 Explicit URL settings and persisted page inputs still override the site default.
 The default futures snapshot is regenerated whenever this setting changes.
+
+
+### $10 million: every whole percent from 5 through 15
+
+Run `INITIAL_CAPITAL=10000000 TOLERANCES=1,5,6,7,8,9,10,11,12,13,14,15 node --import tsx scripts/optimize-futures-tolerance.ts`.
+These 48 runs reproduce the earlier sixteen $10M results exactly.
+
+| Tolerance | Full real CAGR | Max drawdown | Futures transaction rows/year | 2008–2026 real CAGR | 2016–2026 real CAGR |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 5% | 35.15% | 64.30% | 85.9 | 34.48% | 37.16% |
+| 6% | 35.57% | 64.06% | 69.9 | 34.91% | 36.99% |
+| 7% | 35.99% | 64.11% | 57.5 | 35.37% | 37.79% |
+| 8% | 36.13% | 64.21% | 49.2 | 35.01% | 37.06% |
+| 9% | 36.18% | 64.79% | 42.9 | 35.69% | 37.34% |
+| 10% | 35.74% | 64.79% | 38.8 | 35.10% | 36.84% |
+| 11% | 35.67% | 65.35% | 35.0 | 34.45% | 36.90% |
+| 12% | 35.81% | 64.88% | 32.3 | 34.36% | 36.21% |
+| 13% | 35.84% | 64.81% | 29.6 | 35.05% | 35.71% |
+| 14% | 35.15% | 65.42% | 28.0 | 34.42% | 36.31% |
+| 15% | 34.96% | 64.13% | 26.6 | 33.82% | 34.83% |
+
+9% has the highest full-window and later-window CAGR in this grid; 7% wins the
+recent window. The operator chose 9% after reviewing this comparison.
