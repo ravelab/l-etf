@@ -290,6 +290,14 @@ model different instruments and are not expected to match: the LETF pays
 per *calendar* day plus a sweep on collateral. Residual annual drift is that model
 difference; daily tracking error is not, and is worth chasing.
 
+Futures inputs use two different date ranges: index `prices` include SMA warm-up,
+while `riskOffCloseByTicker` / `riskOffOpenByTicker` must align to the **sliced
+trading window**, not those warm-up rows. The engine indexes collateral and
+risk-off prices from trading-window day zero without slicing those arrays again.
+The reserve report once passed warm-up-aligned arrays and shifted every Treasury
+and basket return by months; its baseline now asserts equality to the default
+snapshot. A standalone futures analysis must validate that baseline before sweeping.
+
 ## Futures: sleeves and the two-sleeve fund
 
 `simulateFuturesSmaStrategy` is a thin driver over `createFuturesSleeve`, which

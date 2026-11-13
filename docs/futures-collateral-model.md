@@ -94,7 +94,8 @@ costs and integration with the futures engine.
 
 ## Reserve policy comparison (2026-11-13)
 
-Reproduce with `node --import tsx scripts/compare-collateral-policies.ts`.
+Reproduce the historical 1% tolerance comparison with
+`LEVERAGE_TOLERANCE=1 node --import tsx scripts/compare-collateral-policies.ts`.
 Bundled common data ends 2026-11-10; start 1988-04-06, $100,000 initial,
 Max 4.5x SPX / Max 3.5x NDX fund, calibrated bands and vol/RSI gates,
 SPX risk-off BRK.B+GLDM and NDX risk-off VGSH. All policies use separate
@@ -102,12 +103,73 @@ sleeve reserves and the same in-kind resets.
 
 | Treasury purchase policy | Average daily VGSH | Final VGSH | Real CAGR | Max drawdown |
 | --- | ---: | ---: | ---: | ---: |
-| Both sleeves always VGSH | 100.00% | 100.00% | 36.20% | 64.23% |
-| Current: NDX always VGSH, SPX entry VGSH / routine SGOV-first | 85.40% | 76.44% | 36.23% | 64.31% |
-| Old: both entry VGSH / routine SGOV-first | 33.74% | 28.86% | 35.87% | 64.28% |
+| Both sleeves always VGSH | 100.00% | 100.00% | 35.45% | 64.08% |
+| Current: NDX always VGSH, SPX entry VGSH / routine SGOV-first | 85.12% | 76.57% | 35.45% | 64.11% |
+| Old: both entry VGSH / routine SGOV-first | 33.72% | 27.41% | 35.03% | 64.72% |
 
 VGSH mix is VGSH market value / (VGSH + SGOV market values), excluding cash;
 the average weights funded trading dates equally. Final mix is before forced
 liquidation. Real CAGR uses CPI. These are historical model results, including
 pre-inception Treasury proxies; differences of a few hundredths of a point
 are not evidence of a reliably superior policy.
+
+The comparison uses the page's 280-session warm-up and aligns Treasury/risk-off
+prices to the trading window, excluding warm-up rows. Its default-policy CAGR
+and drawdown must equal the generated futures snapshot before a report is
+accepted. The earlier report aligned these arrays to the warm-up-inclusive
+index dates and is superseded by the corrected table above.
+
+## Leverage tolerance search (2026-11-13)
+
+`EXHAUSTIVE=1 node --import tsx scripts/optimize-futures-tolerance.ts` tests
+0–100% inclusive in 0.1-point increments (one common tolerance for both sleeves).
+Each of four windows opens independently at 50/50: 1988-04-06..2026-11-10,
+1988-04-06..2007-12-31, 2008-01-02..2026-11-10 and 2016-01-04..2026-11-10.
+The 4,004 grid runs use $100,000 initial capital; 80 additional runs check
+selected settings at $1 million. All modeled costs remain enabled. Before searching, the current production-default full-window nominal CAGR and
+drawdown must match the generated snapshot. The historical study below used 1%.
+
+| Tolerance | Full-window real CAGR | Max drawdown | Futures transaction rows/year | 2008–2026 real CAGR |
+| --- | ---: | ---: | ---: | ---: |
+| Previous default 1% | 35.45% | 64.11% | 271.7 | 34.07% |
+| 6.1% | 35.81% | 64.01% | 66.2 | 34.28% |
+| 10% candidate | 35.94% | 64.69% | 38.1 | 34.20% |
+| Full-grid winner 42.4% | 38.34% | 51.83% | 14.8 | 31.72% |
+
+42.4% also wins the early-period grid, but ranks 461/1,001 in the later period.
+The later-period grid winner is 36.5%; the recent-period winner is 17.8%.
+This is a retrospective sensitivity study, not a universally optimal parameter.
+Starting capital changes contract rounding and rankings: at $1 million, 10%
+returns 35.95% real CAGR over the full window versus 35.37% at 1%, but returns
+36.11% versus 36.85% at 1% in the recent window. There is no all-window dominance.
+
+Tolerance controls both routine sizing and the open-session leverage-only trim
+threshold. At 42.4%, those thresholds become 4.5×1.424 = 6.408x SPX and
+3.5×1.424 = 4.984x NDX; average risk-on futures leverage nevertheless falls to
+3.55x/2.82x from 4.47x/3.49x at 1%. Its return difference is a different leverage
+path as well as lower transaction costs. At 10%, the thresholds are 4.95x/3.85x.
+The study initially left settings unchanged. The operator subsequently selected
+10% as the production default in l-etf and futures, including leo and mia configs.
+
+### $10 million starting capital
+
+Run `INITIAL_CAPITAL=10000000 TOLERANCES=1,5,10,15 node --import tsx scripts/optimize-futures-tolerance.ts`.
+The default $100k baseline is still checked against the snapshot before these
+16 independent-window runs; only initial capital changes.
+
+| Tolerance | Full real CAGR | Max drawdown | Futures transaction rows/year | 2008–2026 real CAGR | 2016–2026 real CAGR |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1% | 35.37% | 64.22% | 292.5 | 34.78% | 36.93% |
+| 5% | 35.15% | 64.30% | 85.9 | 34.48% | 37.16% |
+| 10% | 35.74% | 64.79% | 38.8 | 35.10% | 36.84% |
+| 15% | 34.96% | 64.13% | 26.6 | 33.82% | 34.83% |
+
+10% still has the highest full-window CAGR among 5/10/15, but 5% wins the
+recent-window comparison. More starting capital reduces contract-rounding
+sensitivity; it does not remove sensitivity to the chosen starting date.
+
+
+Production tolerance is now 10%. This is a relative band: the leverage-only
+trim thresholds are 4.95x for a 4.5x SPX target and 3.85x for a 3.5x NDX target.
+Explicit URL settings and persisted page inputs still override the site default.
+The default futures snapshot is regenerated whenever this setting changes.
