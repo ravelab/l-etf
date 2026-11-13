@@ -1148,7 +1148,7 @@ export function BacktestingPageContent({
     const shownInResult = (cfg: EtfConfig) => {
       if (!displayResult) return false;
       const etf = findEtfResult(displayResult, `${cfg.id}-sma`);
-      return etf != null && shortBacktestAssetLabel(etf.name).replace(/ Vol$/, "") === `${cfg.name} SMA`;
+      return etf != null && shortBacktestAssetLabel(etf.name).replace(/ Vol(?: RSI)?$/, "") === `${cfg.name} SMA`;
     };
     const pick = (indexKey: IndexKey) => {
       const candidates = resolvedEtfConfigs.filter(
