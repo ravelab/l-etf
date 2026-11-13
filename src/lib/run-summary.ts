@@ -15,6 +15,8 @@ export type RunSummary = {
   tradeAfterHours: boolean;
   amount?: number;
   leverageTolerance?: string;
+  /** Futures page only: sleeves carry their remainder in MES/MNQ. */
+  microFutures?: boolean;
 };
 
 export function buildRunSummary(summary: {
@@ -34,6 +36,7 @@ export function buildRunSummary(summary: {
   tradeAfterHours?: boolean;
   amount?: number;
   leverageTolerance?: string;
+  microFutures?: boolean;
 }): RunSummary {
   return {
     ...summary,

@@ -11,7 +11,7 @@ export type LedgerAsset = { label: string; value: number; trade: number };
 const MIN_POSITION = 1e-6;
 /** Under a dollar is rounding residue of a closed position, not a holding worth listing. */
 const MIN_DISPLAYED_VALUE = 1;
-const FUTURES_LISTING = /^(ES|NQ)[HMUZ]\d{2}$/;
+const FUTURES_LISTING = /^(MES|MNQ|ES|NQ)[HMUZ]\d{2}$/;
 
 /** `a + b` as a new map, without the positions that net to nothing. */
 export function addHoldings(a: LedgerHoldings, b: LedgerHoldings): Record<string, number> {

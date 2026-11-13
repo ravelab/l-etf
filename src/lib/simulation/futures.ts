@@ -13,7 +13,10 @@ import {
   calcSortinoRatio,
 } from "@/lib/simulation/metrics";
 
-type FuturesContractSymbol = "ES" | "NQ";
+type FuturesContractSymbol = "ES" | "NQ" | "MES" | "MNQ";
+
+/** Micro roots first: "MESZ26" must not be read as an ES listing. */
+const FUTURES_LISTING_PATTERN = /^(MES|MNQ|ES|NQ)([HMUZ])(\d{2})/;
 
 type FuturesMonthCode = "H" | "M" | "U" | "Z"; // Mar/Jun/Sep/Dec
 
@@ -145,6 +148,10 @@ const DEFAULT_MAINT_MARGIN_RATE = 0.08; // 8% of notional
 const IBKR_FEE_PER_CONTRACT: Record<FuturesContractSymbol, number> = {
   ES: 2.24,
   NQ: 2.45,
+  // Micro E-minis: $0.25 IBKR execution plus ~$0.37 CME/NFA. About 2.7x an E-mini
+  // per dollar of notional, which is why micros only carry a sleeve's remainder.
+  MES: 0.62,
+  MNQ: 0.62,
 };
 /**
  * The dollars every fixed-dollar broker constant here is quoted in: CPI-U at this date.
@@ -183,7 +190,25 @@ function getContractMultiplier(contract: FuturesContractSymbol): number {
       return 50;
     case "NQ":
       return 20;
+    case "MES":
+      return 5;
+    case "MNQ":
+      return 2;
   }
+}
+
+/** Family of a dated listing ("MESZ26" → "MES"); null for anything else. */
+function familyOfSymbol(symbol: string): FuturesContractSymbol | null {
+  const match = FUTURES_LISTING_PATTERN.exec(symbol);
+  return match ? (match[1] as FuturesContractSymbol) : null;
+}
+
+function microFamilyOf(family: FuturesContractSymbol): FuturesContractSymbol {
+  return family === "ES" || family === "MES" ? "MES" : "MNQ";
+}
+
+function isMicroFamily(family: FuturesContractSymbol | null): boolean {
+  return family === "MES" || family === "MNQ";
 }
 
 function thirdFriday(year: number, month1to12: number): Date {
@@ -265,11 +290,11 @@ function resolveTwoDigitYear(yy: number, tradeYear: number): number {
 function parseContractSymbolParts(symbol: string): ContractSymbolParts | null {
   const cached = contractSymbolPartsCache.get(symbol);
   if (cached !== undefined) return cached;
-  const match = symbol.match(/^(?:ES|NQ)([HMUZ])(\d{2})/);
+  const match = symbol.match(FUTURES_LISTING_PATTERN);
   const parts: ContractSymbolParts | null = match
     ? {
-        quarterMonth: quarterMonthFromMonthCode(match[1] as FuturesMonthCode),
-        yy: Number(match[2]),
+        quarterMonth: quarterMonthFromMonthCode(match[2] as FuturesMonthCode),
+        yy: Number(match[3]),
       }
     : null;
   contractSymbolPartsCache.set(symbol, parts);
@@ -296,10 +321,10 @@ function getContractExpiryEpochMs(symbol: string, tradeYear: number): number | n
   return thirdFridayEpochMs(resolveTwoDigitYear(parts.yy, tradeYear), parts.quarterMonth);
 }
 
-/** Dollars per index point of an ES/NQ listing (e.g. "NQM88"); null for anything else. */
+/** Dollars per index point of an ES/NQ/MES/MNQ listing (e.g. "NQM88"); null for anything else. */
 export function futuresListingMultiplier(symbol: string): number | null {
-  const family = symbol.slice(0, 2);
-  return family === "ES" || family === "NQ" ? getContractMultiplier(family) : null;
+  const family = familyOfSymbol(symbol);
+  return family ? getContractMultiplier(family) : null;
 }
 
 /** Expiry of a listing as seen from `tradeDate` (two-digit years resolve against it); null if unparseable. */
@@ -433,7 +458,7 @@ function parseQuarterlyFutureSymbol(
   expiryYear: number;
   quarterMonth: 3 | 6 | 9 | 12;
 } | null {
-  const match = symbol.match(/^(ES|NQ)([HMUZ])(\d{2})$/);
+  const match = symbol.match(/^(MES|MNQ|ES|NQ)([HMUZ])(\d{2})$/);
   if (!match) return null;
   const family = match[1] as FuturesContractSymbol;
   const year2 = Number(match[3]);
@@ -534,9 +559,14 @@ function reconcileLots(lots: Map<string, number>): void {
  */
 function contractSymbolsSortedForReduction(lots: Map<string, number>, anchorDate: string): string[] {
   const anchorYear = tradeDayStamp(anchorDate).year;
+  // Micros before full contracts: they cost more to hold through every roll, and
+  // draining them first keeps a reduction exact (see `microFutures`).
+  const microRank = (sym: string) => (isMicroFamily(familyOfSymbol(sym)) ? 0 : 1);
   return [...lots.entries()]
     .filter(([, q]) => q > 0)
     .sort((a, b) => {
+      const byMicro = microRank(a[0]) - microRank(b[0]);
+      if (byMicro !== 0) return byMicro;
       const expA = getContractExpiryEpochMs(a[0], anchorYear) ?? 0;
       const expB = getContractExpiryEpochMs(b[0], anchorYear) ?? 0;
       return expA - expB;
@@ -661,6 +691,8 @@ function futuresLegLeverageDeltaPct(params: {
 }
 
 export function getFuturesHalfSpreadPerContract(symbol: string): number {
+  if (symbol.startsWith("MES")) return 0.625;
+  if (symbol.startsWith("MNQ")) return 0.25;
   if (symbol.startsWith("ES")) return 6.25;
   if (symbol.startsWith("NQ")) return 2.5;
   return 0;
@@ -781,7 +813,8 @@ export function futuresFrontBackQtysFromLots(params: {
     const parsed = parseQuarterlyFutureSymbol(sym, tradeDate);
     if (!parsed) continue;
     const expMs = getContractExpiryEpochMs(sym, tradeDayStamp(tradeDate).year) ?? 0;
-    entries.push({ q, exp: expMs });
+    // Full-contract equivalents: a micro is a tenth of its E-mini.
+    entries.push({ q: isMicroFamily(parsed.family) ? q / 10 : q, exp: expMs });
   }
   if (entries.length === 0) return { frontQty: 0, backQty: 0 };
   if (entries.length === 1) return { frontQty: entries[0].q, backQty: 0 };
@@ -809,7 +842,7 @@ export function futuresFrontBackQtyAfterEachTransaction(params: {
       continue;
     }
     const sym = stripFuturesLedgerSuffix(row.symbol);
-    if (!/^(ES|NQ)[HMUZ]\d{2}$/i.test(sym)) {
+    if (!/^(MES|MNQ|ES|NQ)[HMUZ]\d{2}$/i.test(sym)) {
       out.push(
         futuresFrontBackQtysFromLots({
           index: params.index,
@@ -998,6 +1031,15 @@ export type FuturesStrategyParams = {
    * Defaults to the IBKR schedule for the run's contract.
    */
   feePerContract?: number;
+  /**
+   * Carry the part of the sleeve a whole ES/NQ cannot express in MES/MNQ (one
+   * tenth the size). Sizing runs in micro units; buys take one full contract per
+   * whole ten units and micros for the rest, reductions take micros first, and no
+   * trade ever swaps one size for the other. Micros are bought only while one full
+   * contract is a bigger leverage step than the tolerance band; held ones then go
+   * with the next rebalance sell, never on their own. Off by default.
+   */
+  microFutures?: boolean;
   /** CPI series used to scale fixed-dollar commissions into historical dollars. */
   monthlyCpi?: Array<{ date: string; value: number }>;
   /**
@@ -1173,7 +1215,6 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   };
   const feePerContractNominal =
     params.feePerContract ?? IBKR_FEE_PER_CONTRACT[chooseContract(params.index)];
-  const feePerContractAt = (date: string) => feePerContractNominal * feeDollarScaleForDate(date);
 
   let sumActualLeverageRiskOn = 0;
   let riskOnLeverageDayCount = 0;
@@ -1187,6 +1228,48 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   let cash = clampToFinite(params.initialEquity, 0);
   const lots = new Map<string, number>();
   let contract: FuturesContractSymbol | null = null;
+  const fullFamily = chooseContract(params.index);
+  const microMode = params.microFutures === true;
+  /** Family the sleeve sizes in: micro units with micros on, full contracts otherwise. */
+  const sizingFamily = microMode ? microFamilyOf(fullFamily) : fullFamily;
+  const unitsPerFull = getContractMultiplier(fullFamily) / getContractMultiplier(sizingFamily);
+  /** `lots` hold sizing units; a full contract is `unitsPerFull` of them. */
+  const unitsPerContract = (symbol: string): number =>
+    familyOfSymbol(stripFuturesLedgerSuffix(symbol)) === fullFamily ? unitsPerFull : 1;
+  const feeNominalForFamily = (family: FuturesContractSymbol): number =>
+    family === fullFamily
+      ? feePerContractNominal
+      : feePerContractNominal * (IBKR_FEE_PER_CONTRACT[family] / IBKR_FEE_PER_CONTRACT[fullFamily]);
+  const feeForUnits = (symbol: string, units: number, date: string): number => {
+    const family = familyOfSymbol(stripFuturesLedgerSuffix(symbol)) ?? fullFamily;
+    return (Math.abs(units) / unitsPerContract(symbol)) * (feeNominalForFamily(family) * feeDollarScaleForDate(date));
+  };
+  const futuresSpreadCost = (p: Parameters<typeof getTransactionSpreadCost>[0]): number =>
+    getTransactionSpreadCost(p.instrument === "futures" ? { ...p, qtyDelta: p.qtyDelta / unitsPerContract(p.symbol) } : p);
+  /**
+   * Micros only while one full contract is a bigger leverage step than the
+   * tolerance band; past that, whole contracts alone keep the sleeve inside it.
+   */
+  const microsNeededFor = (equity: number, fillPrice: number): boolean =>
+    microMode &&
+    params.targetLeverage > 0 &&
+    equity > 0 &&
+    getContractMultiplier(fullFamily) * fillPrice > params.targetLeverage * equity * (leverageTolerancePct / 100);
+  /**
+   * A buy of `units`: one full contract per whole `unitsPerFull`, micros for the
+   * remainder while they are needed (otherwise the remainder stays unbought).
+   */
+  const splitBuyUnits = (units: number, withMicros: boolean): Array<{ family: FuturesContractSymbol; units: number }> => {
+    if (!microMode) return [{ family: fullFamily, units }];
+    const fullUnits = Math.floor(units / unitsPerFull) * unitsPerFull;
+    return [
+      { family: fullFamily, units: fullUnits },
+      { family: sizingFamily, units: withMicros ? units - fullUnits : 0 },
+    ].filter((leg) => leg.units > 0);
+  };
+  /** Units a reduction takes from `symbol`: a full contract only whole, so it can overshoot. */
+  const reductionTakeUnits = (symbol: string, held: number, wanted: number): number =>
+    Math.min(held, Math.ceil(wanted / unitsPerContract(symbol)) * unitsPerContract(symbol));
   let accruedInterestSinceLastTx = 0;
   /** Count of credited sweep-interest days since last attribution row. */
   let interestSweepSessionCount = 0;
@@ -1238,10 +1321,9 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   const currentPositions = (): Record<string, number> => {
     const out: Record<string, number> = {};
     for (const [sym, q] of lots) {
-      const family = sym.slice(0, 2);
       const mark = ledgerFuturesMark?.(sym) ?? Number.NaN;
-      if (q > 0 && (family === "ES" || family === "NQ") && mark > 0) {
-        out[sym] = q * getContractMultiplier(family) * mark;
+      if (q > 0 && familyOfSymbol(sym) && mark > 0) {
+        out[sym] = q * getContractMultiplier(sizingFamily) * mark;
       }
     }
     for (const [j, shares] of (riskOffShares ?? []).entries()) {
@@ -1256,7 +1338,12 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   };
   /** Appends a ledger row stamped with the positions held once it has executed. */
   function recordTransaction(row: FuturesTransactionRow): void {
-    transactions.push({ ...row, holdingsAfter: currentPositions() });
+    // The engine counts in sizing units; the ledger shows whole contracts of each
+    // listing and the position after as full-contract equivalents.
+    const contractsRow = microMode && row.instrument === "futures"
+      ? { ...row, qtyDelta: row.qtyDelta / unitsPerContract(row.symbol), qtyAfter: row.qtyAfter / unitsPerFull }
+      : row;
+    transactions.push({ ...contractsRow, holdingsAfter: currentPositions() });
   }
   let pendingEnterRiskOff = false;
   let pendingExitRiskOff = false;
@@ -1305,7 +1392,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         ? riskOffOpenTradePrice({ openValues: params.riskOffOpenByTicker?.[t], closeValues: params.riskOffCloseByTicker?.[t], index: i })
         : riskOffCloseMarkPrice({ closeValues: params.riskOffCloseByTicker?.[t], index: i });
       if (!(px && Number.isFinite(px) && px > 0)) continue; // Unfilled budget stays cash.
-      const spread = getTransactionSpreadCost({ instrument: "riskoff", symbol: t, qtyDelta: budget / px, fillPrice: px });
+      const spread = futuresSpreadCost({ instrument: "riskoff", symbol: t, qtyDelta: budget / px, fillPrice: px });
       const fees = getRiskOffCommission({ qtyDelta: budget / px, fillPrice: px, dollarScale: feeDollarScaleForDate(date) });
       const shares = Math.max(0, budget - spread - fees) / px;
       const j = ownSlots[k];
@@ -1342,8 +1429,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     const mult = getContractMultiplier(params.contract);
     const perContractMaint = mult * params.fillPrice * maintMarginRate;
     const perContractEntryCost =
-      feePerContractAt(params.tradeDate) +
-      getFuturesHalfSpreadPerContract(params.symbol) * futuresPriceScale(params.fillPrice);
+      feeForUnits(params.symbol, 1, params.tradeDate) +
+      (getFuturesHalfSpreadPerContract(params.symbol) / unitsPerContract(params.symbol)) * futuresPriceScale(params.fillPrice);
     const denom = perContractMaint + perContractEntryCost;
     if (!Number.isFinite(denom) || denom <= 0) return params.currentQty;
     // Solve projectedExcess(q) >= 0 in closed form:
@@ -1375,7 +1462,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   });
   if (startsRiskOn && Number.isFinite(firstSpot) && firstSpot > 0) {
     const initialTargetNotional = Math.max(0, params.targetLeverage * cash);
-    const initialContract = chooseContract(params.index);
+    const initialContract = sizingFamily;
     const initialSymbol = newTradesContractLabel(initialContract, firstDate, rollDateByQuarter);
     const initialFillPrice = futuresBasisFillPrice({
       spotPrice: firstSpot,
@@ -1418,48 +1505,57 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       tradeDate: firstDate,
     });
     if (initialQty > 0) {
-      const fees = Math.abs(initialQty) * feePerContractAt(firstDate);
-      const spread = getTransactionSpreadCost({
-        instrument: "futures",
-        symbol: initialSymbol,
-        qtyDelta: initialQty,
-        fillPrice: initialFillPrice,
-        dollarScale: futuresPriceScale(initialFillPrice),
-      });
-      const levBefore = futuresLegLeverageDeltaPct({
-        qty: 0,
-        contract: null,
-        futuresMarkPrice: initialFillPrice,
-        equity: cash,
-        targetLeverage: params.targetLeverage,
-      });
-      cash -= (fees + spread);
-      totalFees += fees;
-      totalSpreadCosts += spread;
-      lots.set(initialSymbol, initialQty);
       contract = initialContract;
-      const notional = Math.abs(initialQty) * getContractMultiplier(initialContract) * initialFillPrice;
-      const maintenanceMarginUsed = notional * maintMarginRate;
-      const equity = cash;
-      const excessLiquidity = equity - maintenanceMarginUsed - (collateral?.value() ?? 0) * 0.25;
-      const actualLeverage = equity > 0 ? notional / equity : 0;
-      const leverageDeltaPct = computeLeverageDeltaPct(actualLeverage, params.targetLeverage);
-      recordTransaction({
-        date: firstDate,
-        action: "buy",
-        instrument: "futures",
-        symbol: initialSymbol,
-        qtyDelta: initialQty,
-        qtyAfter: initialQty,
-        fillPrice: initialFillPrice,
-        fees,
-        spread,
-        cashInterestEarned: 0,
-        excessLiquidity,
-        leverageDeltaPctBefore: levBefore,
-        leverageDeltaPct,
-        equity,
-      });
+      let heldUnits = 0;
+      let notional = 0;
+      let equity = cash;
+      let excessLiquidity = 0;
+      let leverageDeltaPct = 0;
+      for (const leg of splitBuyUnits(initialQty, microsNeededFor(cash, initialFillPrice))) {
+        const legSymbol = microMode ? newTradesContractLabel(leg.family, firstDate, rollDateByQuarter) : initialSymbol;
+        const fees = feeForUnits(legSymbol, leg.units, firstDate);
+        const spread = futuresSpreadCost({
+          instrument: "futures",
+          symbol: legSymbol,
+          qtyDelta: leg.units,
+          fillPrice: initialFillPrice,
+          dollarScale: futuresPriceScale(initialFillPrice),
+        });
+        const levBefore = futuresLegLeverageDeltaPct({
+          qty: heldUnits,
+          contract: heldUnits > 0 ? initialContract : null,
+          futuresMarkPrice: initialFillPrice,
+          equity: cash,
+          targetLeverage: params.targetLeverage,
+        });
+        cash -= (fees + spread);
+        totalFees += fees;
+        totalSpreadCosts += spread;
+        heldUnits += leg.units;
+        lots.set(legSymbol, (lots.get(legSymbol) ?? 0) + leg.units);
+        notional = heldUnits * getContractMultiplier(initialContract) * initialFillPrice;
+        const maintenanceMarginUsed = notional * maintMarginRate;
+        equity = cash;
+        excessLiquidity = equity - maintenanceMarginUsed - (collateral?.value() ?? 0) * 0.25;
+        const actualLeverage = equity > 0 ? notional / equity : 0;
+        leverageDeltaPct = computeLeverageDeltaPct(actualLeverage, params.targetLeverage);
+        recordTransaction({
+          date: firstDate,
+          action: "buy",
+          instrument: "futures",
+          symbol: legSymbol,
+          qtyDelta: leg.units,
+          qtyAfter: heldUnits,
+          fillPrice: initialFillPrice,
+          fees,
+          spread,
+          cashInterestEarned: 0,
+          excessLiquidity,
+          leverageDeltaPctBefore: levBefore,
+          leverageDeltaPct,
+          equity,
+        });
+      }
       dailyExcessLiquidity[0] = excessLiquidity;
       if (invested[0] && equity > 0) {
         const lev = notional / equity;
@@ -1493,7 +1589,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       const openPx = riskOffCloseMarkPrice({ closeValues: closeArr, index: 0 });
       if (Number.isFinite(openPx) && (openPx as number) > 0) {
         const grossShares = valuePer / (openPx as number);
-        const spread = getTransactionSpreadCost({
+        const spread = futuresSpreadCost({
           instrument: "riskoff",
           symbol: t,
           qtyDelta: grossShares,
@@ -1707,7 +1803,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         });
         if (shares > 0 && Number.isFinite(openPx) && (openPx as number) > 0) {
           const gross = shares * (openPx as number);
-          const spread = getTransactionSpreadCost({
+          const spread = futuresSpreadCost({
             instrument: "riskoff",
             symbol: t,
             qtyDelta: shares,
@@ -1759,8 +1855,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           if (qLeg <= 0) continue;
           const delta = -qLeg;
           const fillPrice = futuresFillAt(sym);
-          const fees = Math.abs(delta) * feePerContractAt(date);
-          const spread = getTransactionSpreadCost({
+          const fees = feeForUnits(sym, delta, date);
+          const spread = futuresSpreadCost({
             instrument: "futures",
             symbol: sym,
             qtyDelta: delta,
@@ -1836,7 +1932,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         const openPx = riskOffOpenTradePrice({ openValues: openArr, closeValues: closeArr, index: i });
         if (Number.isFinite(openPx) && (openPx as number) > 0) {
           const grossShares = valuePer / (openPx as number);
-          const spread = getTransactionSpreadCost({
+          const spread = futuresSpreadCost({
             instrument: "riskoff",
             symbol: t,
             qtyDelta: grossShares,
@@ -1914,8 +2010,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         if (q0 <= 0) break;
 
         const fillPrice = futuresFillAt(sym);
-        const feePerContract = feePerContractAt(date);
-        const spreadPerContract = getTransactionSpreadCost({
+        const feePerContract = feeForUnits(sym, 1, date);
+        const spreadPerContract = futuresSpreadCost({
           instrument: "futures",
           symbol: sym,
           qtyDelta: -1,
@@ -1953,13 +2049,13 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
             }
           }
         }
-        sellQty = Math.max(1, Math.min(q0, Math.floor(sellQty)));
+        sellQty = reductionTakeUnits(sym, q0, Math.max(1, Math.min(q0, Math.floor(sellQty))));
 
         const fees = feePerContract * sellQty;
         const spread =
           sellQty === 1
             ? spreadPerContract
-            : getTransactionSpreadCost({
+            : futuresSpreadCost({
                 instrument: "futures",
                 symbol: sym,
                 qtyDelta: -sellQty,
@@ -2024,7 +2120,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     let targetNotional = wantsRiskOn ? params.targetLeverage * equityBeforeTrade : 0;
     targetNotional = Math.max(0, targetNotional);
 
-    const nextContract = wantsRiskOn ? chooseContract(params.index) : null;
+    const nextContract = wantsRiskOn ? sizingFamily : null;
     const markFuturesOpen = (sym: string) => futuresFillAt(sym);
 
     const quarterlyRollAppliesToday = (): boolean => {
@@ -2050,16 +2146,16 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
 
         const sellFillPrice = futuresFillAt(sym);
         const buyFillPrice = futuresFillAt(nextSym);
-        const sellFees = Math.abs(rollQty) * feePerContractAt(date);
-        const buyFees = Math.abs(rollQty) * feePerContractAt(date);
-        const sellSpread = getTransactionSpreadCost({
+        const sellFees = feeForUnits(sym, rollQty, date);
+        const buyFees = feeForUnits(nextSym, rollQty, date);
+        const sellSpread = futuresSpreadCost({
           instrument: "futures",
           symbol: sym,
           qtyDelta: -rollQty,
           fillPrice: sellFillPrice,
           dollarScale: futuresPriceScale(sellFillPrice),
         });
-        const buySpread = getTransactionSpreadCost({
+        const buySpread = futuresSpreadCost({
           instrument: "futures",
           symbol: nextSym,
           qtyDelta: rollQty,
@@ -2235,8 +2331,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       const tradeSymbol = newTradesContractLabel(nextContract, date, rollDateByQuarter);
       const probeFillPrice = futuresFillAt(tradeSymbol);
       const deltaProbe = desiredTargetQty - currentQtyAfterRolls;
-      const feesProbe = Math.abs(deltaProbe) * feePerContractAt(date);
-      const spreadProbe = getTransactionSpreadCost({
+      const feesProbe = feeForUnits(tradeSymbol, deltaProbe, date);
+      const spreadProbe = futuresSpreadCost({
         instrument: "futures",
         symbol: tradeSymbol,
         qtyDelta: deltaProbe,
@@ -2253,7 +2349,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           if (rem <= 0) break;
           const q = nextLotsProbe.get(sym) ?? 0;
           if (q <= 0) continue;
-          const take = Math.min(q, rem);
+          const take = reductionTakeUnits(sym, q, rem);
           nextLotsProbe.set(sym, q - take);
           rem -= take;
         }
@@ -2306,7 +2402,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           if (qLeg <= 0) continue;
           const delta = -qLeg;
           const fillPrice = futuresFillAt(sym);
-          const fees = Math.abs(delta) * feePerContractAt(date);
+          const fees = feeForUnits(sym, delta, date);
           const levBeforeClose = futuresPortfolioLeverageDeltaPctFromLots({
             lots,
             contract,
@@ -2314,7 +2410,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
             targetLeverage: params.targetLeverage,
             mark: markFuturesOpen,
           });
-          const spread = getTransactionSpreadCost({
+          const spread = futuresSpreadCost({
             instrument: "futures",
             symbol: sym,
             qtyDelta: delta,
@@ -2363,27 +2459,29 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         const delta = targetQtyValue - afterCloseQty;
         if (delta !== 0) {
           if (delta > 0) {
-            const tradeSymbol = newTradesContractLabel(nextContract, date, rollDateByQuarter);
+            for (const leg of splitBuyUnits(delta, microsNeededFor(equityBeforeTrade, nextContractOpenPrice))) {
+            const tradeSymbol = newTradesContractLabel(microMode ? leg.family : nextContract, date, rollDateByQuarter);
             const fillPrice = futuresFillAt(tradeSymbol);
-            const fees = Math.abs(delta) * feePerContractAt(date);
+            const heldBefore = sumLots(lots);
+            const fees = feeForUnits(tradeSymbol, leg.units, date);
             const levBefore = futuresPortfolioLeverageDeltaPctFromLots({
               lots,
-              contract: afterCloseQty > 0 ? contract : null,
+              contract: heldBefore > 0 ? contract : null,
               equity: cash,
               targetLeverage: params.targetLeverage,
               mark: markFuturesOpen,
             });
-            const spread = getTransactionSpreadCost({
+            const spread = futuresSpreadCost({
               instrument: "futures",
               symbol: tradeSymbol,
-              qtyDelta: delta,
+              qtyDelta: leg.units,
               fillPrice,
               dollarScale: futuresPriceScale(fillPrice),
             });
             cash -= fees + spread;
             totalFees += fees;
             totalSpreadCosts += spread;
-            lots.set(tradeSymbol, (lots.get(tradeSymbol) ?? 0) + delta);
+            lots.set(tradeSymbol, (lots.get(tradeSymbol) ?? 0) + leg.units);
             reconcileLots(lots);
             contract = nextContract;
             const newTotal = sumLots(lots);
@@ -2400,7 +2498,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
               action: "buy",
               instrument: "futures",
               symbol: tradeSymbol,
-              qtyDelta: delta,
+              qtyDelta: leg.units,
               qtyAfter: newTotal,
               fillPrice,
               fees,
@@ -2413,18 +2511,31 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
               equity: cash,
             });
             accruedInterestSinceLastTx = 0;
+            }
           } else {
             let toSell = -delta;
+            // Unneeded micros are never sold on their own; a rebalance sell takes them
+            // first, and takes all of them when the book stays inside the band without.
+            if (microMode && !microsNeededFor(equityBeforeTrade, nextContractOpenPrice)) {
+              const microUnits = [...lots.entries()]
+                .filter(([sym, q]) => q > 0 && familyOfSymbol(sym) === sizingFamily)
+                .reduce((sum, [, q]) => sum + q, 0);
+              const unitNotional = getContractMultiplier(sizingFamily) * nextContractOpenPrice;
+              const floorUnits = unitNotional > 0
+                ? Math.ceil((params.targetLeverage * (1 - leverageTolerancePct / 100) * equityBeforeTrade) / unitNotional - 1e-9)
+                : Number.POSITIVE_INFINITY;
+              if (microUnits > toSell && afterCloseQty - microUnits >= floorUnits) toSell = microUnits;
+            }
             let runningAfter = afterCloseQty;
             let intRemainPartial = accruedInterestSinceLastTx;
             for (const sym of contractSymbolsSortedForReduction(lots, date)) {
               if (toSell <= 0) break;
               const qLeg = lots.get(sym) ?? 0;
               if (qLeg <= 0) continue;
-              const take = Math.min(qLeg, toSell);
+              const take = reductionTakeUnits(sym, qLeg, toSell);
               const legDelta = -take;
               const fillPrice = futuresFillAt(sym);
-              const legFees = Math.abs(legDelta) * feePerContractAt(date);
+              const legFees = feeForUnits(sym, legDelta, date);
               const levBefore = futuresPortfolioLeverageDeltaPctFromLots({
                 lots,
                 contract,
@@ -2432,7 +2543,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
                 targetLeverage: params.targetLeverage,
                 mark: markFuturesOpen,
               });
-              const spread = getTransactionSpreadCost({
+              const spread = futuresSpreadCost({
                 instrument: "futures",
                 symbol: sym,
                 qtyDelta: legDelta,
@@ -2694,8 +2805,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         const qLeg = lots.get(sym) ?? 0;
         if (qLeg <= 0) continue;
         const fp = futuresFillAtFinal(sym);
-        totalFeesTerm += qLeg * feePerContractAt(finalDate);
-        totalSpreadTerm += getTransactionSpreadCost({
+        totalFeesTerm += feeForUnits(sym, qLeg, finalDate);
+        totalSpreadTerm += futuresSpreadCost({
           instrument: "futures",
           symbol: sym,
           qtyDelta: -qLeg,
@@ -2721,8 +2832,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
         const qLeg = lots.get(sym) ?? 0;
         if (qLeg <= 0) continue;
         const fillPrice = futuresFillAtFinal(sym);
-        const fees = qLeg * feePerContractAt(finalDate);
-        const spread = getTransactionSpreadCost({
+        const fees = feeForUnits(sym, qLeg, finalDate);
+        const spread = futuresSpreadCost({
           instrument: "futures",
           symbol: sym,
           qtyDelta: -qLeg,
@@ -2802,7 +2913,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           fillPrice,
           dollarScale: feeDollarScaleForDate(finalDate),
         });
-        totalRiskOffExitSpread += getTransactionSpreadCost({
+        totalRiskOffExitSpread += futuresSpreadCost({
           instrument: "riskoff",
           symbol: t,
           qtyDelta: shares,

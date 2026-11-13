@@ -51,6 +51,7 @@ import { FuturesSmaDetails } from "@/components/tools/futures/FuturesSmaDetails"
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
 import { buildRunSummary, type RunSummary } from "@/lib/run-summary";
+import { MicroFuturesCheckbox } from "@/components/tools/futures/MicroFuturesCheckbox";
 import { useRunSummary } from "@/lib/hooks/use-run-summary-inputs";
 
 const EMPTY_UNDERLYING_INDEX_SERIES: Array<{
@@ -167,6 +168,7 @@ export function FuturesPageContent({
     )
   );
   const [showEmulations, setShowEmulations] = useState<boolean>(false);
+  const [microFutures, setMicroFutures] = useState<boolean>(persistedInitial.microFutures === true);
   const [futuresDetails, setFuturesDetails] = useState<FuturesStrategyResult[] | null>(null);
   const [expandedFuturesSma, setExpandedFuturesSma] = useState<string[]>([]);
   const { runSummary, setRunSummary } = useRunSummary(
@@ -305,10 +307,13 @@ export function FuturesPageContent({
         : null;
     const emParam = params.get("em");
     const wantsEmulations = emParam === "1" || emParam === "true";
+    const mfParam = params.get("mf");
+    const nextMicroFutures = mfParam == null ? null : mfParam === "1" || mfParam === "true";
     Promise.resolve().then(() => {
       if (nextAmount != null) setAmount(nextAmount);
       if (nextLeverageTolerance != null) setLeverageTolerancePct(nextLeverageTolerance);
       if (wantsEmulations) setShowEmulations(true);
+      if (nextMicroFutures != null) setMicroFutures(nextMicroFutures);
       setPendingRun(
         active &&
           shouldQueueToolAutorun(
@@ -352,6 +357,7 @@ export function FuturesPageContent({
     appendRiskOffUrlParams(params, riskOffAssets);
     params.set("amt", String(amount));
     params.set("lt", String(leverageTolerancePct));
+    if (microFutures) params.set("mf", "1");
     if (showEmulations) params.set("em", "1");
 
     markNextSearchAsInternal();
@@ -360,6 +366,7 @@ export function FuturesPageContent({
     amount,
     endDate,
     leverageTolerancePct,
+    microFutures,
     markNextSearchAsInternal,
     riskOffAssets,
     router,
@@ -455,6 +462,7 @@ export function FuturesPageContent({
           { min: 0 }
         )
       );
+      setMicroFutures(snapshot.microFutures === true);
       if (snapshot.result) {
         setResult(snapshot.result as BacktestResult);
       } else {
@@ -602,6 +610,7 @@ export function FuturesPageContent({
         riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
         riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
         leverageTolerancePct,
+        microFutures,
         rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
         monthlyCpi: market.monthlyCpi,
         futuresPriceAnchor: index === "sp500" ? spPriceAnchor : nqPriceAnchor,
@@ -740,6 +749,7 @@ export function FuturesPageContent({
         ndxRiskOffAsset,
         amount,
         leverageTolerance: `${leverageTolerancePct}%`,
+        microFutures,
       });
       setRunSummary(nextRunSummary);
 
@@ -759,6 +769,7 @@ export function FuturesPageContent({
         annualizedInflation: market.annualizedInflation,
         monthlyCpi: market.monthlyCpi,
         leverageTolerancePct,
+        microFutures,
         runSummaryInputs: nextRunSummary,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
@@ -789,6 +800,7 @@ export function FuturesPageContent({
     save,
     taxRates,
     leverageTolerancePct,
+    microFutures,
     setRunSummary,
     showEmulations,
     smaNqUpperBuffer, smaNqLowerBuffer,
@@ -874,6 +886,7 @@ export function FuturesPageContent({
               )
             }
           />
+          <MicroFuturesCheckbox checked={microFutures} onChange={setMicroFutures} />
         </SharedToolInputs>
 
         <p className="text-xs text-muted">
