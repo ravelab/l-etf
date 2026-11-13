@@ -8,28 +8,44 @@ snapshots enable `treasuryCollateral` in the same engine.
 ## Account economics
 
 - Futures P&L and financing retain the existing index-total-return invariant.
-- No fixed margin cash reserve, matching the operator’s setup. The modeled
-  futures maintenance requirement (default 8% of notional) constrains capacity
-  and excess liquidity; it is not deducted from investable capital.
-- The risk-on entry close (the first after a risk-off stretch, or the run's
-  first) buys its whole Treasury purchase in VGSH, which is what rebuilds an
-  SPX pool emptied to fund BRK.B+GLDM. A deliberate operator choice: across the
-  backtests it added about +0.1 to +0.2 pts/yr to the SPX sleeve, but lost when
-  re-entry came during hikes with an inverted curve (2023-01, 2025-06).
-- NDX Treasury purchases always use VGSH, regardless of SMA. SPX routine
-  maintenance buys SGOV first, with VGSH as the fallback below the SGOV minimum.
-  Both sleeves buy VGSH on risk-on entry. Existing holdings are retained and
-  sales use SGOV first within the owning sleeve.
-  `treasuryBuyPreference: "ndx-vgsh"` is the default; `"entry-only"` and
-  `"vgsh-above-sma"` retain the earlier policies for comparisons.
-- The live bot now persists separate virtual Treasury reserves within its one
-  physical account. Existing sleeve claims survive migration; unowned shares
-  are allocated by NAV without migration trades. Routine reserve and risk-off
-  basket orders use their owner's holdings and cash, with physical cash caps.
-  Account-wide emergency sales reduce each sleeve's ownership proportionally.
-  Common financing and segment transfers follow NAV weights; this remains an
-  approximation to broker cash-flow attribution. The daily backtest excludes
-  box financing and core holdings, and uses closes as the maintenance proxy.
+- Separate commodities cash is included in NAV but is unavailable for Treasury
+  purchases. The configurable futures maintenance estimate (default 8% of marked
+  notional) is retained there with a 5% margin buffer. It is not an expense.
+- Futures P&L and futures execution costs change commodities cash. Treasury and
+  basket transactions, Treasury returns and posted cash interest belong to the
+  securities side. Cash transfers conserve account NAV.
+- The production model assumes **sweep excess funds into securities** is enabled.
+  Elective transfers use the previous session's settled commodities cash and
+  margin, before the next index session's opening move. They retain 105% of
+  maintenance margin and transfer only if excess reaches the larger of 1% of
+  account NAV and $200 in CPI-scaled dollars. IB's FAQ says “1% ... or $200” without
+  specifying min/max; the larger threshold is an explicit conservative modeling
+  choice, not a verified broker formula.
+- Mandatory margin funding bypasses that elective band. A trade-induced securities
+  debit can consume free commodities cash above the buffered requirement without
+  waiting for the elective sweep. This approximates IB's cross-segment post-trade
+  funding rule; statutory release times are not available in daily price data.
+- Default `treasuryBuyPreference: "sgov-buffer"` buys SGOV if the existing
+  physical account holds fewer than 200 SGOV share-equivalents **or** SGOV is
+  below 1% of combined SGOV+VGSH market value. Otherwise new cash buys VGSH.
+  Exactly 200 shares and exactly 1% meets both minimums and selects VGSH. The
+  share threshold uses $100 CPI-scaled SGOV equivalents in synthetic history.
+  The whole new purchase goes to the selected ETF; this is not a forced
+  rebalance to 1%. Entry days and NDX use the same rule. Existing holdings are
+  retained, and sales prefer SGOV account-wide before VGSH.
+- The two-index fund shares one physical Treasury pool and one cash-account
+  transfer band. Close maintenance nets both virtual securities wallets first,
+  so an SPX deficit does not sell Treasuries merely to buy them for NDX.
+  The 200-share order band applies to the physical purchase, not two smaller
+  virtual orders. If cash cannot fund the selected ETF's minimum order, it waits
+  rather than purchasing the other ETF. Explicit risk-off basket allocations
+  continue to use their configured assets; this rule governs reserve maintenance.
+- Existing securities holdings are not swapped. After maintenance, Treasury
+  ownership is re-split in kind in proportion to positive securities wallets,
+  preserving sleeve NAV and aggregate holdings. This is a daily ownership proxy
+  for the live bot's persisted virtual reserves, not a replay of account claims.
+  `"ndx-vgsh"`, `"entry-only"`, `"vgsh-only"` and `"vgsh-above-sma"` remain explicit
+  historical comparison preferences; they do not override the new default policy.
 - Use Treasury total-return series, including their embedded fund expenses.
   These holdings receive no additional cash-interest credit.
 - Charge Treasury commissions and a limit order one cent through the quote
@@ -38,8 +54,10 @@ snapshots enable `treasuryCollateral` in the same engine.
   Cash-constrained maintenance buys use the bot’s 0.1% sizing buffer.
 - Eligible positive securities cash earns benchmark minus 0.50%, excluding the
   first $10k and scaling the rate by NAV below $100k. Positive interest accrues
-  daily and posts monthly. Negative securities cash is charged benchmark plus
-  1.50% (a first-tier approximation). Thresholds and fees use the engine's
+  daily and posts monthly. Free commodities cash first offsets securities debits
+  for interest calculations (IB's AdjustmentForSecuritiesDeficit); any remaining
+  debit is charged benchmark plus 1.50% (a first-tier approximation). Commodities
+  cash itself receives no credit interest. Thresholds and fees use the engine's
   existing CPI deflator for historical purchasing-power consistency.
 - Treasury collateral carries a 25% maintenance haircut approximation; the
   allocation targets at least a 15% excess-liquidity cushion where feasible.
@@ -52,9 +70,15 @@ This is a daily-bar approximation, not a replay of broker statements:
 
 - Opens proxy 10:00 ET execution; closes proxy the final-five-minute Treasury
   maintenance window. No 10:00 prices or intraday liquidation paths are invented.
-- Actual IBKR margin requirements, initial-margin buffers and segment sweeps
-  are unavailable historically. The maintenance requirement/haircut are estimates,
-  not broker what-if results. They do not model all intraday cushion interventions.
+- Actual IBKR SPAN/house margin histories and initial-margin schedules are
+  unavailable. The 8% maintenance estimate and 25% ETF haircut remain configurable
+  approximations, not broker what-if results. Deficiency funding uses daily marks;
+  intraday transfers and liquidation interventions are not reconstructed.
+- The overnight sweep is a next-index-session proxy. Holidays, exact statutory
+  hold/release times, PDT buying-power snapshots, order settlement delays and
+  broker-specific transfer times are not reconstructed. Today’s gains do not fund
+  today's routine close purchases. The model does not infer the paper account's
+  sweep election; its production assumption is the live sweep-to-securities setup.
 - Historical Treasury proxy data is adjusted total return, not executable share
   prices. Order bands and commissions use $100 SGOV / $58 VGSH share equivalents
   in present dollars, CPI-deflated; distributions are reinvested in those units.
@@ -64,9 +88,8 @@ This is a daily-bar approximation, not a replay of broker statements:
   cash. This matches the bot’s Treasury-pool funding policy.
   The 50/50 sleeve reset transfers Treasury holdings in
   kind, without creating trades. Settlement delays are not modeled.
-  The two-index fund maintains collateral per sleeve,
-  matching the live virtual ownership policy. Interest thresholds remain per sleeve
-  in the backtest and account-wide at IB.
+  The two-index fund uses account-wide sweep, Treasury and interest thresholds,
+  while retaining sleeve NAV and attributing each executed leg's costs to its owner.
 - Futures richness remains an explicit 0.35% annual assumption on notional.
   It has not been fitted to LETFs or replaced by one recent roll observation.
 - The legacy analytical whole-cash sweep remains available to engine callers
@@ -77,7 +100,12 @@ This is a daily-bar approximation, not a replay of broker statements:
 
 ## Evidence and checks
 
-Broker documentation checked 2026-10-29:
+Broker documentation checked 2026-11-13:
+
+- https://www.interactivebrokers.com/support/faq/content/1112354345
+  (segregated cash, 5% margin cushion, transfer band and post-trade funding)
+- https://www.interactivebrokers.com/support/faq/content/will-able-use-proceeds-closed-34492970
+  (release from statutory margin and the typical following-morning transfer)
 
 - https://www.interactivebrokers.com/en/pricing/pricing-calculations-int.php
   (segment eligibility; USD ACT/360)
@@ -88,9 +116,14 @@ Broker documentation checked 2026-10-29:
 - https://www.cmegroup.com/articles/2026/funding-the-us-equity-market-to-new-heights.html
   (variable implied financing, not a constant historical spread)
 
-`unit-tests/futures-collateral.test.ts` checks that margin does not reserve cash, no duplicate
-Treasury interest, the order band/fallback, debit interest, NAV scaling, trading
-costs and integration with the futures engine.
+`unit-tests/futures-cash-account.test.ts` checks margin segregation, the buffer,
+transfer boundaries, overnight timing, mandatory funding, account-wide netting,
+SGOV share/percentage boundaries, VGSH selection and no interest on commodities cash. The collateral suite
+checks ETF marking, share bands, execution costs and regime transitions.
+
+The historical studies below predate this cash-segment correction and shared-pool
+maintenance. Their values describe the earlier model and must be rerun before
+using them to compare current policies or choose a leverage tolerance.
 
 ## Reserve policy comparison (2026-11-13)
 

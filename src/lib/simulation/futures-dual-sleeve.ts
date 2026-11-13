@@ -31,6 +31,7 @@ import type {
 } from "@/lib/simulation/futures";
 import type { EtfResult } from "@/lib/simulation/types";
 import type { TreasuryHoldings } from "@/lib/simulation/futures-collateral";
+import { FuturesCashAccount } from "./futures-cash-account";
 
 export type DualSleeveFuturesParams = {
   /** Row name in the results table, e.g. "Max 4.5x SPX / Max 3.5x NDX SMA". */
@@ -85,6 +86,7 @@ function moveSurplusInKind(sleeves: readonly FuturesSleeve[], cursor: readonly n
   const to = sleeves[recipient].readHoldings();
   sleeves[donor].writeHoldings({
     cash: from.cash * (1 - moved),
+    commoditiesCash: (from.commoditiesCash ?? 0) * (1 - moved),
     treasuryHoldings: combineTreasuries(from, to, 1 - moved, 0),
     riskOffShares: scaled(from.riskOffShares, 1 - moved),
     riskOffCash: scaled(from.riskOffCash, 1 - moved),
@@ -92,6 +94,7 @@ function moveSurplusInKind(sleeves: readonly FuturesSleeve[], cursor: readonly n
   }, cursor[donor], half);
   sleeves[recipient].writeHoldings({
     cash: to.cash + from.cash * moved,
+    commoditiesCash: (to.commoditiesCash ?? 0) + (from.commoditiesCash ?? 0) * moved,
     treasuryHoldings: combineTreasuries(from, to, moved, 1),
     riskOffShares: sum(to.riskOffShares, scaled(from.riskOffShares, moved)),
     riskOffCash: sum(to.riskOffCash, scaled(from.riskOffCash, moved)),
@@ -113,6 +116,7 @@ function resetToHalves(sleeves: readonly FuturesSleeve[], cursor: readonly numbe
   const [a, b] = sleeves.map((sleeve) => sleeve.readHoldings());
   const half: SleeveHoldings = {
     cash: (a.cash + b.cash) / 2,
+    commoditiesCash: ((a.commoditiesCash ?? 0) + (b.commoditiesCash ?? 0)) / 2,
     treasuryHoldings: combineTreasuries(a, b, 0.5, 0.5),
     riskOffShares: halfOfSum(a.riskOffShares, b.riskOffShares),
     riskOffCash: halfOfSum(a.riskOffCash, b.riskOffCash),
@@ -163,6 +167,10 @@ export function simulateDualSleeveFuturesStrategy(
   const initialEquity = Number.isFinite(params.initialEquity) ? Math.max(0, params.initialEquity) : 0;
   const half = initialEquity / 2;
   const sleeves: FuturesSleeve[] = [];
+  // Both indices share one physical cash account, transfer band and Treasury
+  // maintenance pass. Analytical callers without collateral retain their path.
+  const cashAccount = params.primary.treasuryCollateral && params.secondary.treasuryCollateral
+    ? new FuturesCashAccount() : undefined;
   // Every ledger row is booked inside exactly one of these runs, in the order the
   // fund executes them. Recording the OTHER sleeve's positions at that moment is
   // what lets each row carry the fund's holdings rather than one sleeve's.
@@ -173,8 +181,8 @@ export function simulateDualSleeveFuturesStrategy(
     run();
     segments.push({ sleeve: s, from, to: sleeves[s].transactionCount(), other });
   };
-  attribute(0, () => sleeves.push(createFuturesSleeve({ ...params.primary, initialEquity: half })));
-  attribute(1, () => sleeves.push(createFuturesSleeve({ ...params.secondary, initialEquity: half })));
+  attribute(0, () => sleeves.push(createFuturesSleeve({ ...params.primary, initialEquity: half }, cashAccount, run => attribute(0, run))));
+  attribute(1, () => sleeves.push(createFuturesSleeve({ ...params.secondary, initialEquity: half }, cashAccount, run => attribute(1, run))));
 
   // The two index families keep their own trading calendars, so the fund walks the
   // union and steps a sleeve only on the days it actually has.
@@ -208,6 +216,7 @@ export function simulateDualSleeveFuturesStrategy(
       attribute(s, () => sleeve.stepDay(i));
       cursor[s] = i;
     }
+    cashAccount?.close();
 
     dailyValues.push(sleeves.reduce((sum, sleeve, s) => sum + sleeve.equityAt(cursor[s]), 0));
     if (onCloseTreasuries) {

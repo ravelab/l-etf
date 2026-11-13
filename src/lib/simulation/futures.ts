@@ -1,11 +1,11 @@
 import {
   createFuturesCollateral,
-  collateralCashInterest,
   type CollateralTrade,
   isTreasuryTicker,
   planRiskOffPurchases,
   type TreasuryHoldings,
 } from "./futures-collateral";
+import { FuturesCashAccount, type FuturesCashMember } from "./futures-cash-account";
 import type { PricePoint, RatePoint, IndexKey, EtfResult, RiskOffAsset } from "@/lib/simulation/types";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { generateSmaSignals } from "@/lib/simulation/sma";
@@ -146,6 +146,8 @@ export type SleeveHoldings = {
   pendingCashInterest: number;
   /** Marked Treasury pool, already included in cash; transfers are in kind. */
   treasuryHoldings?: TreasuryHoldings;
+  /** Cash held in the commodities segment, included in consolidated `cash`. */
+  commoditiesCash?: number;
 };
 
 /**
@@ -233,8 +235,9 @@ export type FuturesStrategyParams = {
   riskOffOpenByTicker?: Record<string, number[]>;
   /** Enable the standalone Treasury collateral model; requires SGOV/VGSH price arrays. */
   treasuryCollateral?: boolean;
-  /** Default: NDX always buys VGSH; SPX routine top-ups buy SGOV first. Other policies are for comparisons. */
-  treasuryBuyPreference?: "ndx-vgsh" | "vgsh-only" | "vgsh-above-sma" | "entry-only";
+  /** Default sgov-buffer: buy SGOV below 200 shares OR 1% of Treasury holdings;
+   * otherwise VGSH. The other preferences retain historical comparison policies. */
+  treasuryBuyPreference?: "sgov-buffer" | "ndx-vgsh" | "vgsh-only" | "vgsh-above-sma" | "entry-only";
   /** Percentage of a risk-on entry purchase routed to VGSH; default 100. Scenario analysis only unless specified. */
   riskOnEntryVgshPct?: number;
   cashInterestSpreadAnnual?: number;
@@ -294,7 +297,11 @@ function futuresStrategyName(params: FuturesStrategyParams, leverageLabel: strin
   return params.smaVolGate ? name.replace(/ SMA$/, " SMA Vol RSI") : name;
 }
 
-export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleeve {
+export function createFuturesSleeve(
+  params: FuturesStrategyParams,
+  sharedCashAccount?: FuturesCashAccount,
+  executeTreasuryTrade: (fn: () => void) => void = fn => fn(),
+): FuturesSleeve {
   const entryVgshWeight = (params.riskOnEntryVgshPct ?? 100) / 100;
   if (!Number.isFinite(entryVgshWeight) || entryVgshWeight < 0 || entryVgshWeight > 1) {
     throw new Error("riskOnEntryVgshPct must be between 0 and 100");
@@ -524,6 +531,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   }) : null;
   collateral?.mark(0, dates[0], false);
   let collateralMarginRequirement = 0;
+  const cashAccount = params.treasuryCollateral ? sharedCashAccount ?? new FuturesCashAccount() : null;
+  let cashMember: FuturesCashMember | undefined;
   // Whether the last close ran risk-on maintenance, so the next risk-on close after a
   // risk-off stretch (or the run's first) is flagged as the entry that rebuilds the pool.
   let collateralRiskOnAtLastClose = false;
@@ -576,6 +585,9 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   };
   /** Appends a ledger row stamped with the positions held once it has executed. */
   function recordTransaction(row: FuturesTransactionRow): void {
+    if (cashMember && row.instrument === "futures") {
+      cashMember.commoditiesCash -= row.fees + row.spread;
+    }
     // The engine counts in sizing units; the ledger shows whole contracts of each
     // listing and the position after as full-contract equivalents.
     const contractsRow = microMode && row.instrument === "futures"
@@ -681,6 +693,59 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
   };
   const divAlpha = 2 / (DIVIDEND_EMA_LOOKBACK_DAYS + 1);
   let dividendEmaDaily = 0;
+
+  let closeIndex = 0;
+  let closeBasket = 0;
+  let closeNotional = 0;
+  let closeMetricEquity = 0;
+  let closeCounted = false;
+  let maintenanceVgsh = true;
+  let entryClose = true;
+  let ruined = false;
+  if (collateral && cashAccount) {
+    cashMember = {
+      commoditiesCash: 0, margin: 0,
+      equity: () => cash + closeBasket + pendingMonthlyCashInterest,
+      securitiesCash: () => cash - collateral.value() - cashMember!.commoditiesCash,
+      treasuries: () => collateral.readHoldings(),
+      assignTreasuries: holdings => collateral.writeHoldings(holdings),
+      canBuyTreasuries: () => !ruined && (Boolean(invested[closeIndex]) || riskOffTickers.some(isTreasuryTicker)),
+      preferVgsh: () => maintenanceVgsh,
+      sgovBufferEnabled: () => (params.treasuryBuyPreference ?? "sgov-buffer") === "sgov-buffer",
+      riskOnEntry: () => entryClose && Boolean(invested[closeIndex]),
+      execute: executeTreasuryTrade,
+      rateDaily: () => rateLookup.getRate(dates[closeIndex]),
+      dollarScale: () => feeDollarScaleForDate(dates[closeIndex]),
+      buy: (budget, preferVgsh, selectedTickerOnly) => bookCollateralTrades(selectedTickerOnly
+        ? collateral.buy(preferVgsh ? "VGSH" : "SGOV", budget, dates[closeIndex])
+        : collateral.rebalance(collateral.value() + budget, 0, dates[closeIndex], preferVgsh,
+          entryClose ? entryVgshWeight : undefined), dates[closeIndex]),
+      sell: (ticker, budget) => {
+        const trades = collateral.sell(ticker, budget, dates[closeIndex]);
+        bookCollateralTrades(trades, dates[closeIndex]);
+        return trades;
+      },
+      accrueInterest: accrueCollateralInterest,
+      refresh: () => {
+        const equity = cash + closeBasket;
+        if (closeCounted && invested[closeIndex] && closeNotional > 0 && equity > 0 && closeMetricEquity > 0) {
+          sumActualLeverageRiskOn += closeNotional / equity - closeNotional / closeMetricEquity;
+          maxAbsLeverageDeltaRiskOnPct = Math.max(maxAbsLeverageDeltaRiskOnPct,
+            Math.abs(computeLeverageDeltaPct(closeNotional / equity, params.targetLeverage)));
+        }
+        closeMetricEquity = equity;
+        dailyEquity[closeIndex] = equity + pendingMonthlyCashInterest;
+        const excess = equity - collateralMarginRequirement - collateral.value() * 0.25;
+        dailyExcessLiquidity[closeIndex] = excess;
+        for (let t = transactions.length - 1; t >= 0 && transactions[t].date === dates[closeIndex]; t--) {
+          transactions[t].excessLiquidity = excess;
+          if (transactions[t].instrument !== "futures") transactions[t].leverageDeltaPct =
+            computeLeverageDeltaPct(equity > 0 ? closeNotional / equity : 0, params.targetLeverage);
+        }
+      },
+    };
+    cashAccount.add(cashMember);
+  }
 
   dailyEquity[0] = cash;
   const firstDate = dates[0];
@@ -899,18 +964,25 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       collateralMarginRequirement = totalFuturesNotionalAtMark({ lots, contract,
         mark: sym => futuresBasisFillPrice({ spotPrice: smaInput[0], symbol: sym,
           tradeDate: dates[0], rateDaily: rateLookup.getRate(dates[0]), dividendDaily: 0 }) }) * maintMarginRate;
-      bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, dates[0], true, entryVgshWeight), dates[0]);
       collateralRiskOnAtLastClose = true;
       dailyEquity[0] = cash;
       dailyExcessLiquidity[0] = cash - collateralMarginRequirement - collateral.value() * 0.25;
     }
+    closeNotional = contract ? totalFuturesNotionalAtMark({ lots, contract,
+      mark: sym => futuresBasisFillPrice({ spotPrice: smaInput[0], symbol: sym,
+        tradeDate: dates[0], rateDaily: rateLookup.getRate(dates[0]), dividendDaily: 0 }) }) : 0;
+    closeBasket = dailyEquity[0] - cash;
+    closeMetricEquity = cash + closeBasket;
+    closeCounted = invested[0] && closeNotional > 0;
+    if (cashMember) cashMember.margin = collateralMarginRequirement;
+    if (!sharedCashAccount) cashAccount?.close();
   }
-  let ruined = false;
 
   /** One trading day for this sleeve. Was the body of the day loop; `continue` is now `return`. */
   const stepDay = (i: number): void => {
     if (ruined) return;
     const date = dates[i];
+    closeCounted = false;
     const prevSpot = smaInput[i - 1];
     const spot = smaInput[i];
     const idxOpen =
@@ -926,10 +998,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     // balance frozen at prior session close (before today's overnight futures cash). Uses prior session SOFR.
     const gapCalendarDays = calendarDaysBetweenIso(dates[i - 1] as string, dates[i] as string);
     const extraSweepDays = Math.max(0, gapCalendarDays - 1);
-    if (collateral && extraSweepDays > 0) {
-      accrueCollateralInterest(collateralCashInterest({ equity: cash, treasuryValue: collateral.value(),
-        rateDaily: rateLookup.getRate(dates[i - 1]), dollarScale: feeDollarScaleForDate(dates[i - 1]), days: extraSweepDays }), extraSweepDays);
-    }
+    cashAccount?.beginSession(date, feeDollarScaleForDate(dates[i - 1]), rateLookup.getRate(dates[i - 1]), extraSweepDays);
     if (!collateral && extraSweepDays > 0) {
       const ratePrev = rateLookup.getRate(dates[i - 1] as string);
       const spreadDailyGap = spreadAnnual / 360;
@@ -1018,7 +1087,9 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       });
       for (const [, q] of lots) {
         if (q <= 0) continue;
-        cash += q * mult * (idxOpen - prevSpot - (prevSpot * futuresCarrySincePrevClose));
+        const pnl = q * mult * (idxOpen - prevSpot - (prevSpot * futuresCarrySincePrevClose));
+        cash += pnl;
+        if (cashMember) cashMember.commoditiesCash += pnl;
       }
     }
 
@@ -1845,7 +1916,9 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       const mult = getContractMultiplier(contract);
       for (const [, q] of lots) {
         if (q <= 0) continue;
-        cash += q * mult * (spot - idxOpen);
+        const pnl = q * mult * (spot - idxOpen);
+        cash += pnl;
+        if (cashMember) cashMember.commoditiesCash += pnl;
       }
     }
 
@@ -1853,17 +1926,13 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       cash += collateral.mark(i, date, false);
       collateralMarginRequirement = contract && sumLots(lots) > 0
         ? totalFuturesNotionalAtMark({ lots, contract, mark: markFuturesClose }) * maintMarginRate : 0;
-      // Close is the daily-data proxy for the bot's five-minutes-before-close maintenance.
+      entryClose = !collateralRiskOnAtLastClose;
       if (wantsRiskOn) {
-        const vgshOnly = !collateralRiskOnAtLastClose || params.treasuryBuyPreference === "vgsh-only" ||
+        maintenanceVgsh = entryClose || params.treasuryBuyPreference === "vgsh-only" ||
           ((params.treasuryBuyPreference ?? "ndx-vgsh") === "ndx-vgsh" && params.index === "nasdaq100") ||
           (params.treasuryBuyPreference === "vgsh-above-sma" && fullAboveSmaByDate.get(date) === true);
-        bookCollateralTrades(collateral.rebalance(cash, collateralMarginRequirement, date, vgshOnly,
-          !collateralRiskOnAtLastClose ? entryVgshWeight : undefined), date);
       }
       collateralRiskOnAtLastClose = wantsRiskOn;
-      accrueCollateralInterest(collateralCashInterest({ equity: cash, treasuryValue: collateral.value(),
-        rateDaily, dollarScale: feeDollarScaleForDate(date), days: 1 }), 1);
     } else {
       // Legacy analytical cash-sweep mode for callers that do not request the
       // Treasury account model. This is not IBKR commodities cash eligibility.
@@ -1911,6 +1980,11 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       }
     }
 
+    closeIndex = i;
+    closeBasket = riskOffValueAtClose;
+    if (cashMember) cashMember.margin = collateralMarginRequirement;
+    if (!sharedCashAccount) cashAccount?.close();
+
     // Post-trade: compute equity and risk metrics for that close.
     const notional =
       contract != null && sumLots(lots) > 0
@@ -1921,6 +1995,7 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
           })
         : 0;
     const maintenanceMarginUsed = notional * maintMarginRate;
+    closeNotional = notional;
     const equity = cash + riskOffValueAtClose;
     const excessLiquidity = equity - maintenanceMarginUsed - (collateral?.value() ?? 0) * 0.25;
     const actualLeverage = equity > 0 ? notional / equity : 0;
@@ -1957,6 +2032,12 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     // in risk-off holdings with zero free cash.
     if (endEquity <= 0) {
       cash = 0;
+      if (cashMember) { cashMember.commoditiesCash = 0; cashMember.margin = 0; }
+      collateral?.writeHoldings({ SGOV: 0, VGSH: 0 });
+      closeBasket = 0;
+      closeNotional = 0;
+      collateralMarginRequirement = 0;
+      pendingMonthlyCashInterest = 0;
       lots.clear();
       contract = null;
       riskOffShares = null;
@@ -1974,6 +2055,8 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
     // smooth instead of stepping up ~1% of equity on every month's first session
     // (at 1981 rates). Trading and margin still size off posted `cash` only.
     dailyEquity[i] = clampToFinite(endEquity + pendingMonthlyCashInterest, dailyEquity[i - 1]);
+    closeMetricEquity = endEquity;
+    closeCounted = true;
 
     if (invested[i] && sumLots(lots) > 0 && contract !== null && endEquity > 0) {
       const lev = endNotional / endEquity;
@@ -2237,13 +2320,17 @@ export function createFuturesSleeve(params: FuturesStrategyParams): FuturesSleev
       riskOffCash: riskOffCash ? [...riskOffCash] : null,
       pendingCashInterest: pendingMonthlyCashInterest,
       ...(collateral ? { treasuryHoldings: collateral.readHoldings() } : {}),
+      ...(cashMember ? { commoditiesCash: cashMember.commoditiesCash } : {}),
     }),
     writeHoldings: (holdings: SleeveHoldings, i: number, equity: number) => {
       cash = holdings.cash;
+      if (cashMember) cashMember.commoditiesCash = holdings.commoditiesCash ?? 0;
       if (collateral && holdings.treasuryHoldings) collateral.writeHoldings(holdings.treasuryHoldings);
       riskOffShares = holdings.riskOffShares ? [...holdings.riskOffShares] : null;
       riskOffCash = holdings.riskOffCash ? [...holdings.riskOffCash] : null;
       pendingMonthlyCashInterest = holdings.pendingCashInterest;
+      closeBasket = equity - cash - pendingMonthlyCashInterest;
+      closeMetricEquity = equity - pendingMonthlyCashInterest;
       // Price memory is per sleeve, not a holding. A sleeve handed basket shares it
       // never held needs the array to exist so marking can fall back to the close.
       if (riskOffShares && !riskOffLastPrice) riskOffLastPrice = riskOffShares.map(() => NaN);

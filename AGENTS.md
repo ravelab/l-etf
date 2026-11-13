@@ -240,33 +240,50 @@ drawdown, not its volatility, which is company-specific. Pre-1980 rows are only
 rebuilt on a forced or offline rebuild, so they can go stale when `index-sp.csv`
 history changes; the 1926-1980 rows had, after the S&P's Fama-French splice.
 
-Margin is a requirement, not an expense, but interest eligibility depends on the
-broker and collateral. Production futures callers enable `treasuryCollateral`:
-`futures-collateral.ts` models a separate SGOV/VGSH pool without a fixed cash
-reserve. The user holds no margin cash reserve: margin constrains capacity and
-excess liquidity, never subtract it from investable capital or the interest base. Never credit cash interest on Treasury holdings as well.
-The engine's `cash` variable remains consolidated marked capital including that
-pool; purchases are internal transfers, and only P&L/costs change it. Low-level
-callers omitting the option retain the legacy analytical cash-sweep model.
+Production futures callers enable `treasuryCollateral`. `futures-cash-account.ts`
+models the live **sweep-to-securities** election: futures P&L/fees enter commodities
+cash; maintenance cash plus a 5% buffer stays there; elective excess transfers use
+prior-session settlement and an account-wide band before the next session. The
+band conservatively interprets IB's “1% of NAV or $200” as the larger amount, with
+$200 CPI-scaled. Margin deficiencies and trade-induced securities debits are
+handled separately from elective sweeps. Margin remains NAV, never an expense,
+but cannot also buy Treasuries or earn securities cash interest. The old “invest
+all capital; margin only limits capacity” model was wrong for this election.
+`cash` still includes Treasury value and commodities cash; purchases/transfers
+change allocation, not equity. Analytical callers without the option keep their
+legacy model. `unit-tests/futures-cash-account.test.ts` covers timing, thresholds,
+segregation, interest and shared-account orders. When distributing segment transfers, cap the
+amount by the sum of distributable per-sleeve cash before dividing. Floating-point
+rounding can make aggregate free cash positive while every sleeve has zero free
+cash; the resulting 0/0 once silently froze Treasury maintenance after 343 closes.
+Account totals now reject non-finite balances, and the exact historical case is a
+regression fixture.
 
 The live-policy reference is `~/futures/src/treasury/sleeve.ts` and its execution
-code. Both buy VGSH on risk-on entry. NDX buys VGSH on every routine top-up,
-regardless of SMA; SPX routine maintenance buys SGOV first (VGSH below its share
-minimum). Existing holdings are not swapped; sales use SGOV first within the
-owning sleeve. The live bot persists virtual ownership and per-sleeve cash claims
-inside one physical account. Migration preserves existing claims and allocates
-unowned Treasury shares by NAV. Common financing/segment cash flows use NAV
-weights, and emergency account-wide sales consume ownership proportionally.
+code. The dual-sleeve runner shares one `FuturesCashAccount`: net physical Treasury
+maintenance once after BOTH sleeves step, SGOV-first sales across the account,
+then in-kind ownership allocation by securities wallets. Default `sgov-buffer`
+buys SGOV when existing account holdings are below 200 share-equivalents OR 1%
+of SGOV+VGSH value; otherwise buys VGSH. Both comparisons are strict (exactly
+200 shares and exactly 1% selects VGSH). This also applies to entry days and NDX.
+If the selected ticker's order is below the order minimum, keep cash; do not
+fall back to the other ETF merely to bypass the SGOV buffer.
+Do not book sells and buys merely to move virtual reserves between sleeves.
+Execution callbacks preserve sleeve identity even if another sleeve is empty;
+keep the fund ledger attribution around these deferred maintenance orders.
 `treasuryBuyPreference: "entry-only"` and `"vgsh-above-sma"` are comparison
-policies; the production default is `"ndx-vgsh"`. Daily closes remain the proxy
-for live Treasury maintenance.
+policies; the production default is `"sgov-buffer"`. Daily closes remain the proxy
+for live Treasury maintenance. Avoid `useX` names for non-React callbacks in
+worker-imported modules: Turbopack Fast Refresh can transform them as hooks and
+make array callbacks return undefined in the dev worker. `sgovBufferEnabled` is
+intentionally not named `useSgovBuffer`; a production-only browser check misses it.
 Reserve composition must be sampled after `stepDay` and before `finish` liquidates
 it; the dual-sleeve runner's optional close observer preserves in-kind resets.
 Scope deliberately excludes core equities
 and box loans. See `docs/futures-collateral-model.md` for broker sources and the
 remaining approximations: daily execution proxies, estimated margin requirements/haircuts,
-share-equivalent order bands and per-sleeve
-rather than account-netted Treasury management. Do not tune these costs to match
+share-equivalent order bands and next-index-session rather than exact broker
+sweep timestamps. Do not tune these costs to match
 LETF returns. Both Treasury series must be loaded even when neither is risk-off.
 Snapshot ledgers omit collateral maintenance rows to stay within the download
 budget; costs and equity include them, and the UI directs users to rerun for the
@@ -325,7 +342,9 @@ sleeve half of every combined holding leaves the fund's share count per ticker
 untouched, so nothing trades. Splitting the drifted weights any other way, or
 applying it a day later, books real trades and is wrong.
 `unit-tests/futures-dual-sleeve.test.ts` pins the exactness case: with a band that
-never exits, the fund must equal two independent half-size sleeves to the cent.
+never exits and Treasury collateral is disabled, the fund must equal two
+independent half-size sleeves to the cent. Enabling collateral shares cash bands,
+interest thresholds and physical Treasury orders, so independent accounts differ.
 
 Every ledger row carries `holdingsAfter` (dollar value per symbol once it executed),
 stamped by `recordTransaction`. Change the position (`lots`, `riskOffShares`,

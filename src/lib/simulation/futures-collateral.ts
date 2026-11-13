@@ -1,7 +1,8 @@
 import { getCollateralTradeCost } from "@/lib/constants";
 
 /** Standalone-account approximation of ~/futures/src/treasury/sleeve.ts.
- * No fixed cash reserve; the securities pool is invested near close.
+ * Securities cash is invested near close; futures-cash-account.ts separately
+ * retains commodities margin cash and coordinates shared-account maintenance.
  * No core equities or box loans. Prices must be total-return adjusted; reference
  * share prices keep the 200-share band meaningful across synthetic history.
  */
@@ -97,6 +98,12 @@ export function createFuturesCollateral(params: {
     const qty = Math.max(0, Math.floor((budget - feeScale) / (quotes[t] * 1.001 + 0.005 * feeScale)));
     return qty >= minShares ? [trade(t, qty, date)] : [];
   }
+  function sell(t: Ticker, budget: number, date: string): CollateralTrade[] {
+    const shares = holdings[t] / quotes[t];
+    const wanted = Math.min(shares, Math.ceil(budget / quotes[t]));
+    const qty = shares - wanted < minShares ? shares : wanted;
+    return qty > 0 && (qty >= minShares || qty === shares) ? [trade(t, -qty, date)] : [];
+  }
   /** VGSH-only purchases on risk-on entry or when the signal index is above its SMA. */
   function rebalance(equity: number, marginRequirement: number, date: string, vgshOnly = false, entryVgshWeight?: number): CollateralTrade[] {
     // 25% ETF haircut is a transparent conservative approximation, not an IB
@@ -132,7 +139,7 @@ export function createFuturesCollateral(params: {
     }
     return trades;
   }
-  return { mark, value, liquidate, rebalance, buy, fundRiskOff,
+  return { mark, value, liquidate, rebalance, buy, sell, fundRiskOff,
     readHoldings: (): TreasuryHoldings => ({ ...holdings }),
     writeHoldings: (next: TreasuryHoldings) => {
       for (const t of TREASURY_TICKERS) holdings[t] = next[t];

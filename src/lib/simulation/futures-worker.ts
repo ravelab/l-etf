@@ -10,6 +10,7 @@ self.onmessage = (event: MessageEvent<FuturesWorkerRequest>) => {
     const result = runFuturesPlan(event.data.plan);
     self.postMessage({ id: event.data.id, type: "result", result });
   } catch (error) {
+    console.error("Futures worker failed", error instanceof Error ? error.stack : error);
     self.postMessage({
       id: event.data.id,
       type: "error",

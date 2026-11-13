@@ -7,12 +7,12 @@ function treasury(sgov = [100, 101], vgsh = [58, 58]) {
   return createFuturesCollateral({ close: { SGOV: sgov, VGSH: vgsh },
     open: { SGOV: sgov, VGSH: vgsh }, dollarScale: () => 1 });
 }
-test("Treasury collateral invests capital without reserving margin cash and earns the ETF return once", () => {
+test("Treasury order helper invests its supplied securities budget and earns the ETF return once", () => {
   const c = treasury();
   c.mark(0, "2026-01-02", false);
   const trades = c.rebalance(100_000, 24_000, "2026-01-02");
   assert.equal(trades[0].symbol, "SGOV");
-  assert.ok(c.value() > 99_000 && c.value() < 100_000, "margin must not hold 24% of equity in idle cash");
+  assert.ok(c.value() > 99_000 && c.value() < 100_000, "the account deducts commodities cash before supplying this budget");
   const before = c.value();
   assert.ok(Math.abs(c.mark(1, "2026-01-05", true) - before * 0.01) < 1e-8);
   assert.equal(c.mark(1, "2026-01-05", false), 0);
@@ -20,7 +20,7 @@ test("Treasury collateral invests capital without reserving margin cash and earn
   assert.equal(c.value(), 0);
   assert.ok(sells[0].fees > 0 && sells[0].spread > 0);
 });
-test("Nonbinding futures margin changes neither Treasury allocation nor cash interest", () => {
+test("Nonbinding liquidity constraints do not reduce the Treasury helper's supplied budget", () => {
   const low = treasury(), high = treasury();
   for (const c of [low, high]) c.mark(0, "2026-01-02", false);
   low.rebalance(100_000, 8_000, "2026-01-02");
@@ -55,10 +55,10 @@ test("Cash interest excludes Treasury holdings, scales by NAV, and charges debit
 });
 test("Futures integration books collateral returns, costs and final liquidation without creating purchase equity", () => {
   const dates = ["2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07"];
-  // The opening risk-on close is an entry, so the pool it builds is VGSH.
+  // Explicit legacy policy isolates VGSH return accounting from the default buffer policy.
   const run = (vgsh:number[]) => simulateFuturesSmaStrategy({ index:"sp500", prices: dates.map(date=>({date,close:5000,open:5000,adj_close:5000})),
     rates:dates.map(date=>({date,rateType:"borrow",rateValue:0})), startDate:dates[0],endDate:dates[3],initialEquity:1_000_000,
-    targetLeverage:2,smaPeriod:2,smaUpperBuffer:99,smaLowerBuffer:99,riskOffAsset:"VGSH",treasuryCollateral:true,
+    targetLeverage:2,smaPeriod:2,smaUpperBuffer:99,smaLowerBuffer:99,riskOffAsset:"VGSH",treasuryCollateral:true,treasuryBuyPreference:"entry-only",
     riskOffCloseByTicker:{SGOV:[100,100,100,100],VGSH:vgsh},riskOffOpenByTicker:{SGOV:[100,100,100,100],VGSH:vgsh},futuresFundingSpreadAnnual:0 });
   const flat=run([58,58,58,58]), rising=run([58,58.58,59.16,59.74]);
   assert.ok(flat.etfResult.finalValue<1_000_000);
@@ -98,8 +98,8 @@ test("Regime exits buy BRK.B from released collateral and Treasury-only exits do
   const sellSignal = vgsh.etfResult.smaSignals.find(s=>s.type==="sell");
   assert.ok(sellSignal);
   const transitionDate = dates[dates.indexOf(sellSignal.date) + 1];
-  const initialTreasury = vgsh.transactions.find(t=>t.symbol==="VGSH (COLLATERAL)"&&t.action==="buy")!;
-  const sold = vgsh.transactions.filter(t=>t.date===transitionDate&&t.symbol==="VGSH (COLLATERAL)"&&t.action==="sell").reduce((sum,t)=>sum-t.qtyDelta,0);
+  const initialTreasury = vgsh.transactions.find(t=>t.symbol==="SGOV (COLLATERAL)"&&t.action==="buy")!;
+  const sold = vgsh.transactions.filter(t=>t.date===transitionDate&&t.symbol==="SGOV (COLLATERAL)"&&t.action==="sell").reduce((sum,t)=>sum-t.qtyDelta,0);
   assert.ok(sold < initialTreasury.qtyDelta, "sell only surplus needed for futures losses, not the entire pool");
   assert.equal(vgsh.transactions.some(t=>t.date===transitionDate&&t.symbol.startsWith("VGSH")&&t.action==="buy"), false);
 });
@@ -149,7 +149,7 @@ test("80/20 applies again on re-entry, rather than only on the simulation's firs
     index: "sp500", prices: dates.map((date, i) => ({ date, close: closes[i], open: closes[i], adj_close: closes[i] })),
     rates: dates.map(date => ({ date, rateType: "borrow", rateValue: 0 })), startDate: dates[0], endDate: dates.at(-1)!,
     initialEquity: 1_000_000, targetLeverage: 1, smaPeriod: 2, smaUpperBuffer: 0, smaLowerBuffer: 0, riskOffAsset: "BRK.B",
-    treasuryCollateral: true, riskOnEntryVgshPct: 80, futuresFundingSpreadAnnual: 0,
+    treasuryCollateral: true, treasuryBuyPreference: "entry-only", riskOnEntryVgshPct: 80, futuresFundingSpreadAnnual: 0,
     riskOffCloseByTicker: { SGOV: series(100), VGSH: series(58), "BRK.B": series(500) },
     riskOffOpenByTicker: { SGOV: series(100), VGSH: series(58), "BRK.B": series(500) },
   });
@@ -170,7 +170,7 @@ test("futures maintenance uses the unbuffered SMA, not the risk-on regime", () =
   // crosses below its SMA without exiting the deliberately wide risk-on band.
   const prices = dates.map((date, i) => ({ date, close: closes[i], open: closes[i], adj_close: 100 * 1.15 ** i }));
   const series = (n: number) => dates.map(() => n);
-  const run = (policy?: "entry-only" | "vgsh-above-sma" | "ndx-vgsh", entryVgshPct?: number, index: "sp500" | "nasdaq100" = "sp500") => simulateFuturesSmaStrategy({
+  const run = (policy?: "sgov-buffer" | "entry-only" | "vgsh-above-sma" | "ndx-vgsh", entryVgshPct?: number, index: "sp500" | "nasdaq100" = "sp500") => simulateFuturesSmaStrategy({
     index, prices, rates: dates.map(date => ({ date, rateType: "borrow", rateValue: 0 })),
     startDate: dates[0], endDate: dates.at(-1)!, initialEquity: 1_000_000, targetLeverage: 1,
     smaPeriod: 2, smaUpperBuffer: 99, smaLowerBuffer: 99, riskOffAsset: "VGSH", treasuryCollateral: true,
@@ -178,10 +178,10 @@ test("futures maintenance uses the unbuffered SMA, not the risk-on regime", () =
     riskOffCloseByTicker: { SGOV: series(100), VGSH: series(58) }, riskOffOpenByTicker: { SGOV: series(100), VGSH: series(58) },
   });
   const next = run("vgsh-above-sma"), prior = run("entry-only");
-  assert.deepEqual(run(), prior, "SPX default keeps entry-only VGSH preference");
+  assert.deepEqual(run(), run("sgov-buffer"), "SPX defaults to the account-wide SGOV buffer");
   const ndxDefault = run(undefined, undefined, "nasdaq100");
-  assert.deepEqual(ndxDefault, run("ndx-vgsh", 100, "nasdaq100"));
-  const ndxBuys = ndxDefault.transactions.filter(t => t.action === "buy" && t.symbol.endsWith("(COLLATERAL)"));
+  assert.deepEqual(ndxDefault, run("sgov-buffer", 100, "nasdaq100"));
+  const ndxBuys = run("ndx-vgsh", 100, "nasdaq100").transactions.filter(t => t.action === "buy" && t.symbol.endsWith("(COLLATERAL)"));
   assert.ok(ndxBuys.some(t => t.date >= dates[6]), "NDX keeps buying below SMA");
   assert.ok(ndxBuys.every(t => t.symbol === "VGSH (COLLATERAL)"), "all NDX Treasury purchases use VGSH");
   assert.deepEqual(next, run("vgsh-above-sma", 100), "omitting the entry split retains the 100% VGSH default exactly");
@@ -192,7 +192,7 @@ test("futures maintenance uses the unbuffered SMA, not the risk-on regime", () =
   assert.ok(prior.transactions.some(t => t.date > dates[0] && t.date <= dates[5] && t.action === "buy" && t.symbol === "SGOV (COLLATERAL)"));
 });
 
-test("Each re-entry after a BRK.B risk-off stretch rebuilds the Treasury pool in VGSH", () => {
+test("Each re-entry after BRK.B replenishes the empty SGOV buffer", () => {
   const dates = ["2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12"];
   const closes = [100, 110, 60, 55, 120, 125, 130];
   const series = (x: number) => dates.map(() => x);
@@ -209,7 +209,7 @@ test("Each re-entry after a BRK.B risk-off stretch rebuilds the Treasury pool in
   const reentry = dates[dates.indexOf(buy.date) + 1];
   const treasuryBuys = (date: string) => run.transactions
     .filter((t) => t.date === date && t.action === "buy" && t.symbol.endsWith("(COLLATERAL)")).map((t) => t.symbol);
-  assert.deepEqual(treasuryBuys(dates[0]), ["VGSH (COLLATERAL)"], "the opening risk-on close is an entry");
-  assert.deepEqual(treasuryBuys(reentry), ["VGSH (COLLATERAL)"]);
+  assert.deepEqual(treasuryBuys(dates[0]), ["SGOV (COLLATERAL)"], "the opening risk-on close is an entry");
+  assert.deepEqual(treasuryBuys(reentry), ["SGOV (COLLATERAL)"]);
   assert.ok(run.transactions.some((t) => t.date === reentry && t.symbol === "BRK.B" && t.action === "sell"), "re-entry sells the basket");
 });

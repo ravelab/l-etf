@@ -30,6 +30,7 @@ async function main() {
   const steps = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, bands, dualRiskOffAssets: DEFAULT_RISK_OFF_ASSETS });
   const output: unknown[] = [];
   const scenarios = [
+    { id: "sgov-buffer", policy: "sgov-buffer", entryVgshPct: 100 },
     { id: "vgsh-only", policy: "vgsh-only", entryVgshPct: 100 },
     { id: "ndx-vgsh", policy: "ndx-vgsh", entryVgshPct: 100 },
     { id: "entry-only", policy: "entry-only", entryVgshPct: 100 },
@@ -53,7 +54,7 @@ async function main() {
       const daily: Array<{ date: string; SGOV: number; VGSH: number; vgshPct: number | null }> = [];
       const observe = (date: string, h: TreasuryHoldings) => daily.push({ date, ...h, vgshPct: h.SGOV + h.VGSH > 1e-8 ? h.VGSH / (h.SGOV + h.VGSH) * 100 : null });
       const run = plan.kind === "dual" ? simulateDualSleeveFuturesStrategy(plan.dual, observe) : single(plan.single, observe);
-      if (scenario.id === "ndx-vgsh" && plan.kind === "dual" && leverageTolerancePct === DEFAULT_LEVERAGE_TOLERANCE_PCT) {
+      if (scenario.id === "sgov-buffer" && plan.kind === "dual" && leverageTolerancePct === DEFAULT_LEVERAGE_TOLERANCE_PCT) {
         const snapshot = JSON.parse(readFileSync("src/lib/tool-snapshots/futures.json", "utf8")).pageState;
         const expected = snapshot.result.etfResults.find((row: { name: string }) => row.name === run.etfResult.name);
         if (snapshot.startDate !== startDate || snapshot.endDate !== endDate || !expected ||
@@ -80,7 +81,7 @@ async function main() {
   }
   mkdirSync("benchmark-results", { recursive: true });
   writeFileSync("benchmark-results/collateral-above-sma.json", JSON.stringify({ bands, leverageTolerancePct, riskOffAssets: DEFAULT_RISK_OFF_ASSETS,
-    note: "Reserve = combined Treasury dollar holdings, excluding cash and futures notional. Daily averages exclude empty pools. Final mix is before forced liquidation. The fund uses the engine's actual two-sleeve in-kind resets. Default: NDX purchases VGSH in every regime, SPX entry purchases VGSH and routine purchases SGOV first. Reserves are virtually separate; daily closes proxy live maintenance.", results: output }, null, 2));
+    note: "Reserve = combined Treasury dollar holdings, excluding cash and futures notional. Daily averages exclude empty pools. Final mix is before forced liquidation. The fund uses the engine's actual two-sleeve in-kind resets. Default: buy SGOV while account holdings are below 200 equivalent shares or 1% of the Treasury pool; otherwise buy VGSH. Physical maintenance is netted account-wide; daily closes proxy live maintenance.", results: output }, null, 2));
 }
 function single(params: FuturesStrategyParams, observe: (date: string, h: TreasuryHoldings) => void) {
   const sleeve = createFuturesSleeve(params);
