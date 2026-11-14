@@ -285,6 +285,17 @@ of SGOV+VGSH value; otherwise buys VGSH. Both comparisons are strict (exactly
 200 shares and exactly 20% selects VGSH). This also applies to entry days and NDX.
 If the selected ticker's order is below the order minimum, keep cash; do not
 fall back to the other ETF merely to bypass the SGOV buffer.
+Risk-off basket buys in this model are whole shares under the same 200-share
+`MIN_TRADE_SHARES` (`enterSleevePooledRiskOff`, mirroring the bot's
+`computeRiskOffBuyAllocation`): a leg below it is dropped before any order fires
+and its share stays where it was (Treasuries, else cash), never re-split over the
+other legs. The BRK.B price series is BRK-A, so every BRK.B trade, commission and
+ledger quantity uses `riskOffSharesPerSeriesUnit` (1,500 BRK.B per BRK-A); the
+cash-only analytical mode keeps fractional series units.
+Ladder end values move ±5–10% from a few dollars' change in starting amount:
+contract, share and tolerance-band rounding in the first years compounds at full
+leverage. A before/after or rung-to-rung difference inside that band is not
+signal; compare CAGR, or rerun with perturbed starting amounts.
 Do not book sells and buys merely to move virtual reserves between sleeves.
 Execution callbacks preserve sleeve identity even if another sleeve is empty;
 keep the fund ledger attribution around these deferred maintenance orders.

@@ -252,6 +252,18 @@ const RISK_OFF_TICKER_ABBREV: Readonly<Record<string, string>> = {
   SGOV: "S",
 };
 
+/**
+ * `risk-brka.csv` holds BRK-A (real from 1980, a proxy before) under the BRK.B label,
+ * and one BRK-A is 1,500 BRK.B. Every other risk-off series is already at its ETF's
+ * share scale (VOO and QQQ ride the index files' adjusted closes).
+ */
+const RISK_OFF_SHARES_PER_SERIES_UNIT: Readonly<Record<string, number>> = { "BRK.B": 1500 };
+
+/** Tradable shares per unit of a risk-off ticker's price series: its share price is series price / this. */
+export function riskOffSharesPerSeriesUnit(ticker: string): number {
+  return RISK_OFF_SHARES_PER_SERIES_UNIT[ticker] ?? 1;
+}
+
 /** One-letter ledger label for a risk-off ticker (BRK.B → B); any other ticker keeps its name. */
 export function riskOffTickerAbbrev(ticker: string): string {
   return RISK_OFF_TICKER_ABBREV[ticker] ?? ticker;

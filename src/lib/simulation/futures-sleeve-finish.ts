@@ -1,6 +1,6 @@
 // End of the run: terminal liquidation and the strategy result.
 
-import { formatRiskOffLiquidationAbbrev } from "@/lib/constants";
+import { formatRiskOffLiquidationAbbrev, riskOffSharesPerSeriesUnit } from "@/lib/constants";
 import { riskOffCloseMarkPrice } from "@/lib/simulation/risk-off";
 import type { EtfResult } from "@/lib/simulation/types";
 import type { CollateralTrade } from "./futures-collateral";
@@ -245,16 +245,18 @@ export function finishSleeve(ctx: SleeveContext, st: SleeveState): FuturesStrate
         if (!Number.isFinite(px) || (px as number) <= 0) continue;
         const fillPrice = px as number;
         soldValueByTicker[t] = -shares * fillPrice;
+        // The live account model trades real shares (BRK.B, not BRK-A); cash mode keeps series units.
+        const perShare = collateral ? riskOffSharesPerSeriesUnit(t) : 1;
         totalRiskOffExitFees += getRiskOffCommission({
-          qtyDelta: shares,
-          fillPrice,
+          qtyDelta: shares * perShare,
+          fillPrice: fillPrice / perShare,
           dollarScale: feeDollarScaleForDate(finalDate),
         });
         totalRiskOffExitSpread += futuresSpreadCost({
           instrument: "riskoff",
           symbol: t,
-          qtyDelta: shares,
-          fillPrice,
+          qtyDelta: shares * perShare,
+          fillPrice: fillPrice / perShare,
         });
       }
       const riskOffEquityNet = Math.max(0, windowFinalEquity - totalRiskOffExitFees - totalRiskOffExitSpread);

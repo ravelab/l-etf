@@ -7,6 +7,8 @@ import { getCollateralTradeCost } from "@/lib/constants";
  * share prices keep the 200-share band meaningful across synthetic history.
  */
 const TREASURY_TICKERS = ["SGOV", "VGSH"] as const;
+/** The live bot's minimum order (`minTradeShares` in ~/futures src/orders), for Treasury and risk-off legs alike. */
+export const MIN_TRADE_SHARES = 200;
 export type TreasuryHoldings = Record<"SGOV" | "VGSH", number>;
 type Ticker = keyof TreasuryHoldings;
 /**
@@ -46,7 +48,7 @@ export function createFuturesCollateral(params: {
   for (const ticker of TREASURY_TICKERS) {
     if (!(first[ticker] > 0)) throw new Error(`Missing ${ticker} collateral prices at simulation start`);
   }
-  const minShares = params.minTradeShares ?? 200;
+  const minShares = params.minTradeShares ?? MIN_TRADE_SHARES;
   const value = () => TREASURY_TICKERS.reduce((sum, t) => sum + holdings[t], 0);
   function price(t: Ticker, i: number, date: string, atOpen: boolean) {
     const raw = (atOpen ? params.open[t]?.[i] : params.close[t]?.[i]);

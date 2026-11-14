@@ -1,8 +1,9 @@
 // The risk-off basket: bought when the SMA rule exits, marked each close, sold at
 // the open when it re-enters.
 
+import { riskOffSharesPerSeriesUnit } from "@/lib/constants";
 import { riskOffCloseMarkPrice, riskOffOpenTradePrice } from "@/lib/simulation/risk-off";
-import { type CollateralTrade, isTreasuryTicker, planRiskOffPurchases } from "./futures-collateral";
+import { type CollateralTrade, isTreasuryTicker, MIN_TRADE_SHARES, planRiskOffPurchases } from "./futures-collateral";
 import { calendarDaysBetweenIso } from "./futures-contracts";
 import { getRiskOffCommission } from "./futures-costs";
 import type { SleeveContext } from "./futures-sleeve-context";
@@ -25,9 +26,23 @@ export function enterSleevePooledRiskOff(
   const bookCollateralTrades = (trades: CollateralTrade[], tradeDate: string): void =>
     bookSleeveCollateralTrades(ctx, st, trades, tradeDate);
   if (!collateral || riskOffTickers.length === 0) return;
-  const treasuryWeight = riskOffTickers.filter(isTreasuryTicker).length / riskOffTickers.length;
-  bookCollateralTrades(collateral.fundRiskOff(st.cash * treasuryWeight, date), date);
-  const targets = Object.fromEntries(riskOffTickers.map(t => [t, st.cash / riskOffTickers.length]));
+  const priceAt = (t: string): number | null | undefined => atOpen
+    ? riskOffOpenTradePrice({ openValues: params.riskOffOpenByTicker?.[t], closeValues: params.riskOffCloseByTicker?.[t], index: i })
+    : riskOffCloseMarkPrice({ closeValues: params.riskOffCloseByTicker?.[t], index: i });
+  // As the live bot (~/futures `computeRiskOffBuyAllocation`): a leg whose share of the
+  // basket buys fewer than MIN_TRADE_SHARES whole shares is dropped before any order
+  // fires. Its share is not re-split over the other legs; it stays in Treasuries.
+  const perLeg = st.cash / riskOffTickers.length;
+  const dropped = riskOffTickers.filter((t) => {
+    const px = priceAt(t);
+    return !isTreasuryTicker(t) && px != null && Number.isFinite(px) && px > 0 &&
+      Math.floor(perLeg / (px / riskOffSharesPerSeriesUnit(t))) < MIN_TRADE_SHARES;
+  });
+  const retainedWeight = (riskOffTickers.filter(isTreasuryTicker).length + dropped.length) / riskOffTickers.length;
+  bookCollateralTrades(collateral.fundRiskOff(st.cash * retainedWeight, date), date);
+  const targets = Object.fromEntries(riskOffTickers
+    .filter((t) => !dropped.includes(t))
+    .map(t => [t, st.cash / riskOffTickers.length]));
   const budgets = planRiskOffPurchases(targets, collateral.value(), st.cash - collateral.value());
   st.riskOffShares = new Array(heldTickers.length).fill(0);
   st.riskOffCash = new Array(heldTickers.length).fill(0);
@@ -39,21 +54,25 @@ export function enterSleevePooledRiskOff(
       bookCollateralTrades(collateral.buy(t, budget, date), date);
       continue;
     }
-    const px = atOpen
-      ? riskOffOpenTradePrice({ openValues: params.riskOffOpenByTicker?.[t], closeValues: params.riskOffCloseByTicker?.[t], index: i })
-      : riskOffCloseMarkPrice({ closeValues: params.riskOffCloseByTicker?.[t], index: i });
+    const px = priceAt(t);
     if (!(px && Number.isFinite(px) && px > 0)) continue; // Unfilled budget stays cash.
-    const spread = futuresSpreadCost({ instrument: "riskoff", symbol: t, qtyDelta: budget / px, fillPrice: px });
-    const fees = getRiskOffCommission({ qtyDelta: budget / px, fillPrice: px, dollarScale: feeDollarScaleForDate(date) });
-    const shares = Math.max(0, budget - spread - fees) / px;
+    // Whole shares at the leg's share price, as the bot orders `floor(usd / price)`;
+    // commission and spread come out of cash beside the order.
+    const perShare = riskOffSharesPerSeriesUnit(t);
+    const sharePrice = px / perShare;
+    const shares = Math.floor(budget / sharePrice);
+    if (shares < MIN_TRADE_SHARES) continue;
+    const spread = futuresSpreadCost({ instrument: "riskoff", symbol: t, qtyDelta: shares, fillPrice: sharePrice });
+    const fees = getRiskOffCommission({ qtyDelta: shares, fillPrice: sharePrice, dollarScale: feeDollarScaleForDate(date) });
     const j = ownSlots[k];
-    st.riskOffShares[j] = shares;
+    // Held in series units, which the close marks against the series price.
+    st.riskOffShares[j] = shares / perShare;
     st.riskOffLastPrice[j] = px;
-    st.cash -= budget;
+    st.cash -= shares * sharePrice + fees + spread;
     st.totalFees += fees;
     st.totalSpreadCosts += spread;
     recordTransaction({ date, action: "buy", instrument: "riskoff", symbol: t,
-      qtyDelta: shares, qtyAfter: shares, fillPrice: px, fees, spread,
+      qtyDelta: shares, qtyAfter: shares, fillPrice: sharePrice, fees, spread,
       cashInterestEarned: 0, excessLiquidity: 0, leverageDeltaPct: 0,
       equity: st.cash + st.riskOffShares.reduce((sum, qty, slot) => sum + qty * (st.riskOffLastPrice?.[slot] || 0), 0) });
   }
@@ -66,7 +85,7 @@ export function enterSleevePooledRiskOff(
 
 /** Sells the risk-off basket at the open on the session a re-entry signal executes. */
 export function exitRiskOffBasketAtOpen(ctx: SleeveContext, st: SleeveState, today: SleeveDay): void {
-  const { params, feeDollarScaleForDate, futuresSpreadCost, heldTickers } = ctx;
+  const { params, feeDollarScaleForDate, futuresSpreadCost, collateral, heldTickers } = ctx;
   const { i, date } = today;
   const recordTransaction = (row: FuturesTransactionRow): void => recordSleeveTransaction(ctx, st, row);
   // Next-day-open: exit risk-off basket before enter-risk-off (mutually exclusive flags per day).
@@ -88,15 +107,17 @@ export function exitRiskOffBasketAtOpen(ctx: SleeveContext, st: SleeveState, tod
       });
       if (shares > 0 && Number.isFinite(openPx) && (openPx as number) > 0) {
         const gross = shares * (openPx as number);
+        // The live account model trades real shares (BRK.B, not BRK-A); cash mode keeps series units.
+        const perShare = collateral ? riskOffSharesPerSeriesUnit(t) : 1;
         const spread = futuresSpreadCost({
           instrument: "riskoff",
           symbol: t,
-          qtyDelta: shares,
-          fillPrice: openPx as number,
+          qtyDelta: shares * perShare,
+          fillPrice: (openPx as number) / perShare,
         });
         const fees = getRiskOffCommission({
-          qtyDelta: shares,
-          fillPrice: openPx as number,
+          qtyDelta: shares * perShare,
+          fillPrice: (openPx as number) / perShare,
           dollarScale: feeDollarScaleForDate(date),
         });
         st.cash += Math.max(0, gross - spread - fees);
@@ -109,9 +130,9 @@ export function exitRiskOffBasketAtOpen(ctx: SleeveContext, st: SleeveState, tod
           action: "sell",
           instrument: "riskoff",
           symbol: t,
-          qtyDelta: -shares,
+          qtyDelta: -shares * perShare,
           qtyAfter: 0,
-          fillPrice: openPx as number,
+          fillPrice: (openPx as number) / perShare,
           fees,
           spread,
           cashInterestEarned: 0,
