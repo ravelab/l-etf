@@ -74,6 +74,7 @@ export function buildBacktestChartSeries(options: {
   pricesByIndex: Record<IndexKey, PricePoint[]>;
   requiredIndexes: IndexKey[];
   primaryIndex: IndexKey;
+  displayStartDateByIndex?: Partial<Record<IndexKey, string>>;
   resolvedEtfConfigs: EtfConfig[];
   result: BacktestResult;
   initialInvestment: number;
@@ -258,7 +259,8 @@ export function buildBacktestChartSeries(options: {
 
   const underlyingIndexSeries: UnderlyingIndexSeries[] = options.requiredIndexes.map((index) => {
     const points = options.pricesByIndex[index] ?? [];
-    const sliced = points.filter((point) => point.date >= options.result.dates[0] && point.date <= options.result.dates[options.result.dates.length - 1]);
+    const startDate = options.displayStartDateByIndex?.[index] ?? options.result.dates[0];
+    const sliced = points.filter((point) => point.date >= startDate && point.date <= options.result.dates[options.result.dates.length - 1]);
     const dates = sliced.map((point) => point.date);
     // "Total Return" rows must use the stitched total-return series (`adj_close`),
     // not the raw published index level (`close`).

@@ -87,6 +87,7 @@ export function StatisticalAnalysisPageContent({
 
   const {
     letf, setLetf, index, setIndex, startDate, setStartDate, endDate, setEndDate,
+    perIndexStart, startDateForIndex,
     windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
@@ -301,7 +302,7 @@ export function StatisticalAnalysisPageContent({
           rates,
           smaConfig,
           noSmaConfig,
-          startDate,
+          startDate: startDateForIndex(sub.index),
           endDate,
           riskOffValuesByAsset: riskSeries.closeValuesByAsset,
           riskOffOpenValuesByAsset: riskSeries.openValuesByAsset,
@@ -346,6 +347,7 @@ export function StatisticalAnalysisPageContent({
         letf,
         index,
         startDate,
+        perIndexStart,
         endDate,
         windowLength,
         smaSpPeriod,
@@ -422,6 +424,8 @@ export function StatisticalAnalysisPageContent({
     smaSpPeriod,
     smaVolGate,
     startDate,
+    perIndexStart,
+    startDateForIndex,
     updateUrl,
     setRunProgress,
   ]);
@@ -446,7 +450,7 @@ export function StatisticalAnalysisPageContent({
 
         <SharedToolInputs
           values={{
-            letf, startDate, endDate, windowLength,
+            letf, startDate, perIndexStart, endDate, windowLength,
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
             spxRiskOffAsset, ndxRiskOffAsset,
           }}

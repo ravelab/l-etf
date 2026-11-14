@@ -80,6 +80,7 @@ export function CompareRiskOffAssetsPageContent({
 
   const {
     letf, setLetf, index, setIndex, startDate, endDate, setEndDate,
+    perIndexStart, startDateForIndex,
     windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate,
@@ -252,7 +253,7 @@ export function CompareRiskOffAssetsPageContent({
 
     const variantResults = await runParallelVariantSummaries({
       prices, rates,
-      windowLength, startDate, endDate,
+      windowLength, startDate: startDateForIndex(presetDef.index), endDate,
       variants,
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
@@ -270,7 +271,7 @@ export function CompareRiskOffAssetsPageContent({
       });
 
     return { rows: nextRows, baseline: bl };
-  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, windowLength, startDate, endDate, riskOffLabelByAsset]);
+  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, windowLength, startDateForIndex, endDate, riskOffLabelByAsset]);
 
   const buildRiskoffUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -345,7 +346,7 @@ export function CompareRiskOffAssetsPageContent({
       setRunSummary(nextRunSummary);
 
       save({
-        letf, index, startDate, endDate, windowLength,
+        letf, index, startDate, perIndexStart, endDate, windowLength,
         smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, spxRiskOffAsset, ndxRiskOffAsset, showBaseline: true,
         annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
         rows: computedRows,
@@ -382,7 +383,7 @@ export function CompareRiskOffAssetsPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [
+  }, [perIndexStart,
     index, startDate, endDate, windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate,
@@ -486,7 +487,7 @@ export function CompareRiskOffAssetsPageContent({
 
         <SharedToolInputs
           values={{
-            letf: letf as string, startDate, endDate, windowLength,
+            letf: letf as string, startDate, perIndexStart, endDate, windowLength,
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
             smaVolGate,
           }}

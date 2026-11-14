@@ -134,6 +134,16 @@ snapshots load only into a form whose pair matches, so changing the defaults
 means `npm run snapshots:generate` and re-measuring the worst-time windows
 (`scripts/find-worst-drawdowns.ts`).
 
+## Tool pages: Start Date and "SPX/NDX start"
+
+Start Date is the one start every tool page runs from. "SPX/NDX start" (an
+option in its preset dropdown; shared input `perIndexStart`, URL `sdi=1`) is a
+flag on top of it: SPX from 1988-04-06 and NDX from 1985-01-31 in the same run.
+Pages take each config's start from the form's `startDateForIndex(index)`
+(`per-index-start.ts`). Never store separate per-index dates: the first version
+did, they silently overrode Start Date, and "SPX proto" still ran from 1988/1985.
+Picking a date clears the flag; a URL with `sd` but no `sdi=1` is a common start.
+
 ## Tool pages: cancellation and run races
 
 Every tool page runs a long simulation behind an `AbortController`, and the same

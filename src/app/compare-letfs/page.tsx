@@ -385,6 +385,7 @@ export function CompareLETFsPageContent({
   const {
     letf,
     startDate, endDate, setEndDate,
+    perIndexStart, spxStartDate, ndxStartDate,
     windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
@@ -475,7 +476,7 @@ export function CompareLETFsPageContent({
     });
     save({
       letf: form.letf, index: form.index,
-      startDate, endDate, windowLength,
+      startDate, perIndexStart, endDate, windowLength,
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
       smaVolGate,
@@ -492,7 +493,7 @@ export function CompareLETFsPageContent({
   }, [
     hasInvalidCachedResults,
     form.letf, form.index,
-    startDate, endDate, windowLength,
+    startDate, perIndexStart, endDate, windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate,
@@ -604,21 +605,21 @@ export function CompareLETFsPageContent({
           };
 
       const effectiveStartSp = effectiveStartDateFromAlignedSeries({
-        requestedStartDate: startDate,
+        requestedStartDate: spxStartDate,
         dates: sp500Prices.map((p) => p.date),
         closeByTicker: riskSeriesForSp500.closeValuesByAsset,
       });
       const effectiveStartNq = hasNasdaqPrices
         ? effectiveStartDateFromAlignedSeries({
-            requestedStartDate: startDate,
+            requestedStartDate: ndxStartDate,
             dates: nasdaqPrices.map((p) => p.date),
             closeByTicker: riskSeriesForNasdaq.closeValuesByAsset,
           })
-        : startDate;
+        : ndxStartDate;
       // Only warn about risk-off data gaps for SP500 — NDX strategies are naturally
       // capped at NDX data availability (the 1926-07-01 proxy start), a price-history limit
       // not a risk-off basket limit.
-      if (effectiveStartSp > startDate) {
+      if (effectiveStartSp > spxStartDate) {
         toast.warning(
           `Some risk-off components don't have data before ${effectiveStartSp}. ${LABEL_INDEX_SP500_TR} strategies will start from ${effectiveStartSp}.`,
           { duration: Infinity }
@@ -733,7 +734,7 @@ export function CompareLETFsPageContent({
       // URL params
       save({
       letf: form.letf, index: form.index,
-      startDate, endDate, windowLength,
+      startDate, perIndexStart, endDate, windowLength,
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
       smaVolGate,
@@ -780,7 +781,7 @@ export function CompareLETFsPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
+  }, [startDate, perIndexStart, spxStartDate, ndxStartDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -1254,7 +1255,7 @@ export function CompareLETFsPageContent({
 
         <SharedToolInputs
           values={{
-            startDate, endDate, windowLength,
+            startDate, perIndexStart, endDate, windowLength,
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer,
             smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
             smaVolGate,

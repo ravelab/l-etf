@@ -63,6 +63,11 @@ import { validateSimulationReadyPrices } from "@/lib/utils";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { normalizeDateString, normalizeNumberValue } from "@/lib/input-normalization";
+import {
+  appendPerIndexStartUrlParam,
+  PER_INDEX_EARLIEST_START_DATE,
+  readPerIndexStartUrlParam,
+} from "@/lib/per-index-start";
 import { alignCloseSeriesToDates } from "@/lib/utils";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
 import { withLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
@@ -146,6 +151,7 @@ export function BacktestingPageContent({
   const {
     letf, setLetf, index, setIndex,
     startDate, setStartDate, endDate, setEndDate,
+    perIndexStart, setPerIndexStart, spxStartDate, ndxStartDate, startDateForIndex,
     windowLength,
     smaSpPeriod, setSmaSpPeriod, smaNqPeriod, setSmaNqPeriod,
     smaSpUpperBuffer, setSmaSpUpperBuffer, smaSpLowerBuffer, setSmaSpLowerBuffer,
@@ -154,6 +160,11 @@ export function BacktestingPageContent({
     spxRiskOffAsset, setSpxRiskOffAsset, ndxRiskOffAsset, setNdxRiskOffAsset, riskOffAssets,
     handleFieldChange, initial, save, restoredFromCache,
   } = form;
+
+  const earliestSelectedStartDate = useCallback((indexes: IndexKey[]): string => {
+    const selected = indexes.map(startDateForIndex);
+    return selected.reduce((earliest, value) => (value < earliest ? value : earliest), startDate);
+  }, [startDateForIndex, startDate]);
 
   const initialInvestment = CONSTANT_INITIAL_INVESTMENT;
   const [etfConfigs, setEtfConfigs] = useState<EtfConfig[]>(initial.etfConfigs);
@@ -223,28 +234,35 @@ export function BacktestingPageContent({
         etfConfigs.some((cfg) => cfg.name === "UPRO-real") &&
         etfConfigs.some((cfg) => cfg.name === "TQQQ-real");
 
-      const baseConfigs = [...baseEtfConfigs, ...etfConfigs].map((cfg, idx) => ({
-        ...cfg,
-        id: `etf${idx + 1}`,
-        displayStartDate: isCheckSimulationsSetup
+      const baseConfigs = [...baseEtfConfigs, ...etfConfigs].map((cfg, idx) => {
+        const configuredStartDate = startDateForIndex(cfg.smaIndex);
+        const existingDisplayStartDate = isCheckSimulationsSetup
           ? ((checkSimulationDisplayStarts[cfg.name.replace(/-real$/, "") as keyof typeof checkSimulationDisplayStarts]
             ?? getLaunchDateForPresetName(cfg.name, etfLaunchDates))
             || cfg.displayStartDate
             || (cfg.simulated ? getConfigDefaultStartDate(cfg) : undefined))
           : cfg.simulated
             ? (cfg.displayStartDate || getConfigDefaultStartDate(cfg))
-            : getLaunchDateForPresetName(cfg.name, etfLaunchDates) || cfg.displayStartDate,
-        smaEnabled: smaMode !== 0 && cfg.smaEnabled,
-        smaPeriod: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqPeriod : smaSpPeriod) : 0,
-        smaUpperBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer) : 0, smaLowerBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer) : 0,
-        smaVolGate: smaMode !== 0 && smaVolGate,
-        riskOffAsset: riskOffAssets[cfg.smaIndex],
-      }));
+            : getLaunchDateForPresetName(cfg.name, etfLaunchDates) || cfg.displayStartDate;
+        return {
+          ...cfg,
+          id: `etf${idx + 1}`,
+          displayStartDate: existingDisplayStartDate && existingDisplayStartDate > configuredStartDate
+            ? existingDisplayStartDate
+            : configuredStartDate,
+          smaEnabled: smaMode !== 0 && cfg.smaEnabled,
+          smaPeriod: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqPeriod : smaSpPeriod) : 0,
+          smaUpperBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer) : 0,
+          smaLowerBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer) : 0,
+          smaVolGate: smaMode !== 0 && smaVolGate,
+          riskOffAsset: riskOffAssets[cfg.smaIndex],
+        };
+      });
 
       // Plug-in rule lines ride along with the SMA lines, never in Check Emulations.
       return smaMode === 0 ? baseConfigs : withSignalRuleLines(baseConfigs, extraStrategies);
     },
-    [baseEtfConfigs, etfConfigs, letf, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, smaMode, extraStrategies, checkSimulationDisplayStarts, etfLaunchDates]
+    [baseEtfConfigs, etfConfigs, letf, startDateForIndex, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, smaMode, extraStrategies, checkSimulationDisplayStarts, etfLaunchDates]
   );
 
   type BacktestingSnapshotState = typeof initial;
@@ -272,6 +290,11 @@ export function BacktestingPageContent({
         };
         const sd = normalizeDateString(decoded.startDate, range.min);
         setStartDate(sd < range.min ? range.min : sd > range.max ? range.max : sd);
+      }
+      const urlPerIndexStart = readPerIndexStartUrlParam(params);
+      if (urlPerIndexStart !== undefined) {
+        setPerIndexStart(urlPerIndexStart);
+        if (urlPerIndexStart) setStartDate(PER_INDEX_EARLIEST_START_DATE);
       }
       if (decoded.endDate) setEndDate(normalizeDateString(decoded.endDate, getIsoDate(new Date())));
       if (decoded.smaSpPeriod != null) setSmaSpPeriod(normalizeNumberValue(decoded.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }));
@@ -336,6 +359,7 @@ export function BacktestingPageContent({
     setLetf,
     setIndex,
     setStartDate,
+    setPerIndexStart,
     setEndDate,
     setSmaSpPeriod,
     setSmaNqPeriod,
@@ -398,7 +422,9 @@ export function BacktestingPageContent({
         const requiredIndexes = Array.from(new Set(resolvedEtfConfigs.map((cfg) => cfg.smaIndex))) as IndexKey[];
         if (requiredIndexes.length === 0) requiredIndexes.push(primaryIndex);
 
-        const displayStartDate = startDate;
+        const displayStartDate = earliestSelectedStartDate(
+          Array.from(new Set(resolvedEtfConfigs.map((cfg) => cfg.smaIndex))) as IndexKey[]
+        );
         const warmUp = warmUpStartDatesByIndex(resolvedEtfConfigs, displayStartDate, getMarketDataWarmUpStartDate);
         const expandedStartDate = warmUp.earliest;
 
@@ -488,6 +514,10 @@ export function BacktestingPageContent({
           pricesByIndex,
           requiredIndexes: availableIndexes,
           primaryIndex: effectivePrimaryIndex,
+          displayStartDateByIndex: {
+            sp500: spxStartDate,
+            nasdaq100: ndxStartDate,
+          },
           resolvedEtfConfigs: effectiveConfigs,
           result,
           initialInvestment: CONSTANT_INITIAL_INVESTMENT,
@@ -515,12 +545,15 @@ export function BacktestingPageContent({
     result,
     resolvedEtfConfigs,
     startDate,
+    spxStartDate,
+    ndxStartDate,
     endDate,
     index,
     smaMode,
     loading,
     closePricesByEtfId,
     setRiskOffPricesByTicker,
+    earliestSelectedStartDate,
   ]);
 
   useToolSnapshot({
@@ -575,6 +608,7 @@ export function BacktestingPageContent({
     const urlParams = new URLSearchParams();
     urlParams.set("letf", getValidPresetKey(letf, DEFAULT_COMBO_PRESET));
     urlParams.set("sd", startDate);
+    appendPerIndexStartUrlParam(urlParams, perIndexStart);
     urlParams.set("ed", endDate);
 
     // Always include SMA params so the URL is shareable
@@ -599,7 +633,7 @@ export function BacktestingPageContent({
 
     markNextSearchAsInternal();
     router.push(buildToolsUrl("backtest", urlParams));
-  }, [letf, startDate, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, extraStrategies, etfConfigs, router, markNextSearchAsInternal]);
+  }, [letf, startDate, perIndexStart, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, extraStrategies, etfConfigs, router, markNextSearchAsInternal]);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -638,7 +672,9 @@ export function BacktestingPageContent({
       ) as IndexKey[];
       if (requiredIndexes.length === 0) requiredIndexes.push(primaryIndex);
 
-      const displayStartDate = startDate;
+      const displayStartDate = earliestSelectedStartDate(
+        Array.from(new Set(resolvedEtfConfigs.map((cfg) => cfg.smaIndex))) as IndexKey[]
+      );
 
       const warmUp = warmUpStartDatesByIndex(resolvedEtfConfigs, displayStartDate, getMarketDataWarmUpStartDate);
       const expandedStartDate = warmUp.earliest;
@@ -898,6 +934,10 @@ export function BacktestingPageContent({
           pricesByIndex,
           requiredIndexes: availableIndexes,
           primaryIndex: effectivePrimaryIndex,
+          displayStartDateByIndex: {
+            sp500: spxStartDate,
+            nasdaq100: ndxStartDate,
+          },
           resolvedEtfConfigs: effectiveConfigs,
           result: {
             dates: datesSlice,
@@ -931,7 +971,7 @@ export function BacktestingPageContent({
         etfResultIdAliases: canonicalRun.etfResultIdAliases,
       });
 
-      const effectiveStart = startDate;
+      const effectiveStart = datesSlice[0] ?? displayStartDate;
       const resultEndDate = datesSlice[datesSlice.length - 1] ?? endDate;
       const nextRunSummary = buildRunSummary({
         startDate: effectiveStart,
@@ -952,6 +992,7 @@ export function BacktestingPageContent({
         letf,
         index,
         startDate: effectiveStart,
+        perIndexStart,
         endDate,
         windowLength,
         smaSpPeriod,
@@ -1013,6 +1054,7 @@ export function BacktestingPageContent({
         const historyParams = new URLSearchParams();
         historyParams.set("letf", getValidPresetKey(letf, DEFAULT_COMBO_PRESET));
         historyParams.set("sd", effectiveStart);
+        appendPerIndexStartUrlParam(historyParams, perIndexStart);
         historyParams.set("ed", endDate);
         historyParams.set("smaPsp", String(smaSpPeriod));
         historyParams.set("smaPnq", String(smaNqPeriod));
@@ -1066,7 +1108,7 @@ export function BacktestingPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [
+  }, [spxStartDate, ndxStartDate,
     clearRunSummary,
     endDate,
     etfConfigs,
@@ -1088,6 +1130,8 @@ export function BacktestingPageContent({
     smaVolGate,
     smaMode,
     startDate,
+    perIndexStart,
+    earliestSelectedStartDate,
     updateUrl,
     windowLength,
     setRunProgress,
@@ -1243,10 +1287,11 @@ export function BacktestingPageContent({
       : dateRange.min);
 
     setStartDate(earliestStartDate);
+    setPerIndexStart(false);
     setEtfConfigs(nextEtfConfigs);
 
     setPendingRun(true);
-  }, [dateRange.min, etfLaunchDates, setEndDate, setLetf, setStartDate]);
+  }, [dateRange.min, etfLaunchDates, setEndDate, setLetf, setStartDate, setPerIndexStart]);
   // Allow start dates earlier than launch date, but warn users if data won't be available
   const effectiveMinDate = dateRange.min;
 
@@ -1266,6 +1311,7 @@ export function BacktestingPageContent({
           values={{
             letf,
             startDate,
+            perIndexStart,
             endDate,
             windowLength,
             smaSpPeriod,

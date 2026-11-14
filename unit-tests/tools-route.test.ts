@@ -152,6 +152,15 @@ test("persistedToolStateMatchesUrl requires every present URL field to agree", (
     persistedToolStateMatchesUrl(state, new URLSearchParams("letf=TQQQ&sd=2000-01-01")),
     false,
   );
+  // "SPX/NDX start" and a common start on the same `sd` are different runs.
+  const perIndexState = { ...state, startDate: "1985-01-31", perIndexStart: true };
+  const commonState = { ...state, startDate: "1985-01-31", perIndexStart: false };
+  assert.equal(persistedToolStateMatchesUrl(perIndexState, new URLSearchParams("sd=1985-01-31&sdi=1")), true);
+  assert.equal(persistedToolStateMatchesUrl(perIndexState, new URLSearchParams("sd=1985-01-31")), false);
+  assert.equal(persistedToolStateMatchesUrl(commonState, new URLSearchParams("sd=1985-01-31&sdi=1")), false);
+  assert.equal(persistedToolStateMatchesUrl(commonState, new URLSearchParams("sd=1985-01-31")), true);
+  // A run saved before the flag existed was a common start.
+  assert.equal(persistedToolStateMatchesUrl({ ...state, startDate: "1985-01-31" }, new URLSearchParams("sd=1985-01-31&sdi=1")), false);
   assert.equal(
     persistedToolStateMatchesUrl(state, new URLSearchParams("sd=2000-01-01&ro=GLDM")),
     false,

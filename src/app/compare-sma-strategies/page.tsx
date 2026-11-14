@@ -94,6 +94,7 @@ export function CompareSmaStrategiesPageContent({
 
   const {
     letf, setLetf, index, setIndex, startDate, endDate, setEndDate,
+    perIndexStart, startDateForIndex,
     windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
     spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
@@ -355,7 +356,7 @@ export function CompareSmaStrategiesPageContent({
     });
     const allSweepRows = await runParallelSimulations({
       prices, rates,
-      windowLength, startDate, endDate,
+      windowLength, startDate: startDateForIndex(presetDef.index), endDate,
       configs: items.map(i => i.config),
       paramValues: Object.fromEntries(items.map((i) => [i.config.id, i.paramValue])),
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
@@ -375,7 +376,7 @@ export function CompareSmaStrategiesPageContent({
     const sweepRows = allSweepRows.slice(1);
 
     return { rows: sweepRows, baseline: bl };
-  }, [riskOffAssets, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, minSmaPeriod, maxSmaPeriod, stepSize, windowLength, startDate, endDate, setRunProgress]);
+  }, [riskOffAssets, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, minSmaPeriod, maxSmaPeriod, stepSize, windowLength, startDateForIndex, endDate, setRunProgress]);
 
   const buildSmaPeriodUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -463,7 +464,7 @@ export function CompareSmaStrategiesPageContent({
       setRunSummary(nextRunSummary);
 
       save({
-        letf, index, startDate, endDate, windowLength,
+        letf, index, startDate, perIndexStart, endDate, windowLength,
         minSmaPeriod, maxSmaPeriod, stepSize, smaSpPeriod: form.smaSpPeriod, smaNqPeriod: form.smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, spxRiskOffAsset, ndxRiskOffAsset,
         showBaseline: true, annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
@@ -505,7 +506,7 @@ export function CompareSmaStrategiesPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaPeriodUrlParams, runSweepForPreset, setRunSummary, save, clearMetadata, form.smaSpPeriod, form.smaNqPeriod, minSmaPeriod, maxSmaPeriod, stepSize, updateUrl, setRunProgress]);
+  }, [perIndexStart, startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaPeriodUrlParams, runSweepForPreset, setRunSummary, save, clearMetadata, form.smaSpPeriod, form.smaNqPeriod, minSmaPeriod, maxSmaPeriod, stepSize, updateUrl, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -526,7 +527,7 @@ export function CompareSmaStrategiesPageContent({
 
         <SharedToolInputs
           values={{
-            letf, startDate, endDate, windowLength,
+            letf, startDate, perIndexStart, endDate, windowLength,
             smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
             spxRiskOffAsset, ndxRiskOffAsset,
           }}

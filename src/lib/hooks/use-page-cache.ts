@@ -23,7 +23,7 @@ export function usePageCache<T extends Record<string, unknown>>(
   pageKey: string,
   defaults: T,
   options?: { persistKeys?: Array<keyof T> }
-): { initial: T; save: (state: T) => void; restoredFromCache: boolean } {
+): { initial: T; save: (state: Partial<T>) => void; restoredFromCache: boolean } {
   const persistKeys = options?.persistKeys ?? null;
   const persistKeySet = persistKeys ? new Set<string>(persistKeys.map((k) => String(k))) : null;
 
@@ -67,7 +67,7 @@ export function usePageCache<T extends Record<string, unknown>>(
   return {
     initial,
     restoredFromCache,
-    save: (state: T) => {
+    save: (state: Partial<T>) => {
       caches.set(pageKey, state);
 
       if (typeof window === "undefined") return;

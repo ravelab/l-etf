@@ -17,6 +17,7 @@ import {
   RISK_OFF_ASSET_OPTIONS,
 } from "@/lib/constants";
 import { getIsoDate } from "@/lib/date";
+import { PER_INDEX_START_DATES } from "@/lib/per-index-start";
 import { parseNumberOrKeep } from "@/lib/utils";
 import type { EtfConfig } from "@/lib/simulation/types";
 
@@ -29,6 +30,8 @@ type DatePresetOption = {
   value: string;
   label: string;
   title: string;
+  /** Defaults to "outside the date range"; set for options that are not a date. */
+  disabled?: boolean;
 };
 
 const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
@@ -55,20 +58,35 @@ const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
   },
 ];
 
+const PER_INDEX_START_OPTION = "__spx-ndx-start";
+
+const START_DATE_PRESETS: readonly DatePresetOption[] = [
+  ...HISTORICAL_DATE_PRESETS,
+  {
+    value: PER_INDEX_START_OPTION,
+    label: "SPX/NDX start",
+    title: `SPX from ${PER_INDEX_START_DATES.sp500} and NDX from ${PER_INDEX_START_DATES.nasdaq100}, in the same run`,
+    disabled: false,
+  },
+];
+
 function CompactDatePresetSelect({
   ariaLabel,
   currentDate,
   dateRange,
   options,
+  selectedValue: selectedValueOverride,
   onSelect,
 }: {
   ariaLabel: string;
   currentDate: string;
   dateRange: { min: string; max: string };
   options: readonly DatePresetOption[];
+  /** Selects an option that is not a date (e.g. "SPX/NDX start"). */
+  selectedValue?: string;
   onSelect: (value: string) => void;
 }) {
-  const selectedOption = options.find((option) => option.value === currentDate);
+  const selectedOption = options.find((option) => option.value === (selectedValueOverride ?? currentDate));
   const selectedValue = selectedOption?.value ?? "__custom";
 
   return (
@@ -94,7 +112,7 @@ function CompactDatePresetSelect({
           <option
             key={option.value}
             value={option.value}
-            disabled={option.value < dateRange.min || option.value > dateRange.max}
+            disabled={option.disabled ?? (option.value < dateRange.min || option.value > dateRange.max)}
           >
             {option.label}
           </option>
@@ -117,6 +135,8 @@ function CompactDatePresetSelect({
 export type SharedFieldValues = {
   letf?: string;
   startDate: string;
+  /** "SPX/NDX start": each index from its own real series; every page must honor it. */
+  perIndexStart: boolean;
   endDate: string;
   windowLength: number;
   smaSpPeriod?: number;
@@ -266,8 +286,13 @@ export function SharedToolInputs({
               ariaLabel="Start date preset"
               currentDate={values.startDate}
               dateRange={dateRange}
-              options={HISTORICAL_DATE_PRESETS}
-              onSelect={(value) => onChange("startDate", value)}
+              options={START_DATE_PRESETS}
+              selectedValue={values.perIndexStart ? PER_INDEX_START_OPTION : undefined}
+              onSelect={(value) => (
+                value === PER_INDEX_START_OPTION
+                  ? onChange("perIndexStart", true)
+                  : onChange("startDate", value)
+              )}
             />
           }
           type="date"

@@ -18,6 +18,7 @@ import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
 import { useRefreshEndDateOnInitialVisit } from "@/lib/hooks/use-refresh-end-date";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
+import { appendPerIndexStartUrlParam, readPerIndexStartUrlParam } from "@/lib/per-index-start";
 import { getIsoDate } from "@/lib/date";
 import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, INDEX_DATE_RANGES } from "@/lib/constants";
 import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT, DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
@@ -119,6 +120,9 @@ export function FuturesPageContent({
 
   const {
     startDate,
+    perIndexStart,
+    spxStartDate,
+    ndxStartDate,
     endDate,
     windowLength,
     smaSpPeriod,
@@ -133,6 +137,8 @@ export function FuturesPageContent({
     save,
     restoredFromCache,
   } = form;
+
+  const simulationStartDate = spxStartDate < ndxStartDate ? spxStartDate : ndxStartDate;
 
   const persistedInitial = initial as Record<string, unknown>;
 
@@ -245,6 +251,8 @@ export function FuturesPageContent({
       const normalized = normalizeDateString(sd, dateRange.min);
       handleFieldChange("startDate", normalized < dateRange.min ? dateRange.min : normalized > dateRange.max ? dateRange.max : normalized);
     }
+    // After `sd`: handling `sd` turns the per-index start off, so this re-applies it.
+    if (readPerIndexStartUrlParam(params) === true) handleFieldChange("perIndexStart", true);
     const ed = params.get("ed");
     if (ed != null && ed !== "") {
       const normalized = normalizeDateString(ed, dateRange.max);
@@ -344,6 +352,7 @@ export function FuturesPageContent({
   const updateUrl = useCallback(() => {
     const params = new URLSearchParams();
     params.set("sd", startDate);
+    appendPerIndexStartUrlParam(params, perIndexStart);
     params.set("ed", endDate);
     params.set("smaPsp", String(smaSpPeriod));
     params.set("smaPnq", String(smaNqPeriod));
@@ -379,6 +388,7 @@ export function FuturesPageContent({
     smaSpPeriod,
     smaVolGate,
     startDate,
+    perIndexStart,
   ]);
 
   const displayResult = useMemo(() => {
@@ -513,7 +523,7 @@ export function FuturesPageContent({
       const warmUpTradingDays = Math.max(280, smaSpPeriod, smaNqPeriod);
       const market = await fetchMarketData(
         ["sp500", "nasdaq100"],
-        startDate,
+        simulationStartDate,
         endDate,
         signal,
         ({ completed, total, label }) => {
@@ -539,7 +549,7 @@ export function FuturesPageContent({
 
       // Load risk-off series first (needed for futures SMA transaction details + LETF SMA).
       setRunProgress({ pct: 30, label: "Loading risk-off + ETF history..." });
-      const warmUpStartDate = getMarketDataWarmUpStartDate(startDate, warmUpTradingDays);
+      const warmUpStartDate = getMarketDataWarmUpStartDate(simulationStartDate, warmUpTradingDays);
       // The two-sleeve fund's sleeves may hold their own baskets, so every price
       // map carries the union of both indices' tickers plus the Treasury collateral.
       const riskOffTickers = getRiskOffFetchTickersForAll([riskOffAssets.sp500, riskOffAssets.nasdaq100, "SGOV", "VGSH"]);
@@ -569,8 +579,8 @@ export function FuturesPageContent({
 
       // Futures strategies (close execution for futures; risk-off legs execute next-day-open).
       setRunProgress({ pct: 45, label: "Simulating futures strategies..." });
-      const spInRange = spPrices.filter((p) => p.date >= startDate && p.date <= endDate);
-      const nqInRange = nqPrices.filter((p) => p.date >= startDate && p.date <= endDate);
+      const spInRange = spPrices.filter((p) => p.date >= spxStartDate && p.date <= endDate);
+      const nqInRange = nqPrices.filter((p) => p.date >= ndxStartDate && p.date <= endDate);
       const spRiskOffAligned = buildRiskOffAligned(spInRange);
       const nqRiskOffAligned = buildRiskOffAligned(nqInRange);
 
@@ -598,7 +608,7 @@ export function FuturesPageContent({
         index,
         prices: index === "sp500" ? spPrices : nqPrices,
         rates,
-        startDate,
+        startDate: index === "sp500" ? spxStartDate : ndxStartDate,
         endDate,
         targetLeverage: leverage,
         treasuryCollateral: true,
@@ -630,7 +640,7 @@ export function FuturesPageContent({
       let qldSma = null as BacktestResult["etfResults"][number] | null;
       if (showEmulations) {
         // Match `fetchMarketData` / futures SMA warm-up so NDX SMA state matches 3× NQ futures (not a shorter slice).
-        const emulationWarmUpStartDate = getMarketDataWarmUpStartDate(startDate, warmUpTradingDays);
+        const emulationWarmUpStartDate = getMarketDataWarmUpStartDate(simulationStartDate, warmUpTradingDays);
         const emulationPricesByIndex = {
           sp500: spPrices.filter((p) => p.date >= emulationWarmUpStartDate),
           nasdaq100: nqPrices.filter((p) => p.date >= emulationWarmUpStartDate),
@@ -643,7 +653,10 @@ export function FuturesPageContent({
           hasNasdaqData: hasNqData,
           bands: smaBands,
           riskOffAssets,
-        });
+        }).map((config) => ({
+          ...config,
+          displayStartDate: config.smaIndex === "sp500" ? spxStartDate : ndxStartDate,
+        }));
 
         // Keep "Check Emulations" on the same canonical path as the backtest page
         // so UPRO/TQQQ/QLD SMA rules, warm-up, risk-off alignment, and actual ETF
@@ -652,7 +665,7 @@ export function FuturesPageContent({
         const etfBacktest = await runParallelBacktest({
           prices: emulationPricesByIndex.sp500,
           rates,
-          startDate,
+          startDate: simulationStartDate,
           endDate,
           configs: etfConfigs,
           riskOffPricesByAsset: rawRiskOffSeriesByAsset,
@@ -677,8 +690,8 @@ export function FuturesPageContent({
       }
 
       // Build a global date axis as the union of SP + NQ dates in range.
-      const spDisplay = validateSimulationReadyPrices("sp500", spPrices, endDate).filter((p) => p.date >= startDate && p.date <= endDate);
-      const nqDisplay = validateSimulationReadyPrices("nasdaq100", nqPrices, endDate).filter((p) => p.date >= startDate && p.date <= endDate);
+      const spDisplay = validateSimulationReadyPrices("sp500", spPrices, endDate).filter((p) => p.date >= spxStartDate && p.date <= endDate);
+      const nqDisplay = validateSimulationReadyPrices("nasdaq100", nqPrices, endDate).filter((p) => p.date >= ndxStartDate && p.date <= endDate);
       const dateSet = new Set<string>([...spDisplay.map((p) => p.date), ...nqDisplay.map((p) => p.date)]);
       const globalDates = Array.from(dateSet).sort((a, b) => a.localeCompare(b));
 
@@ -755,6 +768,7 @@ export function FuturesPageContent({
 
       save({
         startDate,
+        perIndexStart,
         endDate,
         windowLength,
         smaSpPeriod,
@@ -809,6 +823,10 @@ export function FuturesPageContent({
     smaSpPeriod,
     smaVolGate,
     startDate,
+    perIndexStart,
+    spxStartDate,
+    ndxStartDate,
+    simulationStartDate,
     updateUrl,
     windowLength,
   ]);
@@ -837,6 +855,7 @@ export function FuturesPageContent({
         <SharedToolInputs
           values={{
             startDate,
+            perIndexStart,
             endDate,
             windowLength,
             smaSpPeriod,

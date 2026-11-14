@@ -21,6 +21,7 @@ import type { EtfConfig } from "@/lib/simulation/types";
 import { CONSTANT_SP500_SHORTCUT_DATE } from "../constants";
 import { DEFAULT_RISK_OFF_ASSETS } from "../simulation/defaults";
 import { parseRiskOffUrlParams } from "@/lib/risk-off-url-params";
+import { PER_INDEX_EARLIEST_START_DATE, readPerIndexStartUrlParam } from "@/lib/per-index-start";
 import { hasMeaningfulSearchParams } from "@/lib/tools-route";
 import { parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import {
@@ -37,6 +38,8 @@ const STORAGE_KEY = "shared-inputs";
 type SharedInputs = {
   letf: string;
   startDate: string;
+  /** "SPX/NDX start": each index from its own real series (see per-index-start.ts). */
+  perIndexStart: boolean;
   endDate: string;
   windowLength: number;
   smaSpPeriod: number;
@@ -57,6 +60,7 @@ type SharedInputs = {
 export const SHARED_KEYS = new Set<string>([
   "letf",
   "startDate",
+  "perIndexStart",
   "endDate",
   "windowLength",
   "smaSpPeriod",
@@ -78,6 +82,7 @@ export const SHARED_KEYS = new Set<string>([
 const DEFAULTS: SharedInputs = {
   letf: DEFAULT_COMBO_PRESET,
   startDate: CONSTANT_SP500_SHORTCUT_DATE,
+  perIndexStart: false,
   endDate: getIsoDate(new Date()),
   windowLength: getDefaultWindowLength(),
   smaSpPeriod: getDefaultSmaPeriod("sp500"),
@@ -106,10 +111,14 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     smaNqUpperBuffer: { min: 0 },
     smaNqLowerBuffer: { min: 0 },
   });
+  const perIndexStart = normalizeBooleanValue(base.perIndexStart, false);
 
   return {
     letf: normalizePresetKey(base.letf, DEFAULT_COMBO_PRESET),
-    startDate: normalizeDateString(base.startDate, CONSTANT_SP500_SHORTCUT_DATE),
+    startDate: perIndexStart
+      ? PER_INDEX_EARLIEST_START_DATE
+      : normalizeDateString(base.startDate, CONSTANT_SP500_SHORTCUT_DATE),
+    perIndexStart,
     endDate: normalizeDateString(base.endDate, today),
     windowLength: normalizeNumberValue(base.windowLength, getDefaultWindowLength(), { integer: true, min: 1 }),
     smaSpPeriod: normalizeNumberValue(base.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }),
@@ -187,6 +196,8 @@ export function getSharedInputs(urlParams?: URLSearchParams): {
     const p = effectiveUrlParams;
     if (p.has("letf")) merged.letf = p.get("letf")!;
     if (p.has("sd")) merged.startDate = p.get("sd")!;
+    const urlPerIndexStart = readPerIndexStartUrlParam(p);
+    if (urlPerIndexStart !== undefined) merged.perIndexStart = urlPerIndexStart;
     if (p.has("ed")) merged.endDate = p.get("ed")!;
     if (p.has("py")) {
       merged.windowLength = Number(p.get("py")) || merged.windowLength;

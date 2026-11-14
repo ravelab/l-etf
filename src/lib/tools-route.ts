@@ -1,4 +1,5 @@
 import { urlSmaBuffersMatchState } from "@/lib/sma-buffer-url-params";
+import { readPerIndexStartUrlParam } from "@/lib/per-index-start";
 import { riskOffUrlParamsMatchState } from "@/lib/risk-off-url-params";
 
 export const TOOL_TABS = [
@@ -166,6 +167,9 @@ export function persistedToolStateMatchesUrl(state: Record<string, unknown>, par
   if (sd && (state.startDate == null || String(state.startDate) !== sd)) return false;
   const ed = params.get("ed");
   if (ed && (state.endDate == null || String(state.endDate) !== ed)) return false;
+  // "SPX/NDX start" runs each index from its own date, so the same `sd` can be two runs.
+  const urlPerIndexStart = readPerIndexStartUrlParam(params);
+  if (urlPerIndexStart !== undefined && urlPerIndexStart !== (state.perIndexStart === true)) return false;
 
   if (!urlNumMatchesState(params, "py", state.windowLength)) return false;
 

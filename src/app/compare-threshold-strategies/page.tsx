@@ -108,6 +108,7 @@ export function CompareBufferStrategiesPageContent({
 
   const {
     letf, setLetf, index, setIndex, startDate, endDate, setEndDate,
+    perIndexStart, startDateForIndex,
     windowLength,
     smaSpPeriod, setSmaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, setSmaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
     spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
@@ -428,7 +429,7 @@ export function CompareBufferStrategiesPageContent({
 
     const allSweepRows = await runParallelSimulations({
       prices, rates,
-      windowLength, startDate, endDate,
+      windowLength, startDate: startDateForIndex(presetDef.index), endDate,
       configs: items.map(i => i.config),
       paramValues: Object.fromEntries(items.map((i) => [i.config.id, i.paramValue])),
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
@@ -468,7 +469,7 @@ export function CompareBufferStrategiesPageContent({
     });
 
     return { rows: symRows, baseline: bl };
-  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, windowLength, startDate, endDate, setRunProgress]);
+  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, windowLength, startDateForIndex, endDate, setRunProgress]);
 
   const buildSmaBufferUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -575,7 +576,7 @@ export function CompareBufferStrategiesPageContent({
       prices: ctx.prices,
       rates: ctx.rates,
       windowLength,
-      startDate,
+      startDate: startDateForIndex(presetDef.index),
       endDate,
       configs: fineConfigs,
       paramValues: Object.fromEntries(fineItems.map((i) => [i.config.id, i.paramValue])),
@@ -595,7 +596,7 @@ export function CompareBufferStrategiesPageContent({
       return { ...row, upperBuffer: u / 100, lowerBuffer: l / 100, stage: "fine" };
     });
     return { rows: [...coarseRows, ...fineRows], fineWindow };
-  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, windowLength, startDate, endDate, setRunProgress]);
+  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaVolGate, minBuffer, maxBuffer, fineStep, coarseStep, fineHalfWidth, windowLength, startDateForIndex, endDate, setRunProgress]);
 
   const handleRun = useCallback(async () => {
     setLoading(true);
@@ -678,7 +679,7 @@ export function CompareBufferStrategiesPageContent({
       setRunSummary(nextRunSummary);
 
       save({
-        letf, index, startDate, endDate, windowLength,
+        letf, index, startDate, perIndexStart, endDate, windowLength,
         smaSpPeriod, smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate,
@@ -763,7 +764,7 @@ export function CompareBufferStrategiesPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaBufferUrlParams, runBufferSweepForPreset, runAsymmetricFineForPreset, setRunSummary, save, clearMetadata, fineStep, coarseStep, fineHalfWidth, maxBuffer, minBuffer, updateUrl, setRunProgress]);
+  }, [perIndexStart, startDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, letf, index, comboSubs, selectedPreset, buildSmaBufferUrlParams, runBufferSweepForPreset, runAsymmetricFineForPreset, setRunSummary, save, clearMetadata, fineStep, coarseStep, fineHalfWidth, maxBuffer, minBuffer, updateUrl, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -784,7 +785,7 @@ export function CompareBufferStrategiesPageContent({
 
         <SharedToolInputs
           values={{
-            letf, startDate, endDate, windowLength,
+            letf, startDate, perIndexStart, endDate, windowLength,
             smaSpPeriod, smaNqPeriod, smaVolGate,
             spxRiskOffAsset, ndxRiskOffAsset,
           }}

@@ -14,6 +14,11 @@ import { appendSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import { appendRiskOffUrlParams, type RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
 import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import {
+  appendPerIndexStartUrlParam,
+  PER_INDEX_EARLIEST_START_DATE,
+  resolveIndexStartDates,
+} from "@/lib/per-index-start";
+import {
   normalizeBooleanValue,
   normalizeDateString,
   normalizeIndexKey,
@@ -34,6 +39,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     letf: shared.letf,
     index: "sp500" as IndexKey,
     startDate: shared.startDate,
+    perIndexStart: shared.perIndexStart,
     endDate: shared.endDate,
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
@@ -78,6 +84,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     next.letf = normalizePresetKey(next.letf, DEFAULT_COMBO_PRESET);
     next.index = normalizeIndexKey(next.index, "sp500");
     next.startDate = normalizeDateString(next.startDate, shared.startDate);
+    next.perIndexStart = normalizeBooleanValue(next.perIndexStart, shared.perIndexStart);
     next.endDate = normalizeDateString(next.endDate, shared.endDate);
     next.windowLength = normalizeNumberValue(next.windowLength, shared.windowLength, { integer: true, min: 1 });
     next.smaSpPeriod = normalizeNumberValue(next.smaSpPeriod, shared.smaSpPeriod, { integer: true, min: 1 });
@@ -108,6 +115,16 @@ export function useToolForm<T extends Record<string, unknown>>(
   const [letf, setLetf] = useState<string>(sanitizedInitial.letf);
   const [index, setIndex] = useState<IndexKey>(initialIndex);
   const [startDate, setStartDate] = useState(sanitizedInitial.startDate);
+  const [perIndexStart, setPerIndexStart] = useState<boolean>(sanitizedInitial.perIndexStart === true);
+  const { sp500: spxStartDate, nasdaq100: ndxStartDate } = useMemo(
+    () => resolveIndexStartDates(startDate, perIndexStart),
+    [startDate, perIndexStart]
+  );
+  /** The first result date for a config on `indexKey`; Start Date unless "SPX/NDX start" is on. */
+  const startDateForIndex = useCallback(
+    (indexKey: IndexKey): string => (indexKey === "nasdaq100" ? ndxStartDate : spxStartDate),
+    [ndxStartDate, spxStartDate]
+  );
   const [endDate, setEndDate] = useState(sanitizedInitial.endDate);
   const [windowLength, setWindowLength] = useState(() => sanitizedInitial.windowLength);
   const [smaSpPeriod, setSmaSpPeriod] = useState(sanitizedInitial.smaSpPeriod);
@@ -138,6 +155,7 @@ export function useToolForm<T extends Record<string, unknown>>(
       applySharedFieldChange(field, value, {
         setters: {
           startDate: setStartDate,
+          perIndexStart: setPerIndexStart,
           endDate: setEndDate,
           windowLength: setWindowLength,
           smaSpPeriod: setSmaSpPeriod,
@@ -156,6 +174,15 @@ export function useToolForm<T extends Record<string, unknown>>(
         },
       });
       persistShared({ [field]: value });
+      // Start Date and "SPX/NDX start" are one choice: picking a date turns the
+      // per-index start off, and turning it on shows its earliest date.
+      if (field === "startDate") {
+        setPerIndexStart(false);
+        persistShared({ perIndexStart: false });
+      } else if (field === "perIndexStart" && value === true) {
+        setStartDate(PER_INDEX_EARLIEST_START_DATE);
+        persistShared({ startDate: PER_INDEX_EARLIEST_START_DATE });
+      }
     },
     [persistShared]
   );
@@ -164,6 +191,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     const urlParams = new URLSearchParams();
     urlParams.set("letf", letf);
     urlParams.set("sd", startDate);
+    appendPerIndexStartUrlParam(urlParams, perIndexStart);
     urlParams.set("ed", endDate);
     urlParams.set("py", String(windowLength));
     urlParams.set("smaPsp", String(smaSpPeriod));
@@ -178,7 +206,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     appendRiskOffUrlParams(urlParams, riskOffAssets);
     return urlParams;
   }, [
-    letf, startDate, endDate, windowLength,
+    letf, startDate, perIndexStart, endDate, windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
     smaVolGate, riskOffAssets
@@ -188,6 +216,8 @@ export function useToolForm<T extends Record<string, unknown>>(
     letf, setLetf,
     index, setIndex,
     startDate, setStartDate,
+    perIndexStart, setPerIndexStart,
+    spxStartDate, ndxStartDate, startDateForIndex,
     endDate, setEndDate,
     windowLength, setWindowLength,
     smaSpPeriod, setSmaSpPeriod,
