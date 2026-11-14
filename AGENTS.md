@@ -202,7 +202,7 @@ or unavailable index data changes which strategies are included.
 
 ## Futures engine: total-return invariant
 
-`src/lib/simulation/futures.ts` must keep a held position earning exactly
+The futures engine (`futures.ts` and its `futures-*` phase modules) must keep a held position earning exactly
 `indexTotalReturn − (rate + fundingSpread) × calendarDays`, where the spread is
 the contract's roll richness over the risk-free rate
 (`DEFAULT_FUTURES_FUNDING_SPREAD_ANNUAL`, 0.35%/yr, charged on notional so it
@@ -342,12 +342,16 @@ snapshot. A standalone futures analysis must validate that baseline before sweep
 
 `simulateFuturesSmaStrategy` is a thin driver over `createFuturesSleeve`, which
 returns a sleeve that can be stepped one day at a time (`stepDay`), read and
-rewritten (`readHoldings` / `writeHoldings`), then closed out (`finish`). The day
-loop became a `stepDay` closure holding all its state as closure variables rather
-than a threaded state object, so the body moved verbatim and every existing rung
-is bit-identical — keep it that way. Its old `continue` is a `return` and its old
-`break` is the `ruined` flag; a new early exit must set that flag, never just
-return, or later days will overwrite the zeroed tail.
+rewritten (`readHoldings` / `writeHoldings`), then closed out (`finish`).
+`futures.ts` only wires a sleeve and runs its day: fixed inputs are in
+`SleeveContext` (`futures-sleeve-context.ts`), everything carried between sessions
+is the mutable `SleeveState` (`futures-sleeve-state.ts`), and each phase of
+`stepDay` is its own module, called in a fixed order (overnight mark → basket exit
+→ flatten/basket entry → open trim → rebalance and rolls → close). It was split
+from one 2,000-line closure by renaming only, checked bit-identical on every daily
+value and ledger row of 50 long-history runs; keep phase order and the order of
+floating-point operations when moving code. A new early exit must set
+`st.ruined`, never just return, or later days will overwrite the zeroed tail.
 
 `futures-dual-sleeve.ts` runs one fund as two sleeves (one per index family),
 never rebalanced against each other except on a day when both were risk-off and
@@ -364,7 +368,7 @@ independent half-size sleeves to the cent. Enabling collateral shares cash bands
 interest thresholds and physical Treasury orders, so independent accounts differ.
 
 Every ledger row carries `holdingsAfter` (dollar value per symbol once it executed),
-stamped by `recordTransaction`. Change the position (`lots`, `riskOffShares`,
+stamped by `recordSleeveTransaction` (`futures-sleeve-ledger.ts`). Change the position (`lots`, `riskOffShares`,
 collateral) BEFORE recording its row, or the stamp shows the pre-trade book. The
 fund builds its ledger in execution order from `attribute` segments, adding the
 other sleeve's positions at that moment. The table re-sorts a day's rows, so it
