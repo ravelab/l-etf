@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { CONSTANT_INITIAL_INVESTMENT } from "@/lib/constants";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
-import { formatAdaptiveMultiple, formatNumber } from "@/lib/format";
+import { formatCompactMultiple, formatNumber } from "@/lib/format";
 import type { StrategyPercentileSeries } from "@/lib/strategy-percentiles";
 import { inverseTransformRealEndValue, transformRealEndValue } from "@/lib/strategy-percentiles";
 
@@ -122,7 +122,7 @@ export function RealEndValuePercentileCard({
             callbacks: {
               title: (items: TooltipItem<"line">[]) => `${formatNumber(Number(items[0]?.parsed.x ?? 0))}% percentile`,
               label: (item: TooltipItem<"line">) =>
-                `${item.dataset.label}: ${formatAdaptiveMultiple(inverseTransformRealEndValue(Number(item.parsed.y ?? 0), logScale) / CONSTANT_INITIAL_INVESTMENT)}`,
+                `${item.dataset.label}: ${formatCompactMultiple(inverseTransformRealEndValue(Number(item.parsed.y ?? 0), logScale) / CONSTANT_INITIAL_INVESTMENT)}`,
             },
           },
         },
@@ -150,7 +150,7 @@ export function RealEndValuePercentileCard({
           },
           ticks: {
             color: colors.tickText,
-            callback: (value: number | string) => `${formatAdaptiveMultiple(inverseTransformRealEndValue(Number(value), logScale) / CONSTANT_INITIAL_INVESTMENT)}`,
+            callback: (value: number | string) => `${formatCompactMultiple(inverseTransformRealEndValue(Number(value), logScale) / CONSTANT_INITIAL_INVESTMENT)}`,
           },
           grid: { color: colors.grid },
         },

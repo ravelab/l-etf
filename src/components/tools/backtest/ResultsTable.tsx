@@ -11,7 +11,7 @@ import {
   calcSortinoRatio,
 } from "@/lib/simulation/metrics";
 import { estimateFuturesAfterTaxCagr, type FuturesTaxRates } from "@/lib/simulation/futures-tax";
-import { formatMultiple, formatPercent } from "@/lib/format";
+import { formatCompactMultiple, formatPercent } from "@/lib/format";
 import { SortButton } from "@/components/ui/SortButton";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import { annualizedInflationForRange, cpiIndexRatioEndOverStart } from "@/lib/inflation";
@@ -419,7 +419,7 @@ function ResultsTableImpl({
               </td>
               <td className="py-2.5 pr-4 text-muted">{r.dates[0] ?? "—"}</td>
               <td className="py-2.5 pr-4 font-medium text-blue-400">
-                {formatMultiple(getRealFinalValueMultiple(r))}
+                {formatCompactMultiple(getRealFinalValueMultiple(r))}
               </td>
               <td
                 className={`py-2.5 pr-4 ${

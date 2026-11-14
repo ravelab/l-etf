@@ -107,6 +107,16 @@ export function formatCompactNumber(value: number): string {
   return compactNumberFormatter.format(Number.isFinite(value) ? value : 0);
 }
 
+const compactMultipleFormatter = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumSignificantDigits: 3,
+});
+
+/** A multiple to three significant figures with a K/M/B suffix (1.2Kx), for charts. */
+export function formatCompactMultiple(value: number): string {
+  return `${compactMultipleFormatter.format(Number.isFinite(value) ? value : 0)}x`;
+}
+
 export function formatDate(dateStr: string): string {
   return dateStr.replaceAll("-", "/");
 }

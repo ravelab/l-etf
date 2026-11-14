@@ -1,4 +1,5 @@
 import type { ChartData, ChartEvent, ChartOptions, LegendElement, LegendItem, LegendOptions, TooltipItem } from "chart.js";
+import { formatCompactMultiple } from "@/lib/format";
 
 function isDarkTheme(): boolean {
   return typeof document !== "undefined" && document.documentElement.classList.contains("dark");
@@ -20,13 +21,8 @@ export function getChartThemeColors() {
   };
 }
 
-function formatPercentCompact(value: number): string {
-  if (!Number.isFinite(value)) return "0%";
-  const rounded = Math.round(value * 100) / 100;
-  if (Math.abs(rounded - Math.round(rounded)) < 1e-9) {
-    return `${Math.round(rounded)}%`;
-  }
-  return `${rounded.toFixed(2)}%`;
+function formatValueMultiple(value: number): string {
+  return formatCompactMultiple(value / 100);
 }
 
 export function createLegendHoverIsolation(): Pick<LegendOptions<"line">, "onClick"> {
@@ -109,7 +105,7 @@ export function createValueChartOptions(
             } else {
               name = String(raw ?? "");
             }
-            return `${name}: ${formatPercentCompact(value)}`;
+            return `${name}: ${formatValueMultiple(value)}`;
           },
         },
       },
@@ -129,7 +125,7 @@ export function createValueChartOptions(
         grid: { color: colors.grid },
         ticks: {
           color: colors.tickText,
-          callback: (v: number | string) => formatPercentCompact(Number(v)),
+          callback: (v: number | string) => formatValueMultiple(Number(v)),
         },
       },
     },

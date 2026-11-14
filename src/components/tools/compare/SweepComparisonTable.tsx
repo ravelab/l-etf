@@ -5,7 +5,7 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import Link from "next/link";
 import { SortButton } from "@/components/ui/SortButton";
 import { InfoPopoverButton } from "@/components/ui/InfoPopoverButton";
-import { formatMultiple, formatPercent, formatCostPercent } from "@/lib/format";
+import { formatCompactMultiple, formatPercent, formatCostPercent } from "@/lib/format";
 import { CONSTANT_INITIAL_INVESTMENT } from "@/lib/constants";
 import { formatDateSpan } from "@/lib/utils";
 import type { SmaComparisonRow } from "@/lib/simulation/types";
@@ -210,7 +210,7 @@ export function SweepComparisonTable({
                     <td className="py-2.5 pr-4 text-muted w-20 leading-tight">{row.earliestStartDate!}</td>
                   )}
                   <td className="py-2.5 pr-4 text-right text-value-accent">
-                    {formatMultiple(row.avgFinalRealValue / CONSTANT_INITIAL_INVESTMENT)}
+                    {formatCompactMultiple(row.avgFinalRealValue / CONSTANT_INITIAL_INVESTMENT)}
                   </td>
                   <td className={`py-2.5 pr-4 text-right ${avg >= 0 ? "text-positive" : "text-negative"}`}>
                     {formatPercent(avg)}
@@ -297,7 +297,7 @@ export function SweepComparisonTable({
                     <td className="py-2.5 pr-4 text-muted w-20 leading-tight">{baseline.earliestStartDate!}</td>
                   )}
                   <td className="py-2.5 pr-4 text-right text-value-accent">
-                    {formatMultiple(baseline.avgFinalRealValue / CONSTANT_INITIAL_INVESTMENT)}
+                    {formatCompactMultiple(baseline.avgFinalRealValue / CONSTANT_INITIAL_INVESTMENT)}
                   </td>
                   <td className={`py-2.5 pr-4 text-right ${blAvg >= 0 ? "text-positive" : "text-negative"}`}>
                     {formatPercent(blAvg)}

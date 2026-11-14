@@ -8,6 +8,7 @@ import {
   formatCurrency,
   formatNumber,
   formatDate,
+  formatCompactMultiple,
 } from "@/lib/format";
 
 test("adaptive multiple formatting increases precision near zero", () => {
@@ -47,6 +48,13 @@ test("formatNumber formats integers with commas", () => {
   assert.equal(formatNumber(12345), "12,345");
   assert.equal(formatNumber(0), "0");
   assert.equal(formatNumber(1000000), "1,000,000");
+});
+
+test("formatCompactMultiple uses compact units and an x suffix", () => {
+  assert.equal(formatCompactMultiple(1.2), "1.2x");
+  assert.equal(formatCompactMultiple(1200), "1.2Kx");
+  assert.equal(formatCompactMultiple(2400000000), "2.4Bx");
+  assert.equal(formatCompactMultiple(Infinity), "0x");
 });
 
 test("formatDate replaces dashes with slashes", () => {
