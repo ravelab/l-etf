@@ -19,13 +19,14 @@ function sleeveParams(
   index: IndexKey,
   leverage: number,
   maxLeverage: number | undefined,
-  sma: SmaBand
+  sma: SmaBand,
+  startDate = "1990-01-01"
 ) {
   return {
     index,
     prices: [] as PricePoint[],
     rates: [] as RatePoint[],
-    startDate: "1990-01-01",
+    startDate,
     endDate: "2020-01-01",
     targetLeverage: leverage,
     maxLeverage,
@@ -102,4 +103,21 @@ test("futures transactions filter: the snapshot keeps exactly what the page list
   assert.equal(showsFuturesTransactions({ index: "sp500", targetLeverage: 3 }, true), true);
   assert.equal(showsFuturesTransactions({ index: "sp500", targetLeverage: 4.5 }, true), false);
   assert.equal(showsFuturesTransactions({ index: "sp500", targetLeverage: 5 }, false), false);
+});
+
+test("futures run plans: with SPX/NDX start a fund's two sleeves both start on the later date", () => {
+  // A sleeve whose index has no data yet would sit frozen at half the fund's equity.
+  const steps = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, bands: BANDS });
+  const startDateFor = (index: IndexKey) => (index === "sp500" ? "1988-04-06" : "1985-01-31");
+  const plans = buildFuturesRunPlans({ steps, initialEquity: 100_000, startDateFor, sleeveParams });
+
+  for (const plan of plans) {
+    if (plan.kind === "dual") {
+      assert.equal(plan.dual.primary.startDate, "1988-04-06");
+      assert.equal(plan.dual.secondary.startDate, "1988-04-06");
+    } else {
+      assert.equal(plan.single.startDate, startDateFor(plan.single.index), plan.single.displayName ?? plan.single.index);
+    }
+  }
+  assert.ok(plans.some((plan) => plan.kind === "single" && plan.single.startDate === "1985-01-31"), "NDX rungs keep 1985");
 });

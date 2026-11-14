@@ -84,9 +84,10 @@ const NQ = points([200, 203, 206, 209, 212, 215, 180, 160, 150, 148, 147, 150, 1
 const SGOV = points(SP.map(() => 100));
 const RATES = [{ date: SP[0].date, rateType: "borrow", rateValue: 0.02 }];
 
-async function comboRun(): Promise<BacktestResult> {
+async function comboRun(displayStartDates: [string?, string?] = []): Promise<BacktestResult> {
   const configs = (["UPRO", "TQQQ"] as const).map((name, k) => createPresetEtfConfig(`etf${k + 1}`, ETF_PRESETS[name], {
     smaEnabled: true, smaPeriod: 3, smaUpperBuffer: 0, smaLowerBuffer: 0, riskOffAsset: "SGOV",
+    ...(displayStartDates[k] ? { displayStartDate: displayStartDates[k] } : {}),
   }));
   return runParallelBacktest({
     prices: SP, rates: RATES, startDate: SP[0].date, endDate: SP.at(-1)!.date, configs,
@@ -121,4 +122,23 @@ test("the backtest page appends the fund only to a UPRO+TQQQ run", async () => {
   assert.equal(withLetfComboFund(shown, run), shown, "applying it twice adds nothing");
   assert.equal(withLetfComboFund(result, { ...run, letf: "UPRO" }), result);
   assert.equal(withLetfComboFund(result, null), result);
+});
+
+test("with SPX/NDX start the fund opens on the later sleeve's start", async () => {
+  // UPRO starts later than TQQQ, as SPX (1988) does against NDX (1985). The fund
+  // used to be dropped because its sleeves' first dates differed.
+  const later = SP[4].date;
+  const run = { letf: "UPRO+TQQQ", spxRiskOffAsset: "SGOV", ndxRiskOffAsset: "SGOV" };
+  const staggered = withLetfComboFund(await comboRun([later, SP[0].date]), run)!;
+  const fund = staggered.etfResults.find((etf) => etf.id === LETF_FUND_RESULT_ID);
+  assert.ok(fund, "the fund row must be present");
+  assert.equal(fund.dates[0], later);
+  assert.equal(staggered.etfResults.find((etf) => etf.id === "etf2-sma")!.dates[0], SP[0].date, "TQQQ's own row keeps its start");
+
+  // Trimming TQQQ to the later start must match simulating it from there.
+  const aligned = withLetfComboFund(await comboRun([later, later]), run)!;
+  const reference = aligned.etfResults.find((etf) => etf.id === LETF_FUND_RESULT_ID)!;
+  assert.deepEqual(fund.dates, reference.dates);
+  fund.dailyValues.forEach((value, i) => assert.ok(near(value, reference.dailyValues[i]), `${fund.dates[i]}: ${value} vs ${reference.dailyValues[i]}`));
+  assert.ok(near(fund.finalValue, reference.finalValue));
 });

@@ -34,12 +34,12 @@ import {
 import {
   CHART_COLORS,
   CONSTANT_INITIAL_INVESTMENT,
-  CONSTANT_SP500_SHORTCUT_DATE,
   LABEL_INDEX_NASDAQ100_TR,
   LABEL_INDEX_SP500_TR,
   RISK_OFF_ASSET_OPTIONS,
   getRiskOffFetchTickers,
 } from "../src/lib/constants";
+import { DEFAULT_START_SELECTION, resolveIndexStartDates } from "../src/lib/per-index-start";
 import type {
   BacktestResult,
   EtfConfig,
@@ -227,6 +227,8 @@ type ComboSingleResult = {
 type SharedInputs = {
   preset: string;
   startDate: string;
+  /** "SPX/NDX start": each index from its own real series (see per-index-start.ts). */
+  perIndexStart: boolean;
   endDate: string;
   windowLength: number;
   smaSpPeriod: number;
@@ -240,6 +242,15 @@ type SharedInputs = {
   ndxRiskOffAsset: RiskOffAsset;
   smaExecutionMode: NonNullable<EtfConfig["smaExecutionMode"]>;
 };
+
+/** The first result date on `index`, as the pages' `startDateForIndex` resolves it. */
+function startDateFor(shared: SharedInputs, index: IndexKey): string {
+  return resolveIndexStartDates(shared.startDate, shared.perIndexStart)[index];
+}
+
+function latestDate(a: string, b: string): string {
+  return a > b ? a : b;
+}
 
 /** What `shared` holds while risk-off on this index, as the pages resolve it per config. */
 function riskOffAssetFor(shared: SharedInputs, index: IndexKey): RiskOffAsset {
@@ -267,7 +278,8 @@ async function main() {
   ]);
   const sharedInputs: SharedInputs = {
     preset: DEFAULT_COMBO_PRESET,
-    startDate: CONSTANT_SP500_SHORTCUT_DATE,
+    startDate: DEFAULT_START_SELECTION.startDate,
+    perIndexStart: DEFAULT_START_SELECTION.perIndexStart,
     endDate: snapshotEndDate,
     windowLength: getDefaultWindowLength(),
     smaSpPeriod: calibration?.sp500.smaPeriod ?? getDefaultSmaPeriod("sp500"),
@@ -395,7 +407,11 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
       smaVolGate: shared.smaVolGate,
       riskOffAsset: riskOffAssetFor(shared, preset.index),
     })
-  ), DEFAULT_EXTRA_STRATEGY_IDS);
+  ), DEFAULT_EXTRA_STRATEGY_IDS).map((cfg) => ({
+    // As the page: each line starts at its own index's start.
+    ...cfg,
+    displayStartDate: latestDate(cfg.displayStartDate ?? "", startDateFor(shared, cfg.smaIndex)),
+  }));
 
   const primaryIndex: IndexKey = resolvedEtfConfigs[0]?.smaIndex ?? "sp500";
   const requiredIndexes = [...new Set(resolvedEtfConfigs.map((cfg) => cfg.smaIndex))] as IndexKey[];
@@ -466,6 +482,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
     preset: shared.preset,
     index: primaryIndex,
     startDate: displayStartDate,
+    perIndexStart: shared.perIndexStart,
     endDate: shared.endDate,
     smaSpPeriod: shared.smaSpPeriod,
     smaNqPeriod: shared.smaNqPeriod,
@@ -489,6 +506,8 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
 
 async function buildFuturesSnapshot(shared: SharedInputs) {
   const startDate = shared.startDate;
+  const spxStartDate = startDateFor(shared, "sp500");
+  const ndxStartDate = startDateFor(shared, "nasdaq100");
   const endDate = shared.endDate;
   const amount = DEFAULT_FUTURES_AMOUNT;
   const leverageTolerancePct = DEFAULT_LEVERAGE_TOLERANCE_PCT;
@@ -541,10 +560,17 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     return { closeByTicker, openByTicker };
   };
 
-  const spInRange = spPrices.filter((p) => p.date >= startDate && p.date <= endDate);
-  const nqInRange = nqPrices.filter((p) => p.date >= startDate && p.date <= endDate);
-  const spRiskOffAligned = buildRiskOffAligned(spInRange);
-  const nqRiskOffAligned = buildRiskOffAligned(nqInRange);
+  // As the page: risk-off series align to each sleeve's own start (a fund's is the later one).
+  const riskOffAlignedCache = new Map<string, ReturnType<typeof buildRiskOffAligned>>();
+  const riskOffAlignedFor = (index: IndexKey, sleeveStartDate: string) => {
+    const key = `${index}|${sleeveStartDate}`;
+    const cached = riskOffAlignedCache.get(key);
+    if (cached) return cached;
+    const indexPrices = index === "sp500" ? spPrices : nqPrices;
+    const aligned = buildRiskOffAligned(indexPrices.filter((p) => p.date >= sleeveStartDate && p.date <= endDate));
+    riskOffAlignedCache.set(key, aligned);
+    return aligned;
+  };
 
   const spPriceAnchor = spPrices[spPrices.length - 1]?.close ?? spPrices[spPrices.length - 1]?.adj_close;
   const nqPriceAnchor = nqPrices[nqPrices.length - 1]?.close ?? nqPrices[nqPrices.length - 1]?.adj_close;
@@ -580,11 +606,12 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     leverage: number,
     maxLeverage: number | undefined,
     sma: SmaBand,
+    sleeveStartDate = startDateFor(shared, index),
   ) => ({
     index,
     prices: index === "sp500" ? spPrices : nqPrices,
     rates,
-    startDate,
+    startDate: sleeveStartDate,
     endDate,
     targetLeverage: leverage,
     treasuryCollateral: true,
@@ -593,8 +620,8 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
     smaVolGate: sma.volGate === true,
     riskOffAsset: riskOffAssetFor(shared, index),
-    riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
-    riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
+    riskOffCloseByTicker: riskOffAlignedFor(index, sleeveStartDate).closeByTicker,
+    riskOffOpenByTicker: riskOffAlignedFor(index, sleeveStartDate).openByTicker,
     leverageTolerancePct,
     rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
     monthlyCpi: inflationData.monthlyCpi,
@@ -606,15 +633,16 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   const futuresRuns: FuturesStrategyResult[] = buildFuturesRunPlans({
     steps: futuresPlan.filter((step) => step.index !== "nasdaq100" || hasNqData),
     initialEquity: amount,
+    startDateFor: (index) => startDateFor(shared, index),
     sleeveParams,
   }).map(runFuturesPlan);
 
   // Global date axis = union of SP + NQ trading days in range, sorted.
   const spDisplay = validateSimulationReadyPrices("sp500", spPrices, endDate).filter(
-    (p) => p.date >= startDate && p.date <= endDate,
+    (p) => p.date >= spxStartDate && p.date <= endDate,
   );
   const nqDisplay = validateSimulationReadyPrices("nasdaq100", nqPrices, endDate).filter(
-    (p) => p.date >= startDate && p.date <= endDate,
+    (p) => p.date >= ndxStartDate && p.date <= endDate,
   );
   const dateSet = new Set<string>([...spDisplay.map((p) => p.date), ...nqDisplay.map((p) => p.date)]);
   const globalDates = Array.from(dateSet).sort((a, b) => a.localeCompare(b));
@@ -684,6 +712,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
 
   return {
     startDate,
+    perIndexStart: shared.perIndexStart,
     endDate,
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
@@ -752,7 +781,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
       rates,
       smaConfig,
       noSmaConfig,
-      startDate: shared.startDate,
+      startDate: startDateFor(shared, sub.index),
       endDate: shared.endDate,
       riskOffValuesByAsset: riskOffSeriesForSub.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeriesForSub.openValuesByAsset,
@@ -766,6 +795,7 @@ async function buildStatisticalAnalysisSnapshot(shared: SharedInputs) {
     preset: shared.preset,
     index: comboSubs[0].index,
     startDate: shared.startDate,
+    perIndexStart: shared.perIndexStart,
     endDate: shared.endDate,
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
@@ -838,7 +868,7 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
       prices: sp500Prices,
       rates,
       windowLength: shared.windowLength,
-      startDate: shared.startDate,
+      startDate: startDateFor(shared, "sp500"),
       endDate: shared.endDate,
       variants: sp500Variants,
       riskOffValuesByAsset: riskOffForSp500.closeValuesByAsset,
@@ -848,7 +878,7 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
       prices: nasdaqPrices,
       rates,
       windowLength: shared.windowLength,
-      startDate: shared.startDate,
+      startDate: startDateFor(shared, "nasdaq100"),
       endDate: shared.endDate,
       variants: nasdaqVariants,
       riskOffValuesByAsset: riskOffForNasdaq.closeValuesByAsset,
@@ -871,7 +901,8 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
     },
     rates,
     windowLength: shared.windowLength,
-    startDate: shared.startDate,
+    // The fund needs both sleeves, so it starts where the later one does (as the page).
+    startDate: latestDate(startDateFor(shared, "sp500"), startDateFor(shared, "nasdaq100")),
     endDate: shared.endDate,
   });
 
@@ -893,6 +924,7 @@ async function buildCompareLetfsSnapshot(shared: SharedInputs) {
 
   return {
     startDate: shared.startDate,
+    perIndexStart: shared.perIndexStart,
     endDate: shared.endDate,
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
@@ -976,7 +1008,7 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
       const windows = buildRollingWindows({
         prices,
         windowLength: shared.windowLength,
-        startDateConstraint: shared.startDate,
+        startDateConstraint: startDateFor(shared, preset.index),
         endDateConstraint: shared.endDate,
       });
       const sweepResults = runPrecomputedSweep({
@@ -1008,6 +1040,7 @@ async function buildCompareRiskOffAssetsSnapshot(shared: SharedInputs) {
     preset: shared.preset,
     index: "sp500" as IndexKey,
     startDate: shared.startDate,
+    perIndexStart: shared.perIndexStart,
     endDate: shared.endDate,
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,
@@ -1059,7 +1092,7 @@ async function buildSmaSweepSnapshot(
     const windows = buildRollingWindows({
       prices,
       windowLength: shared.windowLength,
-      startDateConstraint: shared.startDate,
+      startDateConstraint: startDateFor(shared, preset.index),
       endDateConstraint: shared.endDate,
     });
     // Build all SMA configs + baseline, precompute once, then slice
@@ -1109,6 +1142,7 @@ async function buildSmaSweepSnapshot(
     preset: shared.preset,
     index: "sp500" as IndexKey,
     startDate: shared.startDate,
+    perIndexStart: shared.perIndexStart,
     endDate: shared.endDate,
     windowLength: shared.windowLength,
     minSmaPeriod: params.minSmaPeriod,
@@ -1182,7 +1216,7 @@ async function buildBufferSweepSnapshot(
     const windows = buildRollingWindows({
       prices,
       windowLength: shared.windowLength,
-      startDateConstraint: shared.startDate,
+      startDateConstraint: startDateFor(shared, preset.index),
       endDateConstraint: shared.endDate,
     });
 
@@ -1319,6 +1353,7 @@ async function buildBufferSweepSnapshot(
     preset: shared.preset,
     index: "sp500" as IndexKey,
     startDate: shared.startDate,
+    perIndexStart: shared.perIndexStart,
     endDate: shared.endDate,
     windowLength: shared.windowLength,
     smaSpPeriod: shared.smaSpPeriod,

@@ -153,6 +153,7 @@ export function StatisticalAnalysisPageContent({
     onSnapshot: applyStatSnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    perIndexStart,
     riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<StatisticalSnapshotState>).runSummaryInputs ||

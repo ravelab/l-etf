@@ -459,6 +459,7 @@ export function CompareLETFsPageContent({
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    perIndexStart,
     riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareLetfsSnapshotState>).runSummaryInputs ||

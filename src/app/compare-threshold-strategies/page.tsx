@@ -214,6 +214,7 @@ export function CompareBufferStrategiesPageContent({
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    perIndexStart,
     riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareThresholdSnapshotState>).runSummaryInputs ||

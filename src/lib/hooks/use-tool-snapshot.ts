@@ -26,6 +26,8 @@ type UseToolSnapshotParams<T> = {
   smaVolGate?: boolean;
   /** The form's per-index risk-off assets, held to the snapshot the same way as the gate. */
   riskOffAssets?: RiskOffAssetsByIndex;
+  /** The form's "SPX/NDX start" flag, held to the snapshot the same way as the gate. */
+  perIndexStart?: boolean;
 };
 
 type ApiResponse<T> = {
@@ -56,10 +58,12 @@ export function useToolSnapshot<T = Record<string, unknown>>({
   hasPersistedResults,
   smaVolGate,
   riskOffAssets,
+  perIndexStart,
 }: UseToolSnapshotParams<T>) {
   const appliedRef = useRef(false);
   const smaVolGateRef = useRef(smaVolGate);
   const riskOffAssetsRef = useRef(riskOffAssets);
+  const perIndexStartRef = useRef(perIndexStart);
   const [metadata, setMetadata] = useState<ToolSnapshotMetadata | null>(null);
   const onSnapshotRef = useRef(onSnapshot);
   const onMetadataRef = useRef(onMetadata);
@@ -74,6 +78,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
     hasPersistedResultsRef.current = hasPersistedResults;
     smaVolGateRef.current = smaVolGate;
     riskOffAssetsRef.current = riskOffAssets;
+    perIndexStartRef.current = perIndexStart;
   });
 
   // Restore from localStorage synchronously so the first paint (and follow-up
@@ -144,6 +149,14 @@ export function useToolSnapshot<T = Record<string, unknown>>({
         }
         const formGate = smaVolGateRef.current;
         if (formGate !== undefined && (payload.sharedInputs?.smaVolGate === true) !== formGate) {
+          onNoDataRef.current?.();
+          return;
+        }
+        const formPerIndexStart = perIndexStartRef.current;
+        if (
+          formPerIndexStart !== undefined &&
+          (payload.sharedInputs?.perIndexStart === true) !== formPerIndexStart
+        ) {
           onNoDataRef.current?.();
           return;
         }

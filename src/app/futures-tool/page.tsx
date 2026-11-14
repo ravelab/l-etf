@@ -18,9 +18,13 @@ import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
 import { useRefreshEndDateOnInitialVisit } from "@/lib/hooks/use-refresh-end-date";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { normalizeDateString, normalizeNumberValue, normalizeRiskOffAsset } from "@/lib/input-normalization";
-import { appendPerIndexStartUrlParam, readPerIndexStartUrlParam } from "@/lib/per-index-start";
+import {
+  appendPerIndexStartUrlParam,
+  DEFAULT_START_SELECTION,
+  readPerIndexStartUrlParam,
+} from "@/lib/per-index-start";
 import { getIsoDate } from "@/lib/date";
-import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, INDEX_DATE_RANGES } from "@/lib/constants";
+import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES } from "@/lib/constants";
 import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT, DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import type { BacktestResult, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
 import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
@@ -61,13 +65,6 @@ const EMPTY_UNDERLYING_INDEX_SERIES: Array<{
   dates: string[];
   values: number[];
 }> = [];
-
-/** Futures runs default to the app's SPX start, clamped to the loaded date range. */
-function getFuturesDefaultStartDate(minDate: string, maxDate: string): string {
-  if (CONSTANT_SP500_SHORTCUT_DATE < minDate) return minDate;
-  if (CONSTANT_SP500_SHORTCUT_DATE > maxDate) return maxDate;
-  return CONSTANT_SP500_SHORTCUT_DATE;
-}
 
 function scaleEtfResult(result: EtfResult, scale: number): EtfResult {
   if (!Number.isFinite(scale) || scale <= 0 || scale === 1) return result;
@@ -123,6 +120,7 @@ export function FuturesPageContent({
     perIndexStart,
     spxStartDate,
     ndxStartDate,
+    startDateForIndex,
     endDate,
     windowLength,
     smaSpPeriod,
@@ -262,7 +260,9 @@ export function FuturesPageContent({
       );
     }
     if ((sd == null || sd === "") && !hasCachedResults && !restoredFromCache) {
-      handleFieldChange("startDate", getFuturesDefaultStartDate(dateRange.min, dateRange.max));
+      // A fresh visit opens on the default start rather than whatever another page left shared.
+      if (DEFAULT_START_SELECTION.perIndexStart) handleFieldChange("perIndexStart", true);
+      else handleFieldChange("startDate", DEFAULT_START_SELECTION.startDate);
     }
     const smaPsp = params.get("smaPsp");
     if (smaPsp != null && smaPsp !== "") {
@@ -421,6 +421,8 @@ export function FuturesPageContent({
         "startDate",
         normalizeDateString(snapshot.startDate as string | undefined, dateRange.min)
       );
+      // Setting the date turns "SPX/NDX start" off; a per-index snapshot turns it back on.
+      if (snapshot.perIndexStart === true) handleFieldChange("perIndexStart", true);
       const snapshotRunInputs = snapshot.runSummaryInputs as Record<string, unknown> | undefined;
       // State only: a snapshot's end date describes that run, not a date the user
       // picked, so persisting it would pin later visits to it.
@@ -495,6 +497,7 @@ export function FuturesPageContent({
     },
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    perIndexStart,
     hasPersistedResults: (state) => Boolean(state.result),
   });
 
@@ -579,10 +582,18 @@ export function FuturesPageContent({
 
       // Futures strategies (close execution for futures; risk-off legs execute next-day-open).
       setRunProgress({ pct: 45, label: "Simulating futures strategies..." });
-      const spInRange = spPrices.filter((p) => p.date >= spxStartDate && p.date <= endDate);
-      const nqInRange = nqPrices.filter((p) => p.date >= ndxStartDate && p.date <= endDate);
-      const spRiskOffAligned = buildRiskOffAligned(spInRange);
-      const nqRiskOffAligned = buildRiskOffAligned(nqInRange);
+      // Risk-off series align to the sleeve's own trading window, which a two-sleeve
+      // fund starts at the later index start; one alignment per (index, start).
+      const riskOffAlignedCache = new Map<string, ReturnType<typeof buildRiskOffAligned>>();
+      const riskOffAlignedFor = (index: IndexKey, sleeveStartDate: string) => {
+        const key = `${index}|${sleeveStartDate}`;
+        const cached = riskOffAlignedCache.get(key);
+        if (cached) return cached;
+        const indexPrices = index === "sp500" ? spPrices : nqPrices;
+        const aligned = buildRiskOffAligned(indexPrices.filter((p) => p.date >= sleeveStartDate && p.date <= endDate));
+        riskOffAlignedCache.set(key, aligned);
+        return aligned;
+      };
 
       // "Check Emulations" compares LETF SMAs to the nearest futures ladders only — skip 4.5×/4× SPX
       // and 4× NDX so we do not pay for extra sims; SPX futures line is 3× (not 4×).
@@ -603,12 +614,13 @@ export function FuturesPageContent({
         index: IndexKey,
         leverage: number,
         maxLeverage: number | undefined,
-        sma: SmaBandsByIndex["sp500"]
+        sma: SmaBandsByIndex["sp500"],
+        sleeveStartDate = startDateForIndex(index)
       ) => ({
         index,
         prices: index === "sp500" ? spPrices : nqPrices,
         rates,
-        startDate: index === "sp500" ? spxStartDate : ndxStartDate,
+        startDate: sleeveStartDate,
         endDate,
         targetLeverage: leverage,
         treasuryCollateral: true,
@@ -617,8 +629,8 @@ export function FuturesPageContent({
         smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
         smaVolGate: sma.volGate === true,
         riskOffAsset: riskOffAssets[index],
-        riskOffCloseByTicker: index === "sp500" ? spRiskOffAligned.closeByTicker : nqRiskOffAligned.closeByTicker,
-        riskOffOpenByTicker: index === "sp500" ? spRiskOffAligned.openByTicker : nqRiskOffAligned.openByTicker,
+        riskOffCloseByTicker: riskOffAlignedFor(index, sleeveStartDate).closeByTicker,
+        riskOffOpenByTicker: riskOffAlignedFor(index, sleeveStartDate).openByTicker,
         leverageTolerancePct,
         microFutures,
         rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
@@ -628,7 +640,7 @@ export function FuturesPageContent({
 
       const futuresRuns = await runParallelFuturesStrategies({
         signal,
-        plans: buildFuturesRunPlans({ steps: futuresPlan, initialEquity: amount, sleeveParams }),
+        plans: buildFuturesRunPlans({ steps: futuresPlan, initialEquity: amount, startDateFor: startDateForIndex, sleeveParams }),
         onProgress: (completed, total) => {
           const fraction = total > 0 ? completed / total : 1;
           setRunProgress({ pct: 45 + fraction * 10, label: "Simulating futures strategies..." });
@@ -826,6 +838,7 @@ export function FuturesPageContent({
     perIndexStart,
     spxStartDate,
     ndxStartDate,
+    startDateForIndex,
     simulationStartDate,
     updateUrl,
     windowLength,

@@ -75,7 +75,7 @@ pattern silently discards the entry-spread cost.
 
 There are TWO paths that trim a simulated result down to a display window, and
 they must agree: `sliceBacktestResultToWindow` (engine.ts, the warm-up trim used
-by `simulateWithWarmUp`) and `trimEtfResultToStartDate` (parallel.ts). Both must
+by `simulateWithWarmUp`) and `trimEtfResultToStartDate` (trim-etf-result.ts). Both must
 (a) resolve `endInRiskOff` as well as `startInRiskOff` and deduct the exit
 spread, and (b) recompute `totalTradingCostPct` from the signals that land
 *inside* the window — the incoming value covers warm-up trades that happened
@@ -136,13 +136,20 @@ means `npm run snapshots:generate` and re-measuring the worst-time windows
 
 ## Tool pages: Start Date and "SPX/NDX start"
 
-Start Date is the one start every tool page runs from. "SPX/NDX start" (an
-option in its preset dropdown; shared input `perIndexStart`, URL `sdi=1`) is a
-flag on top of it: SPX from 1988-04-06 and NDX from 1985-01-31 in the same run.
-Pages take each config's start from the form's `startDateForIndex(index)`
-(`per-index-start.ts`). Never store separate per-index dates: the first version
-did, they silently overrode Start Date, and "SPX proto" still ran from 1988/1985.
-Picking a date clears the flag; a URL with `sd` but no `sdi=1` is a common start.
+Start Date is the one start every tool page runs from. "SPX/NDX start" (the
+default; an option in its preset dropdown; shared input `perIndexStart`, URL
+`sdi=1`) is a flag on top of it: SPX from 1988-04-06 and NDX from 1985-01-31 in
+the same run. Pages take each config's start from the form's
+`startDateForIndex(index)` (`per-index-start.ts`). Never store separate per-index
+dates: the first version did, they silently overrode Start Date, and "SPX proto"
+still ran from 1988/1985. Picking a date clears the flag; a URL with `sd` but no
+`sdi=1` is a common start. Canned snapshots are gated on the flag like the vol gate.
+
+A two-sleeve fund needs both sleeves, so it opens on the LATER start: the futures
+fund through `buildFuturesRunPlans`' `startDateFor` (each sleeve's risk-off series
+must be aligned to that date), the UPRO/TQQQ fund by trimming the earlier sleeve
+with `trimEtfResultToStartDate`. Otherwise the futures sleeve with no data sits
+frozen at half the fund's equity, and `composeLetfDualSleeveFund` drops the row.
 
 ## Tool pages: cancellation and run races
 

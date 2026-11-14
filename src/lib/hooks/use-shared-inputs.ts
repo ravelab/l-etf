@@ -21,7 +21,11 @@ import type { EtfConfig } from "@/lib/simulation/types";
 import { CONSTANT_SP500_SHORTCUT_DATE } from "../constants";
 import { DEFAULT_RISK_OFF_ASSETS } from "../simulation/defaults";
 import { parseRiskOffUrlParams } from "@/lib/risk-off-url-params";
-import { PER_INDEX_EARLIEST_START_DATE, readPerIndexStartUrlParam } from "@/lib/per-index-start";
+import {
+  DEFAULT_START_SELECTION,
+  PER_INDEX_EARLIEST_START_DATE,
+  readPerIndexStartUrlParam,
+} from "@/lib/per-index-start";
 import { hasMeaningfulSearchParams } from "@/lib/tools-route";
 import { parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
 import {
@@ -81,8 +85,8 @@ export const SHARED_KEYS = new Set<string>([
 
 const DEFAULTS: SharedInputs = {
   letf: DEFAULT_COMBO_PRESET,
-  startDate: CONSTANT_SP500_SHORTCUT_DATE,
-  perIndexStart: false,
+  startDate: DEFAULT_START_SELECTION.startDate,
+  perIndexStart: DEFAULT_START_SELECTION.perIndexStart,
   endDate: getIsoDate(new Date()),
   windowLength: getDefaultWindowLength(),
   smaSpPeriod: getDefaultSmaPeriod("sp500"),

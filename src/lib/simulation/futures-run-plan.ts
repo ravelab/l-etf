@@ -61,41 +61,49 @@ export function buildFuturesRunPlans(params: {
   steps: readonly FuturesLadderStep[];
   /** Whole-rung equity at inception; a two-sleeve fund halves it internally. */
   initialEquity: number;
+  /**
+   * Each index's first trading date ("SPX/NDX start"). A two-sleeve fund needs both
+   * sleeves, so both start at the later of the two: a sleeve with no data yet would
+   * sit frozen at half the fund's equity. Omitted, every sleeve uses the caller's start.
+   */
+  startDateFor?: (index: IndexKey) => string;
+  /** `startDate` is where this sleeve trades from; its risk-off series must align to it. */
   sleeveParams: (
     index: IndexKey,
     leverage: number,
     maxLeverage: number | undefined,
-    sma: SmaBand
+    sma: SmaBand,
+    startDate: string | undefined
   ) => FuturesSleeveParams;
 }): FuturesRunPlan[] {
-  const { steps, initialEquity, sleeveParams } = params;
-  return steps.map((step) =>
-    step.secondary
-      ? {
-          kind: "dual" as const,
-          dual: {
-            displayName: step.displayName ?? "Dual sleeve SMA",
-            initialEquity,
-            ...withRiskOffAssets(
-              sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
-              sleeveParams(
-                step.secondary.index,
-                step.secondary.leverage,
-                step.secondary.maxLeverage,
-                step.secondary.sma
-              ),
-              { primary: step.riskOffAsset, secondary: step.secondary.riskOffAsset }
-            ),
-          },
-        }
-      : {
-          kind: "single" as const,
-          single: {
-            ...sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma),
-            ...(step.riskOffAsset ? { riskOffAsset: step.riskOffAsset } : {}),
-            initialEquity,
-            displayName: step.displayName,
-          },
-        }
-  );
+  const { steps, initialEquity, startDateFor, sleeveParams } = params;
+  return steps.map((step) => {
+    if (!step.secondary) {
+      return {
+        kind: "single" as const,
+        single: {
+          ...sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma, startDateFor?.(step.index)),
+          ...(step.riskOffAsset ? { riskOffAsset: step.riskOffAsset } : {}),
+          initialEquity,
+          displayName: step.displayName,
+        },
+      };
+    }
+    const { secondary } = step;
+    const fundStartDate = startDateFor
+      ? [startDateFor(step.index), startDateFor(secondary.index)].reduce((a, b) => (a > b ? a : b))
+      : undefined;
+    return {
+      kind: "dual" as const,
+      dual: {
+        displayName: step.displayName ?? "Dual sleeve SMA",
+        initialEquity,
+        ...withRiskOffAssets(
+          sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma, fundStartDate),
+          sleeveParams(secondary.index, secondary.leverage, secondary.maxLeverage, secondary.sma, fundStartDate),
+          { primary: step.riskOffAsset, secondary: secondary.riskOffAsset }
+        ),
+      },
+    };
+  });
 }

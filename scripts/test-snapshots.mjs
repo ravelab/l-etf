@@ -49,6 +49,7 @@ const PAGE_CONFIGS = [
       return withCommonParams(
         {
           sd: pageState.startDate,
+          sdi: pageState.perIndexStart ? 1 : null,
           ed: pageState.endDate,
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
@@ -68,6 +69,7 @@ const PAGE_CONFIGS = [
         {
           preset: pageState.preset,
           sd: pageState.startDate,
+          sdi: pageState.perIndexStart ? 1 : null,
           ed: pageState.endDate,
           py: pageState.windowLength,
           minP: pageState.minSmaPeriod,
@@ -88,6 +90,7 @@ const PAGE_CONFIGS = [
         {
           preset: pageState.preset,
           sd: pageState.startDate,
+          sdi: pageState.perIndexStart ? 1 : null,
           ed: pageState.endDate,
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
@@ -111,6 +114,7 @@ const PAGE_CONFIGS = [
         {
           preset: pageState.preset,
           sd: pageState.startDate,
+          sdi: pageState.perIndexStart ? 1 : null,
           ed: pageState.endDate,
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
@@ -128,6 +132,7 @@ const PAGE_CONFIGS = [
       return withCommonParams(
         {
           sd: pageState.startDate,
+          sdi: pageState.perIndexStart ? 1 : null,
           ed: pageState.endDate,
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,
@@ -148,6 +153,7 @@ const PAGE_CONFIGS = [
         {
           letf: pageState.letf || pageState.preset,
           sd: pageState.startDate,
+          sdi: pageState.perIndexStart ? 1 : null,
           ed: pageState.endDate,
           smaPsp: pageState.smaSpPeriod,
           smaPnq: pageState.smaNqPeriod,
@@ -177,6 +183,7 @@ const PAGE_CONFIGS = [
       return withCommonParams(
         {
           sd: pageState.startDate,
+          sdi: pageState.perIndexStart ? 1 : null,
           ed: pageState.endDate,
           py: pageState.windowLength,
           smaPsp: pageState.smaSpPeriod,

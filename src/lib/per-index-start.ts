@@ -43,3 +43,9 @@ export function appendPerIndexStartUrlParam(params: URLSearchParams, perIndexSta
   if (perIndexStart) params.set(PER_INDEX_START_URL_PARAM, "1");
   else params.delete(PER_INDEX_START_URL_PARAM);
 }
+
+/** The start every tool page opens with: "SPX/NDX start". */
+export const DEFAULT_START_SELECTION = {
+  startDate: PER_INDEX_EARLIEST_START_DATE,
+  perIndexStart: true,
+} as const;

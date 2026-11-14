@@ -44,6 +44,7 @@ export function buildCompareLetfsParams(pageState) {
   return withCommonParams(
     {
       sd: pageState.startDate,
+      sdi: pageState.perIndexStart ? 1 : null,
       ed: pageState.endDate,
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
@@ -63,6 +64,7 @@ export function buildCompareRiskoffParams(pageState) {
     {
       preset: pageState.preset,
       sd: pageState.startDate,
+      sdi: pageState.perIndexStart ? 1 : null,
       ed: pageState.endDate,
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
@@ -80,6 +82,7 @@ export function buildCompareSmaParams(pageState) {
     {
       preset: pageState.preset,
       sd: pageState.startDate,
+      sdi: pageState.perIndexStart ? 1 : null,
       ed: pageState.endDate,
       py: pageState.windowLength,
       minP: pageState.minSmaPeriod,
@@ -104,6 +107,7 @@ export function buildCompareSmaHydrationParams(pageState) {
     {
       preset: pageState.preset,
       sd: pageState.startDate,
+      sdi: pageState.perIndexStart ? 1 : null,
       ed: pageState.endDate,
     },
     pageState
@@ -116,6 +120,7 @@ export function buildCompareThresholdParams(pageState) {
     {
       preset: pageState.preset,
       sd: pageState.startDate,
+      sdi: pageState.perIndexStart ? 1 : null,
       ed: pageState.endDate,
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
@@ -139,6 +144,7 @@ export function buildCompareThresholdHydrationParams(pageState) {
     {
       preset: pageState.preset,
       sd: pageState.startDate,
+      sdi: pageState.perIndexStart ? 1 : null,
       ed: pageState.endDate,
     },
     pageState
@@ -151,6 +157,7 @@ export function buildStatisticalAnalysisParams(pageState) {
     {
       letf: pageState.preset,
       sd: pageState.startDate,
+      sdi: pageState.perIndexStart ? 1 : null,
       ed: pageState.endDate,
       py: pageState.windowLength,
       smaPsp: pageState.smaSpPeriod,
@@ -169,6 +176,7 @@ export function buildBacktestParams(pageState) {
   const entries = {
     letf: pageState.preset,
     sd: pageState.startDate,
+    sdi: pageState.perIndexStart ? 1 : null,
     ed: pageState.endDate,
     smaPsp: pageState.smaSpPeriod,
     smaPnq: pageState.smaNqPeriod,

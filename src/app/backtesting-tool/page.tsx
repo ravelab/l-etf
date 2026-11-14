@@ -562,6 +562,7 @@ export function BacktestingPageContent({
     onSnapshot: applyBacktestSnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    perIndexStart,
     riskOffAssets,
     // Backtesting does not persist `result` to avoid quota issues, so we always
     // fall back to the server snapshot — no localStorage results to restore.

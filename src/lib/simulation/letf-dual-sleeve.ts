@@ -15,10 +15,11 @@
 // same risk-off asset the move is free, exactly as in the futures fund.
 
 import { CONSTANT_INITIAL_INVESTMENT, formatRiskOffLiquidationAbbrev, getRiskOffSpread } from "@/lib/constants";
-import { getComboSubPresets, DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
+import { createPresetEtfConfig, getComboSubPresets, DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { calcCagr, calcMaxDrawdown, calcMonthlyExtremes, calcSortinoRatio } from "@/lib/simulation/metrics";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
-import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
+import type { BacktestResult, EtfResult, RiskOffAsset } from "@/lib/simulation/types";
+import { trimEtfResultToStartDate } from "@/lib/simulation/trim-etf-result";
 
 export const LETF_FUND_RESULT_ID = "dual-sleeve-letf-sma";
 
@@ -189,11 +190,23 @@ export function withLetfComboFund(
   if (!result || run?.letf !== DEFAULT_COMBO_PRESET) return result;
   if (result.etfResults.some((etf) => etf.id === LETF_FUND_RESULT_ID)) return result;
   // The combo's sub-presets are configs etf1 and etf2, in this order.
-  const [primary, secondary] = getComboSubPresets(DEFAULT_COMBO_PRESET).map((preset, k) => {
+  const subPresets = getComboSubPresets(DEFAULT_COMBO_PRESET);
+  const sleeveRiskOffAssets = [run.spxRiskOffAsset, run.ndxRiskOffAsset] as RiskOffAsset[];
+  const [spxSleeve, ndxSleeve] = subPresets.map((preset, k) => {
     const etf = findEtfResult(result, `etf${k + 1}-sma`);
     return etf && etf.name.startsWith(`${preset.name} (SMA`) ? etf : undefined;
   });
-  if (!primary || !secondary) return result;
+  if (!spxSleeve || !ndxSleeve) return result;
+  // "SPX/NDX start" opens UPRO in 1988 and TQQQ in 1985. The fund needs both, so it
+  // opens on the later start, the earlier sleeve entering there as a fresh position.
+  const fundStartDate = spxSleeve.dates[0] > ndxSleeve.dates[0] ? spxSleeve.dates[0] : ndxSleeve.dates[0];
+  const [primary, secondary] = [spxSleeve, ndxSleeve].map((etf, k) => (
+    etf.dates[0] === fundStartDate
+      ? etf
+      : trimEtfResultToStartDate(etf, fundStartDate, createPresetEtfConfig(`etf${k + 1}`, subPresets[k], {
+          riskOffAsset: sleeveRiskOffAssets[k],
+        }))
+  ));
   const volRsi = primary.name.includes("(SMA Vol RSI") ? " Vol RSI" : "";
   const riskOff = [run.spxRiskOffAsset, run.ndxRiskOffAsset].map(formatRiskOffLiquidationAbbrev).join(" / ");
   const fund = composeLetfDualSleeveFund({

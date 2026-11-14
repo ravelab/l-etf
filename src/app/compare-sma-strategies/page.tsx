@@ -166,6 +166,7 @@ export function CompareSmaStrategiesPageContent({
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
     smaVolGate,
+    perIndexStart,
     riskOffAssets,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareSmaSnapshotState>).runSummaryInputs ||
