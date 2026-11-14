@@ -6,7 +6,7 @@ import { buildFuturesLadderPlan } from "../src/lib/simulation/futures-plan";
 import { buildFuturesRunPlans } from "../src/lib/simulation/futures-run-plan";
 import { loadIndexPrices, loadBorrowRates, loadInflation, loadRiskOffRawSeriesForAssets } from "../src/lib/mcp/server-data";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "../src/lib/fetch-market-data";
-import { getDefaultSmaPeriod, getDefaultSmaUpperBuffer, getDefaultSmaLowerBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSETS, DEFAULT_LEVERAGE_TOLERANCE_PCT } from "../src/lib/simulation/defaults";
+import { getDefaultSmaPeriod, getDefaultSmaUpperBuffer, getDefaultSmaLowerBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSETS, DEFAULT_LEVERAGE_TOLERANCE_PCT, DEFAULT_MICRO_FUTURES } from "../src/lib/simulation/defaults";
 import type { TreasuryHoldings } from "../src/lib/simulation/futures-collateral";
 import type { IndexKey } from "../src/lib/simulation/types";
 import { cpiIndexRatioEndOverStart } from "../src/lib/inflation";
@@ -43,7 +43,7 @@ async function main() {
     const plans = buildFuturesRunPlans({ steps, initialEquity: DEFAULT_FUTURES_AMOUNT,
       sleeveParams: (index: IndexKey, targetLeverage, maxLeverage, sma) => ({ index, prices: prices[index], rates, startDate, endDate,
         targetLeverage, maxLeverage, smaPeriod: sma.period, smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer, smaVolGate: true,
-        riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], treasuryCollateral: true, leverageTolerancePct,
+        riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], treasuryCollateral: true, leverageTolerancePct, microFutures: DEFAULT_MICRO_FUTURES,
         treasuryBuyPreference: scenario.id === "vgsh-above-sma-ndx-only" && index !== "nasdaq100" ? "entry-only" : policy,
         riskOnEntryVgshPct: scenario.entryVgshPct,
         riskOffCloseByTicker: aligned[index].closeValuesByAsset as Record<string, number[]>,
@@ -57,7 +57,9 @@ async function main() {
       if (scenario.id === "sgov-buffer" && plan.kind === "dual" && leverageTolerancePct === DEFAULT_LEVERAGE_TOLERANCE_PCT) {
         const snapshot = JSON.parse(readFileSync("src/lib/tool-snapshots/futures.json", "utf8")).pageState;
         const expected = snapshot.result.etfResults.find((row: { name: string }) => row.name === run.etfResult.name);
-        if (snapshot.startDate !== startDate || snapshot.endDate !== endDate || !expected ||
+        // Under "SPX/NDX start" the form's date is the earlier index's; the fund opens on the later one.
+        const snapshotFundStart = snapshot.perIndexStart ? expected?.dates?.[0] : snapshot.startDate;
+        if (snapshotFundStart !== startDate || snapshot.endDate !== endDate || !expected ||
           Math.abs(expected.cagr - run.etfResult.cagr) > 1e-9 || Math.abs(expected.maxDrawdownPct - run.etfResult.maxDrawdownPct) > 1e-9) {
           throw new Error("Reserve comparison baseline must match the default futures snapshot; regenerate the snapshot if dates changed");
         }
