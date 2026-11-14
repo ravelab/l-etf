@@ -154,6 +154,11 @@ index dates and is superseded by the corrected table above.
 
 ## Leverage tolerance search (2026-11-13)
 
+The search script was removed once the study concluded; recover it with
+`git show 44bec7e:scripts/optimize-futures-tolerance.ts`. Its baseline check
+predates the SGOV-buffer, Micro Futures and "SPX/NDX start" defaults, so a
+rerun must first be brought back in line with the current snapshot.
+
 `EXHAUSTIVE=1 node --import tsx scripts/optimize-futures-tolerance.ts` tests
 0–100% inclusive in 0.1-point increments (one common tolerance for both sleeves).
 Each of four windows opens independently at 50/50: 1988-04-06..2026-11-10,
