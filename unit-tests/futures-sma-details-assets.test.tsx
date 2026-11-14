@@ -119,6 +119,41 @@ describe("futures ledger Assets column", () => {
 });
 
 describe("futures ledger Front/Deferred columns", () => {
+  function combo(transactions: FuturesTransactionRow[]): FuturesStrategyResult {
+    const metrics = { avgActualLeverageRiskOn: 3, maxAbsLeverageDeltaRiskOnPct: 0 };
+    return { ...strategy(transactions), sleeveLeverageMetrics: { primary: metrics, secondary: metrics } };
+  }
+
+  it("shows SPX:NDX separately after each combo trade, including micro equivalents", () => {
+    render(<FuturesSmaDetails annualizedInflation={0} monthlyCpi={[]} strategy={combo([
+      tx({ date: dates[0], action: "buy", instrument: "futures", symbol: "ESZ88", qtyDelta: 2, qtyAfter: 2 }),
+      tx({ date: dates[0], action: "buy", instrument: "futures", symbol: "NQZ88", qtyDelta: 1, qtyAfter: 1 }),
+      tx({ date: dates[0], action: "buy", instrument: "futures", symbol: "MNQZ88", qtyDelta: 8, qtyAfter: 1.8 }),
+    ])} />);
+    expect(cell(0, "Front").textContent).toBe("2:0");
+    expect(cell(1, "Front").textContent).toBe("2:1");
+    expect(cell(2, "Front").textContent).toBe("2:1.8");
+    for (let row = 0; row < 3; row++) expect(cell(row, "Deferred").textContent).toBe("0:0");
+    expect(screen.getByRole("columnheader", { name: "Front" })).toHaveAttribute("title", "SPX:NDX full-contract equivalents");
+  });
+
+  it("counts deferred lots per index and keeps each family's front independent during a merged roll", () => {
+    render(<FuturesSmaDetails annualizedInflation={0} monthlyCpi={[]} strategy={combo([
+      tx({ date: dates[0], action: "buy", instrument: "futures", symbol: "ESM88", qtyDelta: 2, qtyAfter: 2 }),
+      tx({ date: dates[0], action: "buy", instrument: "futures", symbol: "NQM88", qtyDelta: 1, qtyAfter: 1 }),
+      tx({ date: dates[1], action: "buy", instrument: "futures", symbol: "ESU88", qtyDelta: 1, qtyAfter: 3 }),
+      tx({ date: dates[1], action: "buy", instrument: "futures", symbol: "NQU88", qtyDelta: 2, qtyAfter: 3 }),
+      tx({ date: dates[2], action: "sell", instrument: "futures", symbol: "ESM88 (ROLL)", qtyDelta: -2, qtyAfter: 1 }),
+      tx({ date: dates[2], action: "buy", instrument: "futures", symbol: "ESU88 (ROLL)", qtyDelta: 2, qtyAfter: 3 }),
+    ])} />);
+    expect(cell(2, "Front").textContent).toBe("2:1");
+    expect(cell(2, "Deferred").textContent).toBe("1:0");
+    expect(cell(3, "Deferred").textContent).toBe("1:2");
+    expect(cell(4, "Action").textContent).toBe("ROLL");
+    expect(cell(4, "Front").textContent).toBe("3:1");
+    expect(cell(4, "Deferred").textContent).toBe("0:2");
+  });
+
   it("shows a micro leg as a tenth of a full contract instead of rounding it away", () => {
     render(
       <FuturesSmaDetails

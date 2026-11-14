@@ -175,9 +175,27 @@ export function futuresFrontBackQtyAfterEachTransaction(params: {
   index: IndexKey;
   transactions: FuturesTransactionRow[];
   rollDateByQuarter: Map<string, string>;
-}): Array<{ frontQty: number; backQty: number } | null> {
+}): Array<{
+  frontQty: number;
+  backQty: number;
+  byIndex: Record<"sp500" | "nasdaq100", { frontQty: number; backQty: number }>;
+} | null> {
   const lots = new Map<string, number>();
-  const out: Array<{ frontQty: number; backQty: number } | null> = [];
+  const out: ReturnType<typeof futuresFrontBackQtyAfterEachTransaction> = [];
+  const quantities = (tradeDate: string) => {
+    const common = { index: params.index, tradeDate, rollDateByQuarter: params.rollDateByQuarter };
+    return {
+      ...futuresFrontBackQtysFromLots({ ...common, lots }),
+      // A combo's families have independent front quarters during a staggered roll.
+      // Never add ES and NQ quantities into a single displayed contract count.
+      byIndex: {
+        sp500: futuresFrontBackQtysFromLots({ ...common, index: "sp500",
+          lots: new Map([...lots].filter(([s]) => /^(MES|ES)/i.test(s))) }),
+        nasdaq100: futuresFrontBackQtysFromLots({ ...common, index: "nasdaq100",
+          lots: new Map([...lots].filter(([s]) => /^(MNQ|NQ)/i.test(s))) }),
+      },
+    };
+  };
   for (const row of params.transactions) {
     if (row.instrument !== "futures") {
       out.push(null);
@@ -185,27 +203,13 @@ export function futuresFrontBackQtyAfterEachTransaction(params: {
     }
     const sym = stripFuturesLedgerSuffix(row.symbol);
     if (!/^(MES|MNQ|ES|NQ)[HMUZ]\d{2}$/i.test(sym)) {
-      out.push(
-        futuresFrontBackQtysFromLots({
-          index: params.index,
-          tradeDate: row.date,
-          rollDateByQuarter: params.rollDateByQuarter,
-          lots,
-        })
-      );
+      out.push(quantities(row.date));
       continue;
     }
     const nextQty = (lots.get(sym) ?? 0) + row.qtyDelta;
     if (nextQty <= 0) lots.delete(sym);
     else lots.set(sym, nextQty);
-    out.push(
-      futuresFrontBackQtysFromLots({
-        index: params.index,
-        tradeDate: row.date,
-        rollDateByQuarter: params.rollDateByQuarter,
-        lots,
-      })
-    );
+    out.push(quantities(row.date));
   }
   return out;
 }

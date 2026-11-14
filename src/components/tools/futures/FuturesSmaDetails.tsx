@@ -177,6 +177,7 @@ function FuturesSmaDetailsImpl({
     /** Calendar front-strip vs deferred quarterly lots after this row (futures only). */
     frontQtyAfter?: number;
     backQtyAfter?: number;
+    frontBackByIndex?: NonNullable<ReturnType<typeof futuresFrontBackQtyAfterEachTransaction>[number]>["byIndex"];
     /** Change in holdings over the source rows this display row covers. */
     holdingsDelta?: Record<string, number>;
     /** Holdings after this row, replayed in display order (undefined on legacy ledgers). */
@@ -239,7 +240,7 @@ function FuturesSmaDetailsImpl({
           rollSellFill: current.fillPrice,
           rollBuyFill: next.fillPrice,
           ...(fbMerged != null
-            ? { frontQtyAfter: fbMerged.frontQty, backQtyAfter: fbMerged.backQty }
+            ? { frontQtyAfter: fbMerged.frontQty, backQtyAfter: fbMerged.backQty, frontBackByIndex: fbMerged.byIndex }
             : {}),
         });
         i += 2;
@@ -288,7 +289,7 @@ function FuturesSmaDetailsImpl({
             leverageDeltaPctBefore: current.leverageDeltaPctBefore,
             leverageDeltaPct: lastLeg.leverageDeltaPct,
             ...(fbMerged != null
-              ? { frontQtyAfter: fbMerged.frontQty, backQtyAfter: fbMerged.backQty }
+              ? { frontQtyAfter: fbMerged.frontQty, backQtyAfter: fbMerged.backQty, frontBackByIndex: fbMerged.byIndex }
               : {}),
           });
           i = j;
@@ -341,7 +342,7 @@ function FuturesSmaDetailsImpl({
         holdingsDelta: deltaOf(i, i + 1),
         tradeValues: ledgerTradeValues(current),
         ...(current.instrument === "futures" && fb != null
-          ? { frontQtyAfter: fb.frontQty, backQtyAfter: fb.backQty }
+          ? { frontQtyAfter: fb.frontQty, backQtyAfter: fb.backQty, frontBackByIndex: fb.byIndex }
           : {}),
       });
       i += 1;
@@ -503,8 +504,8 @@ function FuturesSmaDetailsImpl({
                 <th className="pb-2 pr-4 font-medium align-bottom">Action</th>
                 <th className="pb-2 pr-4 font-medium align-bottom">Symbol</th>
                 <th className="pb-2 pr-4 font-medium align-bottom text-right">Qty Δ</th>
-                <th className="pb-2 pr-4 font-medium align-bottom text-right">Front</th>
-                <th className="pb-2 pr-4 font-medium align-bottom text-right">Deferred</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right" title={strategy.sleeveLeverageMetrics ? "SPX:NDX full-contract equivalents" : undefined}>Front</th>
+                <th className="pb-2 pr-4 font-medium align-bottom text-right" title={strategy.sleeveLeverageMetrics ? "SPX:NDX full-contract equivalents" : undefined}>Deferred</th>
                 <th className="pb-2 pr-4 font-medium align-bottom text-right">Fill</th>
                 <th className="pb-2 pr-4 font-medium align-bottom text-right">Fees</th>
                 <th className="pb-2 pr-4 font-medium align-bottom text-right">Spread</th>
@@ -574,14 +575,18 @@ function FuturesSmaDetailsImpl({
                       {row.instrument === "futures" &&
                       row.frontQtyAfter != null &&
                       row.backQtyAfter != null
-                        ? formatContractEquivalent(row.frontQtyAfter)
+                        ? strategy.sleeveLeverageMetrics && row.frontBackByIndex
+                          ? `${formatContractEquivalent(row.frontBackByIndex.sp500.frontQty)}:${formatContractEquivalent(row.frontBackByIndex.nasdaq100.frontQty)}`
+                          : formatContractEquivalent(row.frontQtyAfter)
                         : "—"}
                     </td>
                     <td className="py-2.5 pr-4 whitespace-nowrap text-right tabular-nums text-muted">
                       {row.instrument === "futures" &&
                       row.frontQtyAfter != null &&
                       row.backQtyAfter != null
-                        ? formatContractEquivalent(row.backQtyAfter)
+                        ? strategy.sleeveLeverageMetrics && row.frontBackByIndex
+                          ? `${formatContractEquivalent(row.frontBackByIndex.sp500.backQty)}:${formatContractEquivalent(row.frontBackByIndex.nasdaq100.backQty)}`
+                          : formatContractEquivalent(row.backQtyAfter)
                         : "—"}
                     </td>
                     <td className="py-2.5 pr-4 min-w-0 whitespace-normal break-words text-right tabular-nums">
