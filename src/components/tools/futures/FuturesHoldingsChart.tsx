@@ -83,6 +83,11 @@ function FuturesHoldingsChartImpl({ dates, values }: { dates: string[]; values: 
           ...base.plugins?.tooltip,
           callbacks: {
             ...base.plugins?.tooltip?.callbacks,
+            // Lines have no fill color, so the box would show the tooltip's white backing.
+            labelColor: (item: TooltipItem<"line">) => {
+              const color = String(item.dataset.borderColor);
+              return { borderColor: color, backgroundColor: color };
+            },
             footer: (items: TooltipItem<"line">[]) => {
               const first = items[0];
               const date = first ? first.chart.data.labels?.[first.dataIndex] : undefined;
