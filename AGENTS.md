@@ -41,7 +41,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 `dev` is day-to-day; `main` is production (Vercel production branch) and only
 advances by fast-forward from an already-tested `dev` tip (`npm run promote` /
 `npm run ship`). Wire local hooks once with `npm run setup:hooks`
-(`.githooks`: pre-commit = lint/typecheck/knip). Unit tests + coverage and
+(`.githooks`: pre-commit = lint/typecheck/knip; `knip.jsonc` lists script entry points
+explicitly, so a script must be run from package.json/CI or listed there with its
+caller; never glob `scripts/`, which hides scripts nothing runs any more). Unit tests + coverage and
 post-deploy E2E run in GitHub Actions after push. Actions:
 `Test` runs unit on pushes to `dev` and PRs (node:test logic + Vitest/jsdom
 components, overall `src/**` coverage);
