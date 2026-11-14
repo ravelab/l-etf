@@ -54,6 +54,7 @@ import type {
 import {
   DEFAULT_FUTURES_AMOUNT,
   DEFAULT_LEVERAGE_TOLERANCE_PCT,
+  DEFAULT_MICRO_FUTURES,
   DEFAULT_RISK_OFF_ASSETS,
   DEFAULT_SMA_VOL_GATE,
   getDefaultSmaLowerBuffer,
@@ -511,6 +512,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   const endDate = shared.endDate;
   const amount = DEFAULT_FUTURES_AMOUNT;
   const leverageTolerancePct = DEFAULT_LEVERAGE_TOLERANCE_PCT;
+  const microFutures = DEFAULT_MICRO_FUTURES;
 
   const warmedStartDate = getSmaWarmupStartDate(
     startDate,
@@ -623,6 +625,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     riskOffCloseByTicker: riskOffAlignedFor(index, sleeveStartDate).closeByTicker,
     riskOffOpenByTicker: riskOffAlignedFor(index, sleeveStartDate).openByTicker,
     leverageTolerancePct,
+    microFutures,
     rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
     monthlyCpi: inflationData.monthlyCpi,
     futuresPriceAnchor: index === "sp500" ? spPriceAnchor : nqPriceAnchor,
@@ -703,6 +706,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
     amount,
     leverageTolerance: `${leverageTolerancePct}%`,
+    microFutures,
   });
 
   const annualizedInflation =
@@ -726,6 +730,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
     amount,
     leverageTolerancePct,
+    microFutures,
     result: combinedResult,
     futuresDetails: downsampledFuturesRuns,
     annualizedInflation,

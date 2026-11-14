@@ -159,6 +159,12 @@ test("persistedToolStateMatchesUrl requires every present URL field to agree", (
   assert.equal(persistedToolStateMatchesUrl(perIndexState, new URLSearchParams("sd=1985-01-31")), false);
   assert.equal(persistedToolStateMatchesUrl(commonState, new URLSearchParams("sd=1985-01-31&sdi=1")), false);
   assert.equal(persistedToolStateMatchesUrl(commonState, new URLSearchParams("sd=1985-01-31")), true);
+  // A futures run cached with micros on is not the run an `mf=0` link asks for.
+  const microState = { ...state, microFutures: true };
+  assert.equal(persistedToolStateMatchesUrl(microState, new URLSearchParams("sd=2000-01-01&mf=1")), true);
+  assert.equal(persistedToolStateMatchesUrl(microState, new URLSearchParams("sd=2000-01-01&mf=0")), false);
+  assert.equal(persistedToolStateMatchesUrl({ ...state, microFutures: false }, new URLSearchParams("sd=2000-01-01&mf=1")), false);
+  assert.equal(persistedToolStateMatchesUrl(microState, new URLSearchParams("sd=2000-01-01")), true);
   assert.equal(
     persistedToolStateMatchesUrl(state, new URLSearchParams("sd=2000-01-01&ro=GLDM")),
     false,

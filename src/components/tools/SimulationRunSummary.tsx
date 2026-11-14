@@ -115,9 +115,10 @@ export function SimulationRunSummary({
             Leverage Tolerance: <span className="text-foreground">{summary.leverageTolerance}</span>
           </span>
         )}
-        {summary.microFutures && (
+        {summary.microFutures !== undefined && (
           <span className="text-muted min-w-0">
-            Micro Futures: <span className="text-foreground">MES / MNQ remainder</span>
+            Micro Futures:{" "}
+            <span className="text-foreground">{summary.microFutures ? "MES / MNQ remainder" : "Off"}</span>
           </span>
         )}
       </div>

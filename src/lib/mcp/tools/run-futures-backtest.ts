@@ -8,7 +8,7 @@ import { z } from "zod/v4";
 import { simulateFuturesSmaStrategy } from "@/lib/simulation/futures";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import type { EtfConfig } from "@/lib/simulation/types";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_MICRO_FUTURES, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
 import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { loadBorrowRates, loadIndexPrices, loadInflation, loadRiskOffRawSeriesForAssets } from "@/lib/mcp/server-data";
 import { withDisclaimer } from "@/lib/mcp/disclaimer";
@@ -76,6 +76,7 @@ export async function runFuturesBacktestCore(input: FuturesInput) {
     riskOffCloseByTicker: aligned.closeValuesByAsset as Record<string, number[]>,
     riskOffOpenByTicker: aligned.openValuesByAsset as Record<string, number[]>,
     treasuryCollateral: true,
+    microFutures: DEFAULT_MICRO_FUTURES,
     maintenanceMarginRate: input.maintenanceMarginRate,
     monthlyCpi,
   });
@@ -112,7 +113,7 @@ export function registerRunFuturesBacktest(server: McpServer): void {
       title: "Run an index-futures SMA backtest",
       annotations: READ_ONLY_ANNOTATIONS,
       description:
-        "Backtest an SMA timing strategy using index futures (ES/NQ) at a chosen target leverage, with " +
+        "Backtest an SMA timing strategy using index futures (ES/NQ, with the remainder in MES/MNQ micros) at a chosen target leverage, with " +
         "optional leverage cap, quarterly rolls, per-contract fees, and SGOV/VGSH Treasury collateral. No core equities or box loans. Daily opens proxy 10am execution; margin and funding spreads are estimates. Returns CAGR, " +
         "drawdown, final equity, realized leverage, and trade counts. NOT investment advice.",
       inputSchema: z.object({

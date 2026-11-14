@@ -18,6 +18,8 @@ import { buildToolsUrl } from "@/lib/tools-route";
 import { buildFuturesLadderPlan, type SmaBand } from "@/lib/simulation/futures-plan";
 import { SMA_BUFFER_URL_KEYS, SMA_VOL_GATE_URL_KEY } from "@/lib/sma-buffer-url-params";
 import { RISK_OFF_URL_KEYS } from "@/lib/risk-off-url-params";
+import { appendMicroFuturesUrlParam } from "@/lib/micro-futures-url";
+import { DEFAULT_MICRO_FUTURES } from "@/lib/simulation/defaults";
 import type { EtfConfig, IndexKey } from "@/lib/simulation/types";
 
 type RiskOffAsset = EtfConfig["riskOffAsset"];
@@ -104,7 +106,8 @@ function findLadderRung(
  *
  * The link opens the whole ladder, not a single run: the requested rung is one
  * row of it. Leverage tolerance is left off, since page and engine share the
- * same default.
+ * same default. Micro Futures is written out (`mf=1`): the MCP tools run with
+ * `DEFAULT_MICRO_FUTURES`, and a visitor's saved page state may have it off.
  */
 export function futuresLadderPermalink(params: FuturesLinkParams): string | undefined {
   const band: SmaBand = {
@@ -136,6 +139,7 @@ export function futuresLadderPermalink(params: FuturesLinkParams): string | unde
   search.set(RISK_OFF_URL_KEYS[params.index], params.riskOffAsset);
   search.set("amt", String(params.initialEquity));
   if (showEmulations) search.set("em", "1");
+  appendMicroFuturesUrlParam(search, DEFAULT_MICRO_FUTURES);
 
   return `${SITE_URL}${buildToolsUrl("futures", search, { autorun: true })}`;
 }

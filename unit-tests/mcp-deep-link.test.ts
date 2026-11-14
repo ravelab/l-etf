@@ -122,6 +122,8 @@ test("futuresLadderPermalink links a leverage that is an actual ladder rung", ()
   assert.equal(params.get("smaPsp"), "186");
   assert.equal(params.get("smatspU"), "3.6");
   assert.equal(params.get("smatspL"), "3.6");
+  // The MCP runs carry their remainder in micros; a saved page state may not.
+  assert.equal(params.get("mf"), "1");
 });
 
 test("a Nasdaq run writes the nq SMA keys, not the sp ones", () => {

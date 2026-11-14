@@ -1,5 +1,6 @@
 import { urlSmaBuffersMatchState } from "@/lib/sma-buffer-url-params";
 import { readPerIndexStartUrlParam } from "@/lib/per-index-start";
+import { readMicroFuturesUrlParam } from "@/lib/micro-futures-url";
 import { riskOffUrlParamsMatchState } from "@/lib/risk-off-url-params";
 
 export const TOOL_TABS = [
@@ -186,6 +187,8 @@ export function persistedToolStateMatchesUrl(state: Record<string, unknown>, par
   if (!riskOffUrlParamsMatchState(params, state)) return false;
 
   if (!urlNumMatchesState(params, "lt", state.leverageTolerancePct)) return false;
+  const urlMicroFutures = readMicroFuturesUrlParam(params);
+  if (urlMicroFutures !== undefined && urlMicroFutures !== (state.microFutures === true)) return false;
 
   return true;
 }

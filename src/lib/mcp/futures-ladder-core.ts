@@ -18,7 +18,7 @@ import {
 } from "@/lib/simulation/futures-plan";
 import { runParallelFuturesStrategies } from "@/lib/simulation/futures-parallel";
 import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, DEFAULT_FUTURES_AMOUNT, DEFAULT_MICRO_FUTURES, DEFAULT_RISK_OFF_ASSET, DEFAULT_SMA_VOL_GATE } from "@/lib/simulation/defaults";
 import { DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY } from "@/lib/simulation/futures";
 import type { EtfConfig, IndexKey, PricePoint } from "@/lib/simulation/types";
 import {
@@ -167,6 +167,7 @@ export async function runFuturesLadder(params: {
     riskOffAsset,
     riskOffCloseByTicker: (index === "sp500" ? spRiskOff.closeValuesByAsset : nqRiskOff.closeValuesByAsset) as Record<string, number[]>,
     riskOffOpenByTicker: (index === "sp500" ? spRiskOff.openValuesByAsset : nqRiskOff.openValuesByAsset) as Record<string, number[]>,
+    microFutures: DEFAULT_MICRO_FUTURES,
     rollCalendarDaysBeforeExpiry: DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
     monthlyCpi,
   });

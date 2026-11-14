@@ -49,6 +49,13 @@ export const DEFAULT_FUTURES_AMOUNT = 100_000;
  */
 export const DEFAULT_LEVERAGE_TOLERANCE_PCT = 9;
 
+/**
+ * Futures page, its canned snapshot and the MCP futures tools carry each sleeve's
+ * remainder in MES/MNQ by default. The engine's own default stays full-size, so
+ * analytical callers that omit `microFutures` are unchanged.
+ */
+export const DEFAULT_MICRO_FUTURES = true;
+
 /** Convenience: pick the right default SMA period for a given index. */
 export function getDefaultSmaPeriod(index: "sp500" | "nasdaq100"): number {
   return DEFAULT_SMA_BANDS[index].period;

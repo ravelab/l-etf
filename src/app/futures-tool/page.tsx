@@ -25,7 +25,8 @@ import {
 } from "@/lib/per-index-start";
 import { getIsoDate } from "@/lib/date";
 import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES } from "@/lib/constants";
-import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT, DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
+import { DEFAULT_FUTURES_AMOUNT, DEFAULT_LEVERAGE_TOLERANCE_PCT, DEFAULT_MICRO_FUTURES, DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
+import { appendMicroFuturesUrlParam, readMicroFuturesUrlParam } from "@/lib/micro-futures-url";
 import type { BacktestResult, EtfResult, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
 import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
 import {
@@ -172,7 +173,9 @@ export function FuturesPageContent({
     )
   );
   const [showEmulations, setShowEmulations] = useState<boolean>(false);
-  const [microFutures, setMicroFutures] = useState<boolean>(persistedInitial.microFutures === true);
+  const [microFutures, setMicroFutures] = useState<boolean>(
+    typeof persistedInitial.microFutures === "boolean" ? persistedInitial.microFutures : DEFAULT_MICRO_FUTURES
+  );
   const [futuresDetails, setFuturesDetails] = useState<FuturesStrategyResult[] | null>(null);
   const [expandedFuturesSma, setExpandedFuturesSma] = useState<string[]>([]);
   const { runSummary, setRunSummary } = useRunSummary(
@@ -315,13 +318,12 @@ export function FuturesPageContent({
         : null;
     const emParam = params.get("em");
     const wantsEmulations = emParam === "1" || emParam === "true";
-    const mfParam = params.get("mf");
-    const nextMicroFutures = mfParam == null ? null : mfParam === "1" || mfParam === "true";
+    const nextMicroFutures = readMicroFuturesUrlParam(params);
     Promise.resolve().then(() => {
       if (nextAmount != null) setAmount(nextAmount);
       if (nextLeverageTolerance != null) setLeverageTolerancePct(nextLeverageTolerance);
       if (wantsEmulations) setShowEmulations(true);
-      if (nextMicroFutures != null) setMicroFutures(nextMicroFutures);
+      if (nextMicroFutures !== undefined) setMicroFutures(nextMicroFutures);
       setPendingRun(
         active &&
           shouldQueueToolAutorun(
@@ -366,7 +368,7 @@ export function FuturesPageContent({
     appendRiskOffUrlParams(params, riskOffAssets);
     params.set("amt", String(amount));
     params.set("lt", String(leverageTolerancePct));
-    if (microFutures) params.set("mf", "1");
+    appendMicroFuturesUrlParam(params, microFutures);
     if (showEmulations) params.set("em", "1");
 
     markNextSearchAsInternal();
@@ -474,7 +476,7 @@ export function FuturesPageContent({
           { min: 0 }
         )
       );
-      setMicroFutures(snapshot.microFutures === true);
+      setMicroFutures(typeof snapshot.microFutures === "boolean" ? snapshot.microFutures : DEFAULT_MICRO_FUTURES);
       if (snapshot.result) {
         setResult(snapshot.result as BacktestResult);
       } else {

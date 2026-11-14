@@ -44,6 +44,7 @@ export function toValidRunSummary(value: unknown): RunSummary | null {
     tradeAfterHours: typeof v.tradeAfterHours === "boolean" ? v.tradeAfterHours : false,
     amount: typeof v.amount === "number" && Number.isFinite(v.amount) ? v.amount : undefined,
     leverageTolerance: typeof v.leverageTolerance === "string" ? v.leverageTolerance : undefined,
+    microFutures: typeof v.microFutures === "boolean" ? v.microFutures : undefined,
     // Runs saved before the split carry one `riskOffAsset` (or `ro`) that both indices held.
     spxRiskOffAsset: typeof v.spxRiskOffAsset === "string" ? v.spxRiskOffAsset : legacyRiskOffAsset ?? DEFAULT_RISK_OFF_ASSETS.sp500,
     ndxRiskOffAsset: typeof v.ndxRiskOffAsset === "string" ? v.ndxRiskOffAsset : legacyRiskOffAsset ?? DEFAULT_RISK_OFF_ASSETS.nasdaq100,
