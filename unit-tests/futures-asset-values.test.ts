@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  assetValueKey,
-  positionsByAsset,
+  accountComposition,
   toDailyAssetValues,
 } from "@/lib/simulation/futures-asset-values";
 import { simulateFuturesSmaStrategy, type FuturesStrategyParams } from "@/lib/simulation/futures";
@@ -12,47 +11,32 @@ import { simulateDualSleeveFuturesStrategy } from "@/lib/simulation/futures-dual
 import { buildFuturesRunPlans, runFuturesPlan } from "@/lib/simulation/futures-run-plan";
 import type { FuturesLadderStep } from "@/lib/simulation/futures-plan";
 
-test("micros fold into their full-size family; ETFs keep their ticker", () => {
-  assert.equal(assetValueKey("ESZ25"), "ES");
-  assert.equal(assetValueKey("MESZ25"), "ES");
-  assert.equal(assetValueKey("NQH88"), "NQ");
-  assert.equal(assetValueKey("MNQH88"), "NQ");
-  assert.equal(assetValueKey("BRK.B"), "BRK.B");
-  assert.equal(assetValueKey("SGOV"), "SGOV");
+test("futures notional is exposure, not money held; ETFs and margin cash are, and Cash is the rest", () => {
+  const composition = accountComposition([
+    { index: "sp500", positions: { ESZ25: 450_000, MESZ25: 25_000, SGOV: 20_000, VGSH: 60_000 }, marginCash: 15_000, equity: 100_000 },
+  ]);
+  assert.deepEqual(composition, { "SPX margin cash": 15_000, SGOV: 20_000, VGSH: 60_000, Cash: 5_000 });
 });
 
-test("positions sum by asset and drop empty or invalid entries", () => {
-  assert.deepEqual(
-    positionsByAsset({ ESZ25: 400_000, MESZ25: 25_000, ESH26: 100, SGOV: 50_000, VGSH: 0, GLDM: Number.NaN }),
-    { ES: 425_100, SGOV: 50_000 },
-  );
+test("a fund's margin cash stays split by index while ETFs combine", () => {
+  const composition = accountComposition([
+    { index: "sp500", positions: { ESZ25: 400_000, VGSH: 70_000 }, marginCash: 25_000, equity: 100_000 },
+    { index: "nasdaq100", positions: { NQZ25: 300_000, VGSH: 60_000 }, marginCash: 30_000, equity: 92_000 },
+  ]);
+  assert.deepEqual(composition, { "SPX margin cash": 25_000, "NDX margin cash": 30_000, VGSH: 130_000, Cash: 7_000 });
 });
 
 test("float residue of a position sold to nothing is not a holding", () => {
   // A full SGOV sale can leave ~1e-60 behind; on a log axis that plotted as a cliff.
-  assert.deepEqual(positionsByAsset({ SGOV: 1e-60, VGSH: 0.4, ES: 2e6 }), { ES: 2e6 });
+  const composition = accountComposition([{ index: "sp500", positions: { SGOV: 1e-60, BRK: 1_000 }, equity: 1_000.4 }]);
+  assert.deepEqual(composition, { BRK: 1_000 });
 });
 
-test("a live fund run never records sub-dollar residue", () => {
-  const params = {
-    displayName: "Fund",
-    initialEquity: 1_000_000,
-    primary: sleeve("sp500", 4.5),
-    secondary: sleeve("nasdaq100", 3.5),
-  };
-  const values = simulateDualSleeveFuturesStrategy(params, undefined, { recordAssetValues: true }).dailyAssetValues!;
-  for (const [asset, series] of Object.entries(values)) {
-    assert.ok(series.every((v) => v === 0 || v >= 1), `${asset} carries sub-dollar residue`);
-  }
-});
-
-test("each asset becomes one zero-filled series, futures first", () => {
-  const values = toDailyAssetValues([{ SGOV: 1 }, { ES: 4, SGOV: 2 }, { NQ: 3, BRK: 5 }]);
-  assert.deepEqual(Object.keys(values), ["ES", "NQ", "BRK", "SGOV"]);
-  assert.deepEqual(values.ES, [0, 4, 0]);
-  assert.deepEqual(values.NQ, [0, 0, 3]);
-  assert.deepEqual(values.BRK, [0, 0, 5]);
+test("each asset becomes one zero-filled series: margin cash, ETFs, then Cash", () => {
+  const values = toDailyAssetValues([{ Cash: 1, SGOV: 1 }, { "NDX margin cash": 2, SGOV: 2 }, { "SPX margin cash": 3, BRK: 5 }]);
+  assert.deepEqual(Object.keys(values), ["SPX margin cash", "NDX margin cash", "BRK", "SGOV", "Cash"]);
   assert.deepEqual(values.SGOV, [1, 2, 0]);
+  assert.deepEqual(values.Cash, [1, 0, 0]);
 });
 
 type CsvRow = Record<string, string>;
@@ -128,23 +112,22 @@ test("a single sleeve records one value per result date without changing the run
   const values = recorded.dailyAssetValues!;
   const dates = recorded.etfResult.dates;
   for (const series of Object.values(values)) assert.equal(series.length, dates.length);
-  assert.ok(values.ES, "a 4.5x SPX sleeve holds ES");
-  assert.ok(!Object.keys(values).some((asset) => asset.startsWith("MES")), "micros are folded into ES");
+  assert.ok(!Object.keys(values).some((asset) => /^M?(ES|NQ)/.test(asset)), "no futures notional");
+  assert.ok(values["SPX margin cash"], "a 4.5x SPX sleeve holds margin cash");
 
-  // Notional is leverage × equity: within the tolerance band on a risk-on close.
-  const invested = dates.map((_, k) => values.ES[k] > 0);
-  const riskOnDays = dates.map((_, k) => k).filter((k) => invested[k]);
-  const riskOffDays = dates.map((_, k) => k).filter((k) => !invested[k]);
-  assert.ok(riskOnDays.length > 100 && riskOffDays.length > 10, "the window covers both regimes");
-  for (const k of riskOnDays.filter((_, n) => n % 25 === 0)) {
-    const leverage = values.ES[k] / recorded.etfResult.dailyValues[k];
-    assert.ok(leverage > 3.5 && leverage < 5.5, `${dates[k]}: ES notional is ${leverage.toFixed(2)}x equity`);
+  // Before `finish` liquidates, the composition adds up to the day's equity.
+  const total = (k: number) => Object.values(values).reduce((sum, series) => sum + series[k], 0);
+  for (let k = 0; k < dates.length - 1; k++) {
+    assert.ok(Math.abs(total(k) - recorded.etfResult.dailyValues[k]) < 5, `${dates[k]}: parts sum to equity`);
   }
-  // Out of the market, the book is the Treasury basket.
-  for (const k of riskOffDays) {
-    const treasuries = (values.SGOV?.[k] ?? 0) + (values.VGSH?.[k] ?? 0);
-    assert.ok(treasuries > 0, `${dates[k]}: risk-off holds Treasuries`);
-  }
+  // At 4.5x, 8% maintenance on notional is 36% of equity, plus the sweep buffer;
+  // out of the market only a sub-band remainder is left in the futures account.
+  const share = dates.map((_, k) => values["SPX margin cash"][k] / recorded.etfResult.dailyValues[k]);
+  const riskOn = share.filter((x) => x > 0.05);
+  const riskOff = share.filter((x) => x < 0.01);
+  assert.ok(riskOn.length > 100 && riskOff.length > 10, "the window covers both regimes");
+  assert.equal(riskOn.length + riskOff.length, dates.length, "margin cash is either a margin balance or a remainder");
+  for (const x of riskOn) assert.ok(x > 0.3 && x < 0.55, `risk-on margin cash is ${(x * 100).toFixed(0)}% of equity`);
 });
 
 test("the two-sleeve fund records both indices on the fund's calendar", () => {
@@ -158,7 +141,7 @@ test("the two-sleeve fund records both indices on the fund's calendar", () => {
   const recorded = simulateDualSleeveFuturesStrategy(params, undefined, { recordAssetValues: true });
   assert.deepEqual(recorded.etfResult.dailyValues, plain.etfResult.dailyValues);
   const values = recorded.dailyAssetValues!;
-  assert.ok(values.ES && values.NQ, "the fund holds both ES and NQ");
+  assert.ok(values["SPX margin cash"] && values["NDX margin cash"], "each index keeps its own margin cash");
   for (const series of Object.values(values)) assert.equal(series.length, recorded.etfResult.dates.length);
 });
 
@@ -174,6 +157,6 @@ test("run plans record only the steps the caller asks for", () => {
     recordAssetValuesFor: (step) => step.leverage === 4.5,
   });
   const [shown, hidden] = plans.map(runFuturesPlan);
-  assert.ok(shown.dailyAssetValues?.ES);
+  assert.ok(shown.dailyAssetValues?.["SPX margin cash"]);
   assert.equal(hidden.dailyAssetValues, undefined);
 });

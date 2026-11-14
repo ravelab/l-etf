@@ -30,7 +30,7 @@ import type {
   FuturesTransactionRow,
   SleeveHoldings,
 } from "@/lib/simulation/futures";
-import { createAssetValueRecorder } from "@/lib/simulation/futures-asset-values";
+import { createAssetValueRecorder, sleeveCloseSnapshot } from "@/lib/simulation/futures-asset-values";
 import type { EtfResult } from "@/lib/simulation/types";
 import type { TreasuryHoldings } from "@/lib/simulation/futures-collateral";
 import { FuturesCashAccount } from "./futures-cash-account";
@@ -224,7 +224,10 @@ export function simulateDualSleeveFuturesStrategy(
 
     dailyValues.push(sleeves.reduce((sum, sleeve, s) => sum + sleeve.equityAt(cursor[s]), 0));
     // After the shared account's close, so Treasury maintenance has settled.
-    recorder?.record(addPositions(sleeves[0].positions(), sleeves[1].positions()));
+    recorder?.record([
+      sleeveCloseSnapshot(params.primary.index, sleeves[0], cursor[0]),
+      sleeveCloseSnapshot(params.secondary.index, sleeves[1], cursor[1]),
+    ]);
     if (onCloseTreasuries) {
       const holdings = sleeves.map(sleeve => sleeve.readHoldings());
       onCloseTreasuries(date, combineTreasuries(holdings[0], holdings[1], 1, 1) ?? { SGOV: 0, VGSH: 0 });

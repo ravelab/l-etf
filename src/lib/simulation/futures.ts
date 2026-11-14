@@ -14,7 +14,7 @@
 //   futures-sleeve-ledger / -interest / -cash-member   ledger rows, sweep interest, cash account seat
 
 import { FuturesCashAccount } from "./futures-cash-account";
-import { createAssetValueRecorder } from "./futures-asset-values";
+import { createAssetValueRecorder, sleeveCloseSnapshot } from "./futures-asset-values";
 import { calendarDaysBetweenIso, futuresBasisFillPrice } from "./futures-contracts";
 import { clampToFinite } from "./futures-sizing";
 import { createSleeveContext, MAX_ABS_DIVIDEND_DAILY } from "./futures-sleeve-context";
@@ -208,10 +208,10 @@ export function simulateFuturesSmaStrategy(
   const sleeve = createFuturesSleeve(params);
   // Sampled after each day is stepped and before `finish` liquidates the book.
   const recorder = options.recordAssetValues && sleeve.dates.length > 0 ? createAssetValueRecorder() : null;
-  recorder?.record(sleeve.positions());
+  recorder?.record([sleeveCloseSnapshot(params.index, sleeve, 0)]);
   for (let i = 1; i < sleeve.dates.length; i++) {
     sleeve.stepDay(i);
-    recorder?.record(sleeve.positions());
+    recorder?.record([sleeveCloseSnapshot(params.index, sleeve, i)]);
   }
   const result = sleeve.finish();
   return recorder ? { ...result, dailyAssetValues: recorder.values() } : result;
