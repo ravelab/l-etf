@@ -995,8 +995,8 @@ function buildInvestedForNextDayCloseExecution(invested: boolean[]): boolean[] {
   return shifted;
 }
 
-/** Used by tooling/tests to mirror ETF SMA `next-day-open` execution vs raw `generateSmaSignals` flags. */
-export function buildInvestedForNextDayOpenExecution(invested: boolean[]): boolean[] {
+/** ETF SMA `next-day-open` execution holds the same shifted regime as trigger-day-close execution. */
+function buildInvestedForNextDayOpenExecution(invested: boolean[]): boolean[] {
   return buildInvestedForCloseExecution(invested);
 }
 

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  // knip finds a script's callers in package.json scripts and CI workflows by itself.
+  // List a script here only when its caller is somewhere knip cannot read; never glob
+  // the scripts folder, or a script nothing runs any more is never reported.
+  "entry": [
+    "unit-tests/**/*.test.ts",
+    "unit-tests/**/*.test.tsx",
+
+    // Spawned by other scripts (bounded-sma-command, refresh-sma, build-vercel).
+    "scripts/calibrate-sma.ts",
+    "scripts/explore-sma-space.ts",
+    "scripts/explore-sma-cagr-presets.ts",
+    "scripts/refresh-sma-seeds.ts",
+    "scripts/publish-source-maps.mjs",
+    // Worker processes forked by the SMA searches.
+    "scripts/lib/sma-explore-worker.ts",
+    "scripts/lib/sma-preset-scoring-worker.ts",
+    // Run from shell scripts, vercel.json or an inline `node -e import(...)`.
+    "scripts/print-coverage.mjs",
+    "scripts/unit-coverage-report.mjs",
+    "scripts/ignore-vercel-build.mjs",
+    "scripts/test-snapshots.mjs",
+
+    // Run by hand; each is cited in AGENTS.md or docs/ as a maintenance step.
+    "scripts/build-ndx-1985.ts",
+    "scripts/find-worst-drawdowns.ts",
+    "scripts/compare-collateral-policies.ts"
+  ],
+  "ignore": ["public/sw.js", "e2e-tests/**"]
+}

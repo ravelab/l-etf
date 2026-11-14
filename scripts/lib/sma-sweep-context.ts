@@ -51,9 +51,9 @@ import type {
  * breadth notes in AGENTS.md), so this bounds peak memory — which matters most
  * in `explore-sma-space.ts`, where several worker processes run at once.
  */
-export const SMA_EVAL_CHUNK_SIZE = 120;
+const SMA_EVAL_CHUNK_SIZE = 120;
 
-export interface SmaSweepContext {
+interface SmaSweepContext {
   indexKey: IndexKey;
   startDate: string;
   endDate: string;
@@ -68,14 +68,14 @@ export interface SmaSweepContext {
   windowLength: number;
 }
 
-export interface EvaluatedCombo {
+interface EvaluatedCombo {
   combo: SmaCombo;
   score: number;
   row: SmaComparisonRow;
   smaOnlySwitches: number;
 }
 
-export async function buildSmaSweepContext({
+async function buildSmaSweepContext({
   indexKey,
   startDate,
   endDate,
@@ -144,7 +144,7 @@ function configIdFor(combo: SmaCombo): string {
 }
 
 /** Score a batch of combos, chunked so peak memory stays flat in the batch size. */
-export function evaluateCombos(
+function evaluateCombos(
   ctx: SmaSweepContext,
   combos: SmaCombo[],
   chunkSize = SMA_EVAL_CHUNK_SIZE

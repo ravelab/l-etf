@@ -3,7 +3,7 @@ import { planBufferNeighborhood, planCombos, type SmaCombo } from "../../src/lib
 import { SMA_SEARCH_MIN_PERIOD, SMA_SEARCH_MAX_PERIOD, SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER } from "../../src/lib/simulation/sma-search-bounds";
 
 export const PRESET_PERIOD_STEP = 1;
-export const PRESET_PERIOD_HALF_WIDTH = 5;
+const PRESET_PERIOD_HALF_WIDTH = 5;
 export const PRESET_BUFFER_STEP = 0.1;
 export const PRESET_BUFFER_HALF_WIDTH = 1.2;
 

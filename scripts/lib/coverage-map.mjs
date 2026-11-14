@@ -14,7 +14,7 @@ import { decode, encode } from "@jridgewell/sourcemap-codec";
 
 export const root = process.cwd();
 
-export function isAppSource(file) {
+function isAppSource(file) {
   if (!file) return false;
   const rel = path.relative(root, file);
   return (
