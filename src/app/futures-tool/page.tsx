@@ -642,7 +642,15 @@ export function FuturesPageContent({
 
       const futuresRuns = await runParallelFuturesStrategies({
         signal,
-        plans: buildFuturesRunPlans({ steps: futuresPlan, initialEquity: amount, startDateFor: startDateForIndex, sleeveParams }),
+        plans: buildFuturesRunPlans({
+          steps: futuresPlan,
+          initialEquity: amount,
+          startDateFor: startDateForIndex,
+          sleeveParams,
+          // Only the rungs whose Transactions accordion is shown chart their holdings.
+          recordAssetValuesFor: (step) =>
+            showsFuturesTransactions({ index: step.index, targetLeverage: step.leverage }, showEmulations),
+        }),
         onProgress: (completed, total) => {
           const fraction = total > 0 ? completed / total : 1;
           setRunProgress({ pct: 45 + fraction * 10, label: "Simulating futures strategies..." });

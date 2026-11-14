@@ -44,6 +44,8 @@ type ValueChartOptionsExtras = {
   omitEmptyLegendLabels?: boolean;
   /** Tooltip series name when dataset label is empty (legend hidden). */
   emptyLineTooltipLabel?: string;
+  /** Axis and tooltip value format; defaults to a growth multiple of a 100 base. */
+  formatValue?: (value: number) => string;
 };
 
 /**
@@ -58,6 +60,7 @@ export function createValueChartOptions(
 ): ChartOptions<"line"> {
   const colors = getChartThemeColors();
   const legendHoverIsolation = createLegendHoverIsolation();
+  const formatValue = extras?.formatValue ?? formatValueMultiple;
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -105,7 +108,7 @@ export function createValueChartOptions(
             } else {
               name = String(raw ?? "");
             }
-            return `${name}: ${formatValueMultiple(value)}`;
+            return `${name}: ${formatValue(value)}`;
           },
         },
       },
@@ -125,7 +128,7 @@ export function createValueChartOptions(
         grid: { color: colors.grid },
         ticks: {
           color: colors.tickText,
-          callback: (v: number | string) => formatValueMultiple(Number(v)),
+          callback: (v: number | string) => formatValue(Number(v)),
         },
       },
     },

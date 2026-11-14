@@ -10,14 +10,16 @@ import { getRiskOffFetchTickers } from "@/lib/constants";
  * One entry in the futures ladder: a lone strategy, or a fund holding two sleeves.
  * Tagged rather than inferred so the worker boundary stays a plain structural check.
  */
-export type FuturesRunPlan =
+export type FuturesRunPlan = (
   | { kind: "single"; single: FuturesStrategyParams }
-  | { kind: "dual"; dual: DualSleeveFuturesParams };
+  | { kind: "dual"; dual: DualSleeveFuturesParams }
+) & { recordAssetValues?: boolean };
 
 export function runFuturesPlan(plan: FuturesRunPlan): FuturesStrategyResult {
+  const options = { recordAssetValues: plan.recordAssetValues === true };
   return plan.kind === "dual"
-    ? simulateDualSleeveFuturesStrategy(plan.dual)
-    : simulateFuturesSmaStrategy(plan.single);
+    ? simulateDualSleeveFuturesStrategy(plan.dual, undefined, options)
+    : simulateFuturesSmaStrategy(plan.single, options);
 }
 
 /**
@@ -67,6 +69,8 @@ export function buildFuturesRunPlans(params: {
    * sit frozen at half the fund's equity. Omitted, every sleeve uses the caller's start.
    */
   startDateFor?: (index: IndexKey) => string;
+  /** Steps whose run should carry `dailyAssetValues` (the ones whose ledger is shown). */
+  recordAssetValuesFor?: (step: FuturesLadderStep) => boolean;
   /** `startDate` is where this sleeve trades from; its risk-off series must align to it. */
   sleeveParams: (
     index: IndexKey,
@@ -76,11 +80,13 @@ export function buildFuturesRunPlans(params: {
     startDate: string | undefined
   ) => FuturesSleeveParams;
 }): FuturesRunPlan[] {
-  const { steps, initialEquity, startDateFor, sleeveParams } = params;
+  const { steps, initialEquity, startDateFor, sleeveParams, recordAssetValuesFor } = params;
   return steps.map((step) => {
+    const recordAssetValues = recordAssetValuesFor?.(step) === true;
     if (!step.secondary) {
       return {
         kind: "single" as const,
+        recordAssetValues,
         single: {
           ...sleeveParams(step.index, step.leverage, step.maxLeverage, step.sma, startDateFor?.(step.index)),
           ...(step.riskOffAsset ? { riskOffAsset: step.riskOffAsset } : {}),
@@ -95,6 +101,7 @@ export function buildFuturesRunPlans(params: {
       : undefined;
     return {
       kind: "dual" as const,
+      recordAssetValues,
       dual: {
         displayName: step.displayName ?? "Dual sleeve SMA",
         initialEquity,

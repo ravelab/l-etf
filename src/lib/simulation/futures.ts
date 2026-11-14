@@ -6,6 +6,7 @@ import {
   type TreasuryHoldings,
 } from "./futures-collateral";
 import { FuturesCashAccount, type FuturesCashMember } from "./futures-cash-account";
+import { createAssetValueRecorder, type DailyAssetValues } from "./futures-asset-values";
 import type { PricePoint, RatePoint, IndexKey, EtfResult, RiskOffAsset } from "@/lib/simulation/types";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
 import { generateSmaSignals } from "@/lib/simulation/sma";
@@ -132,6 +133,14 @@ export type FuturesStrategyResult = {
   /** Days in the window (`invested === false` after SMA shift). */
   riskOffSessionDayCount: number;
   sessionDayCount: number;
+  /** Per-asset end-of-day dollars on `etfResult.dates`; only when the run asked to record them. */
+  dailyAssetValues?: DailyAssetValues;
+};
+
+/** What a run records beyond its result; the engine's own path is unchanged either way. */
+export type FuturesRunOptions = {
+  /** Sample every asset's end-of-day dollar value into `dailyAssetValues`. */
+  recordAssetValues?: boolean;
 };
 
 /**
@@ -2352,8 +2361,18 @@ export function createFuturesSleeve(
  * fund can step several sleeves through the same calendar and move capital
  * between them; a lone strategy just runs the loop straight through.
  */
-export function simulateFuturesSmaStrategy(params: FuturesStrategyParams): FuturesStrategyResult {
+export function simulateFuturesSmaStrategy(
+  params: FuturesStrategyParams,
+  options: FuturesRunOptions = {},
+): FuturesStrategyResult {
   const sleeve = createFuturesSleeve(params);
-  for (let i = 1; i < sleeve.dates.length; i++) sleeve.stepDay(i);
-  return sleeve.finish();
+  // Sampled after each day is stepped and before `finish` liquidates the book.
+  const recorder = options.recordAssetValues && sleeve.dates.length > 0 ? createAssetValueRecorder() : null;
+  recorder?.record(sleeve.positions());
+  for (let i = 1; i < sleeve.dates.length; i++) {
+    sleeve.stepDay(i);
+    recorder?.record(sleeve.positions());
+  }
+  const result = sleeve.finish();
+  return recorder ? { ...result, dailyAssetValues: recorder.values() } : result;
 }

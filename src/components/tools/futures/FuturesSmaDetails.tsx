@@ -16,6 +16,7 @@ import {
   formatDate,
 } from "@/lib/format";
 import { TablePagination } from "@/components/ui/TablePagination";
+import { FuturesHoldingsChart } from "@/components/tools/futures/FuturesHoldingsChart";
 import { SmaTriggerBadge } from "@/components/tools/SmaTriggerBadge";
 import type { SmaSignal } from "@/lib/simulation/types";
 import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
@@ -485,6 +486,10 @@ function FuturesSmaDetailsImpl({
           <div>Treasury returns and costs are included. Default snapshots omit individual collateral trades; rerun for the full ledger.</div>
         </div>
       </div>
+
+      {strategy.dailyAssetValues && Object.keys(strategy.dailyAssetValues).length > 0 && (
+        <FuturesHoldingsChart dates={strategy.etfResult.dates} values={strategy.dailyAssetValues} />
+      )}
 
       {rows.length === 0 ? (
         <div className="text-xs text-muted">No transactions for this SMA run.</div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
+import { useIsDarkTheme } from "@/lib/hooks/use-is-dark-theme";
 import { createValueChartOptions } from "@/lib/chart-options";
 import { annualizedInflationForRange } from "@/lib/inflation";
 import type { BacktestResult, IndexKey } from "@/lib/simulation/types";
@@ -39,18 +40,8 @@ function ValueChartImpl({
 }: ValueChartProps) {
   const [logScale, setLogScale] = useState(true);
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
-  const [isDarkTheme, setIsDarkTheme] = useState(true);
+  const isDarkTheme = useIsDarkTheme();
   const tradingDays = result.dates.length;
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    const syncTheme = () => setIsDarkTheme(root.classList.contains("dark"));
-    syncTheme();
-    const observer = new MutationObserver(syncTheme);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
 
   const fullData = useMemo(() => {
     const labels = result.dates;

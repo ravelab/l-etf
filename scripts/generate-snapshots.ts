@@ -86,6 +86,7 @@ import {
   type SmaBand,
 } from "../src/lib/simulation/futures-plan";
 import { buildFuturesRunPlans, runFuturesPlan } from "../src/lib/simulation/futures-run-plan";
+import type { DailyAssetValues } from "../src/lib/simulation/futures-asset-values";
 import { DEFAULT_EXTRA_STRATEGY_IDS, withSignalRuleLines } from "../src/lib/simulation/signal-rules";
 import { warmUpStartDatesByIndex } from "../src/lib/simulation/warm-up-by-index";
 import { validateSimulationReadyPrices } from "../src/lib/utils";
@@ -638,6 +639,8 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     initialEquity: amount,
     startDateFor: (index) => startDateFor(shared, index),
     sleeveParams,
+    recordAssetValuesFor: (step) =>
+      showsFuturesTransactions({ index: step.index, targetLeverage: step.leverage }, showEmulations),
   }).map(runFuturesPlan);
 
   // Global date axis = union of SP + NQ trading days in range, sorted.
@@ -687,6 +690,9 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   const downsampledFuturesRuns: FuturesStrategyResult[] = futuresRuns.map((run) => ({
     ...run,
     etfResult: downsampleEtfResult(run.etfResult, FUTURES_SNAPSHOT_TARGET_POINTS),
+    ...(run.dailyAssetValues
+      ? { dailyAssetValues: downsampleAssetValues(run.dailyAssetValues, run.etfResult.dates.length, FUTURES_SNAPSHOT_TARGET_POINTS) }
+      : {}),
     transactions: showsFuturesTransactions(run, showEmulations) ? roundTransactions(run.transactions.filter(tx => !tx.symbol.endsWith("(COLLATERAL)"))) : [],
   }));
 
@@ -1670,6 +1676,17 @@ function downsampleEtfResult(etf: EtfResult, target: number): EtfResult {
         ? idx.map((i) => etf.smaPrices[i])
         : etf.smaPrices,
   };
+}
+
+/**
+ * Per-asset holdings on the same kept days as `downsampleEtfResult`, in whole
+ * dollars: the chart's axis and tooltip show three significant figures.
+ */
+function downsampleAssetValues(values: DailyAssetValues, length: number, target: number): DailyAssetValues {
+  const idx = pickKeepIndices(length, target);
+  return Object.fromEntries(
+    Object.entries(values).map(([asset, series]) => [asset, idx.map((i) => Math.round(series[i] ?? 0))]),
+  );
 }
 
 /**

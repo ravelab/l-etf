@@ -23,12 +23,14 @@
 
 import { buildEtfResult, createFuturesSleeve } from "@/lib/simulation/futures";
 import type {
+  FuturesRunOptions,
   FuturesSleeve,
   FuturesStrategyParams,
   FuturesStrategyResult,
   FuturesTransactionRow,
   SleeveHoldings,
 } from "@/lib/simulation/futures";
+import { createAssetValueRecorder } from "@/lib/simulation/futures-asset-values";
 import type { EtfResult } from "@/lib/simulation/types";
 import type { TreasuryHoldings } from "@/lib/simulation/futures-collateral";
 import { FuturesCashAccount } from "./futures-cash-account";
@@ -163,6 +165,7 @@ function investedAt(sleeve: FuturesSleeve, i: number): boolean {
 export function simulateDualSleeveFuturesStrategy(
   params: DualSleeveFuturesParams,
   onCloseTreasuries?: (date: string, holdings: TreasuryHoldings) => void,
+  options: FuturesRunOptions = {},
 ): FuturesStrategyResult {
   const initialEquity = Number.isFinite(params.initialEquity) ? Math.max(0, params.initialEquity) : 0;
   const half = initialEquity / 2;
@@ -193,6 +196,7 @@ export function simulateDualSleeveFuturesStrategy(
   const cursor = sleeves.map(() => 0);
   const dailyValues: number[] = [];
   const sameBasket = params.primary.riskOffAsset === params.secondary.riskOffAsset;
+  const recorder = options.recordAssetValues ? createAssetValueRecorder() : null;
 
   for (const [k, date] of dates.entries()) {
     const nextIdx = dayIndexByDate.map((byDate) => byDate.get(date));
@@ -219,6 +223,8 @@ export function simulateDualSleeveFuturesStrategy(
     cashAccount?.close();
 
     dailyValues.push(sleeves.reduce((sum, sleeve, s) => sum + sleeve.equityAt(cursor[s]), 0));
+    // After the shared account's close, so Treasury maintenance has settled.
+    recorder?.record(addPositions(sleeves[0].positions(), sleeves[1].positions()));
     if (onCloseTreasuries) {
       const holdings = sleeves.map(sleeve => sleeve.readHoldings());
       onCloseTreasuries(date, combineTreasuries(holdings[0], holdings[1], 1, 1) ?? { SGOV: 0, VGSH: 0 });
@@ -336,5 +342,6 @@ export function simulateDualSleeveFuturesStrategy(
       sleeves.every((sleeve, s) => !investedAt(sleeve, dayIndexByDate[s].get(dates[k]) ?? cursor[s]))
     ).length,
     sessionDayCount: dates.length,
+    ...(recorder ? { dailyAssetValues: recorder.values() } : {}),
   };
 }

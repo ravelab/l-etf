@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
+import { useIsDarkTheme } from "@/lib/hooks/use-is-dark-theme";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
 import type { BacktestResult, EtfConfig, PricePoint } from "@/lib/simulation/types";
 import { formatDate } from "@/lib/format";
@@ -43,17 +44,7 @@ interface SmaChartProps {
 export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClosePrices, openPrices, tradeClosePrices, tradeOpenPrices, syntheticPriceScale, etfConfigs, annualizedInflation, riskOffPricesByTicker }: SmaChartProps) {
   const etf = result.etfResults[etfIndex];
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
-  const [isDarkTheme, setIsDarkTheme] = useState(true);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-    const syncTheme = () => setIsDarkTheme(root.classList.contains("dark"));
-    syncTheme();
-    const observer = new MutationObserver(syncTheme);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
+  const isDarkTheme = useIsDarkTheme();
 
   const baseConfig = useMemo(() => {
     if (!etf) return null;
