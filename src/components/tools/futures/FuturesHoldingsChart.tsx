@@ -51,7 +51,9 @@ function FuturesHoldingsChartImpl({ dates, values }: { dates: string[]; values: 
         backgroundColor: DOTTED_ASSETS.has(asset) ? colorAt(i) : "transparent",
         borderWidth: lineWidth,
         ...(DOTTED_ASSETS.has(asset)
-          ? { showLine: false, pointRadius: 1, pointBorderWidth: 0, pointHoverRadius: 3 }
+          // The legend draws its line with the point's border width, so a borderless
+          // dot would leave the entry blank.
+          ? { showLine: false, pointRadius: 1, pointBorderWidth: lineWidth, pointHoverRadius: 3 }
           : { pointRadius: 0 }),
         pointHitRadius: 4,
       })),
