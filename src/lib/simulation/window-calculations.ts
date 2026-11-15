@@ -271,3 +271,45 @@ export function resolveEdgeRiskOffStates(
     endInRiskOff: endSignal ? endSignal.type === "sell" : carriedInRiskOff,
   };
 }
+
+/**
+ * Transition spread paid on the signals that land inside a dated window,
+ * charged on that day's value in the window's (renormalized) series. Signals
+ * outside `dates` — warm-up trades before the window — cost nothing here.
+ */
+export function transitionCostInWindow(
+  dates: string[],
+  dailyValues: number[],
+  signals: ReadonlyArray<{ date: string }>,
+  perTransitionSpread: number
+): number {
+  if (perTransitionSpread <= 0 || signals.length === 0) return 0;
+  const dateToIdx = new Map<string, number>();
+  for (let i = 0; i < dates.length; i++) dateToIdx.set(dates[i], i);
+  let cost = 0;
+  for (const signal of signals) {
+    const idx = dateToIdx.get(signal.date);
+    if (idx === undefined) continue;
+    cost += dailyValues[idx] * perTransitionSpread;
+  }
+  return cost;
+}
+
+/**
+ * Regime on a window's first day: the last signal before it wins; with none,
+ * the state carried in from the series start. Undefined stays undefined (SMA
+ * disabled). Signals must be chronological.
+ */
+export function investedAtWindowStart(
+  carriedInInvested: boolean | undefined,
+  signals: ReadonlyArray<DatedSignal>,
+  firstDate: string
+): boolean | undefined {
+  if (carriedInInvested === undefined) return undefined;
+  let invested = carriedInInvested;
+  for (const s of signals) {
+    if (s.date >= firstDate) break;
+    invested = s.type === "buy";
+  }
+  return invested;
+}

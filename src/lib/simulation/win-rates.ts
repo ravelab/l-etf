@@ -1,7 +1,8 @@
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
 import { throwIfAborted } from "../abort";
 import { buildRollingWindows, type RollingSimulationPoint } from "./rolling";
-import { precomputeAllConfigDailyValues, buildSimulationBuckets } from "./parallel";
+import { precomputeAllConfigDailyValues } from "./precompute";
+import { buildSimulationBuckets } from "./simulation-buckets";
 import { buildSgovFinalValuesByWindow } from "../sgov-benchmark";
 import { CONSTANT_HISTORY_WRAP_ENABLED, CONSTANT_INITIAL_INVESTMENT, LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "../constants";
 import { annualizedInflationForRange } from "../inflation";

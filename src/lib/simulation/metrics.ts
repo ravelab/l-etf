@@ -1,3 +1,5 @@
+import type { EtfResult } from "./types";
+
 /**
  * Calculate CAGR (Compound Annual Growth Rate).
  * dates can be YYYY-MM-DD strings or pre-parsed timestamps (ms).
@@ -57,7 +59,7 @@ const drawdownCache = new WeakMap<number[], WeakMap<string[], DrawdownMetrics>>(
  * This avoids array slicing (allocation + copy) which is critical for performance
  * when processing thousands of rolling windows.
  */
-export function calcMaxDrawdownInRange(
+function calcMaxDrawdownInRange(
   values: number[],
   dates: string[],
   startIdx: number,
@@ -222,9 +224,57 @@ export function calcMonthlyExtremes(
   return result;
 }
 
+/** Trading days per year used to annualize the daily-return ratios. */
+const RATIO_TRADING_DAYS_PER_YEAR = 252;
+
 /**
- * Cache for Sortino ratio calculations.
+ * Finite simple daily returns of a value path, skipping days that start at or
+ * below zero (a wiped-out leveraged path has no defined return after that).
+ * Null when the path is too short for a ratio: under 3 values or 2 returns.
  */
+function ratioDailyReturns(values: number[]): number[] | null {
+  if (values.length < 3) return null;
+
+  const dailyReturns: number[] = [];
+  for (let i = 1; i < values.length; i++) {
+    if (values[i - 1] <= 0) continue;
+    const ret = (values[i] - values[i - 1]) / values[i - 1];
+    if (isFinite(ret)) dailyReturns.push(ret);
+  }
+  return dailyReturns.length < 2 ? null : dailyReturns;
+}
+
+function meanOf(values: number[]): number {
+  return values.reduce((sum, r) => sum + r, 0) / values.length;
+}
+
+const sharpeCache = new WeakMap<number[], number>();
+
+/**
+ * Calculate annualized Sharpe ratio from daily portfolio values.
+ * Assumes a 0% risk-free rate (the same 0% hurdle Sortino uses) and divides
+ * by the sample standard deviation of daily returns.
+ * Flat or insufficient paths return 0. Cached by values array identity.
+ */
+export function calcSharpeRatio(values: number[]): number {
+  const cached = sharpeCache.get(values);
+  if (cached !== undefined) return cached;
+
+  const dailyReturns = ratioDailyReturns(values);
+  if (!dailyReturns) return 0;
+
+  const mean = meanOf(dailyReturns);
+  const variance =
+    dailyReturns.reduce((sum, r) => sum + (r - mean) ** 2, 0) /
+    (dailyReturns.length - 1);
+  const stdDev = Math.sqrt(variance);
+  if (!isFinite(stdDev) || stdDev === 0) return 0;
+
+  const result = (mean / stdDev) * Math.sqrt(RATIO_TRADING_DAYS_PER_YEAR);
+  sharpeCache.set(values, result);
+  return result;
+}
+
 const sortinoCache = new WeakMap<number[], number>();
 
 /**
@@ -238,27 +288,72 @@ export function calcSortinoRatio(values: number[]): number {
   const cached = sortinoCache.get(values);
   if (cached !== undefined) return cached;
 
-  if (values.length < 3) return 0;
+  const dailyReturns = ratioDailyReturns(values);
+  if (!dailyReturns) return 0;
 
-  const dailyReturns: number[] = [];
-  for (let i = 1; i < values.length; i++) {
-    if (values[i - 1] <= 0) continue;
-    const ret = (values[i] - values[i - 1]) / values[i - 1];
-    if (isFinite(ret)) dailyReturns.push(ret);
-  }
-  if (dailyReturns.length < 2) return 0;
-
-  const mean =
-    dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
+  const mean = meanOf(dailyReturns);
   const downsideVariance =
     dailyReturns.reduce((sum, r) => sum + Math.min(r, 0) ** 2, 0) /
     dailyReturns.length;
   const downsideDeviation = Math.sqrt(downsideVariance);
   const result = downsideDeviation === 0
     ? (mean > 0 ? Infinity : 0)
-    : (mean / downsideDeviation) * Math.sqrt(252);
+    : (mean / downsideDeviation) * Math.sqrt(RATIO_TRADING_DAYS_PER_YEAR);
   sortinoCache.set(values, result);
   return result;
+}
+
+/**
+ * Everything an `EtfResult` reads off its daily value path other than CAGR,
+ * which depends on the caller's choice of start value and final-value costs.
+ */
+export type PathMetrics = Pick<
+  EtfResult,
+  | "sharpeRatio"
+  | "sortinoRatio"
+  | "maxDrawdownPct"
+  | "maxDrawdownDollar"
+  | "maxDrawdownDates"
+  | "longestDrawdownDays"
+  | "longestDrawdownDates"
+  | "bestMonth"
+  | "bestMonthDates"
+  | "worstMonth"
+  | "worstMonthDates"
+>;
+
+/** Path metrics of a result whose metrics were skipped or whose path is degenerate. */
+export const EMPTY_PATH_METRICS: PathMetrics = Object.freeze({
+  sharpeRatio: 0,
+  sortinoRatio: 0,
+  maxDrawdownPct: 0,
+  maxDrawdownDollar: 0,
+  longestDrawdownDays: 0,
+  bestMonth: 0,
+  worstMonth: 0,
+});
+
+/**
+ * Drawdown, monthly extremes and both risk-adjusted ratios for one value path.
+ * Every `EtfResult` builder goes through this, so a metric added to the result
+ * cannot be forgotten by one of them.
+ */
+export function calcPathMetrics(values: number[], dates: string[]): PathMetrics {
+  const drawdown = calcMaxDrawdown(values, dates);
+  const monthlyExtremes = calcMonthlyExtremes(values, dates);
+  return {
+    sharpeRatio: calcSharpeRatio(values),
+    sortinoRatio: calcSortinoRatio(values),
+    maxDrawdownPct: drawdown.pct,
+    maxDrawdownDollar: drawdown.dollar,
+    maxDrawdownDates: drawdown.maxDrawdownDates,
+    longestDrawdownDays: drawdown.longestDays,
+    longestDrawdownDates: drawdown.longestDrawdownDates,
+    bestMonth: monthlyExtremes.bestMonth,
+    bestMonthDates: monthlyExtremes.bestMonthDates,
+    worstMonth: monthlyExtremes.worstMonth,
+    worstMonthDates: monthlyExtremes.worstMonthDates,
+  };
 }
 
 function daysBetween(date1: string, date2: string): number {

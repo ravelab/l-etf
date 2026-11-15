@@ -40,6 +40,7 @@ interface LadderRungResult {
   dualSleeve: boolean;
   finalEquity: number;
   cagrPct: number;
+  sharpeRatio: number;
   sortinoRatio: number;
   maxDrawdownPct: number;
   totalTradingCostPct: number;
@@ -189,6 +190,7 @@ export async function runFuturesLadder(params: {
       dualSleeve: plans[i].kind === "dual",
       finalEquity: etf.finalValue,
       cagrPct: etf.cagr,
+      sharpeRatio: etf.sharpeRatio,
       sortinoRatio: etf.sortinoRatio,
       maxDrawdownPct: etf.maxDrawdownPct,
       totalTradingCostPct: etf.totalTradingCostPct,

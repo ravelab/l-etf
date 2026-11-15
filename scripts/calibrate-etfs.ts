@@ -1,16 +1,13 @@
 import { getPrices, getBorrowRate } from "../src/lib/db/queries";
-import {
-  simulateBacktest,
-  setSwapSpreadModel,
-  getSwapSpreadModel,
-} from "../src/lib/simulation/engine";
-import type { SwapSpreadModel } from "../src/lib/simulation/engine";
+import { simulateBacktest } from "../src/lib/simulation/engine";
+import { setSwapSpreadModel, getSwapSpreadModel, type SwapSpreadModel } from "../src/lib/simulation/swap-spread";
 import type { EtfConfig, PricePoint, RatePoint } from "../src/lib/simulation/types";
 import { ETF_PRESETS } from "../src/lib/simulation/presets";
 import { alignCloseSeriesToDates } from "../src/lib/utils";
 import { CONSTANT_INITIAL_INVESTMENT } from "../src/lib/constants";
 import { getIsoDate } from "../src/lib/date";
 import { latestCommonCloseDate } from "../src/lib/simulation/common-close-date";
+import { replaceSwapSpreadModelLiteral, SWAP_SPREAD_SOURCE_PATH } from "./lib/swap-spread-source";
 import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
@@ -488,7 +485,7 @@ async function calibrate() {
     bestMetrics = exactEndpoint.bestLocalMetrics;
 
     // ── Final verification ──
-    // Verify the six-decimal coefficients that will actually ship in engine.ts.
+    // Verify the six-decimal coefficients that will actually ship in swap-spread.ts.
     bestRS = Number(bestRS.toFixed(6));
     bestBS = Number(bestBS.toFixed(6));
     const finalRes = trySimFull(bestRS, bestBS);
@@ -520,60 +517,17 @@ async function calibrate() {
   console.log("--- Calibrated SWAP_SPREAD_MODEL ---");
   console.log(JSON.stringify(model, null, 2));
 
-  updateEngineFile(model);
+  updateSwapSpreadSource(model);
 }
 
-function updateEngineFile(
+function updateSwapSpreadSource(
   results: Record<string, Record<number, SwapSpreadModel>>
 ) {
-  const enginePath = path.join(__dirname, "..", "src", "lib", "simulation", "engine.ts");
-  let content = fs.readFileSync(enginePath, "utf-8");
-
+  const sourcePath = path.join(__dirname, "..", ...SWAP_SPREAD_SOURCE_PATH);
   const calibrationDate = new Date().toISOString().split("T")[0];
-
-  let newModel = "let SWAP_SPREAD_MODEL: Record<string, Record<number, SwapSpreadModel>> = {\n";
-  for (const [index, leverageMap] of Object.entries(results)) {
-    const indexComment = index === "sp500" ? "S&P 500" : "Nasdaq 100";
-    newModel += `  // ${indexComment} - calibrated ${calibrationDate}\n`;
-    newModel += `  ${index}: {\n`;
-
-    const sortedLevers = Object.keys(leverageMap).map(Number).sort((a, b) => a - b);
-    for (const leverage of sortedLevers) {
-      const m = leverageMap[leverage];
-      const etfName =
-        index === "sp500"
-          ? leverage === 2 ? "SSO" : "UPRO"
-          : leverage === 2 ? "QLD" : "TQQQ";
-      newModel += `    // ${etfName} (${leverage}x)\n`;
-      newModel += `    ${leverage}: { rateSensitivity: ${m.rateSensitivity.toFixed(6)}, baseSpread: ${m.baseSpread.toFixed(6)} },\n`;
-    }
-    newModel += "  },\n";
-  }
-  newModel += "};";
-
-  const startMarker = "let SWAP_SPREAD_MODEL: Record<string, Record<number, SwapSpreadModel>> = {";
-  const endMarker = "const DEFAULT_SWAP_MODEL";
-
-  const startIndex = content.indexOf(startMarker);
-  const endIndex = content.indexOf(endMarker, startIndex);
-
-  if (startIndex === -1 || endIndex === -1) {
-    console.error("Could not find SWAP_SPREAD_MODEL in engine.ts");
-    return;
-  }
-
-  const closingBraceIndex = content.lastIndexOf("};", endIndex);
-  if (closingBraceIndex < startIndex) {
-    console.error("Could not find closing brace for SWAP_SPREAD_MODEL");
-    return;
-  }
-
-  const before = content.substring(0, startIndex);
-  const after = content.substring(closingBraceIndex + 2);
-  content = before + newModel + "\n" + after;
-
-  fs.writeFileSync(enginePath, content, "utf-8");
-  console.log(`\n✓ Updated SWAP_SPREAD_MODEL in engine.ts (calibrated ${calibrationDate})`);
+  const content = replaceSwapSpreadModelLiteral(fs.readFileSync(sourcePath, "utf-8"), results, calibrationDate);
+  fs.writeFileSync(sourcePath, content, "utf-8");
+  console.log(`\n✓ Updated SWAP_SPREAD_MODEL in ${SWAP_SPREAD_SOURCE_PATH.join("/")} (calibrated ${calibrationDate})`);
 }
 
 calibrate().catch((error: unknown) => {

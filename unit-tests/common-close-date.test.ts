@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { latestCommonCloseDate } from "@/lib/simulation/common-close-date";
-import { runParallelBacktest } from "@/lib/simulation/parallel";
+import { runParallelBacktest } from "@/lib/simulation/parallel-backtest";
 import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
 import type { PricePoint } from "@/lib/simulation/types";
 import { coerceToPricePoints } from "@/lib/mcp/server-data";

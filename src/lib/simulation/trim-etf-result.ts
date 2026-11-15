@@ -4,17 +4,26 @@ import {
   getSymbolSpread,
   getTransitionSpreadCostForConfig,
 } from "../constants";
-import { calcCagr, calcMaxDrawdownInRange, calcMonthlyExtremes, calcSortinoRatio } from "./metrics";
+import { calcCagr, calcPathMetrics, EMPTY_PATH_METRICS } from "./metrics";
 import type { EtfConfig, EtfResult } from "./types";
-import { renormalizeSeriesFromIndex, resolveEdgeRiskOffStates, selectEdgeSpreads } from "./window-calculations";
+import {
+  finalizeTradingCosts,
+  investedAtWindowStart,
+  renormalizeSeriesFromIndex,
+  resolveEdgeRiskOffStates,
+  selectEdgeSpreads,
+  transitionCostInWindow,
+} from "./window-calculations";
 
 /**
  * Trim one simulated result to start at `seriesStartDate`, as if it were entered
  * there: the entry spread is paid on that day, the exit spread on the last, and
  * trading costs count only the signals inside the trimmed window.
  *
- * `runParallelBacktest` uses it to start each config at its own display date, and
- * the UPRO/TQQQ fund uses it to start both sleeves on the later index's start.
+ * This is the ONE path that cuts a simulated result down to a display window:
+ * `simulateWithWarmUp` uses it to drop SMA warm-up, `runParallelBacktest` to
+ * start each config at its own display date, and the UPRO/TQQQ fund to start
+ * both sleeves on the later index's start.
  */
 export function trimEtfResultToStartDate(etfResult: EtfResult, seriesStartDate: string, config: EtfConfig): EtfResult {
   const rawStartIdx = etfResult.dates.findIndex((date) => date >= seriesStartDate);
@@ -47,34 +56,16 @@ export function trimEtfResultToStartDate(etfResult: EtfResult, seriesStartDate: 
     startInRiskOff,
     endInRiskOff
   );
-  const perTransitionSpread = config.smaEnabled
-    ? getTransitionSpreadCostForConfig(config, false)
-    : 0;
-
-  // Regime on the trimmed window's first day: the last signal before it wins;
-  // with none, the incoming window's start state carries through.
-  let smaStartInvested = etfResult.smaStartInvested;
-  if (smaStartInvested !== undefined) {
-    for (const s of etfResult.smaSignals) {
-      if (s.date >= firstDate) break;
-      smaStartInvested = s.type === "buy";
-    }
-  }
+  const smaStartInvested = investedAtWindowStart(etfResult.smaStartInvested, etfResult.smaSignals, firstDate);
 
   if (dates.length < 2 || slicedDailyValues.length < 2) {
-    const fallbackFinal = slicedDailyValues[slicedDailyValues.length - 1] ?? 0;
     return {
       ...etfResult,
       dates,
       dailyValues: slicedDailyValues,
-      finalValue: fallbackFinal,
+      finalValue: slicedDailyValues[slicedDailyValues.length - 1] ?? 0,
       cagr: 0,
-      sortinoRatio: 0,
-      maxDrawdownPct: 0,
-      maxDrawdownDollar: 0,
-      longestDrawdownDays: 0,
-      bestMonth: 0,
-      worstMonth: 0,
+      ...EMPTY_PATH_METRICS,
       smaPrices: slicedSmaPrices,
       smaSignals: slicedSmaSignals,
       smaStartInvested,
@@ -88,46 +79,23 @@ export function trimEtfResultToStartDate(etfResult: EtfResult, seriesStartDate: 
     ? renormalizeSeriesFromIndex(etfResult.dailyValues, startIdx, entrySpread)
     : slicedDailyValues;
 
-  const rawFinalValue = dailyValues[dailyValues.length - 1] ?? 0;
-  const exitDollarCost = rawFinalValue * exitSpread;
-  const finalValue = Math.max(0, rawFinalValue - exitDollarCost);
-
-  let inWindowCost = 0;
-  if (perTransitionSpread > 0 && slicedSmaSignals.length > 0) {
-    const dateToIdx = new Map<string, number>();
-    for (let i = 0; i < dates.length; i++) dateToIdx.set(dates[i], i);
-    for (const signal of slicedSmaSignals) {
-      const idx = dateToIdx.get(signal.date);
-      if (idx === undefined) continue;
-      inWindowCost += dailyValues[idx] * perTransitionSpread;
-    }
-  }
-
-  const entryCost = CONSTANT_INITIAL_INVESTMENT * entrySpread;
-  const totalCost = entryCost + inWindowCost + exitDollarCost;
-  const totalTradingCostPct = finalValue > 0 ? (totalCost / finalValue) * 100 : 0;
-
-  const drawdown = calcMaxDrawdownInRange(dailyValues, dates, 0, dailyValues.length - 1);
-  const monthlyExtremes = calcMonthlyExtremes(dailyValues, dates);
-  const sortinoRatio = calcSortinoRatio(dailyValues);
-  const cagr = calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, dates[0], dates[dates.length - 1]);
+  const perTransitionSpread = config.smaEnabled
+    ? getTransitionSpreadCostForConfig(config, false)
+    : 0;
+  const { finalValue, totalTradingCostPct } = finalizeTradingCosts({
+    rawFinalValue: dailyValues[dailyValues.length - 1] ?? 0,
+    entrySpread,
+    exitSpread,
+    internalDollarCost: transitionCostInWindow(dates, dailyValues, slicedSmaSignals, perTransitionSpread),
+  });
 
   return {
     ...etfResult,
     dates,
     dailyValues,
     finalValue,
-    cagr,
-    sortinoRatio,
-    maxDrawdownPct: drawdown.pct,
-    maxDrawdownDollar: drawdown.dollar,
-    maxDrawdownDates: drawdown.maxDrawdownDates,
-    longestDrawdownDays: drawdown.longestDays,
-    longestDrawdownDates: drawdown.longestDrawdownDates,
-    bestMonth: monthlyExtremes.bestMonth,
-    bestMonthDates: monthlyExtremes.bestMonthDates,
-    worstMonth: monthlyExtremes.worstMonth,
-    worstMonthDates: monthlyExtremes.worstMonthDates,
+    cagr: calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, dates[0], dates[dates.length - 1]),
+    ...calcPathMetrics(dailyValues, dates),
     smaPrices: slicedSmaPrices,
     smaSignals: slicedSmaSignals,
     smaStartInvested,

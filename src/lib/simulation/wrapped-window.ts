@@ -1,4 +1,4 @@
-import { simulateSingleEtf } from "./engine";
+import { simulateSingleEtf } from "./single-etf";
 import { materializeRollingWindow, type RollingSimulationPoint, type RollingWindow } from "./rolling";
 import { calcCagr } from "./metrics";
 import { CONSTANT_INITIAL_INVESTMENT } from "../constants";

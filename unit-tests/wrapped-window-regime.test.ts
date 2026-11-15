@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { materializeRollingWindow, type RollingWindow } from "../src/lib/simulation/rolling";
-import { precomputeAllConfigDailyValues } from "../src/lib/simulation/parallel";
+import { precomputeAllConfigDailyValues } from "../src/lib/simulation/precompute";
 import {
   buildWrappedTailCache,
   extractCachedWrappedWindowResult,
   extractOptimizedWrappedWindowResult,
 } from "../src/lib/simulation/wrapped-window";
-import { simulateSingleEtf } from "../src/lib/simulation/engine";
+import { simulateSingleEtf } from "../src/lib/simulation/single-etf";
 import { generateSmaSignals } from "../src/lib/simulation/sma";
 import { buildRateLookup } from "../src/lib/simulation/borrowing-rate";
 import { adjustedOpenFromPricePoint } from "../src/lib/utils";

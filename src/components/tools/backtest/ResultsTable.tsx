@@ -4,12 +4,7 @@ import { memo, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
-import {
-  calcCagr,
-  calcMaxDrawdown,
-  calcMonthlyExtremes,
-  calcSortinoRatio,
-} from "@/lib/simulation/metrics";
+import { calcCagr, calcPathMetrics } from "@/lib/simulation/metrics";
 import { estimateFuturesAfterTaxCagr, type FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { formatCompactMultiple, formatPercent } from "@/lib/format";
 import { SortButton } from "@/components/ui/SortButton";
@@ -30,32 +25,25 @@ function indexBuyAndHoldTradingCostPct(initialInvestment: number, finalValue: nu
   return (spread * (1 + ratio) / postExit) * 100;
 }
 
-function buildIndexRowFromValues(dates: string[], values: number[], label: string, id: string): EtfResult {
+function buildIndexRowFromValues(
+  dates: string[],
+  values: number[],
+  label: string,
+  id: string,
+  sourceIndex: EtfResult["sourceIndex"],
+): EtfResult {
   const initialInvestment = values[0] ?? 0;
   const finalValue = values[values.length - 1] ?? 0;
-  const cagr = calcCagr(initialInvestment, finalValue, dates[0], dates[dates.length - 1]);
-  const drawdown = calcMaxDrawdown(values, dates);
-  const monthlyExtremes = calcMonthlyExtremes(values, dates);
-  const sortinoRatio = calcSortinoRatio(values);
 
   return {
-    id: `__index_${id}__`,
+    id,
     name: label,
-    sourceIndex: id as "sp500" | "nasdaq100",
+    sourceIndex,
     dates,
     dailyValues: values,
     finalValue,
-    cagr,
-    sortinoRatio,
-    maxDrawdownPct: drawdown.pct,
-    maxDrawdownDollar: drawdown.dollar,
-    maxDrawdownDates: drawdown.maxDrawdownDates,
-    longestDrawdownDays: drawdown.longestDays,
-    longestDrawdownDates: drawdown.longestDrawdownDates,
-    bestMonth: monthlyExtremes.bestMonth,
-    bestMonthDates: monthlyExtremes.bestMonthDates,
-    worstMonth: monthlyExtremes.worstMonth,
-    worstMonthDates: monthlyExtremes.worstMonthDates,
+    cagr: calcCagr(initialInvestment, finalValue, dates[0], dates[dates.length - 1]),
+    ...calcPathMetrics(values, dates),
     smaSignals: [],
     smaPrices: [],
     totalTradingCostPct: indexBuyAndHoldTradingCostPct(initialInvestment, finalValue, label),
@@ -63,36 +51,7 @@ function buildIndexRowFromValues(dates: string[], values: number[], label: strin
 }
 
 function buildIndexRow(result: BacktestResult, indexLabel: string): EtfResult {
-  const { dates, nonLeveragedValues } = result;
-  const initialInvestment = nonLeveragedValues[0] ?? 0;
-  const finalValue = nonLeveragedValues[nonLeveragedValues.length - 1] ?? 0;
-  const cagr = calcCagr(initialInvestment, finalValue, dates[0], dates[dates.length - 1]);
-  const drawdown = calcMaxDrawdown(nonLeveragedValues, dates);
-  const monthlyExtremes = calcMonthlyExtremes(nonLeveragedValues, dates);
-  const sortinoRatio = calcSortinoRatio(nonLeveragedValues);
-
-  return {
-    id: "__index__",
-    name: indexLabel,
-    sourceIndex: "sp500",
-    dates,
-    dailyValues: nonLeveragedValues,
-    finalValue,
-    cagr,
-    sortinoRatio,
-    maxDrawdownPct: drawdown.pct,
-    maxDrawdownDollar: drawdown.dollar,
-    maxDrawdownDates: drawdown.maxDrawdownDates,
-    longestDrawdownDays: drawdown.longestDays,
-    longestDrawdownDates: drawdown.longestDrawdownDates,
-    bestMonth: monthlyExtremes.bestMonth,
-    bestMonthDates: monthlyExtremes.bestMonthDates,
-    worstMonth: monthlyExtremes.worstMonth,
-    worstMonthDates: monthlyExtremes.worstMonthDates,
-    smaSignals: [],
-    smaPrices: [],
-    totalTradingCostPct: indexBuyAndHoldTradingCostPct(initialInvestment, finalValue, indexLabel),
-  };
+  return buildIndexRowFromValues(result.dates, result.nonLeveragedValues, indexLabel, "__index__", "sp500");
 }
 
 /** Must match the color function in ValueChart so table dots align with chart lines. */
@@ -126,6 +85,7 @@ type SortKey =
   | "startDate"
   | "finalValue"
   | "cagr"
+  | "sharpeRatio"
   | "sortinoRatio"
   | "avgActualLeverage"
   | "maxLeverageDeltaPct"
@@ -213,18 +173,16 @@ function ResultsTableImpl({
       if (underlyingIndexSeries.length > 1) {
         // Multiple indexes (e.g. SP500 + Nasdaq) — build a row for each
         for (const series of underlyingIndexSeries) {
-          indexRows.push(buildIndexRowFromValues(series.dates, series.values, series.label, series.index));
+          indexRows.push(buildIndexRowFromValues(
+            series.dates, series.values, series.label, `__index_${series.index}__`, series.index as EtfResult["sourceIndex"],
+          ));
         }
       } else {
         // Single index — use the canonical nonLeveragedValues
         indexRows.push(buildIndexRow(result, indexLabel));
       }
     }
-    // Cached runs from before Sortino was introduced still contain daily values.
-    return [...indexRows, ...result.etfResults.map((row) => ({
-      ...row,
-      sortinoRatio: calcSortinoRatio(row.dailyValues),
-    }))];
+    return [...indexRows, ...result.etfResults];
   }, [result, indexLabel, underlyingIndexSeries]);
 
   const colorById = useMemo(() => {
@@ -375,6 +333,9 @@ function ResultsTableImpl({
               <SortButton label="Longest DD" active={sortKey === "longestDrawdownDays"} dir={sortDir} onClick={() => toggleSort("longestDrawdownDays")} />
             </th>
             <th className="pb-2 pr-4 font-medium">
+              <SortButton label="Sharpe" active={sortKey === "sharpeRatio"} dir={sortDir} onClick={() => toggleSort("sharpeRatio")} />
+            </th>
+            <th className="pb-2 pr-4 font-medium">
               <SortButton label="Sortino" active={sortKey === "sortinoRatio"} dir={sortDir} onClick={() => toggleSort("sortinoRatio")} />
             </th>
             <th className="pb-2 pr-4 font-medium">
@@ -447,6 +408,7 @@ function ResultsTableImpl({
                   href={buildMetricBacktestUrl(r.longestDrawdownDates)}
                 />
               </td>
+              <td className="py-2.5 pr-4">{(r.sharpeRatio ?? 0).toFixed(2)}</td>
               <td className="py-2.5 pr-4">{r.sortinoRatio === Infinity ? "∞" : (r.sortinoRatio ?? 0).toFixed(2)}</td>
               <td className="py-2.5 pr-4 text-muted">
                 {formatPercent(r.totalTradingCostPct ?? 0)}

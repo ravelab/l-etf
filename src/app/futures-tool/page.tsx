@@ -35,7 +35,7 @@ import {
   getMarketDataWarmUpStartDate,
   loadAllRiskOffPricePoints,
 } from "@/lib/fetch-market-data";
-import { runParallelBacktest } from "@/lib/simulation/parallel";
+import { runParallelBacktest } from "@/lib/simulation/parallel-backtest";
 import {
   buildEmulationEtfConfigs,
   buildFuturesLadderPlan,

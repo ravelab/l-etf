@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { simulateBacktest, simulateWithWarmUp } from "../src/lib/simulation/engine";
-import { runParallelBacktest } from "../src/lib/simulation/parallel";
+import { runParallelBacktest } from "../src/lib/simulation/parallel-backtest";
 import { getRiskOffSpread, getSymbolSpread } from "../src/lib/constants";
 import type { EtfConfig, PricePoint, RatePoint } from "../src/lib/simulation/types";
 

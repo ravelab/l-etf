@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSimulationBuckets } from "../src/lib/simulation/parallel";
+import { buildSimulationBuckets } from "../src/lib/simulation/simulation-buckets";
 import { calcCagr } from "../src/lib/simulation/metrics";
 import type { RollingWindow } from "../src/lib/simulation/rolling";
 import type { PricePoint } from "../src/lib/simulation/types";

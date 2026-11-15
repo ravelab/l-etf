@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getSwapSpreadDaily, getSwapSpreadModel } from "@/lib/simulation/engine";
+import { getSwapSpreadDaily, getSwapSpreadModel } from "@/lib/simulation/swap-spread";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 
 // The engine charges `annualRate / 360` on ~252 trading days a year, so the

@@ -6,7 +6,7 @@ import { flushSync } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { EtfConfig, BacktestResult } from "@/lib/simulation/types";
-import { runParallelBacktest } from "@/lib/simulation/parallel";
+import { runParallelBacktest } from "@/lib/simulation/parallel-backtest";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
 import {
   createDefaultEtfConfig,

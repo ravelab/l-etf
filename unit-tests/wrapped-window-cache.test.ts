@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildRollingWindows } from "../src/lib/simulation/rolling";
-import { precomputeAllConfigDailyValues } from "../src/lib/simulation/parallel";
+import { precomputeAllConfigDailyValues } from "../src/lib/simulation/precompute";
 import {
   buildWrappedTailCache,
   extractCachedWrappedWindowResult,

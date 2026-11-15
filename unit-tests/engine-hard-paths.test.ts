@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { simulateBacktest, computeSimulatedRiskOnReturn } from "../src/lib/simulation/engine";
+import { simulateBacktest } from "../src/lib/simulation/engine";
+import { computeSimulatedRiskOnReturn } from "../src/lib/simulation/swap-spread";
 import {
   getSymbolSpread,
   getRiskOffSpread,

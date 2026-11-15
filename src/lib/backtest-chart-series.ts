@@ -1,6 +1,6 @@
 import type { BacktestResult, EtfConfig, IndexKey, PricePoint, RatePoint } from "@/lib/simulation/types";
 import { buildRateLookup } from "@/lib/simulation/borrowing-rate";
-import { getSwapSpreadDaily } from "@/lib/simulation/engine";
+import { getSwapSpreadDaily } from "@/lib/simulation/swap-spread";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 
 type UnderlyingIndexSeries = {

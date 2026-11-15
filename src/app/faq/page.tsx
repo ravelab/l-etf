@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { isValidElement, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
-import { getSwapSpreadModel } from "@/lib/simulation/engine";
+import { getSwapSpreadModel } from "@/lib/simulation/swap-spread";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";

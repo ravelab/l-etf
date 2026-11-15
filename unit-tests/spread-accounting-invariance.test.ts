@@ -1,11 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { simulateBacktest } from "../src/lib/simulation/engine";
-import {
-  precomputeAllConfigDailyValues,
-  buildSimulationBuckets,
-  runParallelBacktest,
-} from "../src/lib/simulation/parallel";
+import { precomputeAllConfigDailyValues } from "../src/lib/simulation/precompute";
+import { buildSimulationBuckets } from "../src/lib/simulation/simulation-buckets";
+import { runParallelBacktest } from "../src/lib/simulation/parallel-backtest";
 import type { RollingWindow } from "../src/lib/simulation/rolling";
 import type { EtfConfig, PricePoint, RatePoint } from "../src/lib/simulation/types";
 

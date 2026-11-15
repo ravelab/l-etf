@@ -90,12 +90,10 @@ import type { DailyAssetValues } from "../src/lib/simulation/futures-asset-value
 import { DEFAULT_EXTRA_STRATEGY_IDS, withSignalRuleLines } from "../src/lib/simulation/signal-rules";
 import { warmUpStartDatesByIndex } from "../src/lib/simulation/warm-up-by-index";
 import { validateSimulationReadyPrices } from "../src/lib/utils";
-import {
-  precomputeAllConfigDailyValues,
-  buildSimulationBuckets,
-  runParallelBacktest,
-  runParallelVariants,
-} from "../src/lib/simulation/parallel";
+import { precomputeAllConfigDailyValues } from "../src/lib/simulation/precompute";
+import { buildSimulationBuckets } from "../src/lib/simulation/simulation-buckets";
+import { runParallelBacktest } from "../src/lib/simulation/parallel-backtest";
+import { runParallelVariants } from "../src/lib/simulation/parallel";
 import {
   annualizedInflationForRange,
   buildYearlyCpiInflation,

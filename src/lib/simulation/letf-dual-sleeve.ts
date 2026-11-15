@@ -16,7 +16,7 @@
 
 import { CONSTANT_INITIAL_INVESTMENT, formatRiskOffLiquidationAbbrev, getRiskOffSpread } from "@/lib/constants";
 import { createPresetEtfConfig, getComboSubPresets, DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
-import { calcCagr, calcMaxDrawdown, calcMonthlyExtremes, calcSortinoRatio } from "@/lib/simulation/metrics";
+import { calcCagr, calcPathMetrics } from "@/lib/simulation/metrics";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import type { BacktestResult, EtfResult, RiskOffAsset } from "@/lib/simulation/types";
 import { trimEtfResultToStartDate } from "@/lib/simulation/trim-etf-result";
@@ -148,8 +148,6 @@ export function composeLetfDualSleeveFund(params: {
     };
   });
   const { dailyValues, finalValue, totalTradingCostPct } = composeLetfFundPath([primary, secondary], 0, dates.length);
-  const drawdown = calcMaxDrawdown(dailyValues, dates);
-  const months = calcMonthlyExtremes(dailyValues, dates);
 
   return {
     id: params.id,
@@ -160,16 +158,7 @@ export function composeLetfDualSleeveFund(params: {
     finalValue,
     // Same base the sleeves use: the pre-spread starting amount, so entry costs count.
     cagr: calcCagr(CONSTANT_INITIAL_INVESTMENT, finalValue, dates[0], dates[dates.length - 1]),
-    sortinoRatio: calcSortinoRatio(dailyValues),
-    maxDrawdownPct: drawdown.pct,
-    maxDrawdownDollar: drawdown.dollar,
-    maxDrawdownDates: drawdown.maxDrawdownDates,
-    longestDrawdownDays: drawdown.longestDays,
-    longestDrawdownDates: drawdown.longestDrawdownDates,
-    bestMonth: months.bestMonth,
-    bestMonthDates: months.bestMonthDates,
-    worstMonth: months.worstMonth,
-    worstMonthDates: months.worstMonthDates,
+    ...calcPathMetrics(dailyValues, dates),
     // Two SMAs drive it, so there is no single SMA line or signal list to chart.
     smaSignals: [],
     smaPrices: [],

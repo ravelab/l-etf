@@ -4,7 +4,7 @@
 // (main-thread fallback server-side), which aligns risk-off and real-ETF series
 // internally — the exact path the /backtesting-tool page uses.
 
-import { runParallelBacktest } from "@/lib/simulation/parallel";
+import { runParallelBacktest } from "@/lib/simulation/parallel-backtest";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { getPrices } from "@/lib/db/queries";

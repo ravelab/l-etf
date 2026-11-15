@@ -13,7 +13,7 @@ import {
   stripFuturesLedgerSuffix,
   tradeDayStamp,
 } from "./futures-contracts";
-import { calcCagr, calcMaxDrawdown, calcMonthlyExtremes, calcSortinoRatio } from "@/lib/simulation/metrics";
+import { calcCagr, calcPathMetrics } from "@/lib/simulation/metrics";
 import type { EtfResult, IndexKey, SmaSignal } from "@/lib/simulation/types";
 
 export function totalFuturesNotionalAtMark(params: {
@@ -77,9 +77,6 @@ export function buildEtfResult(params: {
   const initial = dailyValues[0] ?? 0;
   const finalValue = dailyValues[dailyValues.length - 1] ?? 0;
   const cagr = calcCagr(initial, finalValue, dates[0], dates[dates.length - 1]);
-  const drawdown = calcMaxDrawdown(dailyValues, dates);
-  const monthlyExtremes = calcMonthlyExtremes(dailyValues, dates);
-  const sortinoRatio = calcSortinoRatio(dailyValues);
 
   return {
     id: params.id,
@@ -89,16 +86,7 @@ export function buildEtfResult(params: {
     dailyValues,
     finalValue,
     cagr,
-    sortinoRatio,
-    maxDrawdownPct: drawdown.pct,
-    maxDrawdownDollar: drawdown.dollar,
-    maxDrawdownDates: drawdown.maxDrawdownDates,
-    longestDrawdownDays: drawdown.longestDays,
-    longestDrawdownDates: drawdown.longestDrawdownDates,
-    bestMonth: monthlyExtremes.bestMonth,
-    bestMonthDates: monthlyExtremes.bestMonthDates,
-    worstMonth: monthlyExtremes.worstMonth,
-    worstMonthDates: monthlyExtremes.worstMonthDates,
+    ...calcPathMetrics(dailyValues, dates),
     smaSignals: params.smaSignals,
     smaPrices: params.smaPrices,
     totalTradingCostPct: params.totalTradingCostPct,

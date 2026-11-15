@@ -9,7 +9,7 @@ import { CONSTANT_INITIAL_INVESTMENT } from "@/lib/constants";
 import { throwIfAborted } from "@/lib/abort";
 import { composeLetfFundPath, heldRiskOnByDay, type LetfFundPathSleeve } from "./letf-dual-sleeve";
 import { calcCagr } from "./metrics";
-import { precomputeAllConfigDailyValues } from "./parallel";
+import { precomputeAllConfigDailyValues } from "./precompute";
 import { buildRollingWindows, type RollingSimulationPoint, type RollingWindow } from "./rolling";
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
 import { finalizeTradingCosts, riskOffPercent, selectEdgeSpreads } from "./window-calculations";

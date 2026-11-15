@@ -11,7 +11,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   independently per config, so a returned array is "requested order *minus the
   drops*" and positional zipping shifts every later entry onto the wrong config.
   This has bitten twice, in different shapes:
-  - Rolling-window buckets (`src/lib/simulation/parallel.ts`) drop windows
+  - Rolling-window buckets (`src/lib/simulation/simulation-buckets.ts`) drop windows
     independently per config when extraction returns null (a leveraged config
     wiped out, a synthetic-tail resimulation that failed) — the same `windows`
     array can produce buckets of different lengths per config. Join on
@@ -64,8 +64,8 @@ stop and ask: that is the case the refusal was written for, and it stays.
 ## Simulation engine: entry/exit spread contract
 
 `src/lib/simulation/window-calculations.ts` is the single source of truth for
-entry/exit trading-cost deduction, shared by `engine.ts`, `parallel.ts`,
-`wrapped-window.ts`, and `worker.ts`. Contract: entry spread is folded into
+entry/exit trading-cost deduction, shared by `single-etf.ts`, `trim-etf-result.ts`,
+`window-extraction.ts` and `wrapped-window.ts`. Contract: entry spread is folded into
 the renormalization factor at a window's start (so it compounds through the
 whole path, matching `simulateSingleEtf`'s day-0 bake-in); exit spread is
 only ever deducted from the final reported value, never baked into a
@@ -75,26 +75,22 @@ precomputed daily-value series must route through `computeRenormalizedPathMetric
 hand-rolling `factor = CONSTANT_INITIAL_INVESTMENT / firstValue` — that
 pattern silently discards the entry-spread cost.
 
-There are TWO paths that trim a simulated result down to a display window, and
-they must agree: `sliceBacktestResultToWindow` (engine.ts, the warm-up trim used
-by `simulateWithWarmUp`) and `trimEtfResultToStartDate` (trim-etf-result.ts). Both must
-(a) resolve `endInRiskOff` as well as `startInRiskOff` and deduct the exit
-spread, and (b) recompute `totalTradingCostPct` from the signals that land
-*inside* the window — the incoming value covers warm-up trades that happened
-before it. Route both through `finalizeTradingCosts` rather than reimplementing.
-The engine path silently did neither until 2026-08, so the same strategy
-reported a different final value depending only on whether warm-up data existed
-(the `displayStartIdx === 0` early return does deduct it).
+`trimEtfResultToStartDate` (trim-etf-result.ts) is the ONE path that trims a
+simulated result down to a display window: `simulateWithWarmUp`'s warm-up slice
+and `runParallelBacktest`'s per-config start both call it. It (a) resolves
+`endInRiskOff` as well as `startInRiskOff` and deducts the exit spread, and (b)
+recomputes `totalTradingCostPct` from the signals that land *inside* the window
+— the incoming value covers warm-up trades that happened before it. There used
+to be a second trim in engine.ts; it silently did neither until 2026-08, so the
+same strategy reported a different final value depending only on whether
+warm-up data existed. Do not grow another.
 
-`src/lib/simulation/worker.ts` is a hand-maintained duplicate of
-`parallel.ts`'s windowed-extraction logic for the Web Worker bundle (it
-doesn't import from `parallel.ts`). When changing spread/cost logic in
-`extractRegularWindowSimulation` (parallel.ts), mirror the change in
-`buildWindowSimulation` (worker.ts) — `wrapped-worker.ts` doesn't have this
-problem since it imports `wrapped-window.ts` directly. Range max-drawdown is no
-longer part of that duplication: both now import `buildDrawdownRangeQuery` from
-`simulation/drawdown-range.ts`. Prefer moving shared logic there over mirroring
-it a third time.
+Rolling-window extraction lives once, in worker-safe modules: per-window metrics
+in `window-extraction.ts`, per-mode shaping in `parallel-results.ts`. The main
+thread (`simulation-buckets.ts`) and the Web Worker (`worker.ts`) both import
+them, as `wrapped-worker.ts` imports `wrapped-window.ts`. Keep anything the
+worker bundle needs out of modules that construct Workers (`worker-pool.ts`) or
+simulate (`precompute.ts`).
 
 Window metrics split into an O(1) half and an O(window) half. `factor` and
 `finalValue` need only the endpoints (`computeRenormalizedEndpointMetrics`);
@@ -103,12 +99,6 @@ that in O(log n). Any new code sweeping many windows over one series should
 build the tree once per config rather than walking per window — the main-thread
 path is not a rare fallback (`win-rates.ts` uses it for 32 holding-period
 lengths, and every MCP heavy tool is main-thread-only server-side).
-
-Both `worker.ts`'s `mode_type === 'backtest'` branch and `parallel.ts`'s
-`extractResultsMainThread`'s `mode === 'backtest'` branch are dead code as of
-2026-07 — no caller passes that literal mode. They contain the same
-spread-deduction bug pattern as the live paths; leave them alone unless you
-also verify they've become reachable.
 
 Known and unfixed (2026-11): on a switch INTO risk-off, `simulateSingleEtf` sizes
 the risk-off shares from the value before the transition spread is deducted, so
@@ -436,7 +426,10 @@ spread holds flat while the rate still passes through in full, via
 cheaper than risk-free. Everything at or below 6% is bit-identical to the raw
 fitted line, which is what keeps post-2006 results and the calibration itself
 untouched; `unit-tests/swap-spread-extrapolation.test.ts` guards all three
-properties.
+properties. `npm run calibrate` ships new coefficients by rewriting the
+`SWAP_SPREAD_MODEL` literal in `swap-spread.ts` through text markers
+(`scripts/lib/swap-spread-source.ts`); keep its declaration line as is, or
+move the markers with it — `unit-tests/swap-spread-source.test.ts` pins them.
 
 ## MCP server (AI-agent API)
 
