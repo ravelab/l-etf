@@ -25209,3 +25209,6 @@ date,adj_close,open,close,name,source
 2026-11-06,656.1,27045.3,26989.99,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-11-09,679.35,27263.4,27907.63,QQQ,yahoo(open+close)+tiingo(adj_close)
 2026-11-10,674.76,27649.6,27740.79,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-11-11,690.38,28267.3,28374.25,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-11-12,688.17,27953.9,28289.19,QQQ,yahoo(open+close)+tiingo(adj_close)
+2026-11-13,679.89,28265.5,27943.74,QQQ,yahoo(open+close)+tiingo(adj_close)
