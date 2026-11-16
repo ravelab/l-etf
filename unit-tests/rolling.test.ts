@@ -154,5 +154,6 @@ test("summarizeSmaRow handles inflation adjustment", () => {
     { date: "2021-01-01", value: 105 },
   ];
   const summary = summarizeSmaRow(200, sims, monthlyCpi);
-  assert.equal(Math.abs(summary.avgReturn - 5) < 0.1, true);
+  // 10% nominal over ~5% inflation is ~4.76% real, not the 5% subtraction gives.
+  assert.ok(Math.abs(summary.avgReturn - (1.1 / 1.05 - 1) * 100) < 0.02, `avgReturn ${summary.avgReturn}`);
 });

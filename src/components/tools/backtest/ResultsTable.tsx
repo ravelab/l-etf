@@ -10,7 +10,7 @@ import { estimateLetfAfterTaxCagr } from "@/lib/simulation/letf-tax";
 import { formatCompactMultiple, formatPercent } from "@/lib/format";
 import { SortButton } from "@/components/ui/SortButton";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
-import { annualizedInflationForRange, cpiIndexRatioEndOverStart } from "@/lib/inflation";
+import { annualizedInflationForRange, cpiIndexRatioEndOverStart, realCagrPct } from "@/lib/inflation";
 import { getSymbolSpread } from "@/lib/constants";
 import { buildToolsUrl } from "@/lib/tools-route";
 import { formatFullDateSpan } from "@/lib/utils";
@@ -155,6 +155,10 @@ function ResultsTableImpl({
     return { rate, factor: Math.pow(1 + rate, years) };
   };
 
+  /** A row's nominal CAGR (%) in real terms, over that row's own inflation. */
+  const rowRealCagr = (r: EtfResult, nominalCagrPct: number): number =>
+    realCagrPct(nominalCagrPct, rowInflation(r).rate * 100);
+
   /** Denominator for “real” multiples: funded Amount on futures (matches transaction ledger), else first daily value. */
   const realValueInitialEquity = (r: EtfResult): number => {
     if (variant === "futures" && result.investedValues.length > 0) {
@@ -240,14 +244,14 @@ function ResultsTableImpl({
         return (calcRealReturn(a) - calcRealReturn(b)) * direction;
       }
       if (sortKey === "realCagr") {
-        return ((a.cagr - rowInflation(a).rate * 100) - (b.cagr - rowInflation(b).rate * 100)) * direction;
+        return (rowRealCagr(a, a.cagr) - rowRealCagr(b, b.cagr)) * direction;
       }
       if (sortKey === "afterTaxRealCagr") {
         const av = afterTaxCagrById[a.id];
         const bv = afterTaxCagrById[b.id];
         if (av === undefined) return bv === undefined ? 0 : 1;
         if (bv === undefined) return -1;
-        return ((av - rowInflation(a).rate * 100) - (bv - rowInflation(b).rate * 100)) * direction;
+        return (rowRealCagr(a, av) - rowRealCagr(b, bv)) * direction;
       }
       if (sortKey === "inflationPct") {
         return (rowInflation(a).rate - rowInflation(b).rate) * direction;
@@ -369,8 +373,9 @@ function ResultsTableImpl({
         <tbody>
           {sorted.map((r) => {
             const rowInflPct = rowInflation(r).rate * 100;
+            const realCagr = realCagrPct(r.cagr, rowInflPct);
             const afterTaxCagr = afterTaxCagrById[r.id];
-            const afterTaxRealCagr = afterTaxCagr === undefined ? undefined : afterTaxCagr - rowInflPct;
+            const afterTaxRealCagr = afterTaxCagr === undefined ? undefined : realCagrPct(afterTaxCagr, rowInflPct);
             return (
             <tr
               key={r.id}
@@ -391,10 +396,10 @@ function ResultsTableImpl({
               </td>
               <td
                 className={`py-2.5 pr-4 ${
-                  r.cagr - rowInflPct >= 0 ? "text-positive" : "text-negative"
+                  realCagr >= 0 ? "text-positive" : "text-negative"
                 }`}
               >
-                {formatPercent(r.cagr - rowInflPct)}
+                {formatPercent(realCagr)}
               </td>
               {variant === "futures" && (
                 <td className={`py-2.5 pr-4 tabular-nums ${afterTaxRealCagr === undefined ? "text-muted" : afterTaxRealCagr >= 0 ? "text-positive" : "text-negative"}`}>

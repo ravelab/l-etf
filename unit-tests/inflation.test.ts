@@ -6,6 +6,7 @@ import {
   cpiIndexRatioEndOverStart,
   displayedAnnualizedInflationPct,
   inflationPctForSweepSectionTitle,
+  realCagrPct,
   sampleYearlyRealGrowth
 } from "@/lib/inflation";
 
@@ -172,4 +173,22 @@ test("sampleYearlyRealGrowth with monthly CPI fallback", () => {
   assert.equal(Math.abs(res.values[0] - 4.7619) < 0.001, true);
   assert.equal(res.inflation.length, 1);
   assert.equal(Math.abs(res.inflation[0] - 0.05) < 1e-9, true);
+});
+
+test("realCagrPct divides out inflation instead of subtracting it", () => {
+  // 38.26% nominal at 2.79% inflation is 34.51% real; subtraction would say 35.47%.
+  assert.ok(Math.abs(realCagrPct(38.26, 2.79) - 34.507) < 0.001);
+  assert.equal(realCagrPct(12, 0), 12);
+  // A wipeout stays a wipeout in real terms.
+  assert.equal(realCagrPct(-100, 3), -100);
+});
+
+test("realCagrPct agrees with deflating the ending multiple by the CPI ratio", () => {
+  const years = 38.6;
+  const nominalMultiple = 270_340;
+  const cpiRatio = 2.879;
+  const nominalCagr = (Math.pow(nominalMultiple, 1 / years) - 1) * 100;
+  const inflationPct = (Math.pow(cpiRatio, 1 / years) - 1) * 100;
+  const fromMultiple = (Math.pow(nominalMultiple / cpiRatio, 1 / years) - 1) * 100;
+  assert.ok(Math.abs(realCagrPct(nominalCagr, inflationPct) - fromMultiple) < 1e-9);
 });

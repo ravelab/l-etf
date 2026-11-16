@@ -1,4 +1,4 @@
-import { annualizedInflationForRange } from "../inflation";
+import { annualizedInflationForRange, realCagrPct } from "../inflation";
 import { buildRateLookup } from "./borrowing-rate";
 import { CONSTANT_HISTORY_WRAP_ENABLED, CONSTANT_STEP_MONTHS } from "../constants";
 import { adjustedOpenFromPricePoint } from "../utils";
@@ -526,7 +526,7 @@ export function summarizeSmaRow(
   const cagrs = monthlyCpi && monthlyCpi.length >= 2
     ? simulations.map((s) => {
         const windowInflation = annualizedInflationForRange(monthlyCpi, s.startDate, s.endDate);
-        return s.cagr - windowInflation * 100;
+        return realCagrPct(s.cagr, windowInflation * 100);
       })
     : simulations.map((s) => s.cagr);
   const drawdowns = simulations.map((s) => s.maxDrawdownPct);

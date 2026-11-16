@@ -113,9 +113,9 @@ test("pickTopDistinctCells keeps separated coarse basins for refinement", () => 
   );
 });
 
-test("scoreRow subtracts inflation for avgRealCagr", () => {
+test("scoreRow deflates avgRealCagr by inflation rather than subtracting it", () => {
   const row = makeRow(1, 1, 10);
-  assert.equal(scoreRow(row, "avgRealCagr", 3), 7);
+  assert.ok(Math.abs(scoreRow(row, "avgRealCagr", 3) - (1.1 / 1.03 - 1) * 100) < 1e-9);
 });
 
 test("scoreRow for sharpeLike returns avg/|dd|", () => {

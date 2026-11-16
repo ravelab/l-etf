@@ -149,7 +149,7 @@ test("compare_strategies asymmetric_buffers rejects an oversized grid", async ()
   await client.close();
 });
 
-test("grid inflation is a percent, matching the units scoreRow subtracts", async () => {
+test("grid inflation is a percent, matching the units scoreRow deflates by", async () => {
   const client = await connectClient();
   const res = await client.callTool({
     name: "compare_strategies",
@@ -174,14 +174,15 @@ test("grid inflation is a percent, matching the units scoreRow subtracts", async
 
   // US CPI ran ~2-3%/yr over 1990-2020. A fraction (0.025) here would silently
   // make the real-return objectives ~100x too generous, since the sweep rows
-  // this is subtracted from are nominal percents.
+  // it deflates are nominal percents.
   assert.ok(
     data.inflationPct > 1 && data.inflationPct < 10,
     `inflationPct ${data.inflationPct} is not an annual percent`,
   );
-  // avgRealCagr scores are exactly the nominal return less that inflation.
+  // avgRealCagr scores are exactly the nominal return deflated by that inflation.
   for (const row of data.results) {
-    assert.ok(Math.abs(row.score - (row.avgReturnPct - data.inflationPct)) < 1e-9);
+    const real = ((1 + row.avgReturnPct / 100) / (1 + data.inflationPct / 100) - 1) * 100;
+    assert.ok(Math.abs(row.score - real) < 1e-9);
   }
   await client.close();
 });

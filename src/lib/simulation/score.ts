@@ -1,3 +1,4 @@
+import { realCagrPct } from "../inflation";
 import type { SmaComparisonRow } from "./types";
 
 type ScoreOptions = {
@@ -78,8 +79,8 @@ export function scoreRow(
   windowYears = 1,
   options: ScoreOptions = {},
 ): number {
-  const avgRealCagr = inflationPct > 0 ? row.avgReturn - inflationPct : row.avgReturn;
-  const worstRealCagr = inflationPct > 0 ? row.worstReturn - inflationPct : row.worstReturn;
+  const avgRealCagr = inflationPct > 0 ? realCagrPct(row.avgReturn, inflationPct) : row.avgReturn;
+  const worstRealCagr = inflationPct > 0 ? realCagrPct(row.worstReturn, inflationPct) : row.worstReturn;
   // avgTrades is per window; score uses trades/year for comparability across window sizes.
   const avgTradesPerYear = row.avgTrades / Math.max(1e-9, windowYears);
 
@@ -102,7 +103,7 @@ export function scoreRow(
 export function scoreFullPeriod(row: SmaComparisonRow, inflationPct: number, years: number, smaOnlySwitches?: number): number {
   if (!Number.isFinite(years) || years <= 0) throw new Error("Full-period score requires a positive elapsed duration");
   return computeScore(
-    row.avgReturn - Math.max(0, inflationPct),
+    realCagrPct(row.avgReturn, Math.max(0, inflationPct)),
     0,
     row.biggestMaxDrawdown,
     row.biggestMaxDrawdown,

@@ -97,6 +97,7 @@ import { runParallelVariants } from "../src/lib/simulation/parallel";
 import {
   annualizedInflationForRange,
   buildYearlyCpiInflation,
+  realCagrPct,
   sampleYearlyRealGrowth,
 } from "../src/lib/inflation";
 import {
@@ -1469,7 +1470,7 @@ function buildCompareLetfsDistributionSnapshot(
         label: normalizeStrategyLabel(result.label),
         color: CHART_COLORS.etf[idx % CHART_COLORS.etf.length],
         values: result.runs
-          .map((run) => run.cagr - annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100)
+          .map((run) => realCagrPct(run.cagr, annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100))
           .filter(Number.isFinite),
         borderWidth: 1.2,
       }))
@@ -1524,7 +1525,7 @@ function buildCompareLetfsDistributionSnapshot(
       const result = includedResults.find((item) => normalizeStrategyLabel(item.label) === series.label);
       if (!result) return null;
       const values = result.runs
-        .map((run) => run.cagr - annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100)
+        .map((run) => realCagrPct(run.cagr, annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100))
         .filter(Number.isFinite)
         .sort((a, b) => a - b);
       if (values.length === 0) return null;

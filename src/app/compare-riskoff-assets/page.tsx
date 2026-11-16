@@ -13,7 +13,7 @@ import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
 import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, RISK_OFF_ASSET_OPTIONS, getRiskOffFetchTickers } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoints } from "@/lib/fetch-market-data";
 import { formatMultiple, formatPercent } from "@/lib/format";
-import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
+import { inflationPctForSweepSectionTitle, realCagrPct } from "@/lib/inflation";
 import { buildRiskOffVariantConfigs } from "@/lib/simulation/sweep-items";
 import { ETF_PRESETS, PRESET_SELECT_OPTIONS, getComboEffectiveDateRange, getActivePreset, resolvePresetSelection } from "@/lib/simulation/presets";
 import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
@@ -515,7 +515,7 @@ export function CompareRiskOffAssetsPageContent({
             </Card>
             <Card>
               <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real CAGR` : "Best Scorer’s Avg Real CAGR"}</p>
-              <p className="text-lg font-semibold text-positive">{formatPercent(bestRow.avgReturn - inflPct)}</p>
+              <p className="text-lg font-semibold text-positive">{formatPercent(realCagrPct(bestRow.avgReturn, inflPct))}</p>
             </Card>
             <Card>
               <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real End Value` : "Best Scorer’s Avg Real End Value"}</p>
@@ -533,7 +533,7 @@ export function CompareRiskOffAssetsPageContent({
                 </Card>
                 <Card>
                   <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real CAGR</p>
-                  <p className="text-lg font-semibold text-positive">{formatPercent(bestRow2.avgReturn - inflPct)}</p>
+                  <p className="text-lg font-semibold text-positive">{formatPercent(realCagrPct(bestRow2.avgReturn, inflPct))}</p>
                 </Card>
                 <Card>
                   <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real End Value</p>

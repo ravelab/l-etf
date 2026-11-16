@@ -16,7 +16,7 @@ import { useHateDrawdown } from "@/components/tools/compare/HateDrawdownToggle";
 import { CONSTANT_INITIAL_INVESTMENT, INDEX_DATE_RANGES, getRiskOffFetchTickersForAll } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate, loadAllRiskOffPricePoints } from "@/lib/fetch-market-data";
 import { formatMultiple, formatPercent } from "@/lib/format";
-import { inflationPctForSweepSectionTitle } from "@/lib/inflation";
+import { inflationPctForSweepSectionTitle, realCagrPct } from "@/lib/inflation";
 import { buildSmaPeriodSweepItems } from "@/lib/simulation/sweep-items";
 import {
   DEFAULT_COMBO_PRESET,
@@ -584,7 +584,7 @@ export function CompareSmaStrategiesPageContent({
             </Card>
             <Card>
               <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real CAGR` : "Best Scorer’s Avg Real CAGR"}</p>
-              <p className="text-lg font-semibold text-positive">{formatPercent((bestRow.avgReturn - inflPct))}</p>
+              <p className="text-lg font-semibold text-positive">{formatPercent(realCagrPct(bestRow.avgReturn, inflPct))}</p>
             </Card>
             <Card>
               <p className="text-xs text-muted mb-1">{display.comboLabels ? `${display.comboLabels[0]} Best Scorer’s Avg Real End Value` : "Best Scorer’s Avg Real End Value"}</p>
@@ -602,7 +602,7 @@ export function CompareSmaStrategiesPageContent({
                 </Card>
                 <Card>
                   <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real CAGR</p>
-                  <p className="text-lg font-semibold text-positive">{formatPercent((bestRow2.avgReturn - inflPct))}</p>
+                  <p className="text-lg font-semibold text-positive">{formatPercent(realCagrPct(bestRow2.avgReturn, inflPct))}</p>
                 </Card>
                 <Card>
                   <p className="text-xs text-muted mb-1">{display.comboLabels[1]} Best Scorer’s Avg Real End Value</p>
@@ -636,14 +636,14 @@ export function CompareSmaStrategiesPageContent({
                   baseline={baseline}
                   chartOptions={chartOptions}
                   series={[
-                    { label: `${display.comboLabels?.[0] ?? ""} Avg Real CAGR`.trim(), metric: (r) => (r.avgReturn - inflPct), color: "#16f3ce" },
+                    { label: `${display.comboLabels?.[0] ?? ""} Avg Real CAGR`.trim(), metric: (r) => realCagrPct(r.avgReturn, inflPct), color: "#16f3ce" },
                     ...(chartRows2.length > 0 ? [
-                      { label: `${display.comboLabels?.[1] ?? ""} Avg Real CAGR`.trim(), metric: (r: SmaComparisonRow) => (r.avgReturn - inflPct), color: "#f97316", rows: chartRows2, borderDash: [6, 3] },
+                      { label: `${display.comboLabels?.[1] ?? ""} Avg Real CAGR`.trim(), metric: (r: SmaComparisonRow) => realCagrPct(r.avgReturn, inflPct), color: "#f97316", rows: chartRows2, borderDash: [6, 3] },
                     ] : []),
                   ]}
                   baselineSeries={[
-                    { label: `${display.comboLabels?.[0] ?? ""} Baseline Avg`.trim(), metric: (b) => (b.avgReturn - inflPct), color: "#16f3ce" },
-                    ...(baseline2 ? [{ label: `${display.comboLabels?.[1] ?? ""} Baseline Avg`.trim(), metric: (b: SmaComparisonRow) => (b.avgReturn - inflPct), color: "#f97316", rows: [baseline2], borderDash: [6, 4] }] : []),
+                    { label: `${display.comboLabels?.[0] ?? ""} Baseline Avg`.trim(), metric: (b) => realCagrPct(b.avgReturn, inflPct), color: "#16f3ce" },
+                    ...(baseline2 ? [{ label: `${display.comboLabels?.[1] ?? ""} Baseline Avg`.trim(), metric: (b: SmaComparisonRow) => realCagrPct(b.avgReturn, inflPct), color: "#f97316", rows: [baseline2], borderDash: [6, 4] }] : []),
                   ]}
                 />
                 <ComparisonLineChart
@@ -652,12 +652,12 @@ export function CompareSmaStrategiesPageContent({
                   baseline={baseline}
                   chartOptions={chartOptions}
                   series={[
-                    { label: `${display.comboLabels?.[0] ?? ""} Best Real CAGR`.trim(), metric: (r) => (r.bestReturn - inflPct), color: "#00FA9A" },
-                    ...(chartRows2.length > 0 ? [{ label: `${display.comboLabels?.[1] ?? ""} Best Real CAGR`.trim(), metric: (r: SmaComparisonRow) => (r.bestReturn - inflPct), color: "#a855f7", rows: chartRows2, borderDash: [6, 3] }] : []),
+                    { label: `${display.comboLabels?.[0] ?? ""} Best Real CAGR`.trim(), metric: (r) => realCagrPct(r.bestReturn, inflPct), color: "#00FA9A" },
+                    ...(chartRows2.length > 0 ? [{ label: `${display.comboLabels?.[1] ?? ""} Best Real CAGR`.trim(), metric: (r: SmaComparisonRow) => realCagrPct(r.bestReturn, inflPct), color: "#a855f7", rows: chartRows2, borderDash: [6, 3] }] : []),
                   ]}
                   baselineSeries={[
-                    { label: `${display.comboLabels?.[0] ?? ""} Baseline Best`.trim(), metric: (b) => (b.bestReturn - inflPct), color: "#00FA9A" },
-                    ...(baseline2 ? [{ label: `${display.comboLabels?.[1] ?? ""} Baseline Best`.trim(), metric: (b: SmaComparisonRow) => (b.bestReturn - inflPct), color: "#a855f7", rows: [baseline2], borderDash: [6, 4] }] : []),
+                    { label: `${display.comboLabels?.[0] ?? ""} Baseline Best`.trim(), metric: (b) => realCagrPct(b.bestReturn, inflPct), color: "#00FA9A" },
+                    ...(baseline2 ? [{ label: `${display.comboLabels?.[1] ?? ""} Baseline Best`.trim(), metric: (b: SmaComparisonRow) => realCagrPct(b.bestReturn, inflPct), color: "#a855f7", rows: [baseline2], borderDash: [6, 4] }] : []),
                   ]}
                 />
                 <ComparisonLineChart
@@ -666,12 +666,12 @@ export function CompareSmaStrategiesPageContent({
                   baseline={baseline}
                   chartOptions={chartOptions}
                   series={[
-                    { label: `${display.comboLabels?.[0] ?? ""} Worst Real CAGR`.trim(), metric: (r) => (r.worstReturn - inflPct), color: "#ef4444" },
-                    ...(chartRows2.length > 0 ? [{ label: `${display.comboLabels?.[1] ?? ""} Worst Real CAGR`.trim(), metric: (r: SmaComparisonRow) => (r.worstReturn - inflPct), color: "#a855f7", rows: chartRows2, borderDash: [6, 3] }] : []),
+                    { label: `${display.comboLabels?.[0] ?? ""} Worst Real CAGR`.trim(), metric: (r) => realCagrPct(r.worstReturn, inflPct), color: "#ef4444" },
+                    ...(chartRows2.length > 0 ? [{ label: `${display.comboLabels?.[1] ?? ""} Worst Real CAGR`.trim(), metric: (r: SmaComparisonRow) => realCagrPct(r.worstReturn, inflPct), color: "#a855f7", rows: chartRows2, borderDash: [6, 3] }] : []),
                   ]}
                   baselineSeries={[
-                    { label: `${display.comboLabels?.[0] ?? ""} Baseline Worst`.trim(), metric: (b) => (b.worstReturn - inflPct), color: "#ef4444" },
-                    ...(baseline2 ? [{ label: `${display.comboLabels?.[1] ?? ""} Baseline Worst`.trim(), metric: (b: SmaComparisonRow) => (b.worstReturn - inflPct), color: "#a855f7", rows: [baseline2], borderDash: [6, 4] }] : []),
+                    { label: `${display.comboLabels?.[0] ?? ""} Baseline Worst`.trim(), metric: (b) => realCagrPct(b.worstReturn, inflPct), color: "#ef4444" },
+                    ...(baseline2 ? [{ label: `${display.comboLabels?.[1] ?? ""} Baseline Worst`.trim(), metric: (b: SmaComparisonRow) => realCagrPct(b.worstReturn, inflPct), color: "#a855f7", rows: [baseline2], borderDash: [6, 4] }] : []),
                   ]}
                 />
                 <ComparisonLineChart

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatPercent } from "@/lib/format";
+import { realCagrPct } from "@/lib/inflation";
 import type { AsymmetricSweepRow, ObjectiveKey } from "@/lib/simulation/buffer-grid-search";
 import { scoreRow } from "@/lib/simulation/buffer-grid-search";
 
@@ -273,7 +274,7 @@ export function BufferHeatmap({ rows, objective, inflationPct, highlight, fineWi
           {" · "}
           Score: {formatScore(hovered.score, objective)}
           {" · "}
-          Avg CAGR (real): {formatPercent((hovered.row.avgReturn ?? 0) - inflationPct)}
+          Avg CAGR (real): {formatPercent(realCagrPct(hovered.row.avgReturn ?? 0, inflationPct))}
           {" · "}
           Worst DD: {formatPercent(hovered.row.biggestMaxDrawdown ?? 0)}
           {" · "}

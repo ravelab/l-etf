@@ -9,6 +9,7 @@
  */
 
 import type { SmaComparisonRow } from "./types";
+import { realCagrPct } from "../inflation";
 import { scoreRow as scoreSmaRow } from "./score";
 import { GRID_AXIS_EPSILON, buildAxis } from "./grid-axis";
 import { PLATEAU_TOLERANCE, inferSteps, pickPlateauCenter } from "./plateau";
@@ -102,11 +103,11 @@ export function dedupePoints(
 export function scoreRow(row: AsymmetricSweepRow, key: ObjectiveKey, inflationPct: number): number {
   switch (key) {
     case "avgRealCagr":
-      return (row.avgReturn ?? 0) - inflationPct;
+      return realCagrPct(row.avgReturn ?? 0, inflationPct);
     case "worstReturn":
       return row.worstReturn ?? -Infinity;
     case "sharpeLike": {
-      const avg = (row.avgReturn ?? 0) - inflationPct;
+      const avg = realCagrPct(row.avgReturn ?? 0, inflationPct);
       const dd = Math.abs(row.biggestMaxDrawdown ?? 0);
       return dd > EPSILON ? avg / dd : avg;
     }

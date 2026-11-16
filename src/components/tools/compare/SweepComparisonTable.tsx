@@ -10,6 +10,7 @@ import { CONSTANT_INITIAL_INVESTMENT } from "@/lib/constants";
 import { formatDateSpan } from "@/lib/utils";
 import type { SmaComparisonRow } from "@/lib/simulation/types";
 import { scoreRow } from "@/lib/simulation/score";
+import { realCagrPct } from "@/lib/inflation";
 
 type SweepSortKey =
   | "parameterValue"
@@ -96,9 +97,9 @@ export function SweepComparisonTable({
     score: scoreOf,
     avgFinalRealValue: (r) => r.avgFinalRealValue,
     avgCagr: (r) => r.avgCagr ?? r.avgReturn,
-    avgRealCagr: (r) => r.avgReturn - inflationPct,
-    bestRealCagr: (r) => r.bestReturn - inflationPct,
-    worstRealCagr: (r) => r.worstReturn - inflationPct,
+    avgRealCagr: (r) => realCagrPct(r.avgReturn, inflationPct),
+    bestRealCagr: (r) => realCagrPct(r.bestReturn, inflationPct),
+    worstRealCagr: (r) => realCagrPct(r.worstReturn, inflationPct),
     avgTrades: (r) => r.avgTrades / Math.max(1e-9, yearsForRow(r)),
     avgRiskOffPct: (r) => r.avgRiskOffPct ?? 0,
   };
@@ -181,9 +182,9 @@ export function SweepComparisonTable({
           </thead>
           <tbody>
             {paged.map((row, idx) => {
-              const avg = row.avgReturn - inflationPct;
-              const best = row.bestReturn - inflationPct;
-              const worst = row.worstReturn - inflationPct;
+              const avg = realCagrPct(row.avgReturn, inflationPct);
+              const best = realCagrPct(row.bestReturn, inflationPct);
+              const worst = realCagrPct(row.worstReturn, inflationPct);
               const score = scoreOf(row);
               const originalIdx = rows.indexOf(row);
               const dotColor = colorDot?.(row, originalIdx);
@@ -283,9 +284,9 @@ export function SweepComparisonTable({
               );
             })}
             {baseline && (() => {
-              const blAvg = baseline.avgReturn - inflationPct;
-              const blBest = baseline.bestReturn - inflationPct;
-              const blWorst = baseline.worstReturn - inflationPct;
+              const blAvg = realCagrPct(baseline.avgReturn, inflationPct);
+              const blBest = realCagrPct(baseline.bestReturn, inflationPct);
+              const blWorst = realCagrPct(baseline.worstReturn, inflationPct);
               const blScore = scoreRow(baseline, inflationPct, yearsForRow(baseline), { hateDrawdown });
               const baselineBestUrl = baseline.bestReturnDates ? getBacktestUrl(baseline, baseline.bestReturnDates) : null;
               const baselineWorstUrl = baseline.worstReturnDates ? getBacktestUrl(baseline, baseline.worstReturnDates) : null;

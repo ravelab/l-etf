@@ -5,6 +5,7 @@ import { ResultsTable } from "@/components/tools/backtest/ResultsTable";
 import { DEFAULT_FUTURES_TAX_RATES } from "@/lib/simulation/futures-tax";
 import { buildLetfTaxSchedule, estimateLetfAfterTaxCagr } from "@/lib/simulation/letf-tax";
 import { formatPercent } from "@/lib/format";
+import { annualizedInflationForRange } from "@/lib/inflation";
 import { calcCagr } from "@/lib/simulation/metrics";
 import { CONSTANT_INITIAL_INVESTMENT as C } from "@/lib/constants";
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
@@ -63,6 +64,26 @@ describe("futures after-tax table", () => {
     // Held throughout and sold after more than a year: long-term only, unlike the 60/40 futures blend.
     rerender(<ResultsTable {...props} futuresTaxRates={{ ...DEFAULT_FUTURES_TAX_RATES, stcg: 90 }} />);
     expect(taxCell()).toBe(formatPercent(expected));
+  });
+
+  it("divides inflation out of both real CAGR columns rather than subtracting it", () => {
+    // 20% nominal at ~10% CPI growth a year: about 9.1% real, where subtraction says about 10%.
+    const monthlyCpi = [{ date: "2020-01-01", value: 100 }, { date: "2021-01-01", value: 110 }];
+    const inflation = annualizedInflationForRange(monthlyCpi, dates[0], dates[2]);
+    const expected = formatPercent((1.2 / (1 + inflation) - 1) * 100);
+    expect(expected).not.toBe(formatPercent(20 - inflation * 100));
+    const futures = row("a-futures-sma", [100, 120, 144], 20);
+    render(
+      <ResultsTable
+        result={{ ...result, etfResults: [futures] }} indexLabel="VOO" annualizedInflation={0}
+        monthlyCpi={monthlyCpi} variant="futures" futuresTaxRates={{ ltcg: 0, stcg: 0, state: 0, medicare: 0 }}
+      />
+    );
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells[3]).toHaveTextContent(expected);
+    // With no tax the after-tax CAGR is the path's own nominal CAGR, deflated the same way.
+    const untaxed = calcCagr(100, 144, dates[0], dates[2]);
+    expect(cells[4]).toHaveTextContent(formatPercent(((1 + untaxed / 100) / (1 + inflation) - 1) * 100));
   });
 
   it("keeps the backtest table's columns unchanged", () => {

@@ -5,7 +5,7 @@ import { precomputeAllConfigDailyValues } from "./precompute";
 import { buildSimulationBuckets } from "./simulation-buckets";
 import { buildSgovFinalValuesByWindow } from "../sgov-benchmark";
 import { CONSTANT_HISTORY_WRAP_ENABLED, CONSTANT_INITIAL_INVESTMENT, LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "../constants";
-import { annualizedInflationForRange } from "../inflation";
+import { annualizedInflationForRange, realCagrPct } from "../inflation";
 import { calcCagr } from "./metrics";
 
 type WinRateSummaryRow = {
@@ -233,13 +233,13 @@ export async function computeWinRatesByWindowLength(opts: {
         smaRun.endDate
       );
 
-      smaRealCagrs.push(smaRun.cagr - inflationPct);
+      smaRealCagrs.push(realCagrPct(smaRun.cagr, inflationPct));
       smaTradeCosts.push(smaRun.totalTradingCostPct);
       if (noSmaRun) {
-        noSmaRealCagrs.push(noSmaRun.cagr - inflationPct);
+        noSmaRealCagrs.push(realCagrPct(noSmaRun.cagr, inflationPct));
         noSmaTradeCosts.push(noSmaRun.totalTradingCostPct);
       }
-      indexRealCagrs.push(indexCagr - inflationPct);
+      indexRealCagrs.push(realCagrPct(indexCagr, inflationPct));
       
       const indexSpread = (smaConfig.smaIndex === "nasdaq100" ? 0.0001 : 0.0001); // 1bp
       const indexEntryDollar = CONSTANT_INITIAL_INVESTMENT * indexSpread;

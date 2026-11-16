@@ -59,7 +59,7 @@ import {
 } from "@/lib/strategy-page-data";
 import { runLetfFundRollingWindows } from "@/lib/simulation/letf-fund-rolling";
 import { buildRealEndValuePercentileSeries } from "@/lib/strategy-percentiles";
-import { annualizedInflationForRange, inflationPctForSweepSectionTitle } from "@/lib/inflation";
+import { annualizedInflationForRange, inflationPctForSweepSectionTitle, realCagrPct } from "@/lib/inflation";
 import { formatPercent } from "@/lib/format";
 import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { buildSgovFinalValuesByWindow } from "@/lib/sgov-benchmark";
@@ -1035,7 +1035,7 @@ export function CompareLETFsPageContent({
             key: result.label,
             label: normalizeStrategyLabel(result.label),
             color: getStrategyColor(result.label),
-            values: result.runs.map((run) => run.cagr - (monthlyCpi.length >= 2 ? annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100 : 0)),
+            values: result.runs.map((run) => realCagrPct(run.cagr, monthlyCpi.length >= 2 ? annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100 : 0)),
             borderWidth: 1.2,
           }))
           .filter((series) => series.values.some(Number.isFinite)),
@@ -1096,7 +1096,7 @@ export function CompareLETFsPageContent({
       .map((series) => {
         const values = strategyResults
           .find((result) => shouldIncludeStrategyChartLabel(result.label) && normalizeStrategyLabel(result.label) === series.label)
-          ?.runs.map((run) => run.cagr - (monthlyCpi.length >= 2 ? annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100 : 0))
+          ?.runs.map((run) => realCagrPct(run.cagr, monthlyCpi.length >= 2 ? annualizedInflationForRange(monthlyCpi, run.startDate, run.endDate) * 100 : 0))
           .filter(Number.isFinite) ?? [];
         if (values.length === 0) return null;
         const sorted = [...values].sort((a, b) => a - b);
@@ -1337,7 +1337,7 @@ export function CompareLETFsPageContent({
             title="Probability Distribution · SPX Family"
             startDate={sp500StrategyDisplayStart}
             inflationPct={sp500InflationPctForDisplay}
-            description="Distribution of real CAGR% (nominal CAGR minus inflation) across all rolling simulations for SPX family strategies. All SMA strategies here use next-open execution."
+            description="Distribution of real CAGR% (nominal CAGR deflated by CPI) across all rolling simulations for SPX family strategies. All SMA strategies here use next-open execution."
             series={sp500DistributionSeries}
             rows={sp500DistributionRows}
             bests={sp500DistributionPercentileBests}
@@ -1354,7 +1354,7 @@ export function CompareLETFsPageContent({
             title="Probability Distribution · NDX Family"
             startDate={nasdaqStrategyDisplayStart}
             inflationPct={nasdaqInflationPctForDisplay}
-            description="Distribution of real CAGR% (nominal CAGR minus inflation) across all rolling simulations for NDX family strategies. All SMA strategies here use next-open execution."
+            description="Distribution of real CAGR% (nominal CAGR deflated by CPI) across all rolling simulations for NDX family strategies. All SMA strategies here use next-open execution."
             series={nasdaqDistributionSeries}
             rows={nasdaqDistributionRows}
             bests={nasdaqDistributionPercentileBests}

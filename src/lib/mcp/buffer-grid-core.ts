@@ -61,8 +61,8 @@ export async function runAsymmetricBufferGrid(params: {
   if (rows.length === 0) {
     throw new McpToolError("No valid rolling windows for this buffer grid and range.");
   }
-  // `annualizedInflationForRange` returns a fraction; `scoreRow` subtracts this
-  // from `avgReturn`, which is a percent. These sweep rows are nominal — MCP
+  // `annualizedInflationForRange` returns a fraction; `scoreRow` deflates
+  // `avgReturn`, which is a percent, by this. These sweep rows are nominal — MCP
   // never passes monthlyCpi into the engine, so nothing has deflated them yet —
   // which is the same case the compare pages handle by scaling to a percent.
   const inflationPct = annualizedInflationForRange(monthlyCpi, startDate, endDate) * 100;

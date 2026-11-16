@@ -156,6 +156,20 @@ export function cpiIndexRatioEndOverStart(
   return endCpi / startCpi;
 }
 
+/**
+ * Real CAGR (%) from a nominal CAGR (%) and annualized inflation (%):
+ * `(1 + nominal) / (1 + inflation) − 1`, the same as deflating the ending
+ * multiple by the CPI ratio before annualizing. Never subtract inflation from
+ * the nominal CAGR instead: that overstates high returns by about
+ * `nominal × inflation` (38.3% at 2.8% inflation is 34.5% real, not 35.5%).
+ * Zero inflation returns the input unchanged: callers pass 0 for CAGRs that are
+ * already real, and those must stay bit-identical.
+ */
+export function realCagrPct(nominalCagrPct: number, inflationPct: number): number {
+  if (inflationPct === 0) return nominalCagrPct;
+  return ((1 + nominalCagrPct / 100) / (1 + inflationPct / 100) - 1) * 100;
+}
+
 export function displayedAnnualizedInflationPct(
   monthlyCpi: Array<{ date: string; value: number }>,
   startDate: string,
