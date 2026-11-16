@@ -18,6 +18,7 @@ type SweepSortKey =
   | "avgFinalRealValue"
   | "avgCagr"
   | "avgRealCagr"
+  | "avgPreTaxRealCagr"
   | "bestRealCagr"
   | "worstRealCagr"
   | "avgMaxDrawdown"
@@ -92,12 +93,19 @@ export function SweepComparisonTable({
     (r: SmaComparisonRow) => scoreRow(r, inflationPct, yearsForRow(r), { hateDrawdown }),
     [inflationPct, yearsForRow, hateDrawdown]
   );
+  // Every value is after-tax when the run was taxed (see `withAfterTaxWindow`); only
+  // the pre-tax column reads the untaxed average. At 0% the two are the same.
+  const preTaxRealCagrOf = useCallback(
+    (r: SmaComparisonRow) => realCagrPct(r.avgPreTaxReturn ?? r.avgReturn, inflationPct),
+    [inflationPct]
+  );
 
   const metricFns: Record<string, (r: SmaComparisonRow) => number> = {
     score: scoreOf,
     avgFinalRealValue: (r) => r.avgFinalRealValue,
     avgCagr: (r) => r.avgCagr ?? r.avgReturn,
     avgRealCagr: (r) => realCagrPct(r.avgReturn, inflationPct),
+    avgPreTaxRealCagr: preTaxRealCagrOf,
     bestRealCagr: (r) => realCagrPct(r.bestReturn, inflationPct),
     worstRealCagr: (r) => realCagrPct(r.worstReturn, inflationPct),
     avgTrades: (r) => r.avgTrades / Math.max(1e-9, yearsForRow(r)),
@@ -140,10 +148,10 @@ export function SweepComparisonTable({
                 <th className="pb-2 pr-4 font-medium w-20">Start</th>
               )}
               <th className="pb-2 pr-4 font-medium w-28 [&_button]:flex [&_button]:whitespace-normal [&_button]:text-left">
-                <SortButton label="Avg Real End Value" active={sortKey === "avgFinalRealValue"} dir={sortDir} onClick={() => toggleSort("avgFinalRealValue")} />
+                <SortButton label="Avg Real After-Tax End Value" active={sortKey === "avgFinalRealValue"} dir={sortDir} onClick={() => toggleSort("avgFinalRealValue")} />
               </th>
               <th className="pb-2 pr-4 font-medium">
-                <SortButton label="Avg Real CAGR" active={sortKey === "avgRealCagr"} dir={sortDir} onClick={() => toggleSort("avgRealCagr")} />
+                <SortButton label="Avg After-Tax Real CAGR" active={sortKey === "avgRealCagr"} dir={sortDir} onClick={() => toggleSort("avgRealCagr")} />
               </th>
               <th className="pb-2 pr-4 font-medium">
                 <SortButton label="Avg Max Drawdown" active={sortKey === "avgMaxDrawdown"} dir={sortDir} onClick={() => toggleSort("avgMaxDrawdown")} />
@@ -169,6 +177,9 @@ export function SweepComparisonTable({
               </th>
               <th className="pb-2 pr-4 font-medium">
                 <SortButton label="Worst Real CAGR" active={sortKey === "worstRealCagr"} dir={sortDir} onClick={() => toggleSort("worstRealCagr")} />
+              </th>
+              <th className="pb-2 pr-4 font-medium">
+                <SortButton label="Avg Real CAGR" active={sortKey === "avgPreTaxRealCagr"} dir={sortDir} onClick={() => toggleSort("avgPreTaxRealCagr")} />
               </th>
               {showAvgCagr && (
                 <th className="pb-2 pr-4 font-medium">
@@ -272,6 +283,9 @@ export function SweepComparisonTable({
                       )
                     )}
                   </td>
+                  <td className={`py-2.5 pr-4 text-right ${preTaxRealCagrOf(row) >= 0 ? "text-pretax" : "text-negative"}`}>
+                    {formatPercent(preTaxRealCagrOf(row))}
+                  </td>
                   {showAvgCagr && (
                     <td className="py-2.5 pr-4 text-right font-medium text-yellow-500">
                       {formatPercent(row.avgCagr ?? row.avgReturn)}
@@ -354,6 +368,9 @@ export function SweepComparisonTable({
                         </span>
                       )
                     )}
+                  </td>
+                  <td className={`py-2.5 pr-4 text-right ${preTaxRealCagrOf(baseline) >= 0 ? "text-pretax" : "text-negative"}`}>
+                    {formatPercent(preTaxRealCagrOf(baseline))}
                   </td>
                   {showAvgCagr && (
                     <td className="py-2.5 pr-4 text-right font-medium text-yellow-500">

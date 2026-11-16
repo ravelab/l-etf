@@ -24,6 +24,8 @@ import { ETF_PRESETS, PRESET_SELECT_OPTIONS, getComboEffectiveDateRange, getActi
 import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
+import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { buildPresetBacktestUrl } from "@/lib/url-builders";
 import { runParallelSimulations } from "@/lib/simulation/parallel";
 import { buildSymmetricBufferSweepItems, makeAsymmetricSweepItem } from "@/lib/simulation/sweep-items";
@@ -137,6 +139,7 @@ export function CompareBufferStrategiesPageContent({
     applyRunSummaryFromSnapshot,
   } = useRunSummary(initial.runSummaryInputs as RunSummary | null);
   const display = useRunDisplay(runSummary);
+  const { taxRates, changeTaxRate } = useTaxRates();
   const [loading, setLoading] = useState(false);
   const [pendingRun, setPendingRun] = useState(false);
   const [runProgress, setRunProgress] = useMonotonicRunProgress();
@@ -160,6 +163,8 @@ export function CompareBufferStrategiesPageContent({
     };
     monthlyCpi: Array<{ date: string; value: number }> | undefined;
     coarsePoints: BufferPoint[];
+    /** The run's rates, so the fine pass taxes like the coarse one. */
+    taxRates: FuturesTaxRates;
   };
   const asymCoarsePointsByPresetRef = useRef<Map<string, BufferPoint[]>>(new Map());
   const asymCoarseRowsByPresetRef = useRef<Map<string, AsymmetricSweepRow[]>>(new Map());
@@ -395,8 +400,9 @@ export function CompareBufferStrategiesPageContent({
     },
     pctBase: number,
     pctSpan: number,
-    cpiData?: Array<{ date: string; value: number }>,
-    signal?: AbortSignal,
+    cpiData: Array<{ date: string; value: number }> | undefined,
+    signal: AbortSignal | undefined,
+    taxRates: FuturesTaxRates,
   ) => {
     const period = presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod;
     // Baseline first + symmetric buffer sweep (shared item builder).
@@ -436,6 +442,7 @@ export function CompareBufferStrategiesPageContent({
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
       monthlyCpi: cpiData,
+      taxRates,
       mode: 'sweep',
       signal,
       onProgress: (fraction, label) =>
@@ -466,7 +473,7 @@ export function CompareBufferStrategiesPageContent({
     }
     asymCoarseRowsByPresetRef.current.set(presetDef.name, asymRowsForPreset);
     asymContextByPresetRef.current.set(presetDef.name, {
-      prices, rates, riskOffSeries, monthlyCpi: cpiData, coarsePoints: coarseAsymPoints,
+      prices, rates, riskOffSeries, monthlyCpi: cpiData, coarsePoints: coarseAsymPoints, taxRates,
     });
 
     return { rows: symRows, baseline: bl };
@@ -584,6 +591,7 @@ export function CompareBufferStrategiesPageContent({
       riskOffValuesByAsset: ctx.riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: ctx.riskOffSeries.openValuesByAsset,
       monthlyCpi: ctx.monthlyCpi,
+      taxRates: ctx.taxRates,
       mode: "sweep",
       signal,
       onProgress: (fraction, label) =>
@@ -629,6 +637,8 @@ export function CompareBufferStrategiesPageContent({
     asymContextByPresetRef.current = new Map();
 
     try {
+      // One read per run: the sweep and its run summary must carry the same rates.
+      const runTaxRates = getTaxRates();
       const rawRiskOffSeriesPromise = loadAllRiskOffPricePoints(
         getRiskOffFetchTickersForAll(Object.values(riskOffAssets)),
         signal,
@@ -652,6 +662,7 @@ export function CompareBufferStrategiesPageContent({
         loadRiskOffValues: async (_preset, prices) =>
           alignRiskOffPriceSeries(prices, await rawRiskOffSeriesPromise),
         runSweepForPreset: runBufferSweepForPreset,
+        taxRates: runTaxRates,
         signal,
       });
       throwIfAborted(signal);
@@ -676,6 +687,7 @@ export function CompareBufferStrategiesPageContent({
         letf,
         spxRiskOffAsset,
         ndxRiskOffAsset,
+        taxRates: runTaxRates,
       });
       setRunSummary(nextRunSummary);
 
@@ -791,6 +803,8 @@ export function CompareBufferStrategiesPageContent({
             spxRiskOffAsset, ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}
+          taxRates={taxRates}
+          onTaxRateChange={changeTaxRate}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}
           presetOptions={PRESET_SELECT_OPTIONS}
           onRun={handleRun}

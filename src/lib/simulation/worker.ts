@@ -14,7 +14,7 @@ import { extractRegularWindowSimulations } from "./window-extraction";
 function handleRequest(request: RegularWorkerRequest): ConfigSimulationBucket[] | ParallelResult {
   const buckets = request.precomputedDailyValues.map((precomputed) => ({
     configId: precomputed.configId,
-    simulations: extractRegularWindowSimulations(precomputed, request.windows),
+    simulations: extractRegularWindowSimulations(precomputed, request.windows, request.taxRates),
   }));
   return request.mode === "simulation-buckets"
     ? buckets

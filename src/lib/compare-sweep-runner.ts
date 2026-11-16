@@ -1,6 +1,7 @@
 import { fetchMarketData, MARKET_DATA_EARLIEST_START } from "@/lib/fetch-market-data";
 import type { EtfPreset } from "@/lib/simulation/presets";
 import type { IndexKey, PricePoint, RatePoint, SmaComparisonRow } from "@/lib/simulation/types";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 
 type InflationData = {
   annualizedInflation: number;
@@ -27,9 +28,12 @@ export async function runCompareSweep<TRow, TRiskOffValues>(p: {
     riskOffValues: TRiskOffValues,
     pctBase: number,
     pctSpan: number,
-    cpiData?: Array<{ date: string; value: number }>,
-    signal?: AbortSignal,
+    cpiData: Array<{ date: string; value: number }> | undefined,
+    signal: AbortSignal | undefined,
+    taxRates: FuturesTaxRates,
   ) => Promise<SweepOutcome<TRow>>;
+  /** The run's tax rates (`getTaxRates()` when it started), handed to every preset's sweep. */
+  taxRates: FuturesTaxRates;
   signal?: AbortSignal;
 }): Promise<{
   rows: TRow[];
@@ -79,7 +83,7 @@ export async function runCompareSweep<TRow, TRiskOffValues>(p: {
       const prices = pricesByIndex[sub.index];
       const riskOffValues = await p.loadRiskOffValues(sub, prices);
       p.onProgress(20, `Running ${sub.name}...`);
-      const res = await p.runSweepForPreset(sub, prices, rates, riskOffValues, 20, 70, inflationData.monthlyCpi, p.signal);
+      const res = await p.runSweepForPreset(sub, prices, rates, riskOffValues, 20, 70, inflationData.monthlyCpi, p.signal, p.taxRates);
       return {
         rows: res.rows,
         baseline: res.baseline,
@@ -97,9 +101,9 @@ export async function runCompareSweep<TRow, TRiskOffValues>(p: {
     const riskOff2 = sub2.index === sub1.index ? riskOff1 : await p.loadRiskOffValues(sub2, prices2);
 
     p.onProgress(20, `Running ${sub1.name}...`);
-    const res1 = await p.runSweepForPreset(sub1, prices1, rates, riskOff1, 20, 35, inflationData.monthlyCpi, p.signal);
+    const res1 = await p.runSweepForPreset(sub1, prices1, rates, riskOff1, 20, 35, inflationData.monthlyCpi, p.signal, p.taxRates);
     p.onProgress(55, `Running ${sub2.name}...`);
-    const res2 = await p.runSweepForPreset(sub2, prices2, rates, riskOff2, 55, 35, inflationData.monthlyCpi, p.signal);
+    const res2 = await p.runSweepForPreset(sub2, prices2, rates, riskOff2, 55, 35, inflationData.monthlyCpi, p.signal, p.taxRates);
 
     return {
       rows: res1.rows,
@@ -123,6 +127,7 @@ export async function runCompareSweep<TRow, TRiskOffValues>(p: {
     70,
     inflationData.monthlyCpi,
     p.signal,
+    p.taxRates,
   );
 
   return {

@@ -1,4 +1,5 @@
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
+import type { FuturesTaxRates } from "./futures-tax";
 import type { RollingWindow } from "./rolling";
 import {
   buildWrappedTailCache,
@@ -15,11 +16,12 @@ interface WrappedWorkerData {
   configs: EtfConfig[];
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  taxRates?: FuturesTaxRates;
 }
 
 self.onmessage = (event: MessageEvent<WrappedWorkerData>) => {
   try {
-    const { precomputedDailyValues, windows, prices, rates, configs, riskOffValuesByAsset, riskOffOpenValuesByAsset } = event.data;
+    const { precomputedDailyValues, windows, prices, rates, configs, riskOffValuesByAsset, riskOffOpenValuesByAsset, taxRates } = event.data;
     const configById = new Map(configs.map((config) => [config.id, config]));
     const buckets = precomputedDailyValues.map((precomputed) => {
       const config = configById.get(precomputed.configId);
@@ -38,7 +40,7 @@ self.onmessage = (event: MessageEvent<WrappedWorkerData>) => {
         ? windows
             .map((window) =>
               tailCache
-                ? extractCachedWrappedWindowResult(precomputed, window, prices, tailCache)
+                ? extractCachedWrappedWindowResult(precomputed, window, prices, tailCache, taxRates)
                 : extractOptimizedWrappedWindowResult(
                     precomputed,
                     window,
@@ -46,7 +48,8 @@ self.onmessage = (event: MessageEvent<WrappedWorkerData>) => {
                     config,
                     rates,
                     riskOffValuesByAsset,
-                    riskOffOpenValuesByAsset
+                    riskOffOpenValuesByAsset,
+                    taxRates
                   )
             )
             .filter((simulation) => simulation != null)

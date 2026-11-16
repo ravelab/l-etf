@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
 import { calcCagr, calcPathMetrics } from "@/lib/simulation/metrics";
-import { estimateFuturesAfterTaxCagr, type FuturesTaxRates } from "@/lib/simulation/futures-tax";
-import { estimateLetfAfterTaxCagr } from "@/lib/simulation/letf-tax";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
+import { afterTaxResultPath } from "@/lib/simulation/after-tax-path";
 import { formatCompactMultiple, formatPercent } from "@/lib/format";
 import { SortButton } from "@/components/ui/SortButton";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
@@ -212,31 +212,24 @@ function ResultsTableImpl({
     return colors;
   }, [result.etfResults, underlyingIndexSeries]);
 
-  const afterTaxCagrById = useMemo(() => {
-    const byId: Record<string, number> = {};
-    if (variant !== "futures" || !futuresTaxRates) return byId;
-    for (const row of result.etfResults) {
-      // Leveraged ETFs are taxed on their sales, not marked to market like futures.
-      if (row.taxSchedule) {
-        const cagr = estimateLetfAfterTaxCagr(row.taxSchedule, futuresTaxRates);
-        if (cagr !== undefined) byId[row.id] = cagr;
-        continue;
-      }
-      if (!row.id.includes("futures-sma")) continue;
-      const values = [...row.dailyValues];
-      // The final reported value includes liquidation costs.
-      values[values.length - 1] = row.finalValue;
-      const cagr = estimateFuturesAfterTaxCagr(row.dates, values, result.investedValues[0] ?? 0, futuresTaxRates);
-      if (cagr !== undefined) byId[row.id] = cagr;
+  const afterTaxMetricsById = useMemo(() => {
+    const byId: Record<string, { cagr: number; values: number[]; metrics: ReturnType<typeof calcPathMetrics> }> = {};
+    if (!futuresTaxRates) return byId;
+    for (const row of rows) {
+      const path = afterTaxResultPath(row, futuresTaxRates, result.investedValues[0]);
+      if (path) byId[row.id] = { ...path, metrics: calcPathMetrics(path.values, row.dates) };
     }
     return byId;
-  }, [result, variant, futuresTaxRates]);
+  }, [result, rows, futuresTaxRates]);
+
+  const showAfterTaxColumn = variant === "futures" || Boolean(futuresTaxRates);
 
   const sorted = useMemo(() => {
     const direction = sortDir === "asc" ? 1 : -1;
     const calcRealReturn = (r: EtfResult) => {
       const initial = realValueInitialEquity(r);
-      const realFinalValue = r.finalValue / rowInflation(r).factor;
+      const finalValue = afterTaxMetricsById[r.id]?.values.at(-1) ?? r.finalValue;
+      const realFinalValue = finalValue / rowInflation(r).factor;
       return ((realFinalValue / initial) - 1) * 100;
     };
     return [...rows].sort((a, b) => {
@@ -247,8 +240,8 @@ function ResultsTableImpl({
         return (rowRealCagr(a, a.cagr) - rowRealCagr(b, b.cagr)) * direction;
       }
       if (sortKey === "afterTaxRealCagr") {
-        const av = afterTaxCagrById[a.id];
-        const bv = afterTaxCagrById[b.id];
+        const av = afterTaxMetricsById[a.id]?.cagr;
+        const bv = afterTaxMetricsById[b.id]?.cagr;
         if (av === undefined) return bv === undefined ? 0 : 1;
         if (bv === undefined) return -1;
         return (rowRealCagr(a, av) - rowRealCagr(b, bv)) * direction;
@@ -279,6 +272,11 @@ function ResultsTableImpl({
         if (bMissing) return -1;
         return ((aLev as number) - (bLev as number)) * direction;
       }
+      if (sortKey === "maxDrawdownPct" || sortKey === "longestDrawdownDays" || sortKey === "sharpeRatio" || sortKey === "sortinoRatio") {
+        const av = afterTaxMetricsById[a.id]?.metrics[sortKey] ?? a[sortKey];
+        const bv = afterTaxMetricsById[b.id]?.metrics[sortKey] ?? b[sortKey];
+        if (typeof av === "number" && typeof bv === "number") return (av - bv) * direction;
+      }
       const av = a[sortKey];
       const bv = b[sortKey];
       if (typeof av === "number" && typeof bv === "number") {
@@ -288,7 +286,7 @@ function ResultsTableImpl({
     });
     // calcRealReturn closes rowInflation + realValueInitialEquity (variant/result); listing all stables is noisy.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortDir, sortKey, rawInflation, monthlyCpi, variant, result, afterTaxCagrById]);
+  }, [rows, sortDir, sortKey, rawInflation, monthlyCpi, variant, result, afterTaxMetricsById]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -299,9 +297,11 @@ function ResultsTableImpl({
     setSortDir(key === "name" ? "asc" : "desc");
   };
 
-  function getRealFinalValueMultiple(r: EtfResult): number {
+  function getRealAfterTaxFinalValueMultiple(r: EtfResult): number | undefined {
     const initial = realValueInitialEquity(r);
-    const realFinalValue = r.finalValue / rowInflation(r).factor;
+    const afterTaxEndValue = afterTaxMetricsById[r.id]?.values.at(-1);
+    if (afterTaxEndValue === undefined) return undefined;
+    const realFinalValue = afterTaxEndValue / rowInflation(r).factor;
     return realFinalValue / initial;
   }
 
@@ -327,12 +327,9 @@ function ResultsTableImpl({
               <SortButton label="Start" active={sortKey === "startDate"} dir={sortDir} onClick={() => toggleSort("startDate")} />
             </th>
             <th className="pb-2 pr-4 font-medium">
-              <SortButton label="Real End Value" active={sortKey === "finalValue"} dir={sortDir} onClick={() => toggleSort("finalValue")} />
+              <SortButton label="Real After-Tax End Value" active={sortKey === "finalValue"} dir={sortDir} onClick={() => toggleSort("finalValue")} />
             </th>
-            <th className="pb-2 pr-4 font-medium">
-              <SortButton label="Real CAGR" active={sortKey === "realCagr"} dir={sortDir} onClick={() => toggleSort("realCagr")} />
-            </th>
-            {variant === "futures" && (
+            {showAfterTaxColumn && (
               <th className="pb-2 pr-4 font-medium" title="Estimated tax, then inflation, using the rates above: futures are marked to market each year; leveraged ETFs are taxed on their sales.">
                 <SortButton label="After-Tax Real CAGR" active={sortKey === "afterTaxRealCagr"} dir={sortDir} onClick={() => toggleSort("afterTaxRealCagr")} />
               </th>
@@ -363,6 +360,9 @@ function ResultsTableImpl({
               </>
             )}
             <th className="pb-2 pr-4 font-medium">
+              <SortButton label="Real CAGR" active={sortKey === "realCagr"} dir={sortDir} onClick={() => toggleSort("realCagr")} />
+            </th>
+            <th className="pb-2 pr-4 font-medium">
               <SortButton label="CAGR" active={sortKey === "cagr"} dir={sortDir} onClick={() => toggleSort("cagr")} />
             </th>
             <th className="pb-2 pr-4 font-medium whitespace-nowrap">
@@ -374,8 +374,16 @@ function ResultsTableImpl({
           {sorted.map((r) => {
             const rowInflPct = rowInflation(r).rate * 100;
             const realCagr = realCagrPct(r.cagr, rowInflPct);
-            const afterTaxCagr = afterTaxCagrById[r.id];
+            const afterTaxMetrics = afterTaxMetricsById[r.id];
+            const realAfterTaxEndMultiple = getRealAfterTaxFinalValueMultiple(r);
+            const afterTaxCagr = afterTaxMetrics?.cagr;
             const afterTaxRealCagr = afterTaxCagr === undefined ? undefined : realCagrPct(afterTaxCagr, rowInflPct);
+            const afterTaxDrawdown = afterTaxMetrics?.metrics.maxDrawdownPct ?? r.maxDrawdownPct;
+            const afterTaxLongestDrawdownDays = afterTaxMetrics?.metrics.longestDrawdownDays ?? r.longestDrawdownDays;
+            const afterTaxDrawdownDates = afterTaxMetrics?.metrics.maxDrawdownDates ?? r.maxDrawdownDates;
+            const afterTaxLongestDrawdownDates = afterTaxMetrics?.metrics.longestDrawdownDates ?? r.longestDrawdownDates;
+            const afterTaxSharpe = afterTaxMetrics?.metrics.sharpeRatio ?? r.sharpeRatio;
+            const afterTaxSortino = afterTaxMetrics?.metrics.sortinoRatio ?? r.sortinoRatio;
             return (
             <tr
               key={r.id}
@@ -392,36 +400,31 @@ function ResultsTableImpl({
               </td>
               <td className="py-2.5 pr-4 text-muted">{r.dates[0] ?? "—"}</td>
               <td className="py-2.5 pr-4 font-medium text-blue-400">
-                {formatCompactMultiple(getRealFinalValueMultiple(r))}
+                {realAfterTaxEndMultiple === undefined
+                  ? "—"
+                  : formatCompactMultiple(realAfterTaxEndMultiple)}
               </td>
-              <td
-                className={`py-2.5 pr-4 ${
-                  realCagr >= 0 ? "text-positive" : "text-negative"
-                }`}
-              >
-                {formatPercent(realCagr)}
-              </td>
-              {variant === "futures" && (
+              {showAfterTaxColumn && (
                 <td className={`py-2.5 pr-4 tabular-nums ${afterTaxRealCagr === undefined ? "text-muted" : afterTaxRealCagr >= 0 ? "text-positive" : "text-negative"}`}>
                   {afterTaxRealCagr === undefined ? "—" : formatPercent(afterTaxRealCagr)}
                 </td>
               )}
               <td className="py-2.5 pr-4 text-negative">
-                {formatPercent(r.maxDrawdownPct)}
+                {formatPercent(afterTaxDrawdown)}
                 <DateRangeLink
-                  dates={r.maxDrawdownDates}
-                  href={buildMetricBacktestUrl(r.maxDrawdownDates)}
+                  dates={afterTaxDrawdownDates}
+                  href={buildMetricBacktestUrl(afterTaxDrawdownDates)}
                 />
               </td>
               <td className="py-2.5 pr-4 text-negative">
-                {(r.longestDrawdownDays / 365.25).toFixed(1)}y
+                {(afterTaxLongestDrawdownDays / 365.25).toFixed(1)}y
                 <DateRangeLink
-                  dates={r.longestDrawdownDates}
-                  href={buildMetricBacktestUrl(r.longestDrawdownDates)}
+                  dates={afterTaxLongestDrawdownDates}
+                  href={buildMetricBacktestUrl(afterTaxLongestDrawdownDates)}
                 />
               </td>
-              <td className="py-2.5 pr-4">{(r.sharpeRatio ?? 0).toFixed(2)}</td>
-              <td className="py-2.5 pr-4">{r.sortinoRatio === Infinity ? "∞" : (r.sortinoRatio ?? 0).toFixed(2)}</td>
+              <td className="py-2.5 pr-4">{(afterTaxSharpe ?? 0).toFixed(2)}</td>
+              <td className="py-2.5 pr-4">{afterTaxSortino === Infinity ? "∞" : (afterTaxSortino ?? 0).toFixed(2)}</td>
               <td className="py-2.5 pr-4 text-muted">
                 {formatPercent(r.totalTradingCostPct ?? 0)}
               </td>
@@ -452,6 +455,9 @@ function ResultsTableImpl({
                   </td>
                 </>
               )}
+              <td className={`py-2.5 pr-4 ${realCagr >= 0 ? "text-pretax" : "text-negative"}`}>
+                {formatPercent(realCagr)}
+              </td>
               <td className="py-2.5 pr-4 font-medium text-yellow-500">
                 {formatPercent(r.cagr)}
               </td>

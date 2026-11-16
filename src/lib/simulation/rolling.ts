@@ -17,6 +17,11 @@ export interface RollingSimulationPoint extends SimulationSummary {
   totalTradingCostPct: number;
   /** Share of the window's trading days held risk-off, in percent. */
   riskOffPct?: number;
+  /**
+   * Set when the run was taxed (`withAfterTaxWindow`): the pretax CAGR. Every other
+   * value field is then after-tax.
+   */
+  preTaxCagr?: number;
 }
 
 export interface RollingWindow {
@@ -547,6 +552,15 @@ export function summarizeSmaRow(
         return s.finalValue / Math.pow(1 + windowInflation, Math.max(0, years));
       })
     : simulations.map((s) => s.finalValue);
+  // Same basis as `avgReturn` (real when CPI is given), before tax.
+  const preTaxReturns = simulations.some((s) => s.preTaxCagr !== undefined)
+    ? simulations.map((s) => {
+        const windowInflation = monthlyCpi && monthlyCpi.length >= 2
+          ? annualizedInflationForRange(monthlyCpi, s.startDate, s.endDate)
+          : 0;
+        return realCagrPct(s.preTaxCagr ?? s.cagr, windowInflation * 100);
+      })
+    : null;
   const wrappedSimulationCount = simulations.filter((s) => Boolean(s.usedHistoryWrap)).length;
 
   // Use epsilon for float comparison to ensure deterministic tie-breaking
@@ -598,6 +612,7 @@ export function summarizeSmaRow(
       (earliest, s) => (s.startDate < earliest ? s.startDate : earliest),
       simulations[0].startDate
     ),
+    ...(preTaxReturns ? { avgPreTaxReturn: average(preTaxReturns) } : {}),
   };
 }
 

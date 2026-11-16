@@ -6,6 +6,8 @@
 import type { RollingSimulationPoint, RollingWindow } from "./rolling";
 import { calcCagr } from "./metrics";
 import { CONSTANT_INITIAL_INVESTMENT } from "../constants";
+import type { FuturesTaxRates } from "./futures-tax";
+import { afterTaxWindowResult, buildTaxCalendar, taxesApply, withAfterTaxWindow, type TaxCalendar } from "./after-tax-window";
 import { buildDrawdownRangeQuery, type DrawdownRangeQuery } from "./drawdown-range";
 import {
   computeRenormalizedEndpointMetrics,
@@ -46,6 +48,8 @@ export interface WindowSource {
 interface WindowDrawdownRanges {
   dailyValues: DrawdownRangeQuery;
   nonLeveragedValues?: DrawdownRangeQuery;
+  /** The config's tax calendar, built on the first taxed window and shared by the rest. */
+  taxCalendar: () => TaxCalendar;
 }
 
 function isRiskOffAt(source: WindowSource, index: number): boolean {
@@ -57,12 +61,33 @@ function isRiskOffAt(source: WindowSource, index: number): boolean {
  * O(n) to build, then O(log n) per window instead of an O(window) walk.
  */
 export function buildWindowDrawdownRanges(source: WindowSource): WindowDrawdownRanges {
+  let taxCalendar: TaxCalendar | undefined;
   return {
     dailyValues: buildDrawdownRangeQuery(source.dailyValues),
     nonLeveragedValues: source.nonLeveragedValues
       ? buildDrawdownRangeQuery(source.nonLeveragedValues)
       : undefined,
+    taxCalendar: () => {
+      taxCalendar ??= buildSourceTaxCalendar(source);
+      return taxCalendar;
+    },
   };
+}
+
+/**
+ * `riskOffStateByIndex` is the regime after each day's close; the position a
+ * session holds is the previous close's, as the engine trades at the next open.
+ */
+const sourceTaxCalendars = new WeakMap<WindowSource, TaxCalendar>();
+
+function buildSourceTaxCalendar(source: WindowSource): TaxCalendar {
+  // Kept per config across calls: win rates bucket the same configs for every holding period.
+  const cached = sourceTaxCalendars.get(source);
+  if (cached) return cached;
+  const dates = source.timestamps.map((timestamp) => new Date(timestamp).toISOString().slice(0, 10));
+  const calendar = buildTaxCalendar(dates, (day) => !isRiskOffAt(source, Math.max(0, day - 1)));
+  sourceTaxCalendars.set(source, calendar);
+  return calendar;
 }
 
 /** The 1x index's final value and max drawdown (%) over the window; flat when there is no 1x series. */
@@ -91,7 +116,8 @@ function nonLeveragedWindowMetrics(
 export function extractRegularWindowSimulation(
   source: WindowSource,
   window: RollingWindow,
-  ranges: WindowDrawdownRanges
+  ranges: WindowDrawdownRanges,
+  taxRates?: FuturesTaxRates,
 ): RollingSimulationPoint | null {
   const { startIdx, endIdx } = window;
   const { entrySpread, exitSpread } = selectEdgeSpreads(
@@ -121,8 +147,7 @@ export function extractRegularWindowSimulation(
     window.endDate
   );
   const nonLeveraged = nonLeveragedWindowMetrics(source, ranges, startIdx, endIdx);
-
-  return {
+  const point: RollingSimulationPoint = {
     startDate: window.startDate,
     endDate: window.endDate,
     finalValue: tradingCosts.finalValue,
@@ -136,17 +161,30 @@ export function extractRegularWindowSimulation(
     riskOffPct: riskOffPercent(getRangeRiskOffDays(source, startIdx, endIdx), endIdx - startIdx),
     usedHistoryWrap: false,
   };
+  if (!taxesApply(taxRates)) return point;
+  const afterTax = afterTaxWindowResult({
+    calendar: ranges.taxCalendar(),
+    startDay: startIdx,
+    endDay: endIdx,
+    raw: source.dailyValues,
+    scale: metrics.factor,
+    exitFraction: metrics.finalValue > 0 ? tradingCosts.finalValue / metrics.finalValue : 1,
+    rates: taxRates,
+    stats: ranges.dailyValues,
+  });
+  return withAfterTaxWindow(point, afterTax, taxRates);
 }
 
 /** Every window of one config that can be valued, in window order. */
 export function extractRegularWindowSimulations(
   source: WindowSource,
-  windows: RollingWindow[]
+  windows: RollingWindow[],
+  taxRates?: FuturesTaxRates,
 ): RollingSimulationPoint[] {
   const ranges = buildWindowDrawdownRanges(source);
   const simulations: RollingSimulationPoint[] = [];
   for (const window of windows) {
-    const simulation = extractRegularWindowSimulation(source, window, ranges);
+    const simulation = extractRegularWindowSimulation(source, window, ranges, taxRates);
     if (simulation) simulations.push(simulation);
   }
   return simulations;

@@ -54,6 +54,7 @@ test("range drawdown is invariant to the entry-spread rescale", () => {
 
 test("degenerate ranges return zero drawdown", () => {
   const query = buildDrawdownRangeQuery([100, 90, 120]);
-  assert.deepEqual(query(1, 1), { pct: 0, dollar: 0, longestDays: 0 });
-  assert.deepEqual(query(2, 1), { pct: 0, dollar: 0, longestDays: 0 });
+  assert.deepEqual(query(1, 1), { pct: 0, dollar: 0, longestDays: 0, min: 90, max: 90 });
+  assert.deepEqual(query(2, 1), { pct: 0, dollar: 0, longestDays: 0, min: NaN, max: NaN });
+  assert.deepEqual(query(0, 2), { pct: 10, dollar: 0, longestDays: 0, min: 90, max: 120 });
 });

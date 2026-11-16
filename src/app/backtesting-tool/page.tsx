@@ -41,10 +41,11 @@ import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { annualizedInflationForRange } from "@/lib/inflation";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { StrategyRealReturnSections } from "@/components/tools/StrategyRealReturnSections";
+import { LETF_FUND_RESULT_ID } from "@/lib/simulation/letf-dual-sleeve";
 import { useStrategyReferenceData } from "@/lib/hooks/use-strategy-reference-data";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
 import type { RunSummary } from "@/lib/run-summary";
-import { buildRunSummary } from "@/lib/run-summary";
+import { buildRunSummary, runSummaryTaxRates } from "@/lib/run-summary";
 import { useRunSummary, useRunDisplay } from "@/lib/hooks/use-run-summary-inputs";
 import { useToolForm } from "@/lib/hooks/use-tool-form";
 import { useToolSnapshot } from "@/lib/hooks/use-tool-snapshot";
@@ -71,6 +72,7 @@ import {
 import { alignCloseSeriesToDates } from "@/lib/utils";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
 import { withLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
+import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
 import {
   DEFAULT_EXTRA_STRATEGY_IDS,
   appendExtraStrategiesUrlParam,
@@ -206,6 +208,7 @@ export function BacktestingPageContent({
     clearRunSummary,
   } = useRunSummary(initial.runSummaryInputs as RunSummary | null);
   const display = useRunDisplay(runSummary);
+  const resultTaxRates = runSummaryTaxRates(runSummary);
   const [error, setError] = useState<string | null>(null);
   const [pendingRun, setPendingRun] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -213,6 +216,7 @@ export function BacktestingPageContent({
   const [extraStrategies, setExtraStrategies] = useState<string[]>(() =>
     normalizeExtraStrategyIds(initial.extraStrategies)
   );
+  const { taxRates, changeTaxRate } = useTaxRates();
   const skipNextPresetEffectRef = useRef(false);
 
   const baseEtfConfigs = useMemo(() => buildPresetConfigs(letf), [letf]);
@@ -986,6 +990,7 @@ export function BacktestingPageContent({
         smaVolGate: smaMode !== 0 && smaVolGate,
         spxRiskOffAsset,
         ndxRiskOffAsset,
+        taxRates: getTaxRates(),
       });
       setRunSummary(nextRunSummary);
 
@@ -1236,10 +1241,11 @@ export function BacktestingPageContent({
     const series = collectBacktestGrowthSeries({
       result: displayResult,
       underlyingIndexSeries: indexSeriesForDisplay,
+      taxRates: resultTaxRates,
     });
     if (series.length === 0) return null;
     return buildBacktestYearlyGrowthSeries({ series, monthlyCpi: growthMonthlyCpi });
-  }, [displayResult, indexSeriesForDisplay, growthMonthlyCpi]);
+  }, [displayResult, indexSeriesForDisplay, growthMonthlyCpi, resultTaxRates]);
 
   const growthInflationPct = useMemo(
     () =>
@@ -1341,6 +1347,8 @@ export function BacktestingPageContent({
           progress={runProgress}
           error={error}
           showRollingFields={false}
+          taxRates={taxRates}
+          onTaxRateChange={changeTaxRate}
           endFields={
             <ExtraStrategiesSelect
               rules={EXTRA_STRATEGY_RULES}
@@ -1402,6 +1410,7 @@ export function BacktestingPageContent({
               monthlyCpi={monthlyCpi}
               underlyingIndexSeries={smaMode !== 0 ? underlyingIndexSeries : EMPTY_UNDERLYING_INDEX_SERIES}
               resultTableTestId="snapshot-tool-sweep-backtest"
+              futuresTaxRates={resultTaxRates}
             />
             <StrategyRealReturnSections
               growthSeries={growthSeries}
@@ -1409,6 +1418,8 @@ export function BacktestingPageContent({
               referenceData={strategyReferenceData}
               spxConfig={spxSmaConfig}
               ndxConfig={ndxSmaConfig}
+              comboResult={displayResult.etfResults.find((etf) => etf.id === LETF_FUND_RESULT_ID) ?? null}
+              taxRates={resultTaxRates}
             />
             {smaMode !== 0 && displayResult.etfResults
               .map((etf, i) => ({ etf, i }))

@@ -17,6 +17,8 @@
   --negative-text: #dc2626;
   --score-text: #0f766e;
   --value-accent-text: #7c3aed;
+  /* Pre-tax figures shown beside after-tax ones (Real CAGR, Avg Real CAGR). */
+  --pretax-text: #4f46e5;
 }
 
 html.dark {
@@ -33,6 +35,7 @@ html.dark {
   --negative-text: #f87171;
   --score-text: #22d3ee;
   --value-accent-text: #c084fc;
+  --pretax-text: #a5b4fc;
 }
 
 @theme inline {
@@ -124,4 +127,8 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator {
 
 .text-value-accent {
   color: var(--value-accent-text);
+}
+
+.text-pretax {
+  color: var(--pretax-text);
 }

@@ -11,6 +11,7 @@ import { buildWindowDrawdownRanges, extractRegularWindowSimulation } from "./win
 import { buildWrappedTailCache, extractCachedWrappedWindowResult, extractOptimizedWrappedWindowResult } from "./wrapped-window";
 import { throwIfAborted } from "../abort";
 import { yieldToBrowser } from "../yield-to-browser";
+import type { FuturesTaxRates } from "./futures-tax";
 
 export interface SimulationBucketOptions {
   /** With `configs`, enables resimulating History Wrap windows; without both they are skipped. */
@@ -18,6 +19,7 @@ export interface SimulationBucketOptions {
   configs?: EtfConfig[];
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
+  taxRates?: FuturesTaxRates;
 }
 
 /** Configs bucketed between yields to the browser's event loop. */
@@ -49,7 +51,7 @@ function buildConfigBucket(
     let simulation: RollingSimulationPoint | null;
     if (window.usesSyntheticTail && config && rates) {
       simulation = wrappedTailCache
-        ? extractCachedWrappedWindowResult(precomputed, window, prices, wrappedTailCache)
+        ? extractCachedWrappedWindowResult(precomputed, window, prices, wrappedTailCache, options?.taxRates)
         : extractOptimizedWrappedWindowResult(
             precomputed,
             window,
@@ -57,10 +59,11 @@ function buildConfigBucket(
             config,
             rates,
             options?.riskOffValuesByAsset,
-            options?.riskOffOpenValuesByAsset
+            options?.riskOffOpenValuesByAsset,
+            options?.taxRates
           );
     } else {
-      simulation = extractRegularWindowSimulation(precomputed, window, drawdownRanges);
+      simulation = extractRegularWindowSimulation(precomputed, window, drawdownRanges, options?.taxRates);
     }
     if (simulation) simulations.push(simulation);
   }

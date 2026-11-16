@@ -19,6 +19,8 @@ import { ETF_PRESETS, PRESET_SELECT_OPTIONS, getComboEffectiveDateRange, getActi
 import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
+import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { buildPresetBacktestUrl } from "@/lib/url-builders";
 import type { PricePoint, RatePoint, SmaComparisonRow, IndexKey, RiskOffAsset } from "@/lib/simulation/types";
 import { runParallelVariantSummaries } from "@/lib/simulation/parallel";
@@ -101,6 +103,7 @@ export function CompareRiskOffAssetsPageContent({
     applyRunSummaryFromSnapshot,
   } = useRunSummary(initial.runSummaryInputs);
   const display = useRunDisplay(runSummary);
+  const { taxRates, changeTaxRate } = useTaxRates();
   const [loading, setLoading] = useState(false);
   const [pendingRun, setPendingRun] = useState(false);
   const [runProgress, setRunProgress] = useMonotonicRunProgress();
@@ -238,7 +241,9 @@ export function CompareRiskOffAssetsPageContent({
     },
     pctBase: number,
     pctSpan: number,
-    cpiData?: Array<{ date: string; value: number }>,
+    cpiData: Array<{ date: string; value: number }> | undefined,
+    _signal: AbortSignal | undefined,
+    taxRates: FuturesTaxRates,
   ) => {
     // Variants across every candidate risk-off asset + a no-SMA baseline last
     // (shared item builder).
@@ -259,6 +264,7 @@ export function CompareRiskOffAssetsPageContent({
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
       monthlyCpi: cpiData,
+      taxRates,
     });
 
     const baselineResult = variantResults.find(r => r.label === "baseline");
@@ -304,6 +310,8 @@ export function CompareRiskOffAssetsPageContent({
     const signal = controller.signal;
 
     try {
+      // One read per run: the sweep and its run summary must carry the same rates.
+      const runTaxRates = getTaxRates();
       const allTickers = Array.from(new Set(RISK_OFF_ASSET_OPTIONS.flatMap((opt) => getRiskOffFetchTickers(opt.value))));
       const rawRiskOffSeriesPromise = loadAllRiskOffPricePoints(allTickers, signal, ({ completed, total, label }) => {
         setRunProgress({ pct: 16 + (completed / total) * 4, label });
@@ -321,6 +329,7 @@ export function CompareRiskOffAssetsPageContent({
         loadRiskOffValues: async (_preset, prices) =>
           alignRiskOffPriceSeries(prices, await rawRiskOffSeriesPromise),
         runSweepForPreset: runRiskOffForPreset,
+        taxRates: runTaxRates,
         signal,
       });
       throwIfAborted(signal);
@@ -343,6 +352,7 @@ export function CompareRiskOffAssetsPageContent({
         letf,
         spxRiskOffAsset,
         ndxRiskOffAsset,
+        taxRates: runTaxRates,
       });
       setRunSummary(nextRunSummary);
 
@@ -493,6 +503,8 @@ export function CompareRiskOffAssetsPageContent({
             smaVolGate,
           }}
           onChange={handleFieldChange}
+          taxRates={taxRates}
+          onTaxRateChange={changeTaxRate}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}
           presetOptions={PRESET_SELECT_OPTIONS}
           onRun={handleRun}

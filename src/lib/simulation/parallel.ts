@@ -5,6 +5,7 @@
 // Workers.
 
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
+import type { FuturesTaxRates } from "./futures-tax";
 import { buildRollingWindows, type RollingWindow } from "./rolling";
 import { CONSTANT_HISTORY_WRAP_ENABLED } from "../constants";
 import { precomputeAllConfigDailyValuesAsync, type PrecomputedConfigDailyValues } from "./precompute";
@@ -68,6 +69,7 @@ interface ExtractionJob {
   labels?: string[];
   paramValues?: Record<string, number>;
   monthlyCpi?: MonthlyCpi;
+  taxRates?: FuturesTaxRates;
   riskOffValuesByAsset?: SeriesByAsset;
   riskOffOpenValuesByAsset?: SeriesByAsset;
 }
@@ -86,6 +88,7 @@ async function runRegularWorkers<T>(
     mode,
     paramValues: job.paramValues,
     monthlyCpi: job.monthlyCpi,
+    taxRates: job.taxRates,
   } satisfies RegularWorkerRequest));
 
   // Await in order so progress advances monotonically and results stay in config order.
@@ -106,6 +109,7 @@ async function runWrappedWorkers(job: ExtractionJob, windows: RollingWindow[]): 
     windows,
     prices: job.prices,
     rates: job.rates,
+    taxRates: job.taxRates,
     riskOffValuesByAsset: job.riskOffValuesByAsset,
     riskOffOpenValuesByAsset: job.riskOffOpenValuesByAsset,
   })));
@@ -159,6 +163,7 @@ export async function runParallelSimulations({
   riskOffValuesByAsset,
   riskOffOpenValuesByAsset,
   monthlyCpi,
+  taxRates,
   mode,
   etfPricesByName,
   pricesByIndex,
@@ -178,6 +183,7 @@ export async function runParallelSimulations({
   riskOffValuesByAsset?: SeriesByAsset;
   riskOffOpenValuesByAsset?: SeriesByAsset;
   monthlyCpi?: MonthlyCpi;
+  taxRates?: FuturesTaxRates;
   mode: ParallelMode;
   etfPricesByName?: Record<string, number[]>;
   pricesByIndex?: Record<string, PricePoint[]>;
@@ -219,6 +225,7 @@ export async function runParallelSimulations({
     labels,
     paramValues,
     monthlyCpi,
+    taxRates,
     riskOffValuesByAsset,
     riskOffOpenValuesByAsset,
   };
@@ -235,7 +242,7 @@ export async function runParallelSimulations({
       precomputedDailyValues,
       windows,
       prices,
-      { rates, configs, riskOffValuesByAsset, riskOffOpenValuesByAsset },
+      { rates, configs, riskOffValuesByAsset, riskOffOpenValuesByAsset, taxRates },
       (completed, total, label) => {
         const fraction = total > 0 ? completed / total : 1;
         onProgress?.(PRECOMPUTE_PROGRESS_SHARE + fraction * (1 - PRECOMPUTE_PROGRESS_SHARE), label);
@@ -271,6 +278,7 @@ export async function runParallelVariants({
   variants,
   riskOffValuesByAsset,
   riskOffOpenValuesByAsset,
+  taxRates,
   onProgress,
   signal,
 }: {
@@ -283,6 +291,7 @@ export async function runParallelVariants({
   variants: Array<{ label: string; config: EtfConfig }>;
   riskOffValuesByAsset?: SeriesByAsset;
   riskOffOpenValuesByAsset?: SeriesByAsset;
+  taxRates?: FuturesTaxRates;
   /** (done, total) for the compare-letfs progress bar — NOT the engine's (fraction, label). */
   onProgress?: (completed: number, total: number) => void;
   signal?: AbortSignal;
@@ -299,6 +308,7 @@ export async function runParallelVariants({
     labels: variants.map((v) => v.label),
     riskOffValuesByAsset,
     riskOffOpenValuesByAsset,
+    taxRates,
     mode: "variants",
     // The engine reports an overall completed fraction; callers here want a
     // (done, total) count, so translate rather than drop the callback.
@@ -320,6 +330,7 @@ export async function runParallelVariantSummaries({
   variants,
   riskOffValuesByAsset,
   riskOffOpenValuesByAsset,
+  taxRates,
   monthlyCpi,
 }: {
   prices: PricePoint[];
@@ -331,6 +342,7 @@ export async function runParallelVariantSummaries({
   variants: Array<{ label: string; config: EtfConfig }>;
   riskOffValuesByAsset?: SeriesByAsset;
   riskOffOpenValuesByAsset?: SeriesByAsset;
+  taxRates?: FuturesTaxRates;
   monthlyCpi?: MonthlyCpi;
 }): Promise<VariantSummaryResult[]> {
   return runParallelSimulations({
@@ -344,6 +356,7 @@ export async function runParallelVariantSummaries({
     labels: variants.map((v) => v.label),
     riskOffValuesByAsset,
     riskOffOpenValuesByAsset,
+    taxRates,
     monthlyCpi,
     mode: "variant-summaries",
   }) as Promise<VariantSummaryResult[]>;

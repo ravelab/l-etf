@@ -18,7 +18,7 @@ import { CONSTANT_INITIAL_INVESTMENT, formatRiskOffLiquidationAbbrev, getRiskOff
 import { createPresetEtfConfig, getComboSubPresets, DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { calcCagr, calcPathMetrics } from "@/lib/simulation/metrics";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
-import type { BacktestResult, EtfResult, LetfTaxEvent, RiskOffAsset } from "@/lib/simulation/types";
+import type { BacktestResult, EtfResult, LetfTaxEvent, LetfTaxSchedule, RiskOffAsset } from "@/lib/simulation/types";
 import { trimEtfResultToStartDate } from "@/lib/simulation/trim-etf-result";
 import { taxDueDatesBetween } from "@/lib/simulation/safe-harbor";
 
@@ -166,6 +166,27 @@ export function composeLetfFundPath(
   };
 }
 
+/** The tax schedule of a fund composed over `[firstDay, lastDay]` with `taxDates`. */
+export function letfFundTaxSchedule(
+  sleeves: readonly [LetfFundPathSleeve, LetfFundPathSleeve],
+  firstDay: number,
+  lastDay: number,
+  dates: readonly string[],
+  events: LetfTaxEvent[]
+): LetfTaxSchedule {
+  const pair = (of: (sleeve: LetfFundPathSleeve) => number) => [of(sleeves[0]), of(sleeves[1])];
+  return {
+    // Same base the sleeves use: the pre-spread starting amount, so entry costs count.
+    initialInvestment: CONSTANT_INITIAL_INVESTMENT,
+    startDate: dates[firstDay],
+    endDate: dates[lastDay],
+    startValues: pair((sleeve) => sleeve.startValue),
+    startPrices: pair((sleeve) => sleeve.dailyValues[sleeve.dayIndex[firstDay]]),
+    exitFractions: pair((sleeve) => sleeve.exitFraction),
+    events,
+  };
+}
+
 /**
  * The fund's daily values on the union of the sleeves' calendars, or null when the
  * sleeves do not start together (a 50/50 fund needs both from day one).
@@ -196,8 +217,6 @@ export function composeLetfDualSleeveFund(params: {
   const { dailyValues, finalValue, totalTradingCostPct, taxEvents } = composeLetfFundPath(
     [primary, secondary], 0, dates.length, dates
   );
-  const pair = (of: (sleeve: LetfFundPathSleeve) => number) => [of(primary), of(secondary)];
-
   return {
     id: params.id,
     name: params.name,
@@ -212,15 +231,7 @@ export function composeLetfDualSleeveFund(params: {
     smaSignals: [],
     smaPrices: [],
     totalTradingCostPct,
-    taxSchedule: {
-      initialInvestment: CONSTANT_INITIAL_INVESTMENT,
-      startDate: dates[0],
-      endDate: dates[dates.length - 1],
-      startValues: pair((sleeve) => sleeve.startValue),
-      startPrices: pair((sleeve) => sleeve.dailyValues[sleeve.dayIndex[0]]),
-      exitFractions: pair((sleeve) => sleeve.exitFraction),
-      events: taxEvents ?? [],
-    },
+    taxSchedule: letfFundTaxSchedule([primary, secondary], 0, dates.length - 1, dates, taxEvents ?? []),
   };
 }
 

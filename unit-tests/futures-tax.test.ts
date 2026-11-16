@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_FUTURES_TAX_RATES, estimateFuturesAfterTaxCagr, futuresTaxRate } from "../src/lib/simulation/futures-tax";
+import { DEFAULT_FUTURES_TAX_RATES, estimateFuturesAfterTaxCagr, futuresTaxRate, normalizeTaxRates } from "../src/lib/simulation/futures-tax";
 import { calcCagr } from "../src/lib/simulation/metrics";
 
-const defaults = DEFAULT_FUTURES_TAX_RATES;
+// A typical high bracket; the shipped default is 0% everywhere.
+const defaults = { ltcg: 15, stcg: 22, state: 8, medicare: 3.8 };
 const zero = { ltcg: 0, stcg: 0, state: 0, medicare: 0 };
 const dates = ["2020-01-01", "2020-12-31", "2021-12-31"];
 const near = (actual: number | undefined, expected: number) => {
   assert.ok(actual !== undefined && Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
 };
 
-test("Section 1256 defaults blend to 29.6%, with each input contributing", () => {
+test("defaults tax nothing, and stored rates are clamped to 0-100 with defaults for the rest", () => {
+  assert.deepEqual(DEFAULT_FUTURES_TAX_RATES, { ltcg: 0, stcg: 0, state: 0, medicare: 0 });
+  assert.deepEqual(normalizeTaxRates({ ltcg: 15, stcg: 140, state: -2, medicare: "x" }), { ltcg: 15, stcg: 100, state: 0, medicare: 0 });
+  assert.deepEqual(normalizeTaxRates(null), DEFAULT_FUTURES_TAX_RATES);
+});
+
+test("Section 1256 blends 15/22/8/3.8 to 29.6%, with each input contributing", () => {
   near(futuresTaxRate(defaults), 0.296);
   near(futuresTaxRate({ ...zero, ltcg: 10 }), 0.06);
   near(futuresTaxRate({ ...zero, stcg: 10 }), 0.04);

@@ -415,6 +415,30 @@ line must not lengthen the other lines' warm-up — the SMA band, vol gate and R
 brake carry state from the first loaded close, so it moves their results — which is
 why warm-up is per index (`warm-up-by-index.ts`).
 
+## After-tax results
+
+Every tool page takes the tax selects (`use-tax-rates.ts`, one store, default 0%).
+A run reads `getTaxRates()` once when it starts and records the rates in its run
+summary; results always show the run's rates (`runSummaryTaxRates`), never a value
+a callback captured, which once left every page taxing at 0%. Canned snapshots
+are untaxed, so `useToolSnapshot` skips them while any rate is set.
+
+Rolling windows are taxed at the source: `withAfterTaxWindow`
+(`after-tax-window.ts`) makes a window's final value, CAGR, total return, max
+drawdown and 1x benchmark after-tax and keeps only `preTaxCagr` (summarized as
+`avgPreTaxReturn`). Every summary, percentile, win rate and score built on windows
+is therefore after-tax; do not add parallel `afterTax*` fields. Never replay the
+ledger daily per window (that made sweeps ~60x slower): a path builds one
+`TaxCalendar` (switches, year-ends, due dates) and each window runs the ledger on
+its own events, with drawdown from range queries scaled between tax payments. A
+config's history-wrap windows share one extended path (real history plus tail).
+`after-tax-window.test.ts` and `wrapped-window-cache.test.ts` pin these to a daily
+ledger replay. Whole-run rows go through `afterTaxResultPath`
+(`after-tax-path.ts`): every ledger trade keeps the account proportional to the
+pretax strategy, so the daily after-tax path is the pretax path times a ratio
+re-read at each event, and tax schedules stay event-only (they ride in the page
+cache).
+
 ## Swap spread: fitted range and the cap above it
 
 ETF calibration and real/simulated backtest comparisons must end on an observed

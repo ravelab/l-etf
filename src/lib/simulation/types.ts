@@ -200,4 +200,9 @@ export interface SmaComparisonRow {
   biggestMaxDrawdownDates?: { start: string; end: string };
   earliestStartDate?: string;
   winRate?: number;
+  /**
+   * Set when the windows were taxed: `avgReturn` before tax. Every other field is
+   * then after-tax.
+   */
+  avgPreTaxReturn?: number;
 }

@@ -13,6 +13,8 @@ import { precomputeAllConfigDailyValues } from "./precompute";
 import { buildRollingWindows, type RollingSimulationPoint, type RollingWindow } from "./rolling";
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
 import { finalizeTradingCosts, riskOffPercent, selectEdgeSpreads } from "./window-calculations";
+import type { FuturesTaxRates } from "./futures-tax";
+import { afterTaxLetfFundWindow, taxesApply, withAfterTaxWindow } from "./after-tax-window";
 import { buildWrappedTailCache } from "./wrapped-window";
 
 type RiskOffSeries = Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
@@ -201,6 +203,8 @@ export async function runLetfFundRollingWindows(params: {
   startDate: string;
   endDate: string;
   historyWrap?: boolean;
+  /** Tax each window as one account; every value field of the result is then after-tax. */
+  taxRates?: FuturesTaxRates;
   signal?: AbortSignal;
 }): Promise<RollingSimulationPoint[]> {
   const firstDates = [params.startDate, params.spx.prices[0]?.date ?? "", params.ndx.prices[0]?.date ?? ""];
@@ -251,11 +255,8 @@ export async function runLetfFundRollingWindows(params: {
       exitFraction: span.exitFraction,
       totalTradingCostPct: span.totalTradingCostPct,
     });
-    const fund = composeLetfFundPath(
-      [pathSleeve(spx, spxDayIndex, a), pathSleeve(ndx, ndxDayIndex, b)],
-      firstDay,
-      lastDay - firstDay + 1
-    );
+    const sleeves = [pathSleeve(spx, spxDayIndex, a), pathSleeve(ndx, ndxDayIndex, b)] as const;
+    const fund = composeLetfFundPath(sleeves, firstDay, lastDay - firstDay + 1);
 
     let peak = 0;
     let maxDrawdown = 0;
@@ -284,7 +285,7 @@ export async function runLetfFundRollingWindows(params: {
     }
 
     const finalValue = fund.finalValue;
-    runs.push({
+    const point: RollingSimulationPoint = {
       startDate: spxWindow.startDate,
       endDate: spxWindow.endDate,
       finalValue,
@@ -297,7 +298,17 @@ export async function runLetfFundRollingWindows(params: {
       totalTradingCostPct: fund.totalTradingCostPct,
       riskOffPct: riskOffPercent(a.riskOffDays + b.riskOffDays, (a.endIdx - a.startIdx) + (b.endIdx - b.startIdx)),
       usedHistoryWrap: spxWindow.usesSyntheticTail,
-    });
+    };
+    const { taxRates } = params;
+    runs.push(taxesApply(taxRates)
+      ? withAfterTaxWindow(point, afterTaxLetfFundWindow({
+          sleeves,
+          firstDay,
+          dayCount: lastDay - firstDay + 1,
+          dates: fundDates,
+          rates: taxRates,
+        }), taxRates)
+      : point);
   }
   return runs;
 }

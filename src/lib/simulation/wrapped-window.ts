@@ -4,6 +4,16 @@ import { calcCagr } from "./metrics";
 import { CONSTANT_INITIAL_INVESTMENT } from "../constants";
 import { buildRateLookup } from "./borrowing-rate";
 import type { EtfConfig, PricePoint, RatePoint } from "./types";
+import type { FuturesTaxRates } from "./futures-tax";
+import {
+  afterTaxPathResult,
+  afterTaxWindowResult,
+  buildTaxCalendar,
+  taxesApply,
+  withAfterTaxWindow,
+  type TaxCalendar,
+} from "./after-tax-window";
+import { buildDrawdownRangeQuery, type DrawdownRangeQuery } from "./drawdown-range";
 import { adjustedOpenFromPricePoint } from "../utils";
 import {
   computeOptionalNonLeveragedMetrics,
@@ -60,6 +70,145 @@ function isInvestedAtDate(
   if (!signals || signals.length === 0) return defaultInvested;
   const last = [...signals].reverse().find((s) => s.date <= date);
   return last ? last.type === "buy" : defaultInvested;
+}
+
+/** Regime after each date's close, from the signals on or before it. */
+function riskOnAtCloses(
+  signals: Array<{ date: string; type: "buy" | "sell" }> | undefined,
+  dates: readonly string[],
+  initialInvested = true,
+): boolean[] {
+  let invested = initialInvested;
+  let cursor = 0;
+  const ordered = signals ?? [];
+  return dates.map((date) => {
+    while (cursor < ordered.length && ordered[cursor].date <= date) {
+      invested = ordered[cursor].type === "buy";
+      cursor += 1;
+    }
+    return invested;
+  });
+}
+
+/**
+ * The regime each session of a path holds: the previous close's, as the engine
+ * trades at the next open. The first session holds the close before the path.
+ */
+function heldRiskOnFromCloses(atClose: readonly boolean[], openingRiskOn: boolean): boolean[] {
+  return atClose.map((_, day) => (day === 0 ? openingRiskOn : atClose[day - 1]));
+}
+
+/** Regime after the close before `day`; the default when the path starts the data. */
+function riskOnBefore(
+  signals: Array<{ date: string; type: "buy" | "sell" }> | undefined,
+  prices: PricePoint[],
+  day: number
+): boolean {
+  return day > 0 ? riskOnAtCloses(signals, [prices[day - 1].date])[0] : true;
+}
+
+/**
+ * A history-wrap window taxed as one path: the real prefix from its first close,
+ * then the synthetic tail, both in the window's own dollars. Each session holds the
+ * previous close's regime, as the engine trades at the next open.
+ */
+function taxWrappedWindow(
+  point: RollingSimulationPoint,
+  params: {
+    precomputed: WrappedPrecomputedConfigDailyValues;
+    prices: PricePoint[];
+    startIdx: number;
+    realEndIdx: number;
+    entrySpread: number;
+    /** Tail dates and dollar values from the join day, which the prefix already holds. */
+    tailDates: readonly string[];
+    tailValues: readonly number[];
+    tailSignals: Array<{ date: string; type: "buy" | "sell" }> | undefined;
+    tailInitialInvested: boolean;
+    exitFraction: number;
+  },
+  rates: FuturesTaxRates | undefined
+): RollingSimulationPoint {
+  if (!taxesApply(rates)) return point;
+  const { precomputed, prices, startIdx, realEndIdx, entrySpread } = params;
+  const factor = (CONSTANT_INITIAL_INVESTMENT * (1 - entrySpread)) / precomputed.dailyValues[startIdx];
+  const prefixDates = prices.slice(startIdx, realEndIdx + 1).map((price) => price.date);
+  const tailDates = params.tailDates.slice(1);
+  const atClose = [
+    ...riskOnAtCloses(precomputed.smaSignals, prefixDates),
+    ...riskOnAtCloses(params.tailSignals, tailDates, params.tailInitialInvested),
+  ];
+  const afterTax = afterTaxPathResult({
+    dates: [...prefixDates, ...tailDates],
+    values: [
+      ...precomputed.dailyValues.slice(startIdx, realEndIdx + 1).map((value) => value * factor),
+      ...params.tailValues.slice(1),
+    ],
+    heldRiskOn: heldRiskOnFromCloses(atClose, riskOnBefore(precomputed.smaSignals, prices, startIdx)),
+    exitFraction: params.exitFraction,
+    rates,
+  });
+  return withAfterTaxWindow(point, afterTax, rates);
+}
+
+/**
+ * A config's real history continued by its history-wrap tail, as one path. Every
+ * wrapped window of the config is a span of it: the tail is joined at the same
+ * close for all of them and scaled to continue from the window's own value there,
+ * so in raw units it extends the series the same way each time. Its tax calendar
+ * and drawdown tree are therefore built once, and each window is taxed from its
+ * own events like a regular one, instead of rebuilding its stitched path.
+ */
+interface ExtendedTaxPath {
+  /** Source day the path starts at (the first wrapped window's start); its days count from here. */
+  firstDay: number;
+  joinDay: number;
+  calendar: TaxCalendar;
+  raw: number[];
+  stats: DrawdownRangeQuery;
+}
+
+const extendedTaxPaths = new WeakMap<WrappedTailCache, ExtendedTaxPath | null>();
+
+function extendedTaxPath(
+  precomputed: WrappedPrecomputedConfigDailyValues,
+  prices: PricePoint[],
+  cache: WrappedTailCache,
+  /** The first wrapped window's start: windows come in start order, so the rest start later. */
+  firstDay: number
+): ExtendedTaxPath | null {
+  const cached = extendedTaxPaths.get(cache);
+  if (cached !== undefined) return cached;
+  const priceDates = prices.map((price) => price.date);
+  const joinDay = findLastDateLte(priceDates, cache.joinDate);
+  const tailJoinValue = cache.normalizedTailValues[0];
+  const built = joinDay >= firstDay && priceDates[joinDay] === cache.joinDate && tailJoinValue > 0
+    ? (() => {
+        const tailCount = cache.tailDates.length - cache.tailJoinOffset - 1;
+        const dates = [...priceDates.slice(firstDay, joinDay + 1), ...cache.tailDates.slice(cache.tailJoinOffset + 1)];
+        const prefixLength = joinDay - firstDay + 1;
+        const joinValue = precomputed.dailyValues[joinDay];
+        const raw = [
+          ...precomputed.dailyValues.slice(firstDay, joinDay + 1),
+          ...Array.from({ length: tailCount }, (_, i) => joinValue * (cache.normalizedTailValues[i + 1] / tailJoinValue)),
+        ];
+        // Signals before the first day still set the regime it opens in.
+        const atClose = [
+          ...riskOnAtCloses(precomputed.smaSignals, dates.slice(0, prefixLength)),
+          ...riskOnAtCloses(cache.smaSignals, dates.slice(prefixLength), cache.initialInvested),
+        ];
+        const held = heldRiskOnFromCloses(atClose, riskOnBefore(precomputed.smaSignals, prices, firstDay));
+        return {
+          firstDay,
+          joinDay,
+          calendar: buildTaxCalendar(dates, (day) => held[day]),
+          raw,
+          stats: buildDrawdownRangeQuery(raw),
+        };
+      })()
+    : null;
+  extendedTaxPaths.set(cache, built);
+  return built;
 }
 
 function findLastDateLte(dates: string[], date: string, lo = 0): number {
@@ -244,7 +393,8 @@ export function extractOptimizedWrappedWindowResult(
   config: EtfConfig,
   rates: RatePoint[],
   riskOffValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
-  riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>
+  riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>,
+  taxRates?: FuturesTaxRates,
 ): RollingSimulationPoint | null {
   const actualWindowStart = window.startIdx;
   const realEndIdx = window.endIdx;
@@ -415,8 +565,7 @@ export function extractOptimizedWrappedWindowResult(
   const riskOffDays = getRangeRiskOffDays(precomputed, actualWindowStart, realEndIdx)
     + countRiskOffDays(tailDates, tailEtfResult.smaSignals, tailJoinOffset, tailEndIdx, initialInvested);
   const totalDays = (realEndIdx - actualWindowStart) + (tailEndIdx - tailJoinOffset);
-
-  return {
+  const point: RollingSimulationPoint = {
     startDate: window.startDate,
     endDate: window.endDate,
     finalValue,
@@ -430,13 +579,26 @@ export function extractOptimizedWrappedWindowResult(
     riskOffPct: riskOffPercent(riskOffDays, totalDays),
     usedHistoryWrap: true,
   };
+  return taxWrappedWindow(point, {
+    precomputed,
+    prices,
+    startIdx: actualWindowStart,
+    realEndIdx,
+    entrySpread,
+    tailDates: displayTailDates,
+    tailValues: scaledTailValues,
+    tailSignals: tailEtfResult.smaSignals,
+    tailInitialInvested: initialInvested,
+    exitFraction: rawFinalValue > 0 ? finalValue / rawFinalValue : 1,
+  }, taxRates);
 }
 
 export function extractCachedWrappedWindowResult(
   precomputed: WrappedPrecomputedConfigDailyValues,
   window: RollingWindow,
   prices: PricePoint[],
-  cache: WrappedTailCache
+  cache: WrappedTailCache,
+  taxRates?: FuturesTaxRates,
 ): RollingSimulationPoint | null {
   const actualWindowStart = window.startIdx;
   const realEndIdx = window.endIdx;
@@ -523,8 +685,7 @@ export function extractCachedWrappedWindowResult(
   const riskOffDays = getRangeRiskOffDays(precomputed, actualWindowStart, realEndIdx)
     + countRiskOffDays(cache.tailDates, cache.smaSignals, cache.tailJoinOffset, tailEndOffset, cache.initialInvested);
   const totalDays = (realEndIdx - actualWindowStart) + (tailEndOffset - cache.tailJoinOffset);
-
-  return {
+  const point: RollingSimulationPoint = {
     startDate: window.startDate,
     endDate: window.endDate,
     finalValue,
@@ -538,4 +699,31 @@ export function extractCachedWrappedWindowResult(
     riskOffPct: riskOffPercent(riskOffDays, totalDays),
     usedHistoryWrap: true,
   };
+  if (!taxesApply(taxRates)) return point;
+  const extended = extendedTaxPath(precomputed, prices, cache, actualWindowStart);
+  if (!extended || extended.joinDay !== realEndIdx || actualWindowStart < extended.firstDay) {
+    return taxWrappedWindow(point, {
+      precomputed,
+      prices,
+      startIdx: actualWindowStart,
+      realEndIdx,
+      entrySpread,
+      tailDates: cache.tailDates.slice(cache.tailJoinOffset, tailEndOffset + 1),
+      tailValues: cache.normalizedTailValues.slice(0, tailDisplayEndIdx + 1).map((value) => value * tailScale),
+      tailSignals: cache.smaSignals,
+      tailInitialInvested: cache.initialInvested,
+      exitFraction: rawFinalValue > 0 ? finalValue / rawFinalValue : 1,
+    }, taxRates);
+  }
+  const afterTax = afterTaxWindowResult({
+    calendar: extended.calendar,
+    startDay: actualWindowStart - extended.firstDay,
+    endDay: realEndIdx - extended.firstDay + tailDisplayEndIdx,
+    raw: extended.raw,
+    scale: (CONSTANT_INITIAL_INVESTMENT * (1 - entrySpread)) / extended.raw[actualWindowStart - extended.firstDay],
+    exitFraction: rawFinalValue > 0 ? finalValue / rawFinalValue : 1,
+    rates: taxRates,
+    stats: extended.stats,
+  });
+  return withAfterTaxWindow(point, afterTax, taxRates);
 }

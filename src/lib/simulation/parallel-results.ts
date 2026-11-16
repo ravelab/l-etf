@@ -6,6 +6,7 @@
 import type { EtfConfig, SmaComparisonRow } from "./types";
 import { summarizeSmaRow, type RollingSimulationPoint, type RollingWindow } from "./rolling";
 import type { WindowSource } from "./window-extraction";
+import type { FuturesTaxRates } from "./futures-tax";
 
 export type ParallelMode = "sweep" | "variants" | "variant-summaries";
 
@@ -73,6 +74,7 @@ export interface RegularWorkerRequest extends ShapeContext {
   windows: RollingWindow[];
   /** `simulation-buckets` returns raw buckets for the caller to merge with wrapped windows. */
   mode: ParallelMode | "simulation-buckets";
+  taxRates?: FuturesTaxRates;
 }
 
 export type WorkerResponse<T> =

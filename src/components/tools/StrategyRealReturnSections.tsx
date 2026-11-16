@@ -2,9 +2,10 @@
 
 import { RealYearlyGrowthTable } from "@/components/tools/RealYearlyGrowthTable";
 import { ForwardReturnVsSmaGapChart } from "@/components/tools/compare/ForwardReturnVsSmaGapChart";
-import type { StrategyYearlyGrowthSeries } from "@/lib/strategy-page-data";
+import { shortBacktestAssetLabel, type StrategyYearlyGrowthSeries } from "@/lib/strategy-page-data";
 import type { StrategyReferenceData } from "@/lib/hooks/use-strategy-reference-data";
-import type { EtfConfig } from "@/lib/simulation/types";
+import type { EtfConfig, EtfResult } from "@/lib/simulation/types";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 
 interface StrategyRealReturnSectionsProps {
   /** Year-by-year real growth of the series on the page, or null before a run. */
@@ -16,6 +17,9 @@ interface StrategyRealReturnSectionsProps {
   /** SMA strategy to plot on each index family's side of the forward chart. */
   spxConfig: EtfConfig | null;
   ndxConfig: EtfConfig | null;
+  /** The UPRO/TQQQ fund, when the run has one: the forward chart adds it as a third series. */
+  comboResult?: EtfResult | null;
+  taxRates: FuturesTaxRates;
 }
 
 /** Column list for the growth table's description, read off its own series. */
@@ -42,6 +46,8 @@ export function StrategyRealReturnSections({
   referenceData,
   spxConfig,
   ndxConfig,
+  comboResult,
+  taxRates,
 }: StrategyRealReturnSectionsProps) {
   const showForwardChart = referenceData !== null && (spxConfig !== null || ndxConfig !== null);
 
@@ -51,7 +57,7 @@ export function StrategyRealReturnSections({
         <RealYearlyGrowthTable
           yearlyGrowthSeries={growthSeries}
           description={describeGrowthColumns(growthSeries)}
-          title="Real Yearly Growth Rate"
+          title="Real Yearly After-Tax Growth Rate"
           inflationPct={growthInflationPct}
         />
       )}
@@ -64,6 +70,8 @@ export function StrategyRealReturnSections({
           monthlyCpi={referenceData.monthlyCpi}
           spxConfig={spxConfig}
           ndxConfig={ndxConfig}
+          fundLabel={comboResult ? shortBacktestAssetLabel(comboResult.name) : null}
+          taxRates={taxRates}
           spxRiskOffValues={referenceData.spxRiskOffValues}
           spxRiskOffOpenValues={referenceData.spxRiskOffOpenValues}
           ndxRiskOffValues={referenceData.ndxRiskOffValues}

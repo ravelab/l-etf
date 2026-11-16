@@ -121,6 +121,13 @@ export function SimulationRunSummary({
             <span className="text-foreground">{summary.microFutures ? "MES / MNQ remainder" : "Off"}</span>
           </span>
         )}
+        {summary.taxRates && (
+          <span className="text-muted min-w-0">
+            Tax Rates: <span className="text-foreground">
+              LT {summary.taxRates.ltcg}% · Income {summary.taxRates.stcg}% · State {summary.taxRates.state}% · NIIT {summary.taxRates.medicare}%
+            </span>
+          </span>
+        )}
       </div>
     </Card>
   );

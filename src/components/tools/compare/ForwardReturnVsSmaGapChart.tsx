@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import {
   BarController,
   BarElement,
@@ -24,8 +24,10 @@ import { getChartThemeColors } from "@/lib/chart-options";
 import { linkedLegendDatasetIndices, type LinkedLegendDataset } from "@/lib/chart-legend";
 import { spaceChartLabels } from "@/lib/chart-label-layout";
 import type { EtfConfig, PricePoint, RatePoint } from "@/lib/simulation/types";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import {
+  buildForwardFundReturnPoints,
   buildForwardSmaReturnPoints,
 } from "@/lib/simulation/forward-sma-returns";
 import {
@@ -64,6 +66,7 @@ const BIN_MAX_PCT = FORWARD_GAP_BIN_MAX_PCT;
 // that the legend toggles as a unit.
 const SPX_SERIES_KEY = "spx";
 const NDX_SERIES_KEY = "ndx";
+const COMBO_SERIES_KEY = "tqqq-upro";
 
 interface PercentileStats {
   count: number;
@@ -126,6 +129,9 @@ interface ForwardReturnVsSmaGapChartProps {
   startDateSp: string;
   startDateNq: string;
   endDate: string;
+  /** The UPRO/TQQQ fund's display label when the run has one; null draws only the two sleeves. */
+  fundLabel: string | null;
+  taxRates: FuturesTaxRates;
 }
 
 // Invisible bars provide grouped x-positions and tooltip hit regions; the
@@ -279,9 +285,13 @@ const PERCENTILE_LABEL_OFFSET_PX = 5;
 const PERCENTILE_LABEL_LINE_HEIGHT = 12;
 const PERCENTILE_LABEL_SPACING = 14;
 const PERCENTILE_LABEL_COLUMN_WIDTH = 56;
+/** Room a lone median label needs; below it a bar is labeled only on hover. */
+const PERCENTILE_MEDIAN_LABEL_WIDTH = 30;
 
 interface PercentileLabelGroup {
   x: number;
+  /** Left edge of the bar's widest tick: where the previous bar's labels must stop. */
+  tickLeft: number;
   tickRight: number;
   color: string;
   halo?: string;
@@ -338,6 +348,7 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
         });
         groups.push({
           x: bx + halfWidth * 1.08 + PERCENTILE_LABEL_OFFSET_PX,
+          tickLeft: bx - halfWidth * 1.08,
           tickRight: bx + halfWidth * 1.08,
           color,
           halo: haloColor,
@@ -355,14 +366,26 @@ const percentileMarkersPlugin: Plugin<"bar"> = {
     ctx.lineJoin = "round";
     ctx.textAlign = "left";
     const halfLine = PERCENTILE_LABEL_LINE_HEIGHT / 2;
+    // Fitted to the page (desktop), bars sit closer than a label column: each bar
+    // keeps all five labels, the median alone, or none, by the room to its right.
+    const tickLefts = groups.map((group) => group.tickLeft).sort((a, b) => a - b);
+    const roomRightOf = (group: PercentileLabelGroup) =>
+      (tickLefts.find((left) => left > group.tickRight) ?? chartArea.right) - group.x;
     for (const group of groups) {
+      const room = roomRightOf(group);
+      const labels = room >= PERCENTILE_LABEL_COLUMN_WIDTH - PERCENTILE_LABEL_OFFSET_PX
+        ? group.labels
+        : room >= PERCENTILE_MEDIAN_LABEL_WIDTH
+          ? [group.labels[2]]
+          : [];
+      if (labels.length === 0) continue;
       const positions = spaceChartLabels(
-        group.labels.map((label) => label.anchorY),
+        labels.map((label) => label.anchorY),
         chartArea.top + halfLine,
         chartArea.bottom - halfLine,
         PERCENTILE_LABEL_SPACING,
       );
-      group.labels.forEach((label, index) => {
+      labels.forEach((label, index) => {
         const y = positions[index];
         if (Math.abs(y - label.anchorY) > 1) {
           ctx.strokeStyle = group.color;
@@ -532,9 +555,11 @@ export function ForwardReturnVsSmaGapChart({
   startDateSp,
   startDateNq,
   endDate,
+  fundLabel,
+  taxRates,
 }: ForwardReturnVsSmaGapChartProps) {
   const colors = getChartThemeColors();
-  const [visibleSeriesCount, setVisibleSeriesCount] = useState(2);
+  const [visibleSeriesCount, setVisibleSeriesCount] = useState(3);
 
   const spxResult = useMemo(
     () => spxConfig
@@ -581,9 +606,10 @@ export function ForwardReturnVsSmaGapChart({
             monthlyCpi,
             startDate: startDateSp,
             endDate,
+            taxRates,
           })
         : [],
-    [spxPrices, spxResult, spxConfig, monthlyCpi, startDateSp, endDate],
+    [spxPrices, spxResult, spxConfig, monthlyCpi, startDateSp, endDate, taxRates],
   );
   const ndxPoints = useMemo(
     () =>
@@ -595,17 +621,37 @@ export function ForwardReturnVsSmaGapChart({
             monthlyCpi,
             startDate: startDateNq,
             endDate,
+            taxRates,
           })
         : [],
-    [ndxPrices, ndxResult, ndxConfig, monthlyCpi, startDateNq, endDate],
+    [ndxPrices, ndxResult, ndxConfig, monthlyCpi, startDateNq, endDate, taxRates],
+  );
+
+  // Same fund the backtest table shows, from the same two sleeves; null when the
+  // run is not the UPRO+TQQQ preset.
+  const comboPoints = useMemo(
+    () =>
+      fundLabel && spxConfig && ndxConfig
+        ? buildForwardFundReturnPoints({
+            spx: { indexPrices: spxPrices, strategyResult: spxResult, config: spxConfig },
+            ndx: { indexPrices: ndxPrices, strategyResult: ndxResult, config: ndxConfig },
+            monthlyCpi,
+            startDate: startDateSp > startDateNq ? startDateSp : startDateNq,
+            endDate,
+            taxRates,
+          })
+        : [],
+    [fundLabel, spxConfig, ndxConfig, spxPrices, ndxPrices, spxResult, ndxResult, monthlyCpi, startDateSp, startDateNq, endDate, taxRates],
   );
 
   const spxBuckets = useMemo(() => bucketize(spxPoints), [spxPoints]);
   const ndxBuckets = useMemo(() => bucketize(ndxPoints), [ndxPoints]);
+  const comboBuckets = useMemo(() => bucketize(comboPoints), [comboPoints]);
 
   /** Series names track whichever LETF each index family is configured with. */
   const spxLabel = spxConfig ? `${spxConfig.name} SMA` : "SPX SMA";
   const ndxLabel = ndxConfig ? `${ndxConfig.name} SMA` : "NDX SMA";
+  const comboLabel = fundLabel ?? "";
 
   const binCount = Math.round((BIN_MAX_PCT - BIN_MIN_PCT) / BIN_WIDTH_PCT);
   const labels = useMemo(
@@ -621,12 +667,16 @@ export function ForwardReturnVsSmaGapChart({
     () => ndxBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
     [ndxBuckets],
   );
+  const comboStats = useMemo(
+    () => comboBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
+    [comboBuckets],
+  );
 
   // Y-axis bounds must include the full visible P10–P90 percentile range.
   const yBounds = useMemo(() => {
     let lo = Infinity;
     let hi = -Infinity;
-    for (const stats of [...spxStats, ...ndxStats]) {
+    for (const stats of [...spxStats, ...ndxStats, ...comboStats]) {
       if (!stats) continue;
       if (stats.min > 0 && stats.min < lo) lo = stats.min;
       if (stats.max > hi) hi = stats.max;
@@ -634,7 +684,7 @@ export function ForwardReturnVsSmaGapChart({
     if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo <= 0 || hi <= 0) return null;
     // 4% multiplicative pad on a log axis: divide low / multiply high by 1.04.
     return { min: lo / 1.04, max: hi * 1.04 };
-  }, [spxStats, ndxStats]);
+  }, [spxStats, ndxStats, comboStats]);
 
   const data = useMemo((): ChartData<"bar" | "line"> => {
     const spxTotal = spxStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
@@ -765,12 +815,49 @@ export function ForwardReturnVsSmaGapChart({
       tension: 0,
       spanGaps: false,
     };
+    const comboTotal = comboPoints.length;
+    const comboDataset: RaincloudDataset = {
+      ...spxDataset,
+      seriesKey: COMBO_SERIES_KEY,
+      label: `${comboLabel} — average SPX/NDX SMA gap`,
+      data: comboStats.map((s) => (s ? [s.min, s.max] as [number, number] : null)),
+      percentileStats: comboStats,
+      totalCount: comboTotal,
+      percentileColor: "rgba(34, 197, 94, 0.95)",
+      cloudProfiles: comboBuckets.map((bucket, index) => {
+        const stats = comboStats[index];
+        return stats ? buildLogRaincloudDensity(bucket.map((point) => point.realReturnFactor), stats.min, stats.max) : [];
+      }),
+      rainPoints: comboBuckets.map((bucket) => sampleRaincloudItems(bucket, (point) => point.realReturnFactor).map((point) => ({
+        date: point.date,
+        value: point.realReturnFactor,
+      }))),
+      cloudColor: "rgba(34, 197, 94, 0.32)",
+      rainColor: "rgba(34, 197, 94, 0.7)",
+    };
+    const comboMedianLine = {
+      ...spxMedianLine,
+      seriesKey: COMBO_SERIES_KEY,
+      label: `${comboLabel} median`,
+      data: comboStats.map((s) => s?.median ?? null),
+      borderColor: "rgba(34, 197, 94, 1)",
+      backgroundColor: "rgba(34, 197, 94, 1)",
+    };
+    const comboFreqLine = {
+      ...spxFreqLine,
+      seriesKey: COMBO_SERIES_KEY,
+      label: `${comboLabel} n/total`,
+      data: comboStats.map((s) => (s && comboTotal > 0 ? (s.count / comboTotal) * 100 : null)),
+      borderColor: "rgba(34, 197, 94, 0.55)",
+      backgroundColor: "rgba(34, 197, 94, 0.55)",
+    };
     // A family with nothing to plot contributes no datasets at all, so it takes no
     // legend entry and no raincloud side. Plugins iterate datasets rather than
     // indexing them, so a missing slot shifts nothing.
     const datasets = [
       ...(spxTotal > 0 ? [spxDataset, spxMedianLine, spxFreqLine] : []),
       ...(ndxTotal > 0 ? [ndxDataset, ndxMedianLine, ndxFreqLine] : []),
+      ...(comboTotal > 0 ? [comboDataset, comboMedianLine, comboFreqLine] : []),
     ];
     return {
       labels,
@@ -783,8 +870,12 @@ export function ForwardReturnVsSmaGapChart({
     spxStats,
     ndxBuckets,
     ndxStats,
+    comboBuckets,
+    comboStats,
+    comboPoints,
     spxLabel,
     ndxLabel,
+    comboLabel,
     spxConfig?.smaPeriod,
     ndxConfig?.smaPeriod,
     colors.tooltipBackground,
@@ -962,27 +1053,30 @@ export function ForwardReturnVsSmaGapChart({
 
   const totalSpx = spxPoints.length;
   const totalNdx = ndxPoints.length;
-  const labelColumns = Math.max(1, Math.min(visibleSeriesCount, Number(totalSpx > 0) + Number(totalNdx > 0)));
+  const totalCombo = comboPoints.length;
+  const labelColumns = Math.max(1, Math.min(visibleSeriesCount, Number(totalSpx > 0) + Number(totalNdx > 0) + Number(totalCombo > 0)));
   const chartMinWidth = 160 + PERCENTILE_LABEL_COLUMN_WIDTH * binCount * labelColumns;
 
   return (
     <Card className="!p-1 md:!p-5">
       <div className="mb-2 flex items-start justify-between gap-3 md:items-baseline">
-        <h3 className="text-sm font-medium text-foreground">1-year forward real return by SMA gap</h3>
+        <h3 className="text-sm font-medium text-foreground">1-year forward real after-tax return by SMA gap</h3>
         <span className="shrink-0 text-xs text-muted tabular-nums">
           {totalSpx > 0 && `${totalSpx} ${spxLabel}`}
           {totalSpx > 0 && totalNdx > 0 && " • "}
           {totalNdx > 0 && `${totalNdx} ${ndxLabel}`}
+          {totalCombo > 0 && " • "}
+          {totalCombo > 0 && `${totalCombo} ${comboLabel}`}
         </span>
       </div>
-      {totalSpx === 0 && totalNdx === 0 ? (
+      {totalSpx === 0 && totalNdx === 0 && totalCombo === 0 ? (
         <div className="text-sm text-muted">
           Loading or not enough forward data — the chart needs at least 252 trading days of history past each candidate
           date in the selected range.
         </div>
       ) : (
         <div>
-          <div className="mb-1 flex items-center justify-between px-1 text-[11px] text-muted">
+          <div className="mb-1 flex items-center justify-between px-1 text-[11px] text-muted md:hidden">
             <span>Scroll to explore</span>
             <span aria-hidden="true">→</span>
           </div>
@@ -992,7 +1086,12 @@ export function ForwardReturnVsSmaGapChart({
             aria-label="Scrollable one-year forward real return chart"
             tabIndex={0}
           >
-            <div className="h-[460px] w-full" style={{ minWidth: chartMinWidth }}>
+            {/* Phones scroll a chart wide enough to label every percentile; desktop
+                fits the card and labels what fits (hover shows all five). */}
+            <div
+              className="h-[460px] w-full min-w-(--chart-min-width) md:min-w-0"
+              style={{ "--chart-min-width": `${chartMinWidth}px` } as CSSProperties}
+            >
               {/* ZoomableChart is typed for line charts; this mixed chart declares
                   its bar datasets explicitly, so the cast is safe at runtime. */}
               <ZoomableChart
@@ -1003,7 +1102,7 @@ export function ForwardReturnVsSmaGapChart({
           </div>
           <p className="px-1 pt-1 text-[11px] leading-relaxed text-muted">
             SMA strategy returns include risk-off periods • cloud = return density • dots = sampled outcomes (hover for
-            start date) • ticks bottom→top = P10 / P25 / P50 / P75 / P90 (P50 is longest) • all five values are labeled to the right; connectors link separated labels to their ticks
+            start date) • ticks bottom→top = P10 / P25 / P50 / P75 / P90 (P50 is longest) • values are labeled to the right where they fit, and all five show on hover; connectors link separated labels to their ticks
           </p>
         </div>
       )}

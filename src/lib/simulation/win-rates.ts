@@ -7,6 +7,8 @@ import { buildSgovFinalValuesByWindow } from "../sgov-benchmark";
 import { CONSTANT_HISTORY_WRAP_ENABLED, CONSTANT_INITIAL_INVESTMENT, LABEL_INDEX_NASDAQ100_TR, LABEL_INDEX_SP500_TR } from "../constants";
 import { annualizedInflationForRange, realCagrPct } from "../inflation";
 import { calcCagr } from "./metrics";
+import type { FuturesTaxRates } from "./futures-tax";
+import { buyAndHoldAfterTaxValue } from "./after-tax-window";
 
 type WinRateSummaryRow = {
   label: string;
@@ -105,6 +107,8 @@ export async function computeWinRatesByWindowLength(opts: {
   riskOffOpenValuesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], number[]>>;
   sgovPoints: PricePoint[];
   monthlyCpi?: Array<{ date: string; value: number }>;
+  /** Tax every line (strategy windows, the index, SGOV); all results are then after-tax. */
+  taxRates?: FuturesTaxRates;
   /** Abort the run when it is superseded or cancelled. */
   signal?: AbortSignal;
   onProgress?: (year: number, totalYears: number) => void;
@@ -112,7 +116,7 @@ export async function computeWinRatesByWindowLength(opts: {
   const {
     label, prices, rates, smaConfig, noSmaConfig,
     startDate, endDate,
-    riskOffValuesByAsset, riskOffOpenValuesByAsset, sgovPoints, monthlyCpi, signal, onProgress,
+    riskOffValuesByAsset, riskOffOpenValuesByAsset, sgovPoints, monthlyCpi, taxRates, signal, onProgress,
   } = opts;
   const historyWrap = opts.historyWrap ?? CONSTANT_HISTORY_WRAP_ENABLED;
 
@@ -188,6 +192,7 @@ export async function computeWinRatesByWindowLength(opts: {
       configs,
       riskOffValuesByAsset,
       riskOffOpenValuesByAsset,
+      taxRates,
     });
 
     // Find SMA and non-SMA buckets by config ID
@@ -280,7 +285,18 @@ export async function computeWinRatesByWindowLength(opts: {
 
       // SMA vs SGOV
       const sgovKey = `${smaRun.startDate}|${smaRun.endDate}`;
-      const sgovValue = sgovByWindow.get(sgovKey);
+      const pretaxSgovValue = sgovByWindow.get(sgovKey);
+      // Treasury bill interest is ordinary income; taxed like every other line here.
+      const sgovValue = pretaxSgovValue != null && taxRates
+        ? buyAndHoldAfterTaxValue({
+            initialValue: CONSTANT_INITIAL_INVESTMENT,
+            finalValue: pretaxSgovValue,
+            startDate: smaRun.startDate,
+            endDate: smaRun.endDate,
+            rates: taxRates,
+            ordinaryIncome: true,
+          })
+        : pretaxSgovValue;
       if (sgovValue != null) {
         totalVsSgov++;
         totalSmaVsSgov++;

@@ -116,3 +116,36 @@ test("cached wrapped window extraction matches per-window extraction", () => {
   }
   assert.equal(compared > 0, true);
 });
+
+test("taxed, the cached windows (one extended path) match per-window stitched paths", () => {
+  const rates_ = { ltcg: 15, stcg: 22, state: 8, medicare: 3.8 };
+  const prices = makePrices();
+  const riskOffValuesByAsset = { SGOV: prices.map((_, idx) => 100 + idx * 0.05) };
+  const riskOffOpenValuesByAsset = { SGOV: prices.map((_, idx) => 99.9 + idx * 0.05) };
+  const windows = buildRollingWindows({
+    prices,
+    windowLength: 4,
+    startDateConstraint: "2018-01-01",
+    endDateConstraint: "2023-12-01",
+    historyWrap: true,
+  }).filter((window) => window.usesSyntheticTail);
+  const [precomputed] = precomputeAllConfigDailyValues(prices, rates, [config], riskOffValuesByAsset, riskOffOpenValuesByAsset);
+  const cache = buildWrappedTailCache(precomputed, windows, prices, config, rates, riskOffValuesByAsset, riskOffOpenValuesByAsset)!;
+
+  let compared = 0;
+  for (const window of windows) {
+    const expected = extractOptimizedWrappedWindowResult(
+      precomputed, window, prices, config, rates, riskOffValuesByAsset, riskOffOpenValuesByAsset, rates_
+    );
+    if (!expected) continue;
+    const actual = extractCachedWrappedWindowResult(precomputed, window, prices, cache, rates_)!;
+    assert.ok(actual.preTaxCagr !== undefined && actual.cagr < actual.preTaxCagr, `${window.startDate}: taxes cost something`);
+    assertClose(actual.preTaxCagr!, expected.preTaxCagr!, `${window.startDate} preTaxCagr`);
+    assertClose(actual.finalValue, expected.finalValue, `${window.startDate} after-tax finalValue`);
+    assertClose(actual.cagr, expected.cagr, `${window.startDate} after-tax cagr`);
+    assertClose(actual.maxDrawdownPct, expected.maxDrawdownPct, `${window.startDate} after-tax maxDrawdownPct`);
+    assertClose(actual.nonLeveragedFinalValue, expected.nonLeveragedFinalValue, `${window.startDate} after-tax 1x`);
+    compared++;
+  }
+  assert.ok(compared > 0);
+});

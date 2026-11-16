@@ -16,10 +16,18 @@ type DrawdownNode = {
   maxDrawdownPct: number;
 };
 
-export type DrawdownRangeQuery = (
-  startIdx: number,
-  endIdx: number
-) => { pct: number; dollar: number; longestDays: number };
+type DrawdownRange = {
+  pct: number;
+  dollar: number;
+  longestDays: number;
+  /** Lowest and highest raw value in the range; NaN for an empty range. */
+  min: number;
+  max: number;
+};
+
+export type DrawdownRangeQuery = (startIdx: number, endIdx: number) => DrawdownRange;
+
+const EMPTY_RANGE: DrawdownRange = { pct: 0, dollar: 0, longestDays: 0, min: NaN, max: NaN };
 
 function mergeDrawdownNodes(left: DrawdownNode, right: DrawdownNode): DrawdownNode {
   const crossDrawdownPct = left.max > 0 ? (left.max - right.min) / left.max : 0;
@@ -49,7 +57,7 @@ export function buildDrawdownRangeQuery(values: number[]): DrawdownRangeQuery {
   }
 
   return (startIdx: number, endIdx: number) => {
-    if (endIdx - startIdx < 1) return { pct: 0, dollar: 0, longestDays: 0 };
+    if (endIdx < startIdx) return EMPTY_RANGE;
     let left = startIdx + size;
     let right = endIdx + size;
     let leftNode: DrawdownNode | null = null;
@@ -71,7 +79,7 @@ export function buildDrawdownRangeQuery(values: number[]): DrawdownRangeQuery {
     const node = leftNode && rightNode
       ? mergeDrawdownNodes(leftNode, rightNode)
       : leftNode ?? rightNode;
-    if (!node) return { pct: 0, dollar: 0, longestDays: 0 };
-    return { pct: node.maxDrawdownPct * 100, dollar: 0, longestDays: 0 };
+    if (!node) return EMPTY_RANGE;
+    return { pct: node.maxDrawdownPct * 100, dollar: 0, longestDays: 0, min: node.min, max: node.max };
   };
 }

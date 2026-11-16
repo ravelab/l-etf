@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CONSTANT_INITIAL_INVESTMENT as C } from "../src/lib/constants";
-import { DEFAULT_FUTURES_TAX_RATES } from "../src/lib/simulation/futures-tax";
 import { composeLetfDualSleeveFund } from "../src/lib/simulation/letf-dual-sleeve";
 import {
   buildLetfTaxSchedule,
@@ -12,6 +11,9 @@ import {
 } from "../src/lib/simulation/letf-tax";
 import { calcCagr } from "../src/lib/simulation/metrics";
 import type { EtfResult, SmaSignal } from "../src/lib/simulation/types";
+
+// A typical high bracket; the shipped default is 0% everywhere.
+const RATES = { ltcg: 15, stcg: 22, state: 8, medicare: 3.8 };
 
 const ZERO = { ltcg: 0, stcg: 0, state: 0, medicare: 0 };
 // Defaults: short-term 22 + 8 + 3.8, long-term 15 + 8 + 3.8.
@@ -36,12 +38,12 @@ function sleeve(days: Array<[date: string, value: number, signal?: SmaSignal["ty
   };
 }
 
-function afterTax(result: EtfResult, rates = DEFAULT_FUTURES_TAX_RATES) {
+function afterTax(result: EtfResult, rates = RATES) {
   return estimateLetfAfterTaxCagr(buildLetfTaxSchedule(result)!, rates);
 }
 
 test("rates combine each federal rate with state and Medicare", () => {
-  const rates = capitalGainsRates(DEFAULT_FUTURES_TAX_RATES);
+  const rates = capitalGainsRates(RATES);
   near(rates.shortTerm, ST);
   near(rates.longTerm, LT);
   near(capitalGainsRates({ ltcg: 100, stcg: 100, state: 50, medicare: 0 }).shortTerm, 1);
@@ -180,19 +182,19 @@ test("the two-sleeve fund's estimate matches its pretax CAGR at zero rates throu
     })!;
     assert.ok(fund.taxSchedule?.events.some((e) => e.reset), "the schedule records the reset");
     near(estimateLetfAfterTaxCagr(fund.taxSchedule!, ZERO), fund.cagr);
-    const taxed = estimateLetfAfterTaxCagr(fund.taxSchedule!, DEFAULT_FUTURES_TAX_RATES)!;
+    const taxed = estimateLetfAfterTaxCagr(fund.taxSchedule!, RATES)!;
     assert.ok(taxed < fund.cagr, `${riskOffB}: taxes must cost something`);
   }
 });
 
 test("a schedule it cannot price is reported as unavailable, ruin as -100%", () => {
   const schedule = buildLetfTaxSchedule(sleeve([["2020-01-02", 1], ["2020-06-01", 1.5]]))!;
-  assert.equal(estimateLetfAfterTaxCagr({ ...schedule, events: [] }, DEFAULT_FUTURES_TAX_RATES), undefined);
+  assert.equal(estimateLetfAfterTaxCagr({ ...schedule, events: [] }, RATES), undefined);
   assert.equal(
-    estimateLetfAfterTaxCagr({ ...schedule, events: [{ ...schedule.events[0], prices: [0] }] }, DEFAULT_FUTURES_TAX_RATES),
+    estimateLetfAfterTaxCagr({ ...schedule, events: [{ ...schedule.events[0], prices: [0] }] }, RATES),
     undefined,
   );
   assert.equal(buildLetfTaxSchedule(sleeve([["2020-01-02", 1]])), undefined);
   const wiped = buildLetfTaxSchedule(sleeve([["2020-01-02", 1], ["2020-06-01", 1]]))!;
-  assert.equal(estimateLetfAfterTaxCagr({ ...wiped, exitFractions: [0] }, DEFAULT_FUTURES_TAX_RATES), -100);
+  assert.equal(estimateLetfAfterTaxCagr({ ...wiped, exitFractions: [0] }, RATES), -100);
 });

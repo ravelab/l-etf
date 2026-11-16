@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { resolvePresetContext } from "@/lib/simulation/presets";
 import type { RunSummary } from "@/lib/run-summary";
 import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
+import { normalizeTaxRates } from "@/lib/simulation/futures-tax";
 
 /** Storage-level key is `runSummaryInputs` (kept for backwards cache compat); hook-level field is `runSummary`. */
 type SnapshotFragment = {
@@ -45,6 +46,7 @@ export function toValidRunSummary(value: unknown): RunSummary | null {
     amount: typeof v.amount === "number" && Number.isFinite(v.amount) ? v.amount : undefined,
     leverageTolerance: typeof v.leverageTolerance === "string" ? v.leverageTolerance : undefined,
     microFutures: typeof v.microFutures === "boolean" ? v.microFutures : undefined,
+    taxRates: v.taxRates && typeof v.taxRates === "object" ? normalizeTaxRates(v.taxRates) : undefined,
     // Runs saved before the split carry one `riskOffAsset` (or `ro`) that both indices held.
     spxRiskOffAsset: typeof v.spxRiskOffAsset === "string" ? v.spxRiskOffAsset : legacyRiskOffAsset ?? DEFAULT_RISK_OFF_ASSETS.sp500,
     ndxRiskOffAsset: typeof v.ndxRiskOffAsset === "string" ? v.ndxRiskOffAsset : legacyRiskOffAsset ?? DEFAULT_RISK_OFF_ASSETS.nasdaq100,

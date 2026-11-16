@@ -18,6 +18,7 @@ import {
 } from "@/lib/constants";
 import { fetchJsonCached, fetchMarketData, loadRiskOffPriceSeries, MARKET_DATA_EARLIEST_START } from "@/lib/fetch-market-data";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
+import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
 import { buildComboBacktestUrl, buildPresetBacktestUrl } from "@/lib/url-builders";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { runParallelVariants } from "@/lib/simulation/parallel";
@@ -408,6 +409,7 @@ export function CompareLETFsPageContent({
     clearRunSummary,
   } = useRunSummary(initial.runSummaryInputs as RunSummary | null);
   const display = useRunDisplay(runSummary);
+  const { taxRates, changeTaxRate } = useTaxRates();
   const volGateShown = runSummary?.smaVolGate === true;
 
   const [loading, setLoading] = useState(false);
@@ -564,6 +566,8 @@ export function CompareLETFsPageContent({
     const signal = controller.signal;
 
     try {
+      // One read per run: the sweep and its run summary must carry the same rates.
+      const runTaxRates = getTaxRates();
       // Fetch prices for both indexes + rates + inflation
       const marketData = await fetchMarketData(
         ["sp500", "nasdaq100"],
@@ -648,6 +652,7 @@ export function CompareLETFsPageContent({
         variants: sp500Variants,
         riskOffValuesByAsset: riskSeriesForSp500.closeValuesByAsset,
         riskOffOpenValuesByAsset: riskSeriesForSp500.openValuesByAsset,
+        taxRates: runTaxRates,
         onProgress: (done: number, total: number) => {
           setRunProgress({
             pct: 35 + (done / total) * 30,
@@ -667,6 +672,7 @@ export function CompareLETFsPageContent({
             variants: effectiveNasdaqVariants,
             riskOffValuesByAsset: riskSeriesForNasdaq.closeValuesByAsset,
             riskOffOpenValuesByAsset: riskSeriesForNasdaq.openValuesByAsset,
+            taxRates: runTaxRates,
             onProgress: (done: number, total: number) => {
               setRunProgress({
                 pct: 65 + (done / total) * 30,
@@ -702,6 +708,7 @@ export function CompareLETFsPageContent({
             windowLength,
             startDate: effectiveStartSp > effectiveStartNq ? effectiveStartSp : effectiveStartNq,
             endDate,
+            taxRates: runTaxRates,
             signal,
           })
         : [];
@@ -729,6 +736,7 @@ export function CompareLETFsPageContent({
         spxRiskOffAsset,
         ndxRiskOffAsset,
         tradeAfterHours,
+        taxRates: runTaxRates,
       });
       setRunSummary(nextRunSummary);
 
@@ -1263,6 +1271,8 @@ export function CompareLETFsPageContent({
             spxRiskOffAsset,
             ndxRiskOffAsset,
           }}
+          taxRates={taxRates}
+          onTaxRateChange={changeTaxRate}
           onChange={(field, val) => {
             handleFieldChange(field, val);
           }}
@@ -1532,7 +1542,7 @@ function StrategyDistributionCard({
             <tr className="border-b border-card-border text-left text-muted">
               <th className="py-2 pr-4 font-medium"></th>
               <th className="py-2 pr-4 text-right font-medium">10th Pctl Real CAGR</th>
-              <th className="py-2 pr-4 text-right font-medium">Avg Real CAGR</th>
+              <th className="py-2 pr-4 text-right font-medium">Avg After-Tax Real CAGR</th>
               <th className="py-2 pr-4 text-right font-medium">Median Real CAGR</th>
               <th className="py-2 pr-4 text-right font-medium">90th Pctl Real CAGR</th>
               <th className="hidden py-2 pr-4 text-right font-medium md:table-cell">Beats {smaLabel}</th>

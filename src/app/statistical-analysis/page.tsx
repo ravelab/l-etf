@@ -29,6 +29,7 @@ import {
 } from "@/lib/simulation/presets";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
+import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
 import {
   alignRiskOffPriceSeries,
   fetchJsonCached,
@@ -103,6 +104,7 @@ export function StatisticalAnalysisPageContent({
     applyRunSummaryFromSnapshot,
   } = useRunSummary(initial.runSummaryInputs as RunSummary | null);
   const display = useRunDisplay(runSummary);
+  const { taxRates, changeTaxRate } = useTaxRates();
   const [annualizedInflation, setAnnualizedInflation] = useState(initial.annualizedInflation);
   const [monthlyCpi, setMonthlyCpi] = useState<Array<{ date: string; value: number }>>(initial.monthlyCpi);
   const [winRatesByWindow, setWinRatesByWindow] = useState<WinRatesByWindow[] | null>(initial.winRatesByWindow);
@@ -229,6 +231,8 @@ export function StatisticalAnalysisPageContent({
     const signal = controller.signal;
 
     try {
+      // One read per run: the sweep and its run summary must carry the same rates.
+      const runTaxRates = getTaxRates();
       setRunProgress({ pct: 15, label: "Loading market data..." });
       const subs = isCombo ? getComboSubPresets(letf) : [selectedPreset];
       if (subs.length === 0) {
@@ -310,6 +314,7 @@ export function StatisticalAnalysisPageContent({
           signal,
           sgovPoints,
           monthlyCpi: inflationData.monthlyCpi,
+          taxRates: runTaxRates,
           onProgress: (year, total) => {
             const subIndex = subs.indexOf(sub);
             const subSpan = 50 / subs.length;
@@ -335,6 +340,7 @@ export function StatisticalAnalysisPageContent({
         letf,
         spxRiskOffAsset,
         ndxRiskOffAsset,
+        taxRates: runTaxRates,
       });
       // A run that was cancelled or superseded must not publish its results over
       // the run that replaced them — state, storage, and the URL are all written
@@ -456,6 +462,8 @@ export function StatisticalAnalysisPageContent({
             spxRiskOffAsset, ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}
+          taxRates={taxRates}
+          onTaxRateChange={changeTaxRate}
           showRollingFields={false}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}
           presetOptions={PRESET_SELECT_OPTIONS}
@@ -563,7 +571,7 @@ function WinRateSummaryTable({
           <tr className="border-b border-card-border text-left text-muted">
             <th className="py-2 pr-4 font-medium"></th>
             <th className="py-2 pr-4 text-right font-medium">10th Pctl Real CAGR</th>
-            <th className="py-2 pr-4 text-right font-medium">Avg Real CAGR</th>
+            <th className="py-2 pr-4 text-right font-medium">Avg After-Tax Real CAGR</th>
             <th className="py-2 pr-4 text-right font-medium">Median Real CAGR</th>
             <th className="py-2 pr-4 text-right font-medium">90th Pctl Real CAGR</th>
           </tr>

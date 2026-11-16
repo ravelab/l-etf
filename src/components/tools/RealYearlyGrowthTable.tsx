@@ -45,7 +45,7 @@ function getCellStyle(value: number | null): React.CSSProperties {
 export function RealYearlyGrowthTable({
   yearlyGrowthSeries,
   description,
-  title = "Real Yearly Growth Rate",
+  title = "Real Yearly After-Tax Growth Rate",
   inflationPct,
 }: {
   yearlyGrowthSeries: YearlyGrowthSeries | null;

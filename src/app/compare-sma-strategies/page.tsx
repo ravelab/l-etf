@@ -28,6 +28,8 @@ import {
 } from "@/lib/simulation/presets";
 import { useSearchSyncRunGuard } from "@/lib/hooks/use-search-sync-run-guard";
 import { useMonotonicRunProgress } from "@/lib/hooks/use-monotonic-run-progress";
+import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { runParallelSimulations } from "@/lib/simulation/parallel";
 import type {
   EtfConfig,
@@ -117,6 +119,7 @@ export function CompareSmaStrategiesPageContent({
     applyRunSummaryFromSnapshot,
   } = useRunSummary(initial.runSummaryInputs as RunSummary | null);
   const display = useRunDisplay(runSummary);
+  const { taxRates, changeTaxRate } = useTaxRates();
   const [loading, setLoading] = useState(false);
   const [pendingRun, setPendingRun] = useState(false);
   const [runProgress, setRunProgress] = useMonotonicRunProgress();
@@ -341,8 +344,9 @@ export function CompareSmaStrategiesPageContent({
     },
     pctBase: number,
     pctSpan: number,
-    cpiData?: Array<{ date: string; value: number }>,
-    signal?: AbortSignal,
+    cpiData: Array<{ date: string; value: number }> | undefined,
+    signal: AbortSignal | undefined,
+    taxRates: FuturesTaxRates,
   ) => {
     // Baseline first, then one SMA config per period (shared item builder).
     const items = buildSmaPeriodSweepItems({
@@ -363,6 +367,7 @@ export function CompareSmaStrategiesPageContent({
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
       monthlyCpi: cpiData,
+      taxRates,
       mode: 'sweep',
       signal,
       onProgress: (fraction, label) =>
@@ -417,6 +422,8 @@ export function CompareSmaStrategiesPageContent({
     const signal = controller.signal;
 
     try {
+      // One read per run: the sweep and its run summary must carry the same rates.
+      const runTaxRates = getTaxRates();
       const rawRiskOffSeriesPromise = loadAllRiskOffPricePoints(
         getRiskOffFetchTickersForAll(Object.values(riskOffAssets)),
         signal,
@@ -435,6 +442,7 @@ export function CompareSmaStrategiesPageContent({
         loadRiskOffValues: async (_preset, prices) =>
           alignRiskOffPriceSeries(prices, await rawRiskOffSeriesPromise),
         runSweepForPreset: runSweepForPreset,
+        taxRates: runTaxRates,
         signal,
       });
       throwIfAborted(signal);
@@ -461,6 +469,7 @@ export function CompareSmaStrategiesPageContent({
         letf,
         spxRiskOffAsset,
         ndxRiskOffAsset,
+        taxRates: runTaxRates,
       });
       setRunSummary(nextRunSummary);
 
@@ -533,6 +542,8 @@ export function CompareSmaStrategiesPageContent({
             spxRiskOffAsset, ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}
+          taxRates={taxRates}
+          onTaxRateChange={changeTaxRate}
           dateRange={{ min: effectiveMinDate, max: dateRange.max }}
           presetOptions={PRESET_SELECT_OPTIONS}
           onRun={handleRun}

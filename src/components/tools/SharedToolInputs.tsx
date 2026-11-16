@@ -20,6 +20,8 @@ import { getIsoDate } from "@/lib/date";
 import { PER_INDEX_START_DATES } from "@/lib/per-index-start";
 import { parseNumberOrKeep } from "@/lib/utils";
 import type { EtfConfig } from "@/lib/simulation/types";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
+import { FuturesTaxInputs } from "@/components/tools/futures/FuturesTaxInputs";
 
 type PresetOption = { value: string; label: string };
 
@@ -180,6 +182,8 @@ type SharedToolInputsProps = {
   children?: ReactNode;
   /** Page-specific fields after the shared SMA and risk-off controls. */
   endFields?: ReactNode;
+  taxRates: FuturesTaxRates;
+  onTaxRateChange: (key: keyof FuturesTaxRates, value: number) => void;
   /** Footer content rendered below the button. */
   footer?: ReactNode;
 };
@@ -201,6 +205,8 @@ export function SharedToolInputs({
   reserveRollingSlotsWhenHidden = false,
   children,
   endFields,
+  taxRates,
+  onTaxRateChange,
   footer,
 }: SharedToolInputsProps) {
   const num = (field: keyof SharedFieldValues, current: number) =>
@@ -458,6 +464,7 @@ export function SharedToolInputs({
             onChange={(e) => onChange("ndxRiskOffAsset", e.currentTarget.value as EtfConfig["riskOffAsset"])}
           />
         )}
+        <FuturesTaxInputs rates={taxRates} onChange={onTaxRateChange} />
         {endFields}
       </div>
 

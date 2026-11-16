@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { Input } from "@/components/ui/Input";
-import { FuturesTaxInputs } from "@/components/tools/futures/FuturesTaxInputs";
 import { Button } from "@/components/ui/Button";
 import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
 import { appendSmaBufferUrlParams, parseSmaBufferUrlParams } from "@/lib/sma-buffer-url-params";
@@ -49,7 +48,8 @@ import {
   DEFAULT_FUTURES_ROLL_CALENDAR_DAYS_BEFORE_EXPIRY,
   type FuturesStrategyResult,
 } from "@/lib/simulation/futures";
-import { DEFAULT_FUTURES_TAX_RATES, type FuturesTaxRates, futuresTaxRate } from "@/lib/simulation/futures-tax";
+import { futuresTaxRate } from "@/lib/simulation/futures-tax";
+import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
 import { buildLetfTaxSchedule, capitalGainsRates } from "@/lib/simulation/letf-tax";
 import { buildLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
@@ -59,7 +59,7 @@ import { runParallelFuturesStrategies } from "@/lib/simulation/futures-parallel"
 import { FuturesSmaDetails } from "@/components/tools/futures/FuturesSmaDetails";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
-import { buildRunSummary, type RunSummary } from "@/lib/run-summary";
+import { buildRunSummary, runSummaryTaxRates, type RunSummary } from "@/lib/run-summary";
 import { MicroFuturesCheckbox } from "@/components/tools/futures/MicroFuturesCheckbox";
 import { useRunSummary } from "@/lib/hooks/use-run-summary-inputs";
 
@@ -115,13 +115,12 @@ export function FuturesPageContent({
   const { markNextSearchAsInternal, shouldAutoRunFromSearch } = useSearchSyncRunGuard();
 
   const form = useToolForm("futures", {
-    taxRates: DEFAULT_FUTURES_TAX_RATES,
     result: null as BacktestResult | null,
     annualizedInflation: 0,
     monthlyCpi: [] as Array<{ date: string; value: number }>,
     runSummaryInputs: null as RunSummary | null,
   }, {
-    persistKeys: ["runSummaryInputs", "taxRates"],
+    persistKeys: ["runSummaryInputs"],
   });
 
   const {
@@ -149,18 +148,8 @@ export function FuturesPageContent({
 
   const persistedInitial = initial as Record<string, unknown>;
 
-  const [taxRates, setTaxRates] = useState<FuturesTaxRates>(() => {
-    const saved = persistedInitial.taxRates as Partial<FuturesTaxRates> | undefined;
-    return Object.fromEntries(Object.entries(DEFAULT_FUTURES_TAX_RATES).map(([key, fallback]) => [
-      key, normalizeNumberValue(saved?.[key as keyof FuturesTaxRates], fallback, { min: 0, max: 100 }),
-    ])) as FuturesTaxRates;
-  });
+  const { taxRates, changeTaxRate } = useTaxRates();
   const letfTaxRates = capitalGainsRates(taxRates);
-  const changeTaxRate = (key: keyof FuturesTaxRates, value: number) => {
-    const next = { ...taxRates, [key]: normalizeNumberValue(value, taxRates[key], { min: 0, max: 100 }) };
-    setTaxRates(next);
-    save({ ...initial, taxRates: next });
-  };
 
   const [amount, setAmount] = useState<number>(
     normalizeNumberValue(persistedInitial.amount as number | undefined, DEFAULT_FUTURES_AMOUNT, { min: 0 })
@@ -190,6 +179,7 @@ export function FuturesPageContent({
   const { runSummary, setRunSummary } = useRunSummary(
     (persistedInitial.runSummaryInputs as RunSummary | null) ?? null
   );
+  const resultTaxRates = runSummaryTaxRates(runSummary);
 
   const [loading, setLoading] = useState(false);
   const [runProgress, setRunProgress] = useState<{ pct: number; label: string } | null>(null);
@@ -816,6 +806,7 @@ export function FuturesPageContent({
         amount,
         leverageTolerance: `${leverageTolerancePct}%`,
         microFutures,
+        taxRates: getTaxRates(),
       });
       setRunSummary(nextRunSummary);
 
@@ -831,7 +822,6 @@ export function FuturesPageContent({
         spxRiskOffAsset,
         ndxRiskOffAsset,
         amount,
-        taxRates,
         result: combined,
         annualizedInflation: market.annualizedInflation,
         monthlyCpi: market.monthlyCpi,
@@ -865,7 +855,6 @@ export function FuturesPageContent({
     spxRiskOffAsset,
     ndxRiskOffAsset,
     save,
-    taxRates,
     leverageTolerancePct,
     microFutures,
     setRunSummary,
@@ -934,8 +923,8 @@ export function FuturesPageContent({
           progress={runProgress}
           error={error}
           showRollingFields={false}
-          endFields={<FuturesTaxInputs rates={taxRates} onChange={changeTaxRate} />
-          }
+          taxRates={taxRates}
+          onTaxRateChange={changeTaxRate}
         >
           <Input
             label="Amount"
@@ -970,9 +959,9 @@ export function FuturesPageContent({
         </p>
 
         <p className="text-xs text-muted">
-          After-tax estimate: futures at 60% LTCG + 40% STCG + state + Medicare surcharge = {formatTaxPct(futuresTaxRate(taxRates))}%, marked to market each year.
-          Leveraged ETFs (Check Emulations) are taxed only when they sell: at LTCG + state + Medicare = {formatTaxPct(letfTaxRates.longTerm)}% on shares held over a year,
-          otherwise STCG + state + Medicare = {formatTaxPct(letfTaxRates.shortTerm)}%, netted per IRS rules with wash sales disallowed; selling everything at the end counts.
+          After-tax estimate: futures at 60% LTCG + 40% STCG + state + NIIT = {formatTaxPct(futuresTaxRate(taxRates))}%, marked to market each year.
+          Leveraged ETFs (Check Emulations) are taxed only when they sell: at LTCG + state + NIIT = {formatTaxPct(letfTaxRates.longTerm)}% on shares held over a year,
+          otherwise STCG + state + NIIT = {formatTaxPct(letfTaxRates.shortTerm)}%, netted per IRS rules with wash sales disallowed; selling everything at the end counts.
           Taxes are paid from the account under the safe harbor: 110% of the prior year&rsquo;s tax in four installments (Apr 15, Jun 15, Sep 15, Jan 15),
           the balance paid or refunded on Apr 15, and whatever is still owed settled at the end of the run. Losses carry forward.
           Futures strategy equity gains approximate taxable futures gains; collateral income and risk-off assets are not taxed separately.
@@ -1009,7 +998,7 @@ export function FuturesPageContent({
                 avgActualLeverageById={avgActualLeverageById}
                 maxLeverageDeltaById={maxLeverageDeltaById}
                 sleeveLeverageMetricsById={sleeveLeverageMetricsById}
-                futuresTaxRates={taxRates}
+                futuresTaxRates={resultTaxRates}
                 variant="futures"
               />
 

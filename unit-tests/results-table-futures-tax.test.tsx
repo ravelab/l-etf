@@ -2,7 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ResultsTable } from "@/components/tools/backtest/ResultsTable";
-import { DEFAULT_FUTURES_TAX_RATES } from "@/lib/simulation/futures-tax";
+// A typical high bracket; the shipped default is 0% everywhere.
+const RATES = { ltcg: 15, stcg: 22, state: 8, medicare: 3.8 };
 import { buildLetfTaxSchedule, estimateLetfAfterTaxCagr } from "@/lib/simulation/letf-tax";
 import { formatPercent } from "@/lib/format";
 import { annualizedInflationForRange } from "@/lib/inflation";
@@ -26,27 +27,35 @@ const result: BacktestResult = {
   etfResults: [
     row("a-futures-sma", [100, 120, 144], 20),
     row("b-futures-sma", [100, 110, 121], 10),
-    row("upro-sma", [100, 110, 121], 10),
+    // A path the tax ledger cannot price (it touches zero), shown as "—".
+    row("upro-sma", [100, 0, 121], 10),
   ],
 };
 
+/** Column index by its header's text, so the tests do not depend on column order. */
+const columnIndex = (label: string) =>
+  screen.getAllByRole("columnheader").findIndex((header) => header.textContent?.trim() === label);
+const cellOf = (rowIndex: number, label: string) =>
+  within(screen.getAllByRole("row")[rowIndex]).getAllByRole("cell")[columnIndex(label)];
+
 describe("futures after-tax table", () => {
-  it("places the column after Real CAGR, updates with rates, and sorts numeric results with emulations last", () => {
+  it("leads with after-tax columns, keeps Real CAGR left of CAGR, updates with rates, and sorts unpriced rows last", () => {
     const props = { result, indexLabel: "VOO", annualizedInflation: 0, variant: "futures" as const };
-    const { rerender } = render(<ResultsTable {...props} futuresTaxRates={DEFAULT_FUTURES_TAX_RATES} />);
-    const headers = screen.getAllByRole("columnheader");
-    expect(headers[3]).toHaveTextContent("Real CAGR");
-    expect(headers[4]).toHaveTextContent("After-Tax Real CAGR");
-    const firstTax = () => within(screen.getAllByRole("row")[1]).getAllByRole("cell")[4].textContent;
+    const { rerender } = render(<ResultsTable {...props} futuresTaxRates={RATES} />);
+    expect(columnIndex("Real After-Tax End Value")).toBeGreaterThan(0);
+    expect(columnIndex("After-Tax Real CAGR")).toBe(columnIndex("Real After-Tax End Value") + 1);
+    expect(columnIndex("Real CAGR")).toBe(columnIndex("CAGR") - 1);
+    const firstTax = () => cellOf(1, "After-Tax Real CAGR").textContent;
     const before = firstTax();
     rerender(<ResultsTable {...props} futuresTaxRates={{ ltcg: 0, stcg: 0, state: 0, medicare: 0 }} />);
     expect(firstTax()).not.toBe(before);
+    rerender(<ResultsTable {...props} futuresTaxRates={RATES} />);
     fireEvent.click(screen.getByRole("button", { name: /After-Tax Real CAGR/ }));
     fireEvent.click(screen.getByRole("button", { name: /After-Tax Real CAGR/ }));
     const rows = screen.getAllByRole("row").slice(1);
     expect(rows[0]).toHaveTextContent("b-futures-sma");
     expect(rows[1]).toHaveTextContent("a-futures-sma");
-    expect(within(rows[2]).getAllByRole("cell")[4]).toHaveTextContent("—");
+    expect(within(rows[2]).getAllByRole("cell")[columnIndex("After-Tax Real CAGR")]).toHaveTextContent("—");
   });
 
   it("taxes a leveraged ETF row on its sales, not as futures", () => {
@@ -57,12 +66,12 @@ describe("futures after-tax table", () => {
     const props = {
       result: { ...result, etfResults: [letf] }, indexLabel: "VOO", annualizedInflation: 0, variant: "futures" as const,
     };
-    const { rerender } = render(<ResultsTable {...props} futuresTaxRates={DEFAULT_FUTURES_TAX_RATES} />);
-    const taxCell = () => within(screen.getAllByRole("row")[1]).getAllByRole("cell")[4].textContent;
-    const expected = estimateLetfAfterTaxCagr(letf.taxSchedule!, DEFAULT_FUTURES_TAX_RATES)!;
+    const { rerender } = render(<ResultsTable {...props} futuresTaxRates={RATES} />);
+    const taxCell = () => cellOf(1, "After-Tax Real CAGR").textContent;
+    const expected = estimateLetfAfterTaxCagr(letf.taxSchedule!, RATES)!;
     expect(taxCell()).toBe(formatPercent(expected));
     // Held throughout and sold after more than a year: long-term only, unlike the 60/40 futures blend.
-    rerender(<ResultsTable {...props} futuresTaxRates={{ ...DEFAULT_FUTURES_TAX_RATES, stcg: 90 }} />);
+    rerender(<ResultsTable {...props} futuresTaxRates={{ ...RATES, stcg: 90 }} />);
     expect(taxCell()).toBe(formatPercent(expected));
   });
 
@@ -79,11 +88,9 @@ describe("futures after-tax table", () => {
         monthlyCpi={monthlyCpi} variant="futures" futuresTaxRates={{ ltcg: 0, stcg: 0, state: 0, medicare: 0 }}
       />
     );
-    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
-    expect(cells[3]).toHaveTextContent(expected);
-    // With no tax the after-tax CAGR is the path's own nominal CAGR, deflated the same way.
-    const untaxed = calcCagr(100, 144, dates[0], dates[2]);
-    expect(cells[4]).toHaveTextContent(formatPercent(((1 + untaxed / 100) / (1 + inflation) - 1) * 100));
+    expect(cellOf(1, "Real CAGR")).toHaveTextContent(expected);
+    // With no tax the after-tax CAGR is the row's own nominal CAGR, deflated the same way.
+    expect(cellOf(1, "After-Tax Real CAGR")).toHaveTextContent(expected);
   });
 
   it("keeps the backtest table's columns unchanged", () => {

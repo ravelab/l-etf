@@ -2,6 +2,8 @@ import { buildYearlyCpiInflation, sampleYearlyRealGrowth } from "@/lib/inflation
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
 import { LETF_FUND_RESULT_ID } from "@/lib/simulation/letf-dual-sleeve";
 import { shortBacktestAssetLabel, type StrategyYearlyGrowthSeries } from "@/lib/strategy-page-data";
+import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
+import { afterTaxBuyAndHoldPath, afterTaxResultPath, type AfterTaxPath } from "@/lib/simulation/after-tax-path";
 
 interface YearlyGrowthInput {
   /** Column heading, already display-ready. */
@@ -78,6 +80,7 @@ function variantRank(id: string): number {
 export function collectBacktestGrowthSeries(params: {
   result: Pick<BacktestResult, "etfResults">;
   underlyingIndexSeries: Array<{ index: string; label: string; dates: string[]; values: number[] }>;
+  taxRates?: FuturesTaxRates;
 }): YearlyGrowthInput[] {
   const indexByFamily = new Map(params.underlyingIndexSeries.map((series) => [series.index, series]));
   const familyOrder: string[] = [];
@@ -102,12 +105,25 @@ export function collectBacktestGrowthSeries(params: {
     return [
       // Same shortening the results table uses, so both read "SSO SMA" rather
       // than the engine's "SSO (SMA, BRK.B + GLDM + VGSH)".
+      // Taxed the way the results table taxes the same rows (after-tax-path.ts).
       ...ordered.map((etf) => ({
         label: shortBacktestAssetLabel(etf.name),
-        dates: etf.dates,
-        values: etf.dailyValues,
+        ...taxedSeries(etf.dates, etf.dailyValues, params.taxRates && afterTaxResultPath(etf, params.taxRates)),
       })),
-      ...(index ? [{ label: index.label, dates: index.dates, values: index.values }] : []),
+      ...(index ? [{
+        label: index.label,
+        ...taxedSeries(index.dates, index.values, params.taxRates && afterTaxBuyAndHoldPath(index.dates, index.values, params.taxRates)),
+      }] : []),
     ];
   });
+}
+
+/** The after-tax series when taxed, the pretax one when not, nothing when the tax cannot be priced. */
+function taxedSeries(
+  dates: string[],
+  values: number[],
+  taxed: AfterTaxPath | null | undefined
+): { dates: string[]; values: number[] } {
+  if (taxed === undefined) return { dates, values };
+  return taxed ? { dates, values: taxed.values } : { dates: [], values: [] };
 }

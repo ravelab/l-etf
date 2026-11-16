@@ -10,11 +10,21 @@ export type FuturesTaxRates = {
 };
 
 export const DEFAULT_FUTURES_TAX_RATES: FuturesTaxRates = {
-  ltcg: 15,
-  stcg: 22,
-  state: 8,
-  medicare: 3.8,
+  ltcg: 0,
+  stcg: 0,
+  state: 0,
+  medicare: 0,
 };
+
+/** Rates read from storage or a saved run: each a finite 0-100, else its default. */
+export function normalizeTaxRates(value: unknown): FuturesTaxRates {
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const rate = (key: keyof FuturesTaxRates) => {
+    const raw = source[key];
+    return typeof raw === "number" && Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : DEFAULT_FUTURES_TAX_RATES[key];
+  };
+  return { ltcg: rate("ltcg"), stcg: rate("stcg"), state: rate("state"), medicare: rate("medicare") };
+}
 
 export function futuresTaxRate(rates: FuturesTaxRates): number {
   return Math.min(1, Math.max(0, (0.6 * rates.ltcg + 0.4 * rates.stcg + rates.state + rates.medicare) / 100));
@@ -35,6 +45,15 @@ export function estimateFuturesAfterTaxCagr(
   initialEquity: number,
   rates: FuturesTaxRates,
 ): number | undefined {
+  return estimateFuturesAfterTaxPath(dates, values, initialEquity, rates)?.cagr;
+}
+
+export function estimateFuturesAfterTaxPath(
+  dates: readonly string[],
+  values: readonly number[],
+  initialEquity: number,
+  rates: FuturesTaxRates,
+): { cagr: number; dates: string[]; values: number[] } | undefined {
   if (dates.length < 2 || dates.length !== values.length || initialEquity <= 0) return undefined;
   const taxRate = futuresTaxRate(rates);
   const taxes = new SafeHarborTaxes();
@@ -44,6 +63,7 @@ export function estimateFuturesAfterTaxCagr(
   let previousValue = initialEquity;
   let yearGain = 0;
   let lossCarryforward = 0;
+  const afterTaxValues: number[] = [];
   for (let i = 0; i <= last; i++) {
     const value = values[i];
     if (!Number.isFinite(value) || value < 0) return undefined;
@@ -54,7 +74,9 @@ export function estimateFuturesAfterTaxCagr(
         const cash = taxes.due(dueDate);
         if (cash === 0) continue;
         const equity = scale * value;
-        if (!(equity > 0) || cash >= equity) return -100;
+        if (!(equity > 0) || cash >= equity) {
+          return { cagr: -100, dates: dates.slice(0, i + 1), values: [...afterTaxValues, 0] };
+        }
         scale *= 1 - cash / equity;
       }
     }
@@ -64,8 +86,13 @@ export function estimateFuturesAfterTaxCagr(
       lossCarryforward = Math.max(0, -netGain);
       yearGain = 0;
     }
+    afterTaxValues.push(scale * value);
   }
   const afterTax = scale * values[last] - taxes.outstanding();
-  if (!(afterTax > 0)) return -100;
-  return calcCagr(initialEquity, afterTax, dates[0], dates[last]);
+  afterTaxValues[last] = Math.max(0, afterTax);
+  return {
+    cagr: afterTax > 0 ? calcCagr(initialEquity, afterTax, dates[0], dates[last]) : -100,
+    dates: [...dates],
+    values: afterTaxValues,
+  };
 }

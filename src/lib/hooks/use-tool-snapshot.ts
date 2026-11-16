@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { hasMeaningfulSearchParams, persistedToolStateMatchesUrl } from "@/lib/tools-route";
 import { PAGE_CACHE_PREFIX } from "./use-page-cache";
 import { getStoredEndDate } from "./use-shared-inputs";
+import { getTaxRates } from "./use-tax-rates";
+import { taxesApply } from "@/lib/simulation/after-tax-window";
 import type { RiskOffAssetsByIndex } from "@/lib/risk-off-url-params";
 
 type ToolSnapshotMetadata = {
@@ -157,6 +159,11 @@ export function useToolSnapshot<T = Record<string, unknown>>({
           formPerIndexStart !== undefined &&
           (payload.sharedInputs?.perIndexStart === true) !== formPerIndexStart
         ) {
+          onNoDataRef.current?.();
+          return;
+        }
+        // Canned snapshots are untaxed; with rates that tax anything the page runs its own.
+        if (taxesApply(getTaxRates())) {
           onNoDataRef.current?.();
           return;
         }

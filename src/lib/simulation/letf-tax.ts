@@ -27,6 +27,10 @@ const MS_PER_DAY = 86_400_000;
 
 export type CapitalGains = { shortTerm: number; longTerm: number };
 
+export function areLetfTaxRatesZero(rates: FuturesTaxRates): boolean {
+  return rates.ltcg === 0 && rates.stcg === 0 && rates.state === 0 && rates.medicare === 0;
+}
+
 const NO_GAINS: CapitalGains = { shortTerm: 0, longTerm: 0 };
 
 type Lot = { units: number; basis: number; acquired: string };
@@ -73,11 +77,30 @@ export function settleCapitalGainsYear(
 export function buildLetfTaxSchedule(result: EtfResult): LetfTaxSchedule | undefined {
   const { dates, dailyValues } = result;
   if (dates.length < 2 || dailyValues.length !== dates.length) return undefined;
-  const held = heldRiskOnByDay(result);
+  return buildLetfTaxScheduleFromPath({
+    dates,
+    dailyValues,
+    heldRiskOn: heldRiskOnByDay(result),
+    exitFraction: exitFraction(result),
+  });
+}
+
+function buildLetfTaxScheduleFromPath({
+  dates,
+  dailyValues,
+  heldRiskOn,
+  exitFraction: finalExitFraction = 1,
+}: {
+  dates: readonly string[];
+  dailyValues: readonly number[];
+  heldRiskOn: readonly boolean[];
+  exitFraction?: number;
+}): LetfTaxSchedule | undefined {
+  if (dates.length < 2 || dailyValues.length !== dates.length || heldRiskOn.length !== dates.length) return undefined;
   const events: LetfTaxEvent[] = [];
   const last = dates.length - 1;
   for (let k = 0; k <= last; k++) {
-    if (k > 0 && held[k] !== held[k - 1]) {
+    if (k > 0 && heldRiskOn[k] !== heldRiskOn[k - 1]) {
       events.push({ date: dates[k], prices: [dailyValues[k - 1]], switched: [true] });
     }
     const closeEvent = letfTaxCloseEvent(dates, k, 0, last, [dailyValues[k]]);
@@ -90,7 +113,7 @@ export function buildLetfTaxSchedule(result: EtfResult): LetfTaxSchedule | undef
     endDate: dates[last],
     startValues: [dailyValues[0]],
     startPrices: [dailyValues[0]],
-    exitFractions: [exitFraction(result)],
+    exitFractions: [finalExitFraction],
     events,
   };
 }
@@ -140,6 +163,10 @@ class LetfTaxLedger {
 
   values(prices: readonly number[]): number[] {
     return this.lots.map((lots, s) => lots.reduce((sum, lot) => sum + lot.units * prices[s], 0));
+  }
+
+  units(): number[] {
+    return this.lots.map((lots) => lots.reduce((sum, lot) => sum + lot.units, 0));
   }
 
   private realize(gain: number, acquired: string, sold: string): void {
@@ -252,17 +279,34 @@ function applyTrades(ledger: LetfTaxLedger, events: readonly LetfTaxEvent[], ind
   switched.forEach((s, k) => ledger.buy(s, buyFor[k], buyFor[k], event.prices[s], event.date, replaces[s]));
 }
 
+/** One run of the tax ledger over a schedule. */
+export type LetfTaxRun = {
+  /** Nominal after-tax CAGR (%); -100 when the account could not pay its tax. */
+  cagr: number;
+  /** What the closing sale leaves once the last tax settles; 0 when the account could not pay. */
+  finalValue: number;
+  /**
+   * Units each sleeve holds once event `j` has executed, for every event before the
+   * last. A sleeve's value at any later close is `units × its price`, so a caller can
+   * mark the account on days with no event without re-running the ledger.
+   */
+  unitsAfter: number[][];
+  /** Index of the event whose tax payment the account could not meet: empty from then on. */
+  ruinedAt?: number;
+};
+
 /**
- * Nominal after-tax CAGR (%) for these rates, paying the tax on the safe-harbor
- * schedule and settling what is still owed from the closing sale. Undefined when
- * the schedule cannot be priced.
+ * Run the ledger: trades, the safe-harbor schedule, then the closing sale, from
+ * which whatever is still owed (or owed back) settles. Undefined when the schedule
+ * cannot be priced.
  */
-export function estimateLetfAfterTaxCagr(schedule: LetfTaxSchedule, rates: FuturesTaxRates): number | undefined {
+export function runLetfTaxLedger(schedule: LetfTaxSchedule, rates: FuturesTaxRates): LetfTaxRun | undefined {
   if (!isUsable(schedule)) return undefined;
   const ledger = new LetfTaxLedger(schedule, capitalGainsRates(rates));
   const taxes = new SafeHarborTaxes();
   const { events } = schedule;
   const last = events.length - 1;
+  const unitsAfter: number[][] = [];
   const yearOf = (date: string) => Number(date.slice(0, 4));
   for (let j = 0; j < last; j++) {
     const event = events[j];
@@ -270,16 +314,30 @@ export function estimateLetfAfterTaxCagr(schedule: LetfTaxSchedule, rates: Futur
     if (event.yearEnd) taxes.setTax(yearOf(event.date), ledger.settleYear());
     for (const dueDate of event.taxDue ?? []) {
       const cash = taxes.due(dueDate);
-      if (cash !== 0 && !ledger.pay(cash, event.prices, event.date)) return -100;
+      if (cash !== 0 && !ledger.pay(cash, event.prices, event.date)) {
+        return { cagr: -100, finalValue: 0, unitsAfter, ruinedAt: j };
+      }
     }
+    unitsAfter.push(ledger.units());
   }
 
-  // The closing sale realizes everything; what the account still owes (or is owed) settles from it.
   const end = events[last];
   const proceeds = ledger.values(end.prices).map((v, s) => v * schedule.exitFractions[s]);
   proceeds.forEach((p, s) => ledger.sell(s, 1, p, end.date));
   taxes.setTax(yearOf(end.date), ledger.settleYear());
   const afterTax = proceeds.reduce((sum, p) => sum + p, 0) - taxes.outstanding();
-  if (!(afterTax > 0)) return -100;
-  return calcCagr(schedule.initialInvestment, afterTax, schedule.startDate, schedule.endDate);
+  return {
+    cagr: afterTax > 0 ? calcCagr(schedule.initialInvestment, afterTax, schedule.startDate, schedule.endDate) : -100,
+    finalValue: Math.max(0, afterTax),
+    unitsAfter,
+  };
+}
+
+/**
+ * Nominal after-tax CAGR (%) for these rates, paying the tax on the safe-harbor
+ * schedule and settling what is still owed from the closing sale. Undefined when
+ * the schedule cannot be priced.
+ */
+export function estimateLetfAfterTaxCagr(schedule: LetfTaxSchedule, rates: FuturesTaxRates): number | undefined {
+  return runLetfTaxLedger(schedule, rates)?.cagr;
 }
