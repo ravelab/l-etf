@@ -152,8 +152,8 @@ test("futuresLadderPermalink declines a leverage the ladder does not run", () =>
 });
 
 test("futuresLadderPermalink declines when maxLeverage disagrees with the rung", () => {
-  // The 4.5x rung is capped at 4.5; an uncapped 4.5x run is a different strategy.
-  assert.ok(futuresLadderPermalink({ ...FUTURES_RUN, targetLeverage: 4.5, maxLeverage: 4.5 }));
+  // 4.5x SPX runs only as the two-sleeve fund's sleeve, never as a row of its own.
+  assert.equal(futuresLadderPermalink({ ...FUTURES_RUN, targetLeverage: 4.5, maxLeverage: 4.5 }), undefined);
   assert.equal(futuresLadderPermalink({ ...FUTURES_RUN, targetLeverage: 4.5 }), undefined);
   assert.equal(
     futuresLadderPermalink({ ...FUTURES_RUN, targetLeverage: 3, maxLeverage: 4 }),

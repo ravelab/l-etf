@@ -64,6 +64,9 @@ const EMULATION_PAIRS = [
   { index: "nasdaq100", leverage: 2, configId: "qld", presetKey: "QLD" },
 ] as const;
 
+/** "Check Emulations"' two-sleeve futures fund, the twin of the TQQQ/UPRO fund. */
+export const EMULATION_FUND_DISPLAY_NAME = "3x NDX/SPX SMA";
+
 /** Run the full ladder for every date range; duration must never prune strategies. */
 export function buildFuturesLadderPlan(params: {
   /** Emulation mode runs only the rungs that have an LETF twin. */
@@ -83,24 +86,26 @@ export function buildFuturesLadderPlan(params: {
     dualRiskOffAssets ? { riskOffAsset: dualRiskOffAssets[index as keyof DualRiskOffAssets] } : {};
 
   if (showEmulations) {
-    return EMULATION_PAIRS.filter((pair) => hasNasdaqData || pair.index !== "nasdaq100").map((pair) => ({
-      index: pair.index as IndexKey,
-      leverage: pair.leverage,
-      sma: bandFor(pair.index as IndexKey),
-    }));
+    const rungs: FuturesLadderStep[] = EMULATION_PAIRS
+      .filter((pair) => hasNasdaqData || pair.index !== "nasdaq100")
+      .map((pair) => ({
+        index: pair.index as IndexKey,
+        leverage: pair.leverage,
+        sma: bandFor(pair.index as IndexKey),
+      }));
+    // The TQQQ/UPRO fund's twin: 3x on each index, uncapped like the 3x rungs.
+    const fund: FuturesLadderStep = {
+      index: "sp500",
+      leverage: 3,
+      displayName: EMULATION_FUND_DISPLAY_NAME,
+      sma: bandFor("sp500"),
+      secondary: { index: "nasdaq100", leverage: 3, sma: bandFor("nasdaq100") },
+    };
+    return hasNasdaqData ? [fund, ...rungs] : rungs;
   }
 
   const sp = bandFor("sp500");
   const nq = bandFor("nasdaq100");
-  const maxSpx: FuturesLadderStep = {
-    index: "sp500",
-    leverage: 4.5,
-    maxLeverage: 4.5,
-    displayName: "Max 4.5x SPX SMA",
-    sma: sp,
-    ...riskOffFor("sp500"),
-  };
-
   /**
    * One fund, two sleeves: SPX capped at 4.5x and NDX at 3.5x, never rebalanced
    * against each other except when both sit in risk-off and one re-enters.
@@ -122,7 +127,6 @@ export function buildFuturesLadderPlan(params: {
   };
 
   return [
-    maxSpx,
     ...(hasNasdaqData ? [maxSpxWithNdx] : []),
     { index: "sp500", leverage: 5, sma: sp, ...riskOffFor("sp500") },
     { index: "sp500", leverage: 3, sma: sp, ...riskOffFor("sp500") },
@@ -144,8 +148,9 @@ export function buildFuturesLadderPlan(params: {
  * leverage columns). That filter used to be a hand-copied duplicate of the
  * page's, and the copy is what a new rung silently invalidates.
  *
- * Note this matches the two-sleeve fund as well as the plain 4.5x SPX rung:
- * both are SPX at 4.5x, and the page lists both.
+ * A two-sleeve fund is reported under its SPX sleeve, so this also matches the
+ * 4.5x fund (the ladder's only 4.5x step) and, in emulation mode, the 3x NDX/SPX
+ * fund alongside the 3x SPX rung.
  */
 export function showsFuturesTransactions(
   run: { index: IndexKey; targetLeverage: number },

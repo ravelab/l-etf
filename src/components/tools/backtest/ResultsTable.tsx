@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
 import { calcCagr, calcPathMetrics } from "@/lib/simulation/metrics";
 import { estimateFuturesAfterTaxCagr, type FuturesTaxRates } from "@/lib/simulation/futures-tax";
+import { estimateLetfAfterTaxCagr } from "@/lib/simulation/letf-tax";
 import { formatCompactMultiple, formatPercent } from "@/lib/format";
 import { SortButton } from "@/components/ui/SortButton";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
@@ -211,6 +212,12 @@ function ResultsTableImpl({
     const byId: Record<string, number> = {};
     if (variant !== "futures" || !futuresTaxRates) return byId;
     for (const row of result.etfResults) {
+      // Leveraged ETFs are taxed on their sales, not marked to market like futures.
+      if (row.taxSchedule) {
+        const cagr = estimateLetfAfterTaxCagr(row.taxSchedule, futuresTaxRates);
+        if (cagr !== undefined) byId[row.id] = cagr;
+        continue;
+      }
       if (!row.id.includes("futures-sma")) continue;
       const values = [...row.dailyValues];
       // The final reported value includes liquidation costs.
@@ -322,7 +329,7 @@ function ResultsTableImpl({
               <SortButton label="Real CAGR" active={sortKey === "realCagr"} dir={sortDir} onClick={() => toggleSort("realCagr")} />
             </th>
             {variant === "futures" && (
-              <th className="pb-2 pr-4 font-medium" title="Estimated annual mark-to-market tax, then inflation, using the rates above.">
+              <th className="pb-2 pr-4 font-medium" title="Estimated tax, then inflation, using the rates above: futures are marked to market each year; leveraged ETFs are taxed on their sales.">
                 <SortButton label="After-Tax Real CAGR" active={sortKey === "afterTaxRealCagr"} dir={sortDir} onClick={() => toggleSort("afterTaxRealCagr")} />
               </th>
             )}

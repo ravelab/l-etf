@@ -95,8 +95,8 @@ test("futures transactions filter: the snapshot keeps exactly what the page list
   );
   assert.deepEqual(
     listed.map((step) => step.displayName ?? `${step.leverage}x ${step.index}`),
-    ["Max 4.5x SPX SMA", "Max 4.5x SPX / Max 3.5x NDX SMA", "3x nasdaq100"],
-    "the two-sleeve fund is SPX at 4.5x, so it is listed alongside the plain rung"
+    ["Max 4.5x SPX / Max 3.5x NDX SMA", "3x nasdaq100"],
+    "the two-sleeve fund is the ladder's only SPX 4.5x step"
   );
 
   // Emulation view swaps the SPX rung for the 3x one it can compare to UPRO.

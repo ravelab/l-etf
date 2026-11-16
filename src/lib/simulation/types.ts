@@ -88,6 +88,51 @@ export interface EtfResult {
   /** SMA regime in effect on dates[0] (true = risk-on/invested). Undefined when SMA is disabled. */
   smaStartInvested?: boolean;
   totalTradingCostPct: number;
+  /** Set on simulated LETF rows that show an after-tax estimate (`letf-tax.ts`). */
+  taxSchedule?: LetfTaxSchedule;
+}
+
+/**
+ * When an LETF strategy trades, independent of tax rates, so an estimate can be
+ * re-priced as the rates change. One sleeve for a single LETF, two for the
+ * UPRO/TQQQ fund. Values are the simulation's dollars; only ratios matter, so
+ * scaling the result leaves the schedule valid.
+ */
+export interface LetfTaxSchedule {
+  /** What the strategy opened with, before its entry spread: the sleeves' cost basis, split evenly. */
+  initialInvestment: number;
+  startDate: string;
+  endDate: string;
+  /** Each sleeve's opening value, net of its entry spread. */
+  startValues: number[];
+  /** Each sleeve's own simulated value on the first day (see {@link LetfTaxEvent.prices}). */
+  startPrices: number[];
+  /** Per sleeve, the share of its last value it keeps after its closing trade. */
+  exitFractions: number[];
+  /** In date order; the last one is the final session. */
+  events: LetfTaxEvent[];
+}
+
+export interface LetfTaxEvent {
+  date: string;
+  /**
+   * Each sleeve's own simulated value here: the price of whatever it holds, since a
+   * sleeve holds one asset at a time and its own path runs straight through resets.
+   * A trade executes at the open; the prior close stands in for its price.
+   */
+  prices: number[];
+  /** Sleeves that sold their whole position here and bought the other side. */
+  switched?: boolean[];
+  /**
+   * A two-sleeve fund resets to 50/50 here, between the switching sleeves' sales
+   * and buys. `staying` is the sleeve that keeps its basket (-1 when both re-enter),
+   * and `costFraction` the share of the fund its basket trade costs.
+   */
+  reset?: { staying: number; costFraction: number };
+  /** The last session of a calendar year: that year's tax is known at this close. */
+  yearEnd?: boolean;
+  /** Estimated-tax due dates (`safe-harbor.ts`) this session's close is the first on or after. */
+  taxDue?: string[];
 }
 
 export interface BacktestResult {

@@ -2,7 +2,6 @@
 
 import { ClientOnly } from "@/components/tools/ClientOnly";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { isAbortError } from "@/lib/abort";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { flushSync } from "react-dom";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
@@ -51,6 +50,10 @@ import {
   type FuturesStrategyResult,
 } from "@/lib/simulation/futures";
 import { DEFAULT_FUTURES_TAX_RATES, type FuturesTaxRates, futuresTaxRate } from "@/lib/simulation/futures-tax";
+import { buildLetfTaxSchedule, capitalGainsRates } from "@/lib/simulation/letf-tax";
+import { buildLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
+import { findEtfResult } from "@/lib/simulation/result-lookup";
+import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { runParallelFuturesStrategies } from "@/lib/simulation/futures-parallel";
 // (effective start-date helper is used by other pages; futures emulations start at requested sd)
 import { FuturesSmaDetails } from "@/components/tools/futures/FuturesSmaDetails";
@@ -75,6 +78,11 @@ function scaleEtfResult(result: EtfResult, scale: number): EtfResult {
     finalValue: result.finalValue * scale,
     maxDrawdownDollar: result.maxDrawdownDollar * scale,
   };
+}
+
+/** A combined tax rate (0-1) as the note prints it, e.g. 29.6. */
+function formatTaxPct(rate: number): number {
+  return Number((rate * 100).toFixed(2));
 }
 
 function latestClosePrice(prices: PricePoint[]): number {
@@ -147,6 +155,7 @@ export function FuturesPageContent({
       key, normalizeNumberValue(saved?.[key as keyof FuturesTaxRates], fallback, { min: 0, max: 100 }),
     ])) as FuturesTaxRates;
   });
+  const letfTaxRates = capitalGainsRates(taxRates);
   const changeTaxRate = (key: keyof FuturesTaxRates, value: number) => {
     const next = { ...taxRates, [key]: normalizeNumberValue(value, taxRates[key], { min: 0, max: 100 }) };
     setTaxRates(next);
@@ -525,7 +534,9 @@ export function FuturesPageContent({
         throw new Error("Amount must be a non-negative number.");
       }
 
-      const warmUpTradingDays = Math.max(280, smaSpPeriod, smaNqPeriod);
+      // The backtest page's warm-up: the band and gates carry state from the first
+      // loaded close, so a different one could move the TQQQ/UPRO row off its twin there.
+      const warmUpTradingDays = Math.max(smaSpPeriod, smaNqPeriod);
       const market = await fetchMarketData(
         ["sp500", "nasdaq100"],
         simulationStartDate,
@@ -597,8 +608,8 @@ export function FuturesPageContent({
         return aligned;
       };
 
-      // "Check Emulations" compares LETF SMAs to the nearest futures ladders only — skip 4.5×/4× SPX
-      // and 4× NDX so we do not pay for extra sims; SPX futures line is 3× (not 4×).
+      // "Check Emulations" runs only the futures that have an LETF twin: 3x and 2x on
+      // each index, and the 3x NDX/SPX fund the TQQQ/UPRO fund is checked against.
       // One band per index feeds both the ladders and their LETF twins below, so
       // the pair cannot disagree about its own SMA rule (see futures-plan.ts).
       const smaBands: SmaBandsByIndex = {
@@ -660,13 +671,13 @@ export function FuturesPageContent({
       let ssoSma = null as BacktestResult["etfResults"][number] | null;
       let tqqqSma = null as BacktestResult["etfResults"][number] | null;
       let qldSma = null as BacktestResult["etfResults"][number] | null;
+      let letfFund = null as BacktestResult["etfResults"][number] | null;
       if (showEmulations) {
-        // Match `fetchMarketData` / futures SMA warm-up so NDX SMA state matches 3× NQ futures (not a shorter slice).
-        const emulationWarmUpStartDate = getMarketDataWarmUpStartDate(simulationStartDate, warmUpTradingDays);
-        const emulationPricesByIndex = {
-          sp500: spPrices.filter((p) => p.date >= emulationWarmUpStartDate),
-          nasdaq100: nqPrices.filter((p) => p.date >= emulationWarmUpStartDate),
-        } satisfies Record<IndexKey, PricePoint[]>;
+        // Same warm-up as the futures sleeves and the backtest page, so each LETF's
+        // SMA state matches its futures twin's and the TQQQ/UPRO fund matches the
+        // backtest page's.
+        const letfPricesByIndex = { sp500: spPrices, nasdaq100: nqPrices } satisfies Record<IndexKey, PricePoint[]>;
+        const letfScale = amount / CONSTANT_INITIAL_INVESTMENT;
         // ETF SMA emulation series (simulated LETFs, not real ETF price history).
         // We intentionally do NOT fetch `/api/etf-prices` here; the emulation should be
         // purely index-based (plus swap/ER model), consistent across pages.
@@ -685,13 +696,13 @@ export function FuturesPageContent({
         // history handling cannot drift from the main backtest implementation.
         setRunProgress({ pct: 60, label: "Simulating LETF SMA series..." });
         const etfBacktest = await runParallelBacktest({
-          prices: emulationPricesByIndex.sp500,
+          prices: letfPricesByIndex.sp500,
           rates,
           startDate: simulationStartDate,
           endDate,
           configs: etfConfigs,
           riskOffPricesByAsset: rawRiskOffSeriesByAsset,
-          pricesByIndex: emulationPricesByIndex,
+          pricesByIndex: letfPricesByIndex,
           onProgress: (completedUnits, totalUnits, label) => {
             const fraction = totalUnits > 0 ? completedUnits / totalUnits : 1;
             setRunProgress({ pct: 60 + fraction * 15, label: label ?? "Running LETF SMA..." });
@@ -699,16 +710,29 @@ export function FuturesPageContent({
         });
 
         // Keep only SMA variants (drop "(No SMA)" baselines).
-        const emulationScale = amount / CONSTANT_INITIAL_INVESTMENT;
+        // Each twin carries its trade schedule, so the table can tax it on its sales.
         const etfSmaOnly = etfBacktest.etfResults
           .filter((r) => r.id.endsWith("-sma"))
-          .map((r) => scaleEtfResult(r, emulationScale));
+          .map((r) => scaleEtfResult({ ...r, taxSchedule: buildLetfTaxSchedule(r) }, letfScale));
         const pickEtfSma = (symbol: string) =>
           etfSmaOnly.find((r) => r.name.toUpperCase().includes(symbol)) ?? null;
         uproSma = pickEtfSma("UPRO");
         ssoSma = pickEtfSma("SSO");
         tqqqSma = pickEtfSma("TQQQ");
         qldSma = pickEtfSma("QLD");
+        // The TQQQ/UPRO fund from the same twins, composed before scaling (it is
+        // measured from the engine's starting amount), next to its 3x NDX/SPX twin.
+        const uproRaw = findEtfResult(etfBacktest, "upro-sma");
+        const tqqqRaw = findEtfResult(etfBacktest, "tqqq-sma");
+        const fund = uproRaw && tqqqRaw
+          ? buildLetfComboFund({
+              spxSleeve: uproRaw,
+              ndxSleeve: tqqqRaw,
+              spxRiskOffAsset: riskOffAssets.sp500,
+              ndxRiskOffAsset: riskOffAssets.nasdaq100,
+            })
+          : null;
+        letfFund = fund ? scaleEtfResult(fund, letfScale) : null;
       }
 
       // Build a global date axis as the union of SP + NQ dates in range.
@@ -732,12 +756,16 @@ export function FuturesPageContent({
       const investedValues = new Array(globalDates.length).fill(amount);
 
       const futuresOnlyResults = futuresRuns.map((r) => r.etfResult);
+      // A two-sleeve fund is reported under its SPX sleeve's index and leverage, so
+      // single rungs are picked with funds excluded.
       const pickFutures = (index: "sp500" | "nasdaq100", leverage: number) =>
         futuresRuns.find(
           (r) =>
+            !r.sleeveLeverageMetrics &&
             r.index === index &&
             r.targetLeverage === leverage
         )?.etfResult ?? null;
+      const futuresFund = futuresRuns.find((r) => r.sleeveLeverageMetrics)?.etfResult ?? null;
       const sp5 = pickFutures("sp500", 5);
       const sp4 = pickFutures("sp500", 4);
       const sp3 = pickFutures("sp500", 3);
@@ -751,6 +779,8 @@ export function FuturesPageContent({
         investedValues,
         etfResults: showEmulations
           ? [
+              ...(futuresFund ? [futuresFund] : []),
+              ...(letfFund ? [letfFund] : []),
               ...(sp5 ? [sp5] : []),
               ...(sp4 ? [sp4] : []),
               ...(sp3 ? [sp3] : []),
@@ -765,6 +795,7 @@ export function FuturesPageContent({
             ]
           : futuresOnlyResults,
       };
+      throwIfAborted(signal);
       setResult(combined);
       setFuturesDetails(futuresRuns);
       const nextRunSummary = buildRunSummary({
@@ -939,11 +970,15 @@ export function FuturesPageContent({
         </p>
 
         <p className="text-xs text-muted">
-          After-tax estimate: 60% LTCG + 40% STCG + state + Medicare surcharge = {Number((futuresTaxRate(taxRates) * 100).toFixed(2))}%.
-          Taxes are paid from the account at each year-end and at the end of the run, with losses carried forward.
-          Strategy equity gains approximate taxable futures gains; collateral income and risk-off assets are not taxed separately.
-          No loss carrybacks, outside-income offsets, income thresholds, or state deductions are modeled.
-          {" "}<a className="text-accent hover:underline" href="https://www.irs.gov/publications/p550" target="_blank" rel="noreferrer">Section 1256 rules</a>.
+          After-tax estimate: futures at 60% LTCG + 40% STCG + state + Medicare surcharge = {formatTaxPct(futuresTaxRate(taxRates))}%, marked to market each year.
+          Leveraged ETFs (Check Emulations) are taxed only when they sell: at LTCG + state + Medicare = {formatTaxPct(letfTaxRates.longTerm)}% on shares held over a year,
+          otherwise STCG + state + Medicare = {formatTaxPct(letfTaxRates.shortTerm)}%, netted per IRS rules with wash sales disallowed; selling everything at the end counts.
+          Taxes are paid from the account under the safe harbor: 110% of the prior year&rsquo;s tax in four installments (Apr 15, Jun 15, Sep 15, Jan 15),
+          the balance paid or refunded on Apr 15, and whatever is still owed settled at the end of the run. Losses carry forward.
+          Futures strategy equity gains approximate taxable futures gains; collateral income and risk-off assets are not taxed separately.
+          No loss carrybacks, outside-income offsets, income thresholds, fund distributions, collectibles rates, or state deductions are modeled.
+          {" "}<a className="text-accent hover:underline" href="https://www.irs.gov/publications/p550" target="_blank" rel="noreferrer">Section 1256 and capital gains rules</a>,
+          {" "}<a className="text-accent hover:underline" href="https://www.irs.gov/publications/p505" target="_blank" rel="noreferrer">estimated tax</a>.
         </p>
 
         {displayResult && runSummary && (

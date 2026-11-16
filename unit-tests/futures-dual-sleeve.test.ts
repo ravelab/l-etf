@@ -277,10 +277,11 @@ test("futures plan: the dual-sleeve rung depends on NDX availability and emulati
     hasNasdaqData: true,
     bands: BANDS,
   });
-  assert.equal(
-    emulations.some((step) => step.secondary),
-    false,
-    "emulation mode runs only rungs that have an LETF twin"
+  // Emulation mode runs only steps with an LETF twin: its one fund is the uncapped
+  // 3x NDX/SPX fund, twin of the TQQQ/UPRO fund.
+  assert.deepEqual(
+    emulations.filter((step) => step.secondary).map((step) => [step.leverage, step.maxLeverage, step.secondary?.leverage]),
+    [[3, undefined, 3]],
   );
 });
 

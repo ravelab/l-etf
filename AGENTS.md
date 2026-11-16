@@ -186,6 +186,16 @@ page renders *off* a run — currently which rungs list their trades
 (`showsFuturesTransactions`) — is shared the same way, because the snapshot
 keeps `transactions[]` only for those.
 
+"Check Emulations" also pairs the TQQQ/UPRO fund (`buildLetfComboFund`, composed
+from the UPRO/TQQQ twins) with an uncapped 3x NDX/SPX futures fund. The page's
+After-Tax Real CAGR is two models: futures rows are Section 1256 MTM
+(`futures-tax.ts`); LETF rows carry a `taxSchedule` of their trades and are taxed
+on sales, ST/LT by lot (`letf-tax.ts`). Both pay on the prior-year safe harbor
+(`safe-harbor.ts`: 110% of last year's tax quarterly, April true-up with refunds),
+which costs futures 1-2 points of CAGR against a year-end lump sum. Build a
+schedule from the engine's unscaled result, before `scaleEtfResult`: its basis is
+`CONSTANT_INITIAL_INVESTMENT`.
+
 The futures ladder must run every normal rung for every start/end date. Do not
 prune strategies to save runtime on long windows. `buildFuturesLadderPlan` has no
 window-length input: the former >90-year shortcut silently removed 5x SPX and

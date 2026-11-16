@@ -13,9 +13,9 @@ export function FuturesTaxInputs({ rates, onChange }: {
     <>
       {([
         ["LTCG / STCG Tax", ["ltcg", "LTCG Tax"], ["stcg", "STCG Tax"],
-          "Enter your federal long-term and short-term capital gains rates, respectively. The futures estimate uses 60% of the LTCG rate plus 40% of the STCG rate, regardless of holding period. Taxes reduce invested capital each year; losses carry forward. Actual asset sales and their costs are not simulated."],
+          "Enter your federal long-term and short-term capital gains rates, respectively. The futures estimate uses 60% of the LTCG rate plus 40% of the STCG rate, regardless of holding period. Leveraged ETFs pay the LTCG rate on shares sold after more than a year and the STCG rate otherwise, only when they sell. Taxes leave the account as safe-harbor estimated payments (110% of the prior year's tax, quarterly) with an April true-up; losses carry forward."],
         ["State Tax / Medicare Sur.", ["state", "State Tax"], ["medicare", "Medicare Surcharge"],
-          "Enter your state marginal tax rate and net investment income tax (Medicare surcharge) rate, respectively. Both are added to the blended federal futures rate. Enter 0 for a tax that does not apply. The estimate assumes these rates apply to all modeled gains; income thresholds and state deductions are not modeled. Collateral and risk-off taxes are approximated using the same combined rate."],
+          "Enter your state marginal tax rate and net investment income tax (Medicare surcharge) rate, respectively. Both are added to each federal rate. Enter 0 for a tax that does not apply. The estimate assumes these rates apply to all modeled gains; income thresholds and state deductions are not modeled. Futures collateral and risk-off taxes are approximated using the futures rate; leveraged ETF strategies' risk-off baskets are taxed as capital gains when sold."],
       ] as const).map(([label, first, second, info], groupIndex) => (
         <div key={label} className="min-w-0 flex flex-col gap-1" role="group" aria-labelledby={`${labelId}-${groupIndex}`}>
           <div className="text-xs text-muted font-medium flex items-center gap-1.5">

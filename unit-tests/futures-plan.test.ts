@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildEmulationEtfConfigs,
   buildFuturesLadderPlan,
+  EMULATION_FUND_DISPLAY_NAME,
   type SmaBandsByIndex,
 } from "@/lib/simulation/futures-plan";
 import { buildFuturesRunPlans } from "@/lib/simulation/futures-run-plan";
@@ -28,11 +29,19 @@ test("futures plan: every emulation rung matches its LETF twin's SMA rule", () =
     bands: BANDS,
     riskOffAssets: { sp500: "SGOV", nasdaq100: "VGSH" },
   });
+  // The fund's twin is the TQQQ/UPRO fund, composed from the UPRO and TQQQ twins.
+  const [fund, ...rungs] = plan;
+  assert.equal(fund.displayName, EMULATION_FUND_DISPLAY_NAME);
+  assert.deepEqual(
+    [fund.index, fund.leverage, fund.maxLeverage, fund.secondary?.index, fund.secondary?.leverage, fund.secondary?.maxLeverage],
+    ["sp500", 3, undefined, "nasdaq100", 3, undefined],
+  );
+  assert.deepEqual([fund.sma, fund.secondary?.sma], [BANDS.sp500, BANDS.nasdaq100]);
 
-  assert.equal(plan.length, configs.length, "each ladder rung needs exactly one LETF twin");
-  assert.equal(plan.length, 4);
+  assert.equal(rungs.length, configs.length, "each ladder rung needs exactly one LETF twin");
+  assert.equal(rungs.length, 4);
 
-  for (const step of plan) {
+  for (const step of rungs) {
     const twin = configs.find((c) => c.smaIndex === step.index && c.leverage === step.leverage);
     assert.ok(twin, `no LETF twin for ${step.leverage}x ${step.index}`);
     assert.equal(twin.smaPeriod, step.sma.period, `${twin.name}: SMA period drifted`);
@@ -76,7 +85,7 @@ test("futures plan: Nasdaq rungs and twins both drop when NDX data is missing", 
     bands: BANDS,
     riskOffAssets: { sp500: "SGOV", nasdaq100: "VGSH" },
   });
-  assert.equal(plan.every((s) => s.index === "sp500"), true);
+  assert.equal(plan.every((s) => s.index === "sp500" && !s.secondary), true, "the fund needs NDX too");
   assert.equal(configs.every((c) => c.smaIndex === "sp500"), true);
   assert.equal(plan.length, configs.length, "the two sides must drop the same rungs");
 });
@@ -84,11 +93,11 @@ test("futures plan: Nasdaq rungs and twins both drop when NDX data is missing", 
 test("futures plan: the standard ladder always includes every supported rung", () => {
   const plan = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: true, bands: BANDS });
   assert.deepEqual(plan.map(step => [step.index, step.leverage, Boolean(step.secondary)]), [
-    ["sp500", 4.5, false], ["sp500", 4.5, true], ["sp500", 5, false],
+    ["sp500", 4.5, true], ["sp500", 5, false],
     ["sp500", 3, false], ["nasdaq100", 4, false], ["nasdaq100", 3, false],
   ]);
   const spxOnly = buildFuturesLadderPlan({ showEmulations: false, hasNasdaqData: false, bands: BANDS });
-  assert.deepEqual(spxOnly.map(step => step.leverage), [4.5, 5, 3]);
+  assert.deepEqual(spxOnly.map(step => step.leverage), [5, 3]);
 });
 
 test("futures plan: per-index risk-off overrides reach every rung, not just the two-sleeve fund", () => {

@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ResultsTable } from "@/components/tools/backtest/ResultsTable";
 import { DEFAULT_FUTURES_TAX_RATES } from "@/lib/simulation/futures-tax";
+import { buildLetfTaxSchedule, estimateLetfAfterTaxCagr } from "@/lib/simulation/letf-tax";
+import { formatPercent } from "@/lib/format";
+import { calcCagr } from "@/lib/simulation/metrics";
+import { CONSTANT_INITIAL_INVESTMENT as C } from "@/lib/constants";
 import type { BacktestResult, EtfResult } from "@/lib/simulation/types";
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
@@ -42,6 +46,23 @@ describe("futures after-tax table", () => {
     expect(rows[0]).toHaveTextContent("b-futures-sma");
     expect(rows[1]).toHaveTextContent("a-futures-sma");
     expect(within(rows[2]).getAllByRole("cell")[4]).toHaveTextContent("—");
+  });
+
+  it("taxes a leveraged ETF row on its sales, not as futures", () => {
+    // The engine's dollars, which the schedule's cost basis is measured in.
+    const engineRow = row("upro-sma", [C, 1.2 * C, 1.44 * C], 20);
+    const letf = { ...engineRow, taxSchedule: buildLetfTaxSchedule(engineRow) };
+    expect(estimateLetfAfterTaxCagr(letf.taxSchedule!, { ltcg: 0, stcg: 0, state: 0, medicare: 0 })).toBeCloseTo(calcCagr(C, 1.44 * C, dates[0], dates[2]), 9);
+    const props = {
+      result: { ...result, etfResults: [letf] }, indexLabel: "VOO", annualizedInflation: 0, variant: "futures" as const,
+    };
+    const { rerender } = render(<ResultsTable {...props} futuresTaxRates={DEFAULT_FUTURES_TAX_RATES} />);
+    const taxCell = () => within(screen.getAllByRole("row")[1]).getAllByRole("cell")[4].textContent;
+    const expected = estimateLetfAfterTaxCagr(letf.taxSchedule!, DEFAULT_FUTURES_TAX_RATES)!;
+    expect(taxCell()).toBe(formatPercent(expected));
+    // Held throughout and sold after more than a year: long-term only, unlike the 60/40 futures blend.
+    rerender(<ResultsTable {...props} futuresTaxRates={{ ...DEFAULT_FUTURES_TAX_RATES, stcg: 90 }} />);
+    expect(taxCell()).toBe(formatPercent(expected));
   });
 
   it("keeps the backtest table's columns unchanged", () => {

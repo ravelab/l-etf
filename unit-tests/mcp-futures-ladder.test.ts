@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { registerAll } from "@/lib/mcp/register";
 import { runFuturesLadder } from "@/lib/mcp/futures-ladder-core";
+import { runFuturesBacktestCore } from "@/lib/mcp/tools/run-futures-backtest";
 import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 
 async function connectClient(): Promise<Client> {
@@ -51,8 +52,9 @@ test("emulation mode runs only the rungs that have an LETF twin", async () => {
     runFuturesLadder({ showEmulations: true, ...RANGE }),
   ]);
   assert.equal(emulation.emulationMode, true);
-  // The twins are 3x and 2x on each index — no 4.5x cap, no dual sleeve.
-  assert.equal(emulation.rungs.some((r) => r.dualSleeve), false);
+  // The twins are 3x and 2x on each index, plus the 3x NDX/SPX fund that twins
+  // the TQQQ/UPRO fund — no 4.5x cap.
+  assert.deepEqual(emulation.rungs.filter((r) => r.dualSleeve).map((r) => r.targetLeverage), [3]);
   for (const rung of emulation.rungs) {
     assert.ok([2, 3].includes(rung.targetLeverage), `unexpected twin leverage ${rung.targetLeverage}`);
   }
@@ -148,7 +150,7 @@ test("a range predating Nasdaq data drops the NDX rungs instead of faking them",
   });
   assert.equal(result.rungs.some((r) => r.dualSleeve), false, "no dual sleeve without NDX data");
   assert.equal(result.rungs.some((r) => r.index === "nasdaq100"), false, "no NDX rungs either");
-  assert.equal(result.rungs.length, 3, "all three SPX rungs still run, regardless of window length");
+  assert.equal(result.rungs.length, 2, "both SPX rungs still run, regardless of window length");
 });
 
 test("a range inside Nasdaq data keeps the NDX rungs", async () => {
@@ -168,7 +170,15 @@ test("the dual-sleeve fund is genuinely distinct from the SPX rung it shares a l
     endDate: "2020-01-01",
   });
   const dual = result.rungs.find((r) => r.dualSleeve)!;
-  const spxOnly = result.rungs.find((r) => !r.dualSleeve && r.targetLeverage === dual.targetLeverage)!;
+  // The ladder has no plain 4.5x SPX rung, so run the fund's SPX sleeve alone.
+  const spxOnly = await runFuturesBacktestCore({
+    index: "sp500",
+    targetLeverage: dual.targetLeverage,
+    maxLeverage: dual.targetLeverage,
+    riskOffAsset: result.dualRiskOffAssets.sp500,
+    startDate: "1990-01-01",
+    endDate: "2020-01-01",
+  });
   assert.ok(
     Math.abs(dual.cagrPct - spxOnly.cagrPct) > 0.5,
     `dual ${dual.cagrPct.toFixed(2)}% vs SPX-only ${spxOnly.cagrPct.toFixed(2)}% — the NDX sleeve is doing nothing`,
@@ -176,11 +186,11 @@ test("the dual-sleeve fund is genuinely distinct from the SPX rung it shares a l
 });
 
 
-test("a century-long futures run keeps the same six strategies as both index-start shortcuts", async () => {
+test("a century-long futures run keeps the same five strategies as both index-start shortcuts", async () => {
   for (const startDate of ["1926-07-01", "1985-01-31", "1988-04-06"]) {
     const result = await runFuturesLadder({ showEmulations: false, startDate, endDate: "2026-11-10" });
     assert.deepEqual(result.rungs.map(r => [r.index, r.targetLeverage, r.dualSleeve]), [
-      ["sp500", 4.5, false], ["sp500", 4.5, true], ["sp500", 5, false],
+      ["sp500", 4.5, true], ["sp500", 5, false],
       ["sp500", 3, false], ["nasdaq100", 4, false], ["nasdaq100", 3, false],
     ], `${startDate}: a date range must not trim the normal ladder`);
   }
