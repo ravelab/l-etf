@@ -35479,3 +35479,4 @@ date,adj_close,open,close,name,source
 2026-11-11,698.35,7586.65,7619.38,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-11-12,696,7550.84,7592.4,VOO,yahoo(open+close)+tiingo(adj_close)
 2026-11-13,693.38,7616.85,7561.67,VOO,yahoo(open+close)+tiingo(adj_close)
+2026-11-16,680.26,7513.98,7416.59,VOO,yahoo(open+close)+tiingo(adj_close)
