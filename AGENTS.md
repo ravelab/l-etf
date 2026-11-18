@@ -120,11 +120,14 @@ The tool pages hold one SPX and one NDX risk-off asset (`spxRiskOffAsset` /
 across pages by `use-shared-inputs.ts`; every config takes its own `smaIndex`'s
 asset, futures rungs and their Check Emulations twins included. Read and write
 the URL through `risk-off-url-params.ts`: it still reads the legacy single `ro`
-as both, which old history links and MCP permalinks carry. The SMA calibration
-and the MCP tools' single `riskOffAsset` keep `DEFAULT_RISK_OFF_ASSET`. Canned
-snapshots load only into a form whose pair matches, so changing the defaults
-means `npm run snapshots:generate` and re-measuring the worst-time windows
-(`scripts/find-worst-drawdowns.ts`).
+as both, which old history links and MCP permalinks carry. The MCP tools' single
+`riskOffAsset` keeps `DEFAULT_RISK_OFF_ASSET`. The SMA calibration (seeds, band,
+Signals presets) scores each index on its `DEFAULT_RISK_OFF_ASSETS` entry, the
+basket the page holds, and records it as `riskOffAsset(s)`. Canned snapshots load
+only into a form whose pair matches, so changing the defaults means
+`npm run explore-sma` and `npm run refresh-sma` (the artifact tests fail on a
+basket mismatch), `npm run snapshots:generate`, and re-measuring the worst-time
+windows (`scripts/find-worst-drawdowns.ts`).
 
 ## Tool pages: Start Date and "SPX/NDX start"
 
@@ -814,8 +817,8 @@ must not displace a higher stable score (the monthly calibrator follows this
 same ordering). The UI shows per-index inflation-adjusted whole-era CAGRs (SPX proto/proxy, NDX proxy)
 alongside default-window CAGRs; NDX has no proto era. Each era is independently
 backtested with warm-up and that index's `DEFAULT_RISK_OFF_ASSETS` entry (the
-basket a visitor's backtest holds, recorded as `cagrRiskOffAssets`), without
-history wrap. The search itself still scores on `DEFAULT_RISK_OFF_ASSET`.
+basket a visitor's backtest holds and the search scores on, recorded as
+`riskOffAssets`), without history wrap.
 Real CAGR deflates the ending multiple by `cpiIndexRatioEndOverStart` before
 annualizing over the actual backtest dates; do not subtract annual inflation
 from nominal CAGR. Preserve nominal CAGR for engine parity and disclose the

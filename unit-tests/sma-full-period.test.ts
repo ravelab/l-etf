@@ -19,7 +19,9 @@ it("calibration uses one actual full-length window and annualizes trade frequenc
   const [result] = evaluateCombosAcrossEras(eras, [{ smaPeriod: 175, smaUpperBuffer: 3.5, smaLowerBuffer: 3.5 }]);
   assert.equal(result.row.historyWrapApplied, false);
   assert.equal(result.row.avgReturn, result.row.worstReturn);
-  assert.equal(result.score, scoreFullPeriod(result.row, ctx.inflPct, ctx.windowLength, result.smaOnlySwitches));
+  // The era-weighted mean (score × weight / weight) can move the last bit.
+  const expected = scoreFullPeriod(result.row, ctx.inflPct, ctx.windowLength, result.smaOnlySwitches);
+  assert.ok(Math.abs(result.score - expected) <= 1e-12 * Math.abs(expected), `${result.score} vs ${expected}`);
   const row = { ...result.row, avgTrades: 12 };
   // Same annual CAGR, drawdown and switching frequency must score identically,
   // whether observed over 10 or 40 years. Total wealth is not a score input.

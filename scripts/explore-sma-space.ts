@@ -48,6 +48,7 @@ import {
   SMA_SEARCH_MIN_PERIOD,
 } from "../src/lib/simulation/sma-search-bounds";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
+import { DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
 import { readSmaCalibrationSnapshot } from "../src/lib/sma-calibration";
 import { retainKnownSmaSeeds } from "./lib/sma-known-seeds";
 import type {
@@ -258,7 +259,7 @@ async function explodeIndex(
   const eraWeights = Object.fromEntries(
     SMA_CALIBRATION_ERAS[indexKey].map((era) => [era.key, era.weight])
   );
-  return { startDate, eraWeights, best, periodSeeds: seeds };
+  return { startDate, eraWeights, riskOffAsset: DEFAULT_RISK_OFF_ASSETS[indexKey], best, periodSeeds: seeds };
 }
 
 async function main(): Promise<void> {

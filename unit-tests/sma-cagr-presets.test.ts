@@ -16,7 +16,7 @@ import { fetchInflationData } from "../scripts/lib/sweep-data";
 import { calcCagr } from "../src/lib/simulation/metrics";
 import { runBacktestCore } from "../src/lib/mcp/tools/run-backtest";
 import { loadIndexPrices } from "../src/lib/mcp/server-data";
-import { DEFAULT_RISK_OFF_ASSET, DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../src/lib/input-normalization";
 import type { FormattedBacktest } from "../src/lib/mcp/format";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
@@ -62,8 +62,7 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
   assert.equal(snapshot.presets.length, 4);
   assert.equal(snapshot.grid.bufferStep, 0.1);
   assert.equal(snapshot.grid.periodStep, 1);
-  assert.equal(snapshot.riskOffAsset, DEFAULT_RISK_OFF_ASSET);
-  assert.deepEqual(snapshot.cagrRiskOffAssets, DEFAULT_RISK_OFF_ASSETS, "displayed CAGRs use each index's default risk-off asset");
+  assert.deepEqual(snapshot.riskOffAssets, DEFAULT_RISK_OFF_ASSETS, "presets are scored and displayed with each index's default risk-off asset");
   assert.equal(snapshot.executionMode, DEFAULT_SMA_EXECUTION_MODE);
   assert.equal(snapshot.ranking, SMA_PRESET_RANKING);
   assert.deepEqual(rankSmaPresetSets(snapshot.presets), snapshot.presets);

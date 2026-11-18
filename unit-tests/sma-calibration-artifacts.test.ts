@@ -27,6 +27,7 @@ import {
   SMA_SEARCH_MIN_PERIOD,
 } from "../src/lib/simulation/sma-search-bounds";
 
+import { DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
 
 const INDICES = ["sp500", "nasdaq100"] as const;
@@ -64,6 +65,7 @@ describe("sma-calibration snapshot", () => {
         `${index} must score every calibration era`
       );
       assert.deepEqual(Object.keys(band.eraWeights ?? {}).sort(), expected);
+      assert.equal(band.riskOffAsset, DEFAULT_RISK_OFF_ASSETS[index], `${index} band was scored with a different risk-off basket`);
       // The base score remains the weighted mean; the final score includes stability.
       let weighted = 0;
       let total = 0;
@@ -99,6 +101,7 @@ describe("sma-calibration snapshot", () => {
         neighborhoodMedianScore,
         scoresByEra,
         eraWeights,
+        riskOffAsset,
         ...legacy
       } = snapshot[index];
       void smaOnlySwitches;
@@ -111,6 +114,7 @@ describe("sma-calibration snapshot", () => {
       void neighborhoodMedianScore;
       void scoresByEra;
       void eraWeights;
+      void riskOffAsset;
       assert.deepEqual(Object.keys(legacy).sort(), [
         "avgMaxDrawdown",
         "avgReturn",
@@ -161,6 +165,8 @@ describe("sma-search-space snapshot", () => {
         Object.fromEntries(SMA_CALIBRATION_ERAS[index].map((era) => [era.key, era.weight])),
         `${index} seeds were generated under different era weights — re-run \`npm run explore-sma\``
       );
+      assert.equal(snapshot[index].riskOffAsset, DEFAULT_RISK_OFF_ASSETS[index],
+        `${index} seeds were scored with a different risk-off basket — re-run \`npm run explore-sma\``);
     }
   });
 });

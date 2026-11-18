@@ -7,6 +7,7 @@ import { SMA_SEARCH_MAX_PERIOD } from "../src/lib/simulation/sma-search-bounds";
 import { calibrationYears } from "../src/lib/simulation/sma-calibration-eras";
 import { buildSmaEraContexts, evaluateCombosAcrossEras } from "./lib/sma-sweep-context";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
+import { DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
 
 async function main() {
   const previous = await readSmaSearchSpaceSnapshot();
@@ -30,7 +31,7 @@ async function main() {
     const periodSeeds = [...byPeriod.values()].sort((a, b) => a.smaPeriod - b.smaPeriod);
     refreshed[indexKey] = { startDate: primaryEra(indexKey).startDate,
       eraWeights: Object.fromEntries(SMA_CALIBRATION_ERAS[indexKey].map((era) => [era.key, era.weight])),
-      periodSeeds, best: periodSeeds.reduce((best, seed) => seed.score > best.score ? seed : best) };
+      riskOffAsset: DEFAULT_RISK_OFF_ASSETS[indexKey], periodSeeds, best: periodSeeds.reduce((best, seed) => seed.score > best.score ? seed : best) };
     console.log(`[refresh-sma-seeds] ${indexKey}: ${periodSeeds.length} periods rescored`);
   }
   writeFileSync(SMA_SEARCH_SPACE_SNAPSHOT_PATH, JSON.stringify(refreshed, null, 2) + "\n");

@@ -72,10 +72,10 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
  * per-index `DEFAULT_RISK_OFF_ASSETS`, imported, so changing those defaults also means regenerating.
  */
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
-  smaPsp: "178",
+  smaPsp: "193",
   smaPnq: "136",
-  smaSpUpperBuffer: 3.4,
-  smaSpLowerBuffer: 5.5,
+  smaSpUpperBuffer: 3.3,
+  smaSpLowerBuffer: 5.1,
   smaNqUpperBuffer: 9.6,
   smaNqLowerBuffer: 17.9,
   smaVolGate: true,
@@ -101,9 +101,9 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-02-27", days: 1273, drawdown: "-68.6%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-02-27", days: 1273, drawdown: "-74.8%" },
   { letf: "UPRO" as const, startDate: "1998-07-17", endDate: "1998-09-11", days: 56, drawdown: "-50.6%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-47.9%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2009-07-10", days: 722, drawdown: "-49.2%" },
   { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1988-11-21", days: 413, drawdown: "-77.5%" },
   { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-04-25", days: 522, drawdown: "-62.1%" },
 ] as const;

@@ -33,6 +33,8 @@ export interface SmaSearchSpaceIndexResult {
   startDate: string;
   /** Era key -> weight, recorded so a stale file can be spotted after a reweight. */
   eraWeights?: Record<string, number>;
+  /** Risk-off basket the seeds were scored with, so a stale file can be spotted after a change. */
+  riskOffAsset?: string;
   /** Best combo over the whole exhaustive grid, at the time it was run. */
   best: SmaSeed;
   /** One entry per period on the grid, ascending. */
@@ -70,6 +72,7 @@ const smaSeedSchema = z.object({
 const smaSearchSpaceIndexResultSchema = z.object({
   startDate: z.string(),
   eraWeights: z.record(z.string(), z.number()).optional(),
+  riskOffAsset: z.string().optional(),
   best: smaSeedSchema,
   periodSeeds: z.array(smaSeedSchema).min(1),
 });

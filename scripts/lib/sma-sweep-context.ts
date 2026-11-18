@@ -17,7 +17,7 @@ import {
   type MonthlyCpiPoint,
 } from "./sweep-data";
 import { CONSTANT_INITIAL_INVESTMENT } from "../../src/lib/constants";
-import { DEFAULT_RISK_OFF_ASSET } from "../../src/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSETS } from "../../src/lib/simulation/defaults";
 import {
   DEFAULT_COMBO_PRESET,
   createPresetEtfConfig,
@@ -101,7 +101,7 @@ async function buildSmaSweepContext({
     throw new Error(`No price data for ${indexKey} over ${expandedStartDate}..${endDate}`);
   }
   const riskOffSeries = await loadRiskOffValuesForReference(
-    getUniquePrimitiveRiskOffAssets([DEFAULT_RISK_OFF_ASSET]),
+    getUniquePrimitiveRiskOffAssets([DEFAULT_RISK_OFF_ASSETS[indexKey]]),
     prices,
     expandedStartDate,
     endDate
@@ -164,7 +164,8 @@ function evaluateCombos(
         smaUpperBuffer: combo.smaUpperBuffer,
         smaLowerBuffer: combo.smaLowerBuffer,
         smaVolGate: SMA_CALIBRATION_VOL_GATE[ctx.indexKey],
-        riskOffAsset: DEFAULT_RISK_OFF_ASSET,
+        // The basket the Signals page and a visitor's backtest hold for this index.
+        riskOffAsset: DEFAULT_RISK_OFF_ASSETS[ctx.indexKey],
       })
     );
     const results = runPrecomputedSweep({

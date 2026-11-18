@@ -25,8 +25,9 @@ export const DEFAULT_RISK_OFF_ASSET = "BRK.B+GLDM+VGSH" as const;
 
 /**
  * What each index's strategies hold while risk-off on the tool pages, and the futures
- * ladder's sleeves, unless the visitor picks otherwise. The SMA calibration and the MCP
- * tools' single `riskOffAsset` still default to `DEFAULT_RISK_OFF_ASSET`.
+ * ladder's sleeves, unless the visitor picks otherwise. The SMA calibration scores each
+ * index on its entry here; the MCP tools' single `riskOffAsset` still defaults to
+ * `DEFAULT_RISK_OFF_ASSET`.
  */
 export const DEFAULT_RISK_OFF_ASSETS = {
   sp500: "BRK.B+GLDM",

@@ -39,6 +39,8 @@ export interface SmaCalibrationIndexResult {
    */
   scoresByEra?: Record<string, number>;
   eraWeights?: Record<string, number>;
+  /** Risk-off basket the band was scored with (`DEFAULT_RISK_OFF_ASSETS[index]`). */
+  riskOffAsset?: string;
   /**
    * Score of the winner's worst / median immediate neighbour — one SMA day or
    * 0.1% of buffer away. The score surface is spiky along the period axis, so
@@ -77,6 +79,7 @@ const smaCalibrationIndexResultSchema = z.object({
   evaluatedCombos: z.number().optional(),
   scoresByEra: z.record(z.string(), z.number()).optional(),
   eraWeights: z.record(z.string(), z.number()).optional(),
+  riskOffAsset: z.string().optional(),
   neighborhoodMinScore: z.number().optional(),
   neighborhoodMedianScore: z.number().optional(),
 });

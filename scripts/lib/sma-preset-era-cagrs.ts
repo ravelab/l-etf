@@ -42,8 +42,8 @@ async function eraCagrs(index: IndexKey, combo: SmaCombo, endDate: string): Prom
 
 /**
  * Every CAGR the Signals page displays is re-run here with each index's site default risk-off
- * asset (`DEFAULT_RISK_OFF_ASSETS`), the basket a visitor's backtest of the same rule holds. The
- * search that picked the rules scores on `DEFAULT_RISK_OFF_ASSET`; its own CAGRs are replaced.
+ * asset (`DEFAULT_RISK_OFF_ASSETS`), the basket a visitor's backtest of the same rule holds and
+ * the one the search scores on.
  */
 export async function withEraCagrs<T extends { sp500: SmaCombo & { finalMultiple: number }; nasdaq100: SmaCombo & { finalMultiple: number } }>(presets: T[], startDate: string, endDate: string) {
   const out = [];

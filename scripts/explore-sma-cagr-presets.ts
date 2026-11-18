@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { simulateWithWarmUp } from "../src/lib/simulation/engine";
 import { findEtfResult } from "../src/lib/simulation/result-lookup";
 import { ETF_PRESETS, createPresetEtfConfig } from "../src/lib/simulation/presets";
-import { DEFAULT_RISK_OFF_ASSET, DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "../src/lib/fetch-market-data";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "../src/lib/mcp/server-data";
 import { comboKey, planBufferNeighborhood, planCombos, planPeriodNeighborhood, summarizePlateau, type SmaCombo } from "../src/lib/simulation/sma-search";
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
       const warmStart = getMarketDataWarmUpStartDate(modernStartDate, SMA_SEARCH_MAX_PERIOD);
       const [prices, rates, raw] = await Promise.all([
         loadIndexPrices(index, warmStart, endDate), loadBorrowRates(warmStart, endDate),
-        loadRiskOffRawSeries(DEFAULT_RISK_OFF_ASSET, warmStart, endDate),
+        loadRiskOffRawSeries(DEFAULT_RISK_OFF_ASSETS[index], warmStart, endDate),
       ]);
       const riskOff = alignRiskOffPriceSeries(prices, raw);
       const preset = ETF_PRESETS[index === "sp500" ? "UPRO" : "TQQQ"];
@@ -160,7 +160,7 @@ async function main(): Promise<void> {
         const cached = summaries.get(comboKey(row.combo));
         if (cached?.score === score) return cached;
         const config = createPresetEtfConfig(comboKey(row.combo), preset, { ...row.combo,
-          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], riskOffAsset: DEFAULT_RISK_OFF_ASSET, smaExecutionMode: "next-day-open" });
+          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: "next-day-open" });
         const result = simulateWithWarmUp(prices, rates, [config], modernStartDate, row.combo.smaPeriod, {
           riskOffValuesByAsset: riskOff.closeValuesByAsset, riskOffOpenValuesByAsset: riskOff.openValuesByAsset, endDate,
         });
@@ -333,8 +333,7 @@ async function main(): Promise<void> {
   }));
   const minRegimeDifferencePct = (index: IndexKey) => 100 * Math.min(...selected[index].flatMap((left, i) =>
     selected[index].slice(i + 1).map((right) => regimeDistance(left, right))));
-  const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAsset: DEFAULT_RISK_OFF_ASSET,
-    cagrRiskOffAssets: DEFAULT_RISK_OFF_ASSETS,
+  const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAssets: DEFAULT_RISK_OFF_ASSETS,
     executionMode: "next-day-open", windowLength: calibrationYears("sp500", endDate),
     selection: "Calibrated default plus three distinct alternatives selected by stability-adjusted full-period score from per-period search seeds with joint buffer refinement",
     grid: { periodStep: PRESET_PERIOD_STEP, bufferStep: PRESET_BUFFER_STEP, basinBufferHalfWidth: PRESET_BUFFER_HALF_WIDTH },
@@ -354,7 +353,7 @@ async function main(): Promise<void> {
   }
 }
 async function refreshEraCagrs(): Promise<void> {
-  const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, cagrRiskOffAssets: DEFAULT_RISK_OFF_ASSETS,
+  const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS,
     presets: await withEraCagrs(rankSmaPresetSets(currentPresets.presets), currentPresets.startDate, currentPresets.endDate) };
   const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
@@ -367,7 +366,7 @@ async function rerankPresets(): Promise<void> {
   console.log(`Ranked presets by full-period score in ${path}`);
 }
 async function rescorePresets(): Promise<void> {
-  const payload = await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, cagrRiskOffAssets: DEFAULT_RISK_OFF_ASSETS });
+  const payload = await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS });
   const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Re-scored saved presets under the current engine in ${path}`);
