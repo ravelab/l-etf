@@ -48,13 +48,13 @@
       "smaPeriod": 193,
       "smaUpperBuffer": 3.3,
       "smaLowerBuffer": 5.1,
-      "score": 6015.80639312402
+      "score": 6015.797288260584
     },
     "nasdaq100": {
       "smaPeriod": 136,
       "smaUpperBuffer": 9.6,
       "smaLowerBuffer": 17.9,
-      "score": 17226.046756148597
+      "score": 17226.027697677837
     }
   },
   "presets": [
@@ -64,17 +64,17 @@
         "smaPeriod": 193,
         "smaUpperBuffer": 3.3,
         "smaLowerBuffer": 5.1,
-        "cagr": 24.413158981900906,
-        "finalMultiple": 4602.244391675978,
+        "cagr": 24.413149115494615,
+        "finalMultiple": 4602.23029934,
         "maxDrawdown": 50.59958928309284,
         "trades": 27,
-        "score": 6015.80639312402,
-        "baseScore": 6015.80639312402,
+        "score": 6015.797288260584,
+        "baseScore": 6015.797288260584,
         "stabilityPenalty": 0,
         "scoresByEra": {
-          "start": 6015.806393124019
+          "start": 6015.797288260583
         },
-        "realCagr": 21.051626199894137,
+        "realCagr": 21.051616600069355,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -111,17 +111,17 @@
         "smaPeriod": 136,
         "smaUpperBuffer": 9.6,
         "smaLowerBuffer": 17.9,
-        "cagr": 34.484172038336865,
-        "finalMultiple": 238363.45946947442,
+        "cagr": 34.48416142736961,
+        "finalMultiple": 238362.67350862382,
         "maxDrawdown": 77.54729734005986,
         "trades": 24,
-        "score": 17226.046756148597,
-        "baseScore": 17226.046756148597,
+        "score": 17226.027697677837,
+        "baseScore": 17226.027697677837,
         "stabilityPenalty": 0,
         "scoresByEra": {
-          "start": 17226.046756148597
+          "start": 17226.027697677837
         },
-        "realCagr": 30.799780219985706,
+        "realCagr": 30.79976989972153,
         "inflation": {
           "startDate": "1985-01-01",
           "endDate": "2026-10-01",
@@ -155,17 +155,17 @@
         "smaPeriod": 262,
         "smaUpperBuffer": 3.4,
         "smaLowerBuffer": 2.3,
-        "cagr": 24.78430477148361,
-        "finalMultiple": 5163.210496303594,
+        "cagr": 24.78429487564413,
+        "finalMultiple": 5163.194686257266,
         "maxDrawdown": 52.767405977672944,
         "trades": 31,
-        "score": 5349.834707176023,
-        "baseScore": 5546.376265867273,
-        "stabilityPenalty": 196.54155869125043,
+        "score": 5349.8265148191895,
+        "baseScore": 5546.367965375695,
+        "stabilityPenalty": 196.54145055650588,
         "scoresByEra": {
-          "start": 5546.376265867273
+          "start": 5546.367965375694
         },
-        "realCagr": 21.41274396069921,
+        "realCagr": 21.412734332236518,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -202,17 +202,17 @@
         "smaPeriod": 119,
         "smaUpperBuffer": 15.7,
         "smaLowerBuffer": 18.6,
-        "cagr": 34.395496951277195,
-        "finalMultiple": 231882.79325855352,
+        "cagr": 34.39548634730654,
+        "finalMultiple": 231882.02866654002,
         "maxDrawdown": 72.24419631689943,
         "trades": 22,
-        "score": 11831.800214869387,
-        "baseScore": 11831.800214869387,
+        "score": 11831.785838246542,
+        "baseScore": 11831.785838246542,
         "stabilityPenalty": 0,
         "scoresByEra": {
-          "start": 11831.800214869387
+          "start": 11831.78583824654
         },
-        "realCagr": 30.713534517442476,
+        "realCagr": 30.713524203983212,
         "inflation": {
           "startDate": "1985-01-01",
           "endDate": "2026-10-01",
@@ -246,17 +246,17 @@
         "smaPeriod": 168,
         "smaUpperBuffer": 2.8,
         "smaLowerBuffer": 3.3,
-        "cagr": 22.646908078431238,
-        "finalMultiple": 2649.724913098879,
+        "cagr": 22.646898352094922,
+        "finalMultiple": 2649.716799489399,
         "maxDrawdown": 51.94929716260649,
         "trades": 45,
-        "score": 4252.518061742608,
-        "baseScore": 4267.178568834355,
-        "stabilityPenalty": 14.660507091747604,
+        "score": 4252.510361539569,
+        "baseScore": 4267.170936246575,
+        "stabilityPenalty": 14.660574707006162,
         "scoresByEra": {
-          "start": 4267.178568834355
+          "start": 4267.170936246575
         },
-        "realCagr": 19.333097823220257,
+        "realCagr": 19.333088359680882,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -337,17 +337,17 @@
         "smaPeriod": 115,
         "smaUpperBuffer": 4.9,
         "smaLowerBuffer": 5,
-        "cagr": 22.492076594120935,
-        "finalMultiple": 2523.585534575592,
+        "cagr": 22.492066880063334,
+        "finalMultiple": 2523.5778072121157,
         "maxDrawdown": 57.88014298715518,
         "trades": 36,
-        "score": 3652.257901288231,
-        "baseScore": 4116.246936280778,
-        "stabilityPenalty": 463.98903499254675,
+        "score": 3652.250792017713,
+        "baseScore": 4116.239437747829,
+        "stabilityPenalty": 463.9886457301154,
         "scoresByEra": {
-          "start": 4116.246936280778
+          "start": 4116.239437747829
         },
-        "realCagr": 19.182449747758803,
+        "realCagr": 19.18244029616636,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -384,17 +384,17 @@
         "smaPeriod": 258,
         "smaUpperBuffer": 14.2,
         "smaLowerBuffer": 17,
-        "cagr": 28.377711355002067,
-        "finalMultiple": 34185.485078075784,
+        "cagr": 28.37770122584211,
+        "finalMultiple": 34185.37235755651,
         "maxDrawdown": 75.52455363754544,
         "trades": 26,
-        "score": 7676.896691909246,
-        "baseScore": 7676.896691909246,
+        "score": 7676.885375765586,
+        "baseScore": 7676.885375765586,
         "stabilityPenalty": 0,
         "scoresByEra": {
-          "start": 7676.896691909246
+          "start": 7676.885375765586
         },
-        "realCagr": 24.86061501417631,
+        "realCagr": 24.860605162519622,
         "inflation": {
           "startDate": "1985-01-01",
           "endDate": "2026-10-01",
@@ -422,5 +422,6 @@
         }
       }
     }
-  ]
+  ],
+  "rescoredAt": "2026-11-19T04:07:13.533Z"
 }
