@@ -791,14 +791,15 @@ NDX Aug 1990, NDX 1973). RSI as a band or vol-gate replacement lost badly.
 With the brake on, the best vol gate and the calibrated bands are unchanged,
 so it tunes independently; changing it moves every gated stored result
 (calibration scores, canned snapshots, Signals presets, worst-time windows).
-Every era score also pays shape penalties (`smaScorePenaltyFraction`,
-`sma-search-bounds.ts`), both general rules rather than per-rule exceptions:
-- Re-entry (`SMA_REENTRY_PENALTY`): an upper buffer that only a steep steady
- climb reaches. History's recoveries were mostly V-shaped, so unpenalized NDX
- picked 107d +16.4% (needs ~106%/yr; sat out 1987–1991 while NDX rose 41%).
-- Long period (`SMA_LONG_PERIOD_PENALTY`): 1% per 5 days beyond 200. Under
- some SPX gates 262/−2.3%/+3.4% otherwise outscored 175/−3.6%/+3.6% on a
- handful of slow, well-timed exits.
+Every era score also pays a shape penalty (`smaScorePenaltyFraction`,
+`sma-search-bounds.ts`), a general rule rather than a per-rule exception:
+re-entry (`SMA_REENTRY_PENALTY`), an upper buffer that only a steep steady
+climb reaches. History's recoveries were mostly V-shaped, so unpenalized NDX
+picked 107d +16.4% (needs ~106%/yr; sat out 1987–1991 while NDX rose 41%).
+A 1%-per-5-days penalty beyond 200d was removed in 2026-11 by choice; long
+periods now compete on score alone. The same month the drawdown-over-80%
+term in `score.ts` went from (DD−80)^4 to (DD−80)^2.7: at 4 a 0.7-point deeper
+worst drawdown outweighed any return gap (GLDM outranked VGSH as risk-off).
 Keep one default and three alternatives per index. The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
 rank each index by descending stability-adjusted full-period score and
 pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a

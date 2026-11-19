@@ -33,9 +33,11 @@ interface SmaChartProps {
   etfConfigs: EtfConfig[];
   annualizedInflation: number;
   riskOffPricesByTicker?: Record<string, PricePoint[]>;
+  /** Monthly CPI for the holdings chart's real CAGR and after-inflation amounts. */
+  monthlyCpi?: ReadonlyArray<{ date: string; value: number }>;
 }
 
-export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClosePrices, openPrices, tradeClosePrices, tradeOpenPrices, syntheticPriceScale, etfConfigs, annualizedInflation, riskOffPricesByTicker }: SmaChartProps) {
+export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClosePrices, openPrices, tradeClosePrices, tradeOpenPrices, syntheticPriceScale, etfConfigs, annualizedInflation, riskOffPricesByTicker, monthlyCpi }: SmaChartProps) {
   const etf = result.etfResults[etfIndex];
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
   const [holdingsFocus, setHoldingsFocus] = useState<HoldingsChartFocus | null>(null);
@@ -345,6 +347,7 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           <LetfHoldingsChart
             holdings={holdings}
             testId="letf-sleeve-holdings-chart"
+            monthlyCpi={monthlyCpi}
             focus={holdingsFocus}
             caption={<>
               What {etfPriceLabel} SMA holds at each close: {etfPriceLabel} while risk-on and its risk-off

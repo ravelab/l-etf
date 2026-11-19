@@ -1460,6 +1460,7 @@ export function BacktestingPageContent({
                         syntheticPriceScaleByEtfId={syntheticPriceScaleByEtfId}
                         annualizedInflation={annualizedInflation}
                         riskOffPricesByTicker={riskOffPricesByTicker}
+                        monthlyCpi={monthlyCpi}
                       />
                     </div>
                   )}
@@ -1478,6 +1479,7 @@ export function BacktestingPageContent({
                         etfConfigs={resolvedEtfConfigs}
                         annualizedInflation={annualizedInflation}
                         riskOffPricesByTicker={riskOffPricesByTicker}
+                        monthlyCpi={monthlyCpi}
                       />
                     </div>
                   )}

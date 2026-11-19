@@ -72,10 +72,10 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
  * per-index `DEFAULT_RISK_OFF_ASSETS`, imported, so changing those defaults also means regenerating.
  */
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
-  smaPsp: "193",
+  smaPsp: "262",
   smaPnq: "136",
-  smaSpUpperBuffer: 3.3,
-  smaSpLowerBuffer: 5.1,
+  smaSpUpperBuffer: 3.4,
+  smaSpLowerBuffer: 2.3,
   smaNqUpperBuffer: 9.6,
   smaNqLowerBuffer: 17.9,
   smaVolGate: true,
@@ -104,7 +104,7 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
 const WORST_TIME_TO_INVEST_ITEMS = [
   { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1931-12-17", days: 835, drawdown: "-61.5%" },
   { letf: "UPRO" as const, startDate: "1998-07-17", endDate: "1998-09-11", days: 56, drawdown: "-50.6%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-47.9%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-43.7%" },
   { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1988-11-21", days: 413, drawdown: "-77.5%" },
   { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-04-25", days: 522, drawdown: "-62.1%" },
 ] as const;

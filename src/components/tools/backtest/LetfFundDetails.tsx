@@ -24,6 +24,7 @@ export interface LetfFundDetailsProps {
   syntheticPriceScaleByEtfId: Record<string, number>;
   annualizedInflation: number;
   riskOffPricesByTicker: Record<string, PricePoint[]>;
+  monthlyCpi?: ReadonlyArray<{ date: string; value: number }>;
 }
 
 /** Arrays aligned to `fullDates`, cut to start at `startDate` (the fund's start). */
@@ -118,6 +119,7 @@ export function LetfFundDetails(props: LetfFundDetailsProps) {
       <LetfHoldingsChart
         holdings={holdings}
         testId="letf-fund-holdings-chart"
+        monthlyCpi={props.monthlyCpi}
         focus={focus}
         caption={<>
           What the fund holds at each close: each sleeve&rsquo;s LETF while it is risk-on and its risk-off

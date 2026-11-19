@@ -41,6 +41,8 @@ function tradingFrequencyPenalty(avgTradesPerYear: number, sparseTradesPerYear =
  *
  * Rewards returns and CAGR, penalizes drawdowns and deviations from 0.3 switches/year.
  */
+const CAPITULATION_EXPONENT = 2.7;
+
 function computeScore(
   avgRealCagr: number,
   worstRealCagr: number,
@@ -59,9 +61,11 @@ function computeScore(
   const drawdownPenalty =
     Math.pow(avgMaxDrawdown, avgDrawdownExponent) + biggestMaxDrawdown * 1;
 
-  // Heavy penalty for drawdowns exceeding 80% (buy-and-hold leveraged ETFs)
+  // Heavy penalty for drawdowns exceeding 80% (buy-and-hold leveraged ETFs).
+  // The exponent was 4 until 2026-11: a 15-point excess then cost ~50k, so a
+  // 0.7-point deeper worst drawdown outweighed any return difference.
   const capitulationPenalty =
-    biggestMaxDrawdown > 80 ? Math.pow(biggestMaxDrawdown - 80, 4.0) : 0;
+    biggestMaxDrawdown > 80 ? Math.pow(biggestMaxDrawdown - 80, CAPITULATION_EXPONENT) : 0;
 
   const tradePenalty = tradingFrequencyPenalty(avgTradesPerYear, options.sparseTradesPerYear);
 

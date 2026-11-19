@@ -5,11 +5,13 @@ import { Chart as ChartJS, Filler, type ChartData, type TooltipItem } from "char
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { Button } from "@/components/ui/Button";
 import { createValueChartOptions } from "@/lib/chart-options";
-import { formatCompactCurrency } from "@/lib/format";
+import { formatCompactMultiple } from "@/lib/format";
+import { CONSTANT_INITIAL_INVESTMENT } from "@/lib/constants";
 import { useIsDarkTheme } from "@/lib/hooks/use-is-dark-theme";
 import { getVisibleIndexBounds, selectSampledIndices, type VisibleRange } from "@/lib/chart-resampling";
 import { logAxisFloor, shareAreaBandEdges } from "@/lib/share-area-bands";
 import { fitLogTrend } from "@/lib/log-trend";
+import { cpiIndexRatioEndOverStart } from "@/lib/inflation";
 import type { LetfFundHoldings } from "@/lib/simulation/letf-fund-holdings";
 
 ChartJS.register(Filler);
@@ -63,9 +65,29 @@ interface LetfHoldingsChartProps {
   /** What the chart shows, above it. */
   caption: ReactNode;
   testId: string;
+  /** Monthly CPI, as for the results table's Real CAGR; without it only nominal figures show. */
+  monthlyCpi?: ReadonlyArray<{ date: string; value: number }>;
 }
 
-function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: LetfHoldingsChartProps) {
+const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
+/** Amounts read as multiples of the starting investment (10x, 13Kx), like the results table. */
+function formatAmount(value: number): string {
+  return formatCompactMultiple(value / CONSTANT_INITIAL_INVESTMENT);
+}
+
+/** Compound annual rate between two points; null without a positive span. */
+function annualRate(fromValue: number, toValue: number, fromTime: number, toTime: number): number | null {
+  const years = (toTime - fromTime) / MS_PER_YEAR;
+  if (!(years > 0) || !(fromValue > 0) || !(toValue > 0)) return null;
+  return Math.pow(toValue / fromValue, 1 / years) - 1;
+}
+
+function formatRate(rate: number | null): string {
+  return rate === null ? "n/a" : `${(rate * 100).toFixed(2)}%`;
+}
+
+function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null, monthlyCpi }: LetfHoldingsChartProps) {
   const { dates, assets, values } = holdings;
   const [logScale, setLogScale] = useState(true);
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
@@ -76,6 +98,13 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
     () => dates.map((_, k) => assets.reduce((sum, asset) => sum + (values[asset][k] ?? 0), 0)),
     [dates, assets, values]
   );
+  // After inflation: each close deflated to the chart's first date's dollars with the
+  // CPI ratio the results table's Real CAGR uses.
+  const realTotals = useMemo(() => {
+    if (!monthlyCpi || monthlyCpi.length < 2 || dates.length === 0) return null;
+    const cpi = monthlyCpi as Array<{ date: string; value: number }>;
+    return totals.map((total, k) => total / cpiIndexRatioEndOverStart(cpi, dates[0], dates[k]));
+  }, [monthlyCpi, dates, totals]);
 
   const focusIndex = focus && dates.length > 0 ? indexOnOrAfter(dates, focus.date) : null;
   const chartFocus = useMemo(
@@ -90,7 +119,7 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
   // Bands are rebuilt from the points in view so the log floor follows the zoom.
   // On Log a straight trend line through the points in view, re-fitted on zoom.
   // A focused close is always drawn, so its tooltip shows that day, not a neighbour.
-  const { data, sourceIndices, floor, trendValues } = useMemo(() => {
+  const { data, sourceIndices, floor, trendValues, rangeStats } = useMemo(() => {
     const { startIndex, endIndex } = getVisibleIndexBounds(labelTimes, visibleRange);
     const sampled = selectSampledIndices(startIndex, endIndex, MAX_VISIBLE_POINTS);
     const indices = focusIndex !== null && focusIndex >= startIndex && focusIndex <= endIndex && !sampled.includes(focusIndex)
@@ -102,6 +131,19 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
       { logScale, floor: axisFloor }
     );
     const trend = logScale ? fitLogTrend(indices.map((k) => labelTimes[k]), indices.map((k) => totals[k])) : null;
+    const realTrend = trend && realTotals
+      ? fitLogTrend(indices.map((k) => labelTimes[k]), indices.map((k) => realTotals[k]))
+      : null;
+    const first = indices[0];
+    const last = indices[indices.length - 1];
+    const stats = first === undefined || last === undefined ? null : {
+      startDate: dates[first],
+      endDate: dates[last],
+      cagr: annualRate(totals[first], totals[last], labelTimes[first], labelTimes[last]),
+      realCagr: realTotals ? annualRate(realTotals[first], realTotals[last], labelTimes[first], labelTimes[last]) : null,
+      endValue: totals[last],
+      endRealValue: realTotals?.[last] ?? null,
+    };
     const trendColor = isDarkTheme ? "rgba(255, 255, 255, 0.85)" : "rgba(15, 23, 42, 0.8)";
     const chartData: ChartData<"line"> = {
       labels: indices.map((k) => dates[k]),
@@ -117,7 +159,9 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
       })),
       ...(trend
         ? [{
-            label: `Trend ${formatGrowth(trend.annualGrowth)}`,
+            // The line is drawn through the nominal values; its label gives the real
+            // rate when CPI is loaded, the nominal one otherwise.
+            label: realTrend ? `Trend real ${formatGrowth(realTrend.annualGrowth)}` : `Trend ${formatGrowth(trend.annualGrowth)}`,
             data: trend.values,
             fill: false,
             borderColor: trendColor,
@@ -129,11 +173,11 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
           }]
         : [])],
     };
-    return { data: chartData, sourceIndices: indices, floor: axisFloor, trendValues: trend?.values ?? null };
-  }, [labelTimes, visibleRange, logScale, totals, assets, values, dates, isDarkTheme, focusIndex]);
+    return { data: chartData, sourceIndices: indices, floor: axisFloor, trendValues: trend?.values ?? null, rangeStats: stats };
+  }, [labelTimes, visibleRange, logScale, totals, realTotals, assets, values, dates, isDarkTheme, focusIndex]);
 
   const options = useMemo(() => {
-    const base = createValueChartOptions(logScale, { formatValue: formatCompactCurrency });
+    const base = createValueChartOptions(logScale, { formatValue: formatAmount });
     const sourceIndexOf = (item: TooltipItem<"line">) => sourceIndices[item.dataIndex] ?? item.dataIndex;
     return {
       ...base,
@@ -154,14 +198,14 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
             ...base.plugins?.tooltip?.callbacks,
             label: (item: TooltipItem<"line">) => {
               if (item.datasetIndex >= assets.length) {
-                return `Trend: ${formatCompactCurrency(trendValues?.[item.dataIndex] ?? 0)}`;
+                return `Trend: ${formatAmount(trendValues?.[item.dataIndex] ?? 0)}`;
               }
               const k = sourceIndexOf(item);
               const asset = assets[item.datasetIndex];
               const value = values[asset]?.[k] ?? 0;
               const total = totals[k] ?? 0;
               const pct = total > 0 ? ` (${((value / total) * 100).toFixed(1)}%)` : "";
-              return `${asset}: ${formatCompactCurrency(value)}${pct}`;
+              return `${asset}: ${formatAmount(value)}${pct}`;
             },
             labelColor: (item: TooltipItem<"line">) => {
               const color = String(item.dataset.borderColor);
@@ -169,17 +213,30 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
             },
             footer: (items: TooltipItem<"line">[]) => {
               const first = items[0];
-              return first ? `Total: ${formatCompactCurrency(totals[sourceIndexOf(first)] ?? 0)}` : "";
+              if (!first) return "";
+              const k = sourceIndexOf(first);
+              const total = `Total: ${formatAmount(totals[k] ?? 0)}`;
+              return realTotals
+                ? [total, `After inflation: ${formatAmount(realTotals[k] ?? 0)}`]
+                : total;
             },
           },
         },
       },
       scales: {
         ...base.scales,
-        y: { ...base.scales?.y, min: floor },
+        y: {
+          ...base.scales?.y,
+          min: floor,
+          // The floor is an arbitrary value just under the data, and its label lands
+          // on top of the round tick above it: leave it unlabelled.
+          afterTickToLabelConversion: (axis: { ticks: Array<{ value: number; label?: string | string[] }> }) => {
+            for (const tick of axis.ticks) if (tick.value === floor) tick.label = "";
+          },
+        },
       },
     };
-  }, [logScale, sourceIndices, values, assets, totals, floor, trendValues]);
+  }, [logScale, sourceIndices, values, assets, totals, realTotals, floor, trendValues]);
 
   const resetKey = `${dates[0] ?? ""}|${dates[dates.length - 1] ?? ""}|${assets.join(",")}`;
 
@@ -205,6 +262,23 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: Letf
           focus={chartFocus}
         />
       </div>
+      {rangeStats && (
+        <p data-testid={`${testId}-range-stats`} className="mt-2 text-xs text-muted tabular-nums">
+          {rangeStats.startDate} – {rangeStats.endDate}: CAGR{" "}
+          <span className="text-foreground">{formatRate(rangeStats.cagr)}</span>
+          {realTotals && (
+            <>
+              {" · "}Real CAGR <span className="text-foreground">{formatRate(rangeStats.realCagr)}</span>
+            </>
+          )}
+          {" · "}ends at <span className="text-foreground">{formatAmount(rangeStats.endValue)}</span>
+          {rangeStats.endRealValue !== null && (
+            <>
+              {", "}<span className="text-foreground">{formatAmount(rangeStats.endRealValue)}</span> after inflation
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }
