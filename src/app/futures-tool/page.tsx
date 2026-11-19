@@ -774,8 +774,8 @@ export function FuturesPageContent({
         investedValues,
         etfResults: showEmulations
           ? [
-              ...(futuresFund ? [futuresFund] : []),
               ...(letfFund ? [letfFund] : []),
+              ...(futuresFund ? [futuresFund] : []),
               ...(sp5 ? [sp5] : []),
               ...(sp4 ? [sp4] : []),
               ...(sp3 ? [sp3] : []),

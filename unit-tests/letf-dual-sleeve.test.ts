@@ -111,12 +111,12 @@ test("the derived regime matches the engine: flat on held risk-off days, moving 
   }
 });
 
-test("the backtest page appends the fund only to a UPRO+TQQQ run", async () => {
+test("the backtest page adds the fund, first, only to a UPRO+TQQQ run", async () => {
   const result = await comboRun();
   const run = { letf: "UPRO+TQQQ", spxRiskOffAsset: "SGOV", ndxRiskOffAsset: "SGOV" };
   const shown = withLetfComboFund(result, run)!;
-  const fund = shown.etfResults.at(-1)!;
-  assert.equal(fund.id, LETF_FUND_RESULT_ID);
+  const fund = shown.etfResults[0];
+  assert.equal(fund.id, LETF_FUND_RESULT_ID, "the fund leads the list");
   assert.equal(shortBacktestAssetLabel(fund.name), "TQQQ/UPRO SMA");
   assert.equal(shown.etfResults.length, result.etfResults.length + 1);
   assert.equal(withLetfComboFund(shown, run), shown, "applying it twice adds nothing");

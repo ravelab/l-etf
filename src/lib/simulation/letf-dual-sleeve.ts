@@ -362,5 +362,6 @@ export function withLetfComboFund(
     spxRiskOffAsset: run.spxRiskOffAsset,
     ndxRiskOffAsset: run.ndxRiskOffAsset,
   });
-  return fund ? { ...result, etfResults: [...result.etfResults, fund] } : result;
+  // The fund leads every list and table: it is the strategy the site centres on.
+  return fund ? { ...result, etfResults: [fund, ...result.etfResults] } : result;
 }

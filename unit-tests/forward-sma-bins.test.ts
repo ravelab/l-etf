@@ -90,3 +90,13 @@ test("summarizeForwardBins carries a percentile spread, not just a median", () =
 test("summarizeForwardBins on no points returns nothing", () => {
   assert.deepEqual(summarizeForwardBins([]), []);
 });
+
+test("the lowest bucket holds every gap at or below -24%", () => {
+  assert.equal(binLabelForIndex(0), "≤-24%");
+  assert.equal(binLabelForIndex(1), "-24 to -22%");
+  assert.equal(binLabelForIndex(2), "-22 to -20%");
+  assert.equal(binIndexForGap(-35), 0);
+  assert.equal(binIndexForGap(-24.5), 0);
+  assert.equal(binIndexForGap(-23), 1);
+  assert.equal(binIndexForGap(-21), 2);
+});

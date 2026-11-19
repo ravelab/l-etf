@@ -348,6 +348,12 @@ function findBestLabelByValue<T extends { label: string }>(
   return best.label;
 }
 
+/** The TQQQ/UPRO fund leads every list and table on the page; the rest keep their order. */
+function fundFirst<T>(items: T[], labelOf: (item: T) => string): T[] {
+  const isFund = (item: T) => normalizeStrategyLabel(labelOf(item)) === LETF_FUND_STRATEGY_LABEL;
+  return [...items.filter(isFund), ...items.filter((item) => !isFund(item))];
+}
+
 export default function CompareLETFsPage() {
   return (
     <Suspense fallback={null}>
@@ -443,7 +449,7 @@ export function CompareLETFsPageContent({
   const applySnapshot = useCallback(
     (state: Record<string, unknown>) => {
       const snapshot = state as Partial<CompareLetfsSnapshotState>;
-      if (snapshot.strategyResults) setStrategyResults(snapshot.strategyResults as StrategyResult[]);
+      if (snapshot.strategyResults) setStrategyResults(fundFirst(snapshot.strategyResults as StrategyResult[], (r) => r.label));
       if (snapshot.snapshotSummary) setSnapshotSummary(snapshot.snapshotSummary as SnapshotStrategySummary);
       if (snapshot.distributionSnapshot !== undefined) setDistributionSnapshot(snapshot.distributionSnapshot as DistributionSnapshot | null);
       if (snapshot.annualizedInflation != null) setAnnualizedInflation(snapshot.annualizedInflation as number);
@@ -510,8 +516,8 @@ export function CompareLETFsPageContent({
   ]);
 
   const displayedStrategyResults = useMemo(() => {
-    if (tradeAfterHours) return strategyResults;
-    return strategyResults.filter((r) => !isAfterHoursStrategy(r.label));
+    const shown = tradeAfterHours ? strategyResults : strategyResults.filter((r) => !isAfterHoursStrategy(r.label));
+    return fundFirst(shown, (r) => r.label);
   }, [strategyResults, tradeAfterHours]);
 
   useEffect(() => {
@@ -715,9 +721,9 @@ export function CompareLETFsPageContent({
       throwIfAborted(signal);
 
       const allResults: StrategyResult[] = [
+        ...(fundRuns.length > 0 ? [{ label: LETF_FUND_STRATEGY_LABEL, runs: fundRuns }] : []),
         ...sp500Results.map(({ label, simulations }) => ({ label, runs: simulations })),
         ...nasdaqResults.map(({ label, simulations }) => ({ label, runs: simulations })),
-        ...(fundRuns.length > 0 ? [{ label: LETF_FUND_STRATEGY_LABEL, runs: fundRuns }] : []),
       ];
 
       setStrategyResults(allResults);
@@ -809,9 +815,9 @@ export function CompareLETFsPageContent({
   // matches SMA Period / SMA Buffer / Risk-Off / Statistics exactly.
   const { summaryRows, labelByIdx } = useMemo(() => {
     if ((strategyResults.length === 0 || hasInvalidCachedResults) && snapshotSummary) {
-      const filteredLabels = snapshotSummary.labels.filter(
+      const filteredLabels = fundFirst(snapshotSummary.labels.filter(
         (label) => tradeAfterHours || !isAfterHoursStrategy(label)
-      );
+      ), (label) => label);
       const labelToOriginalIndex = new Map(snapshotSummary.labels.map((label, idx) => [label, idx]));
       const filteredRows = filteredLabels
         .map((label) => {

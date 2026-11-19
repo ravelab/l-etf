@@ -13,9 +13,9 @@ import type { ForwardSmaReturnPoint } from "@/lib/simulation/forward-sma-returns
 /** Bin width in percentage points of gap between close and SMA. */
 export const FORWARD_GAP_BIN_WIDTH_PCT = 2;
 
-// Bins clipped to [-20%, +26%] so the edge buckets read "≤-18%" / "≥24%"; any
+// Bins clipped to [-26%, +26%] so the edge buckets read "≤-24%" / "≥24%"; any
 // values past those cutoffs fold into the edge buckets rather than being lost.
-export const FORWARD_GAP_BIN_MIN_PCT = -20;
+export const FORWARD_GAP_BIN_MIN_PCT = -26;
 export const FORWARD_GAP_BIN_MAX_PCT = 26;
 
 const FORWARD_GAP_BIN_COUNT = Math.round(
