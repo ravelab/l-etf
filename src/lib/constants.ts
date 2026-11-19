@@ -54,6 +54,12 @@ export const CONSTANT_NASDAQ100_START_DATE = "1926-07-01";
  *  (FF_SPLICE_START in scripts/fetch-data.ts); everything earlier is the
  *  Cowles-era reconstruction. */
 export const CONSTANT_SP500_PROXY_START_DATE = "1926-07-01";
+/** Calendar icon shortcut: the Nixon shock ended dollar convertibility to gold
+ *  (a Sunday; runs use the nearest trading day). */
+export const CONSTANT_GOLD_STANDARD_END_DATE = "1971-08-15";
+/** Calendar icon shortcut: first real BRK-A row in `risk-brka.csv`; earlier
+ *  rows are the 70/30 proxy (src/lib/data/brk-proxy.ts). */
+export const CONSTANT_BRK_REAL_START_DATE = "1980-03-17";
 /** Calendar icon shortcut: earliest meaningful start for S&P 500 strategies.
  *  1988-04-06 is when S&P stopped using sector quotas to choose constituents. */
 export const CONSTANT_SP500_SHORTCUT_DATE = "1988-04-06";

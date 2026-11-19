@@ -11,6 +11,8 @@ import { CalendarShortcutIcon } from "@/components/ui/CalendarShortcutIcon";
 import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
 import { InflationAdjustedCheckbox } from "@/components/tools/InflationAdjustedCheckbox";
 import {
+  CONSTANT_BRK_REAL_START_DATE,
+  CONSTANT_GOLD_STANDARD_END_DATE,
   CONSTANT_NASDAQ100_SHORTCUT_DATE,
   CONSTANT_SP500_PROXY_START_DATE,
   CONSTANT_SP500_SHORTCUT_DATE,
@@ -48,6 +50,16 @@ const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
     value: CONSTANT_SP500_PROXY_START_DATE,
     label: "SPX/NDX proxy",
     title: "Start of both proxies: SPX = the market's biggest 30% by size; NDX = computer and electronics stocks",
+  },
+  {
+    value: CONSTANT_GOLD_STANDARD_END_DATE,
+    label: "Gold std end",
+    title: "End of the gold standard (Nixon shock, 1971/08/15)",
+  },
+  {
+    value: CONSTANT_BRK_REAL_START_DATE,
+    label: "BRK start",
+    title: "Start of real BRK-A data; BRK.B risk-off before this is a proxy",
   },
   {
     value: CONSTANT_SP500_SHORTCUT_DATE,
@@ -442,16 +454,16 @@ export function SharedToolInputs({
             onUpperChange={(v) => onChange("smaNqUpperBuffer", v as never)}
           />
         )}
-        {values.smaVolGate !== undefined && (
-          <VolGateCheckbox
-            checked={values.smaVolGate}
-            onChange={(v) => onChange("smaVolGate", v)}
-          />
-        )}
         {values.smaInflationAdjusted !== undefined && (
           <InflationAdjustedCheckbox
             checked={values.smaInflationAdjusted}
             onChange={(v) => onChange("smaInflationAdjusted", v)}
+          />
+        )}
+        {values.smaVolGate !== undefined && (
+          <VolGateCheckbox
+            checked={values.smaVolGate}
+            onChange={(v) => onChange("smaVolGate", v)}
           />
         )}
         {values.spxRiskOffAsset !== undefined && (

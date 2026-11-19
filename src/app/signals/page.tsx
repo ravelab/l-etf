@@ -219,8 +219,8 @@ export default function SignalsPage() {
                 onLowerChange={setSmaNqLowerBuffer}
                 onUpperChange={setSmaNqUpperBuffer}
               />
-              <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} />
               <InflationAdjustedCheckbox checked={smaInflationAdjusted} onChange={setSmaInflationAdjusted} />
+              <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} />
             </fieldset>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <SignalCard
