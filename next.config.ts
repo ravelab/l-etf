@@ -87,6 +87,11 @@ const nextConfig: NextConfig = {
   // (see e2e-tests/run.mjs), so an unset VERCEL_ENV has to keep emitting maps or
   // local coverage loses the same stage this was written to give back.
   productionBrowserSourceMaps: process.env.VERCEL_ENV !== "production",
+  // Keep Next.js's security-upgrade nudge for coding agents (its default, set
+  // explicitly by the 16.4.3 → 16.4.6 security upgrade).
+  experimental: {
+    agentUpgrade: "security",
+  },
   outputFileTracingIncludes: {
     "/api/**/*": ["./data/**/*.csv", "./src/lib/tool-snapshots/**/*.json"],
     // The MCP endpoint (app/[transport]/route.ts, served at /mcp) reads the same
