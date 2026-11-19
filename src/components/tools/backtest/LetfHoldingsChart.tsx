@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Chart as ChartJS, Filler, type ChartData, type TooltipItem } from "chart.js";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { Button } from "@/components/ui/Button";
@@ -42,14 +42,30 @@ function formatGrowth(rate: number): string {
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%/yr`;
 }
 
+/** A date to show as if hovered; a new `key` re-shows the same date. */
+export type HoldingsChartFocus = { date: string; key: number; scroll: boolean };
+
+/** Index of `date` in ascending `dates`, or of the first close after it. */
+function indexOnOrAfter(dates: readonly string[], date: string): number {
+  let lo = 0;
+  let hi = dates.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (dates[mid] < date) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
 interface LetfHoldingsChartProps {
   holdings: LetfFundHoldings;
+  focus?: HoldingsChartFocus | null;
   /** What the chart shows, above it. */
   caption: ReactNode;
   testId: string;
 }
 
-function LetfHoldingsChartImpl({ holdings, caption, testId }: LetfHoldingsChartProps) {
+function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null }: LetfHoldingsChartProps) {
   const { dates, assets, values } = holdings;
   const [logScale, setLogScale] = useState(true);
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
@@ -61,11 +77,25 @@ function LetfHoldingsChartImpl({ holdings, caption, testId }: LetfHoldingsChartP
     [dates, assets, values]
   );
 
+  const focusIndex = focus && dates.length > 0 ? indexOnOrAfter(dates, focus.date) : null;
+  const chartFocus = useMemo(
+    () => (focus && focusIndex !== null ? { label: dates[focusIndex], key: focus.key } : null),
+    [focus, focusIndex, dates]
+  );
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (focus?.scroll) containerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [focus]);
+
   // Bands are rebuilt from the points in view so the log floor follows the zoom.
   // On Log a straight trend line through the points in view, re-fitted on zoom.
+  // A focused close is always drawn, so its tooltip shows that day, not a neighbour.
   const { data, sourceIndices, floor, trendValues } = useMemo(() => {
     const { startIndex, endIndex } = getVisibleIndexBounds(labelTimes, visibleRange);
-    const indices = selectSampledIndices(startIndex, endIndex, MAX_VISIBLE_POINTS);
+    const sampled = selectSampledIndices(startIndex, endIndex, MAX_VISIBLE_POINTS);
+    const indices = focusIndex !== null && focusIndex >= startIndex && focusIndex <= endIndex && !sampled.includes(focusIndex)
+      ? [...sampled, focusIndex].sort((a, b) => a - b)
+      : sampled;
     const axisFloor = logScale ? logAxisFloor(indices.map((k) => totals[k])) : 0;
     const edges = shareAreaBandEdges(
       assets.map((asset) => indices.map((k) => values[asset][k] ?? 0)),
@@ -100,7 +130,7 @@ function LetfHoldingsChartImpl({ holdings, caption, testId }: LetfHoldingsChartP
         : [])],
     };
     return { data: chartData, sourceIndices: indices, floor: axisFloor, trendValues: trend?.values ?? null };
-  }, [labelTimes, visibleRange, logScale, totals, assets, values, dates, isDarkTheme]);
+  }, [labelTimes, visibleRange, logScale, totals, assets, values, dates, isDarkTheme, focusIndex]);
 
   const options = useMemo(() => {
     const base = createValueChartOptions(logScale, { formatValue: formatCompactCurrency });
@@ -154,7 +184,7 @@ function LetfHoldingsChartImpl({ holdings, caption, testId }: LetfHoldingsChartP
   const resetKey = `${dates[0] ?? ""}|${dates[dates.length - 1] ?? ""}|${assets.join(",")}`;
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 scroll-mt-4" ref={containerRef}>
       <div className="flex items-center justify-between gap-3 mb-2">
         <div className="min-w-0 text-xs text-muted">{caption}</div>
         <div className="flex shrink-0 gap-1">
@@ -167,7 +197,13 @@ function LetfHoldingsChartImpl({ holdings, caption, testId }: LetfHoldingsChartP
         </div>
       </div>
       <div className="h-[320px]" data-testid={testId}>
-        <ZoomableChart data={data} options={options} onRangeChange={setVisibleRange} resetKey={resetKey} />
+        <ZoomableChart
+          data={data}
+          options={options}
+          onRangeChange={setVisibleRange}
+          resetKey={resetKey}
+          focus={chartFocus}
+        />
       </div>
     </div>
   );

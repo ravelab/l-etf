@@ -15,6 +15,12 @@ interface ZoomableChartProps {
   onRangeChange?: (range: VisibleRange | null) => void;
   resetKey?: string;
   plugins?: Plugin<"line">[];
+  /**
+   * Show the tooltip at this label as if it were hovered; a new `key` shows it
+   * again. A zoom that hides the label is reset first, so the label must be in
+   * `data.labels` once the chart is unzoomed.
+   */
+  focus?: { label: string; key: number } | null;
 }
 
 interface TooltipBox {
@@ -42,7 +48,7 @@ function onZoomPluginReady() {
   zoomPluginRegistered = true;
 }
 
-export function ZoomableChart({ data, options, onRangeChange, resetKey, plugins }: ZoomableChartProps) {
+export function ZoomableChart({ data, options, onRangeChange, resetKey, plugins, focus = null }: ZoomableChartProps) {
   const chartRef = useRef<ZoomableChartInstance | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomRange, setZoomRange] = useState<ZoomRange | null>(null);
@@ -196,6 +202,30 @@ export function ZoomableChart({ data, options, onRangeChange, resetKey, plugins 
       chart.resetZoom();
     }
   }, []);
+
+  // Runs after react-chartjs-2 (a child) has pushed new data/options into the chart.
+  const shownFocusKeyRef = useRef<number | null>(null);
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!focus || !chart || shownFocusKeyRef.current === focus.key) return;
+    const index = (Array.isArray(data.labels) ? data.labels : []).indexOf(focus.label);
+    if (index < 0) return;
+    const time = new Date(focus.label).getTime();
+    if (zoomRange && chart.scales.x?.type === "time" && (time < zoomRange.min || time > zoomRange.max)) {
+      // Unzoom; this effect runs again with the full range's data.
+      Promise.resolve().then(handleResetZoom);
+      return;
+    }
+    const active = chart.data.datasets
+      .map((_, datasetIndex) => ({ datasetIndex, index }))
+      .filter(({ datasetIndex }) => chart.isDatasetVisible(datasetIndex) && chart.getDatasetMeta(datasetIndex).data[index]);
+    if (active.length === 0) return;
+    const point = chart.getDatasetMeta(active[0].datasetIndex).data[index];
+    chart.setActiveElements(active);
+    chart.tooltip?.setActiveElements(active, { x: point.x, y: point.y });
+    chart.update();
+    shownFocusKeyRef.current = focus.key;
+  }, [focus, data, zoomRange, handleResetZoom]);
 
   const zoomOptions = useMemo((): ChartOptions<"line"> => {
     const base: ChartOptions<"line"> = {

@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { LetfHoldingsChart } from "@/components/tools/backtest/LetfHoldingsChart";
+import { useCallback, useMemo, useState } from "react";
+import { LetfHoldingsChart, type HoldingsChartFocus } from "@/components/tools/backtest/LetfHoldingsChart";
 import { buildSmaTradeTableRows, SmaTradesTable, type SmaTradeTableRow } from "@/components/tools/backtest/SmaTradesTable";
 import { alignLetfComboSleeves, findLetfComboSleeves, LETF_FUND_RESULT_ID, type LetfComboRun } from "@/lib/simulation/letf-dual-sleeve";
 import { letfComboFundHoldings } from "@/lib/simulation/letf-fund-holdings";
-import { buildSmaTradeRows, type SmaTradeRow } from "@/lib/sma-trade-rows";
+import { buildSmaTradeRows } from "@/lib/sma-trade-rows";
 import { riskOffSharePct } from "@/lib/sma-trade-metrics";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import type { BacktestResult, EtfConfig, PricePoint } from "@/lib/simulation/types";
@@ -33,33 +33,12 @@ function sliceFrom<T>(values: T[] | undefined, fullDates: string[], startDate: s
   return values.slice(offset);
 }
 
-function resetRow(date: string): SmaTradeTableRow {
-  const row: SmaTradeRow = {
-    signalDate: date,
-    tradingDay: date,
-    signalType: "buy",
-    action: "Rebalance to 50/50",
-    eventPrice: null,
-    triggerClose: null,
-    triggerSmaPctDiff: null,
-    actionToneClass: "text-muted",
-  };
-  return {
-    key: `reset|${date}`,
-    row,
-    riskOffReturn: null,
-    riskOffAdvantage: null,
-    riskOnReturn: null,
-    daysTillNextEvent: null,
-  };
-}
-
 const executionDay = (entry: SmaTradeTableRow) => entry.row.tradingDay ?? entry.row.signalDate;
 
 /**
  * The TQQQ/UPRO fund's details: what it holds at each close, then both sleeves'
- * trades in one table. Each sleeve's rows keep the metrics of their own sleeve; the
- * fund's 50/50 resets sit at the top of their day.
+ * trades in one table. Each sleeve's rows keep the metrics of their own sleeve; a
+ * buy that re-opened the fund at 50/50 says so on its own row.
  */
 export function LetfFundDetails(props: LetfFundDetailsProps) {
   const { result, run, etfConfigs, riskOffPricesByTicker, annualizedInflation } = props;
@@ -109,13 +88,23 @@ export function LetfFundDetails(props: LetfFundDetailsProps) {
     annualizedInflation, riskOffPricesByTicker]);
 
   const tableRows = useMemo(() => {
-    const resets = (holdings?.resetDates ?? []).map(resetRow);
-    // Stable sort: a day's sleeve trades in fund order, then the reset they caused.
-    return [...sleeveTables.flatMap((table) => table.rows), ...resets]
+    // A reset fires on the morning a sleeve re-enters while the other is still out,
+    // which is that sleeve's buy execution day.
+    const resets = new Set(holdings?.resetDates ?? []);
+    return sleeveTables
+      .flatMap((table) => table.rows)
       .map((entry, order) => ({ entry, order }))
       .sort((a, b) => executionDay(a.entry).localeCompare(executionDay(b.entry)) || a.order - b.order)
-      .map(({ entry }) => entry);
+      .map(({ entry }) => entry.row.signalType === "buy" && !entry.row.isInitialEntry && resets.has(executionDay(entry))
+        ? { ...entry, row: { ...entry.row, action: `${entry.row.action} (50/50)` } }
+        : entry);
   }, [holdings, sleeveTables]);
+
+  const [focus, setFocus] = useState<HoldingsChartFocus | null>(null);
+  const focusDate = useCallback(
+    (date: string, scroll: boolean) => setFocus((prev) => ({ date, scroll, key: (prev?.key ?? 0) + 1 })),
+    []
+  );
 
   if (!holdings) return null;
   const riskOffSummary = sleeveTables
@@ -129,11 +118,12 @@ export function LetfFundDetails(props: LetfFundDetailsProps) {
       <LetfHoldingsChart
         holdings={holdings}
         testId="letf-fund-holdings-chart"
+        focus={focus}
         caption={<>
           What the fund holds at each close: each sleeve&rsquo;s LETF while it is risk-on and its risk-off
           basket while it is out. The colored bands split the area under the fund&rsquo;s value in
           proportion to each holding, on both scales; on Log the dashed line is the best-fit constant
-          growth rate over the range in view.
+          growth rate over the range in view. Hover or click a trigger day below to show that close.
         </>}
       />
       <div className="mt-4">
@@ -144,7 +134,7 @@ export function LetfFundDetails(props: LetfFundDetailsProps) {
         {tableRows.length === 0 ? (
           <p className="text-xs text-muted">No trades triggered for this run.</p>
         ) : (
-          <SmaTradesTable rows={tableRows} actionLabel="Action (Inflation-Adjusted)" showSleeve />
+          <SmaTradesTable rows={tableRows} actionLabel="Action (Inflation-Adjusted)" showSleeve onTriggerDayFocus={focusDate} />
         )}
       </div>
     </div>

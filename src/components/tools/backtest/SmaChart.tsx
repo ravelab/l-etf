@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { useIsDarkTheme } from "@/lib/hooks/use-is-dark-theme";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
@@ -14,7 +14,7 @@ import {
 import { buildSmaTradeRows } from "@/lib/sma-trade-rows";
 import { riskOffSharePct } from "@/lib/sma-trade-metrics";
 import { buildSmaTradeTableRows, SmaTradesTable } from "@/components/tools/backtest/SmaTradesTable";
-import { LetfHoldingsChart } from "@/components/tools/backtest/LetfHoldingsChart";
+import { LetfHoldingsChart, type HoldingsChartFocus } from "@/components/tools/backtest/LetfHoldingsChart";
 import { letfSleeveHoldings } from "@/lib/simulation/letf-fund-holdings";
 import { getRiskOffFetchTickers } from "@/lib/constants";
 
@@ -38,6 +38,11 @@ interface SmaChartProps {
 export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClosePrices, openPrices, tradeClosePrices, tradeOpenPrices, syntheticPriceScale, etfConfigs, annualizedInflation, riskOffPricesByTicker }: SmaChartProps) {
   const etf = result.etfResults[etfIndex];
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
+  const [holdingsFocus, setHoldingsFocus] = useState<HoldingsChartFocus | null>(null);
+  const focusHoldingsDate = useCallback(
+    (date: string, scroll: boolean) => setHoldingsFocus((prev) => ({ date, scroll, key: (prev?.key ?? 0) + 1 })),
+    []
+  );
   const isDarkTheme = useIsDarkTheme();
 
   const baseConfig = useMemo(() => {
@@ -340,11 +345,12 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           <LetfHoldingsChart
             holdings={holdings}
             testId="letf-sleeve-holdings-chart"
+            focus={holdingsFocus}
             caption={<>
               What {etfPriceLabel} SMA holds at each close: {etfPriceLabel} while risk-on and its risk-off
               basket while out. The colored bands split the area under its value in proportion to each
               holding, on both scales; on Log the dashed line is the best-fit constant growth rate over
-              the range in view.
+              the range in view. Hover or click a trigger day below to show that close.
             </>}
           />
         </div>
@@ -359,7 +365,11 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
         {tradeRows.length === 0 ? (
           <p className="text-xs text-muted">No trades triggered for this SMA run.</p>
         ) : (
-          <SmaTradesTable rows={tableRows} actionLabel={`Action (${etfPriceLabel} Inflation-Adjusted)`} />
+          <SmaTradesTable
+            rows={tableRows}
+            actionLabel={`Action (${etfPriceLabel} Inflation-Adjusted)`}
+            onTriggerDayFocus={holdings ? focusHoldingsDate : undefined}
+          />
         )}
       </div>
     </div>

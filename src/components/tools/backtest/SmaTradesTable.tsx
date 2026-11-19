@@ -74,10 +74,16 @@ export function SmaTradesTable({
   rows,
   actionLabel,
   showSleeve = false,
+  onTriggerDayFocus,
 }: {
   rows: SmaTradeTableRow[];
   actionLabel: string;
   showSleeve?: boolean;
+  /**
+   * Makes each trigger day point a chart at its date: on hover (desktop), and on a
+   * click, which also asks for the chart to be scrolled into view.
+   */
+  onTriggerDayFocus?: (date: string, scroll: boolean) => void;
 }) {
   const [page, setPage] = useState(0);
   const pageSafe = Math.min(page, Math.max(0, Math.ceil(rows.length / TRADES_PAGE_SIZE) - 1));
@@ -103,7 +109,20 @@ export function SmaTradesTable({
             {paged.map(({ key, row, sleeve, riskOffReturn, riskOffAdvantage, riskOnReturn, daysTillNextEvent }) => (
               <tr key={key} className="border-b border-card-border/50">
                 <td className="py-2.5 pr-4">
-                  {formatDate(row.signalDate)}
+                  {onTriggerDayFocus ? (
+                    <button
+                      type="button"
+                      className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+                      title="Show this close on the holdings chart"
+                      onMouseEnter={() => {
+                        // Touch taps emulate a mouseenter before the click; leave those to the click.
+                        if (window.matchMedia("(hover: hover)").matches) onTriggerDayFocus(row.signalDate, false);
+                      }}
+                      onClick={() => onTriggerDayFocus(row.signalDate, true)}
+                    >
+                      {formatDate(row.signalDate)}
+                    </button>
+                  ) : formatDate(row.signalDate)}
                   {row.triggerClose != null && (
                     <span className="text-muted text-xs block md:inline md:ml-1">
                       ({row.triggerClose.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
