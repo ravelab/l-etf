@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { Chart as ChartJS, Filler, type ChartData, type TooltipItem } from "chart.js";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,7 @@ import { formatCompactCurrency } from "@/lib/format";
 import { useIsDarkTheme } from "@/lib/hooks/use-is-dark-theme";
 import { getVisibleIndexBounds, selectSampledIndices, type VisibleRange } from "@/lib/chart-resampling";
 import { logAxisFloor, shareAreaBandEdges } from "@/lib/share-area-bands";
+import { fitLogTrend } from "@/lib/log-trend";
 import type { LetfFundHoldings } from "@/lib/simulation/letf-fund-holdings";
 
 ChartJS.register(Filler);
@@ -36,7 +37,19 @@ function assetColor(asset: string, index: number, isDark: boolean, alpha: number
   return `hsl(${h} ${s}% ${isDark ? l + 6 : l - 8}% / ${alpha})`;
 }
 
-function LetfFundHoldingsChartImpl({ holdings }: { holdings: LetfFundHoldings }) {
+function formatGrowth(rate: number): string {
+  const pct = rate * 100;
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%/yr`;
+}
+
+interface LetfHoldingsChartProps {
+  holdings: LetfFundHoldings;
+  /** What the chart shows, above it. */
+  caption: ReactNode;
+  testId: string;
+}
+
+function LetfHoldingsChartImpl({ holdings, caption, testId }: LetfHoldingsChartProps) {
   const { dates, assets, values } = holdings;
   const [logScale, setLogScale] = useState(true);
   const [visibleRange, setVisibleRange] = useState<VisibleRange | null>(null);
@@ -49,7 +62,8 @@ function LetfFundHoldingsChartImpl({ holdings }: { holdings: LetfFundHoldings })
   );
 
   // Bands are rebuilt from the points in view so the log floor follows the zoom.
-  const { data, sourceIndices, floor } = useMemo(() => {
+  // On Log a straight trend line through the points in view, re-fitted on zoom.
+  const { data, sourceIndices, floor, trendValues } = useMemo(() => {
     const { startIndex, endIndex } = getVisibleIndexBounds(labelTimes, visibleRange);
     const indices = selectSampledIndices(startIndex, endIndex, MAX_VISIBLE_POINTS);
     const axisFloor = logScale ? logAxisFloor(indices.map((k) => totals[k])) : 0;
@@ -57,9 +71,11 @@ function LetfFundHoldingsChartImpl({ holdings }: { holdings: LetfFundHoldings })
       assets.map((asset) => indices.map((k) => values[asset][k] ?? 0)),
       { logScale, floor: axisFloor }
     );
+    const trend = logScale ? fitLogTrend(indices.map((k) => labelTimes[k]), indices.map((k) => totals[k])) : null;
+    const trendColor = isDarkTheme ? "rgba(255, 255, 255, 0.85)" : "rgba(15, 23, 42, 0.8)";
     const chartData: ChartData<"line"> = {
       labels: indices.map((k) => dates[k]),
-      datasets: assets.map((asset, a) => ({
+      datasets: [...assets.map((asset, a) => ({
         label: asset,
         data: edges[a],
         fill: a === 0 ? "start" : "-1",
@@ -69,8 +85,21 @@ function LetfFundHoldingsChartImpl({ holdings }: { holdings: LetfFundHoldings })
         pointRadius: 0,
         pointHitRadius: 4,
       })),
+      ...(trend
+        ? [{
+            label: `Trend ${formatGrowth(trend.annualGrowth)}`,
+            data: trend.values,
+            fill: false,
+            borderColor: trendColor,
+            backgroundColor: trendColor,
+            borderWidth: 1.4,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            pointHitRadius: 4,
+          }]
+        : [])],
     };
-    return { data: chartData, sourceIndices: indices, floor: axisFloor };
+    return { data: chartData, sourceIndices: indices, floor: axisFloor, trendValues: trend?.values ?? null };
   }, [labelTimes, visibleRange, logScale, totals, assets, values, dates, isDarkTheme]);
 
   const options = useMemo(() => {
@@ -88,11 +117,15 @@ function LetfFundHoldingsChartImpl({ holdings }: { holdings: LetfFundHoldings })
         tooltip: {
           ...base.plugins?.tooltip,
           // Band edges are positions, not money: report each asset's own dollars.
-          filter: (item: TooltipItem<"line">) => (values[assets[item.datasetIndex]]?.[sourceIndexOf(item)] ?? 0) > 0,
+          filter: (item: TooltipItem<"line">) => item.datasetIndex >= assets.length
+            || (values[assets[item.datasetIndex]]?.[sourceIndexOf(item)] ?? 0) > 0,
           itemSort: (a: TooltipItem<"line">, b: TooltipItem<"line">) => b.datasetIndex - a.datasetIndex,
           callbacks: {
             ...base.plugins?.tooltip?.callbacks,
             label: (item: TooltipItem<"line">) => {
+              if (item.datasetIndex >= assets.length) {
+                return `Trend: ${formatCompactCurrency(trendValues?.[item.dataIndex] ?? 0)}`;
+              }
               const k = sourceIndexOf(item);
               const asset = assets[item.datasetIndex];
               const value = values[asset]?.[k] ?? 0;
@@ -116,18 +149,14 @@ function LetfFundHoldingsChartImpl({ holdings }: { holdings: LetfFundHoldings })
         y: { ...base.scales?.y, min: floor },
       },
     };
-  }, [logScale, sourceIndices, values, assets, totals, floor]);
+  }, [logScale, sourceIndices, values, assets, totals, floor, trendValues]);
 
   const resetKey = `${dates[0] ?? ""}|${dates[dates.length - 1] ?? ""}|${assets.join(",")}`;
 
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <div className="min-w-0 text-xs text-muted">
-          What the fund holds at each close: each sleeve&rsquo;s LETF while it is risk-on and its
-          risk-off basket while it is out. The colored bands split the area under the fund&rsquo;s
-          value in proportion to each holding, on both scales.
-        </div>
+        <div className="min-w-0 text-xs text-muted">{caption}</div>
         <div className="flex shrink-0 gap-1">
           <Button variant={logScale ? "primary" : "ghost"} size="sm" onClick={() => setLogScale(true)}>
             Log
@@ -137,11 +166,11 @@ function LetfFundHoldingsChartImpl({ holdings }: { holdings: LetfFundHoldings })
           </Button>
         </div>
       </div>
-      <div className="h-[320px]" data-testid="letf-fund-holdings-chart">
+      <div className="h-[320px]" data-testid={testId}>
         <ZoomableChart data={data} options={options} onRangeChange={setVisibleRange} resetKey={resetKey} />
       </div>
     </div>
   );
 }
 
-export const LetfFundHoldingsChart = memo(LetfFundHoldingsChartImpl);
+export const LetfHoldingsChart = memo(LetfHoldingsChartImpl);

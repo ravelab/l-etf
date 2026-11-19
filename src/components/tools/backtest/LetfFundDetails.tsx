@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { LetfFundHoldingsChart } from "@/components/tools/backtest/LetfFundHoldingsChart";
+import { LetfHoldingsChart } from "@/components/tools/backtest/LetfHoldingsChart";
 import { buildSmaTradeTableRows, SmaTradesTable, type SmaTradeTableRow } from "@/components/tools/backtest/SmaTradesTable";
 import { alignLetfComboSleeves, findLetfComboSleeves, LETF_FUND_RESULT_ID, type LetfComboRun } from "@/lib/simulation/letf-dual-sleeve";
 import { letfComboFundHoldings } from "@/lib/simulation/letf-fund-holdings";
@@ -126,7 +126,16 @@ export function LetfFundDetails(props: LetfFundDetailsProps) {
   return (
     <div>
       <h3 className="text-sm font-medium text-muted mb-3">Fund Holdings — {shortBacktestAssetLabel(result.etfResults.find((etf) => etf.id === LETF_FUND_RESULT_ID)?.name ?? "TQQQ/UPRO")}</h3>
-      <LetfFundHoldingsChart holdings={holdings} />
+      <LetfHoldingsChart
+        holdings={holdings}
+        testId="letf-fund-holdings-chart"
+        caption={<>
+          What the fund holds at each close: each sleeve&rsquo;s LETF while it is risk-on and its risk-off
+          basket while it is out. The colored bands split the area under the fund&rsquo;s value in
+          proportion to each holding, on both scales; on Log the dashed line is the best-fit constant
+          growth rate over the range in view.
+        </>}
+      />
       <div className="mt-4">
         <h4 className="text-sm font-medium text-muted mb-2">
           {tableRows.length} Trade Days

@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { LETF_FUND_RESULT_ID, withLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
-import { FUND_CASH_ASSET, letfComboFundHoldings, sleeveShareByDay } from "@/lib/simulation/letf-fund-holdings";
+import { FUND_CASH_ASSET, letfComboFundHoldings, letfSleeveHoldings, sleeveShareByDay } from "@/lib/simulation/letf-fund-holdings";
+import { fitLogTrend } from "@/lib/log-trend";
 import { runParallelBacktest } from "@/lib/simulation/parallel-backtest";
 import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
 import { logAxisFloor, shareAreaBandEdges } from "@/lib/share-area-bands";
@@ -91,4 +92,30 @@ test("band edges split the column under the total linearly on screen", () => {
   assert.deepEqual(shareAreaBandEdges([[0], [0]], { logScale: true, floor }), [[null], [null]]);
   assert.equal(logAxisFloor([40, 0, 10]), 5);
   assert.equal(logAxisFloor([]), 1);
+});
+
+test("one LETF line's holdings add up to its own value", async () => {
+  const result = await comboRun();
+  const sleeve = result.etfResults.find((etf) => etf.id === "etf1-sma")!;
+  const holdings = letfSleeveHoldings(sleeve, "UPRO", "BRK.B+GLDM", RISK_OFF)!;
+  assert.deepEqual(holdings.assets, ["UPRO", "BRK.B", "GLDM"]);
+  assert.deepEqual(holdings.resetDates, []);
+  sleeve.dailyValues.forEach((value, i) => {
+    const sum = holdings.assets.reduce((total, asset) => total + holdings.values[asset][i], 0);
+    assert.ok(near(sum, value), `${sleeve.dates[i]}: ${sum} vs ${value}`);
+  });
+  assert.equal(letfSleeveHoldings({ ...sleeve, dates: [sleeve.dates[0]] }, "UPRO", "BRK.B+GLDM", RISK_OFF), null);
+});
+
+test("the log trend recovers a constant growth rate as a straight line", () => {
+  const year = 365.25 * 24 * 60 * 60 * 1000;
+  const times = [0, 1, 2, 3, 4].map((y) => Date.UTC(2000, 0, 1) + y * year);
+  const values = times.map((_, y) => 100 * Math.pow(1.25, y));
+  const trend = fitLogTrend(times, values)!;
+  assert.ok(Math.abs(trend.annualGrowth - 0.25) < 1e-12);
+  trend.values.forEach((value, k) => assert.ok(near(value, values[k])));
+  // Zeros are skipped rather than breaking the log.
+  assert.ok(Math.abs(fitLogTrend(times, [0, ...values.slice(1)])!.annualGrowth - 0.25) < 1e-12);
+  assert.equal(fitLogTrend([times[0]], [values[0]]), null);
+  assert.equal(fitLogTrend([times[0], times[0]], [1, 2]), null);
 });

@@ -23,13 +23,13 @@ import type { BacktestResult, EtfResult, PricePoint } from "./types";
 
 export const FUND_CASH_ASSET = "Cash";
 
-/** Dollars per asset at each fund close; the entries add up to the fund's value. */
+/** Dollars per asset at each close; the entries add up to the line's (or fund's) value. */
 export type LetfFundHoldings = {
   dates: string[];
   /** Assets in display order: each sleeve's LETF then its basket legs, `Cash` last. */
   assets: string[];
   values: Readonly<Record<string, readonly number[]>>;
-  /** Fund days on which both sleeves had been risk-off and the fund reset to 50/50. */
+  /** Fund days on which both sleeves had been risk-off and the fund reset to 50/50 (none for one sleeve). */
   resetDates: string[];
 };
 
@@ -130,5 +130,30 @@ export function letfComboFundHoldings(
     assets,
     values: Object.fromEntries(assets.map((asset) => [asset, byDay.map((day) => day[asset] ?? 0)])),
     resetDates: (taxEvents ?? []).filter((event) => event.reset).map((event) => event.date),
+  };
+}
+
+/**
+ * One LETF line's holdings: its LETF while risk-on, its basket legs while out,
+ * adding up to the line's own daily values. Null for a line too short to chart.
+ */
+export function letfSleeveHoldings(
+  sleeve: Pick<EtfResult, "dates" | "dailyValues" | "smaSignals" | "smaStartInvested">,
+  letfName: string,
+  riskOffAsset: string,
+  pricesByTicker: Record<string, PricePoint[]>
+): LetfFundHoldings | null {
+  if (sleeve.dates.length < 2) return null;
+  const shares = sleeveShareByDay(sleeve, letfName, riskOffAsset, pricesByTicker);
+  const seen = new Set(shares.flatMap((day) => Object.keys(day)));
+  const assets = orderAssets(seen, [[letfName, ...getRiskOffFetchTickers(riskOffAsset)]]);
+  return {
+    dates: sleeve.dates,
+    assets,
+    values: Object.fromEntries(assets.map((asset) => [
+      asset,
+      shares.map((day, i) => (sleeve.dailyValues[i] ?? 0) * (day[asset] ?? 0)),
+    ])),
+    resetDates: [],
   };
 }

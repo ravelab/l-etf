@@ -14,6 +14,9 @@ import {
 import { buildSmaTradeRows } from "@/lib/sma-trade-rows";
 import { riskOffSharePct } from "@/lib/sma-trade-metrics";
 import { buildSmaTradeTableRows, SmaTradesTable } from "@/components/tools/backtest/SmaTradesTable";
+import { LetfHoldingsChart } from "@/components/tools/backtest/LetfHoldingsChart";
+import { letfSleeveHoldings } from "@/lib/simulation/letf-fund-holdings";
+import { getRiskOffFetchTickers } from "@/lib/constants";
 
 const MAX_VISIBLE_POINTS = 1400;
 
@@ -94,6 +97,14 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
     }),
     [tradeRows, baseConfig, etfDates, riskOffPricesByTicker, annualizedInflation, tradeClosePrices, closePrices]
   );
+
+  // Waits for the basket's prices: without them every leg would read as cash.
+  const holdings = useMemo(() => {
+    if (!etf || !baseConfig) return null;
+    const tickers = getRiskOffFetchTickers(baseConfig.riskOffAsset);
+    if (!tickers.every((ticker) => (riskOffPricesByTicker?.[ticker]?.length ?? 0) > 0)) return null;
+    return letfSleeveHoldings(etf, baseConfig.name, baseConfig.riskOffAsset, riskOffPricesByTicker ?? {});
+  }, [etf, baseConfig, riskOffPricesByTicker]);
 
   const fullData = useMemo(() => {
     if (!etf || !etf.smaPrices.length) {
@@ -324,6 +335,20 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
           resetKey={resetKey}
         />
       </div>
+      {holdings && (
+        <div className="mt-4">
+          <LetfHoldingsChart
+            holdings={holdings}
+            testId="letf-sleeve-holdings-chart"
+            caption={<>
+              What {etfPriceLabel} SMA holds at each close: {etfPriceLabel} while risk-on and its risk-off
+              basket while out. The colored bands split the area under its value in proportion to each
+              holding, on both scales; on Log the dashed line is the best-fit constant growth rate over
+              the range in view.
+            </>}
+          />
+        </div>
+      )}
       <div className="mt-4">
         <h4 className="text-sm font-medium text-muted mb-2">
           {tradeRows.length} Trade Days
