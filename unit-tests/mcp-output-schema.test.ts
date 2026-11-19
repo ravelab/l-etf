@@ -9,6 +9,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { registerAll } from "@/lib/mcp/register";
 import { signalExitThresholds } from "@/lib/mcp/signal-exit-thresholds";
+import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { sanitizeNonFinite } from "@/lib/mcp/tool-result";
 
 /**
@@ -248,8 +249,8 @@ test("get_sma_signals validates against its declared schema", async () => {
   assert.notEqual(res.isError, true, JSON.stringify(res.content));
   const data = res.structuredContent as { signals: { sp500: { signalLabel: string } }; exitThresholds: { sp500: ReturnType<typeof signalExitThresholds>; nasdaq100: ReturnType<typeof signalExitThresholds> } };
   assert.ok(data.signals.sp500.signalLabel.length > 0);
-  assert.equal(data.exitThresholds.sp500.volatility.exitAbovePct, 42);
-  assert.equal(data.exitThresholds.nasdaq100.volatility.exitAbovePct, 50);
+  assert.equal(data.exitThresholds.sp500.volatility.exitAbovePct, SMA_VOL_GATE.sp500.exitAbove * 100);
+  assert.equal(data.exitThresholds.nasdaq100.volatility.exitAbovePct, SMA_VOL_GATE.nasdaq100.exitAbove * 100);
   assert.ok(data.exitThresholds.sp500.nextSmaExitClose! > 0);
   const disabled = await client.callTool({ name: "get_sma_signals", arguments: { smaVolGate: false } });
   assert.notEqual(disabled.isError, true);

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T21:45:51.554Z",
+  "generatedAt": "2026-11-19T02:39:19.719Z",
   "startDate": "1988-04-06",
   "endDate": "2026-11-16",
   "riskOffAssets": {
@@ -32,23 +32,23 @@
   },
   "distinctness": "At least 5% different risk-on days AND at least 20 days or 3 percentage points of parameter separation",
   "minRegimeDifferencePct": {
-    "sp500": 5.006682430348515,
+    "sp500": 5.016963092423151,
     "nasdaq100": 5.004748338081671
   },
   "evaluated": {
-    "sp500": 52511,
-    "nasdaq100": 44211
+    "sp500": 33015,
+    "nasdaq100": 29770
   },
   "candidatesTested": {
-    "sp500": 16242,
-    "nasdaq100": 14145
+    "sp500": 11957,
+    "nasdaq100": 13099
   },
   "bestFound": {
     "sp500": {
       "smaPeriod": 193,
       "smaUpperBuffer": 3.3,
       "smaLowerBuffer": 5.1,
-      "score": 5541.754789086571
+      "score": 6015.80639312402
     },
     "nasdaq100": {
       "smaPeriod": 136,
@@ -64,17 +64,17 @@
         "smaPeriod": 193,
         "smaUpperBuffer": 3.3,
         "smaLowerBuffer": 5.1,
-        "cagr": 23.887413372544096,
-        "finalMultiple": 3908.0245238724974,
-        "maxDrawdown": 50.599589283092826,
+        "cagr": 24.413158981900906,
+        "finalMultiple": 4602.244391675978,
+        "maxDrawdown": 50.59958928309284,
         "trades": 27,
-        "score": 5541.754789086571,
-        "baseScore": 5541.754789086571,
+        "score": 6015.80639312402,
+        "baseScore": 6015.80639312402,
         "stabilityPenalty": 0,
         "scoresByEra": {
-          "start": 5541.754789086571
+          "start": 6015.806393124019
         },
-        "realCagr": 20.54008576879429,
+        "realCagr": 21.051626199894137,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -86,8 +86,8 @@
           "proto": {
             "startDate": "1885-03-20",
             "endDate": "1926-07-01",
-            "cagr": 12.036876641122408,
-            "realCagr": 10.036554928023245,
+            "cagr": 11.808817343471611,
+            "realCagr": 9.812567432252717,
             "inflation": {
               "startDate": "1885-03-01",
               "endDate": "1926-07-01",
@@ -97,8 +97,8 @@
           "proxy": {
             "startDate": "1926-07-01",
             "endDate": "1988-04-06",
-            "cagr": 21.214499507123108,
-            "realCagr": 17.529156939690683,
+            "cagr": 21.717781218586317,
+            "realCagr": 18.017137135887907,
             "inflation": {
               "startDate": "1926-07-01",
               "endDate": "1988-04-01",
@@ -155,17 +155,17 @@
         "smaPeriod": 262,
         "smaUpperBuffer": 3.4,
         "smaLowerBuffer": 2.3,
-        "cagr": 24.321778667210438,
-        "finalMultiple": 4473.51111650806,
-        "maxDrawdown": 52.76740597767291,
+        "cagr": 24.78430477148361,
+        "finalMultiple": 5163.210496303594,
+        "maxDrawdown": 52.767405977672944,
         "trades": 31,
-        "score": 4974.623460671653,
-        "baseScore": 5166.0963348420855,
-        "stabilityPenalty": 191.47287417043208,
+        "score": 5349.834707176023,
+        "baseScore": 5546.376265867273,
+        "stabilityPenalty": 196.54155869125043,
         "scoresByEra": {
-          "start": 5166.0963348420855
+          "start": 5546.376265867273
         },
-        "realCagr": 20.962714899944366,
+        "realCagr": 21.41274396069921,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -177,8 +177,8 @@
           "proto": {
             "startDate": "1885-03-20",
             "endDate": "1926-07-01",
-            "cagr": 12.143936081119723,
-            "realCagr": 10.141702914141803,
+            "cagr": 11.915658856109435,
+            "realCagr": 9.917501381916649,
             "inflation": {
               "startDate": "1885-03-01",
               "endDate": "1926-07-01",
@@ -188,8 +188,8 @@
           "proxy": {
             "startDate": "1926-07-01",
             "endDate": "1988-04-06",
-            "cagr": 19.441961487500482,
-            "realCagr": 15.810510243652832,
+            "cagr": 20.032417273777714,
+            "realCagr": 16.383014119455662,
             "inflation": {
               "startDate": "1926-07-01",
               "endDate": "1988-04-01",
@@ -243,20 +243,20 @@
     {
       "isCalibratedDefault": false,
       "sp500": {
-        "smaPeriod": 159,
-        "smaUpperBuffer": 2.6,
-        "smaLowerBuffer": 3.7,
-        "cagr": 23.19374374382759,
-        "finalMultiple": 3146.305532250025,
-        "maxDrawdown": 53.35223582138078,
+        "smaPeriod": 168,
+        "smaUpperBuffer": 2.8,
+        "smaLowerBuffer": 3.3,
+        "cagr": 22.646908078431238,
+        "finalMultiple": 2649.724913098879,
+        "maxDrawdown": 51.94929716260649,
         "trades": 45,
-        "score": 4277.741332624921,
-        "baseScore": 4667.969946277434,
-        "stabilityPenalty": 390.22861365251356,
+        "score": 4252.518061742608,
+        "baseScore": 4267.178568834355,
+        "stabilityPenalty": 14.660507091747604,
         "scoresByEra": {
-          "start": 4667.969946277434
+          "start": 4267.178568834355
         },
-        "realCagr": 19.86515847582342,
+        "realCagr": 19.333097823220257,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -268,8 +268,8 @@
           "proto": {
             "startDate": "1885-03-20",
             "endDate": "1926-07-01",
-            "cagr": 12.913750302245152,
-            "realCagr": 10.897772766915171,
+            "cagr": 11.814492638516949,
+            "realCagr": 9.81814139980437,
             "inflation": {
               "startDate": "1885-03-01",
               "endDate": "1926-07-01",
@@ -279,8 +279,8 @@
           "proxy": {
             "startDate": "1926-07-01",
             "endDate": "1988-04-06",
-            "cagr": 18.755759479212642,
-            "realCagr": 15.145171164150618,
+            "cagr": 20.21286750136182,
+            "realCagr": 16.55797803221999,
             "inflation": {
               "startDate": "1926-07-01",
               "endDate": "1988-04-01",
@@ -334,20 +334,20 @@
     {
       "isCalibratedDefault": false,
       "sp500": {
-        "smaPeriod": 109,
-        "smaUpperBuffer": 4.6,
+        "smaPeriod": 115,
+        "smaUpperBuffer": 4.9,
         "smaLowerBuffer": 5,
-        "cagr": 21.80734807935638,
-        "finalMultiple": 2032.4364798011577,
-        "maxDrawdown": 55.912634643488765,
-        "trades": 40,
-        "score": 3510.6956106367566,
-        "baseScore": 3631.0253415009756,
-        "stabilityPenalty": 120.32973086421907,
+        "cagr": 22.492076594120935,
+        "finalMultiple": 2523.585534575592,
+        "maxDrawdown": 57.88014298715518,
+        "trades": 36,
+        "score": 3652.257901288231,
+        "baseScore": 4116.246936280778,
+        "stabilityPenalty": 463.98903499254675,
         "scoresByEra": {
-          "start": 3631.0253415009756
+          "start": 4116.246936280778
         },
-        "realCagr": 18.516221987801785,
+        "realCagr": 19.182449747758803,
         "inflation": {
           "startDate": "1988-04-01",
           "endDate": "2026-10-01",
@@ -359,8 +359,8 @@
           "proto": {
             "startDate": "1885-03-20",
             "endDate": "1926-07-01",
-            "cagr": 12.53094058659967,
-            "realCagr": 10.521797788270115,
+            "cagr": 12.753025893422176,
+            "realCagr": 10.73991795366136,
             "inflation": {
               "startDate": "1885-03-01",
               "endDate": "1926-07-01",
@@ -370,8 +370,8 @@
           "proxy": {
             "startDate": "1926-07-01",
             "endDate": "1988-04-06",
-            "cagr": 18.682405072469056,
-            "realCagr": 15.074046986618717,
+            "cagr": 17.261982345839844,
+            "realCagr": 13.696810053434039,
             "inflation": {
               "startDate": "1926-07-01",
               "endDate": "1988-04-01",

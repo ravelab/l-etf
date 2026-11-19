@@ -34,8 +34,9 @@ test("by-horizon boundary hits somewhere within the horizon and is monotonic", (
     previous = s.dailyReturnPctByHorizon;
     const path = prices.map(p => p.close);
     for (let day = 0; day < s.tradingDays; day++) path.push(path.at(-1)! * (1 + s.dailyReturnPctByHorizon / 100));
-    const futureVol = computeRealizedVol(path, 11).slice(-s.tradingDays);
-    assert.ok(Math.abs(Math.max(...futureVol) - 0.42) < 1e-10);
+    const gate = SMA_VOL_GATE[base.index];
+    const futureVol = computeRealizedVol(path, gate.windowDays).slice(-s.tradingDays);
+    assert.ok(Math.abs(Math.max(...futureVol) - gate.exitAbove) < 1e-10);
   }
 });
 

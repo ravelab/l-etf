@@ -9,7 +9,7 @@ import type { VolGateParams } from "./vol-gate";
  * it scored ~6% base / ~3.5% stable higher than the shipped 10d 50%/31%, with
  * +0.6pt real CAGR at the same max drawdown, but traded 42 times instead of 24,
  * the extra 18 being short gate flips mostly in 1998-2003. SPX has no such
- * variant: its shipped 11d 42%/23% is already its plateau centre.
+ * variant: its shipped 20d 32%/22% is already its stable-score leader.
  */
 export const NDX_ARGMAX_VOL_GATE: VolGateParams = { windowDays: 9, exitAbove: 0.46, reenterBelow: 0.4 };
 
