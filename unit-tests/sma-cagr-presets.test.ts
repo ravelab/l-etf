@@ -1,8 +1,11 @@
 import { refinePresetGrid, snapPresetCombo, sweepPresetPeriods, preferStablePresetCenter } from "../scripts/lib/sma-preset-grid";
 import test from "node:test";
 import assert from "node:assert/strict";
-import snapshot from "../src/lib/tool-snapshots/sma-cagr-presets.json";
-import calibration from "../src/lib/tool-snapshots/sma-calibration.json";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import type nominalPresets from "../src/lib/tool-snapshots/sma-cagr-presets.json";
+import type nominalCalibration from "../src/lib/tool-snapshots/sma-calibration.json";
+import { smaArtifactFileName, type SmaCalibrationVariant } from "../src/lib/sma-calibration-variant";
 import { SMA_HISTORICAL_ERAS, SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE, combineEraScores } from "../src/lib/simulation/sma-calibration-eras";
 import { buildSmaEraContexts, evaluateCombosAcrossEras } from "../scripts/lib/sma-sweep-context";
 import { comboKey, planBufferNeighborhood, planPeriodNeighborhood, planCombos } from "../src/lib/simulation/sma-search";
@@ -58,11 +61,21 @@ test("plateau centering cannot erase a measured stable-score improvement", () =>
   assert.equal(preferStablePresetCenter(better, tiedCenter), tiedCenter);
 });
 
-test("CAGR presets retain their actual engine returns, rank and distinct trade regimes", async () => {
+// Both artifact sets: the nominal band and the inflation-adjusted one (`sma-calibration-variant.ts`).
+const readArtifact = <T>(base: "sma-cagr-presets" | "sma-calibration", variant: SmaCalibrationVariant): T =>
+  JSON.parse(readFileSync(join(process.cwd(), "src", "lib", "tool-snapshots", smaArtifactFileName(base, variant)), "utf8")) as T;
+
+for (const variant of ["nominal", "inflation"] as const satisfies readonly SmaCalibrationVariant[]) {
+const inflationAdjusted = variant === "inflation";
+const snapshot = readArtifact<typeof nominalPresets>("sma-cagr-presets", variant);
+const calibration = readArtifact<typeof nominalCalibration>("sma-calibration", variant);
+
+test(`${variant} CAGR presets retain their actual engine returns, rank and distinct trade regimes`, async () => {
   assert.equal(snapshot.presets.length, 4);
   assert.equal(snapshot.grid.bufferStep, 0.1);
   assert.equal(snapshot.grid.periodStep, 1);
   assert.deepEqual(snapshot.riskOffAssets, DEFAULT_RISK_OFF_ASSETS, "presets are scored and displayed with each index's default risk-off asset");
+  assert.deepEqual(snapshot.inflationAdjusted, { sp500: inflationAdjusted, nasdaq100: inflationAdjusted }, "presets belong to the other artifact set");
   assert.equal(snapshot.executionMode, DEFAULT_SMA_EXECUTION_MODE);
   assert.equal(snapshot.ranking, SMA_PRESET_RANKING);
   assert.deepEqual(rankSmaPresetSets(snapshot.presets), snapshot.presets);
@@ -88,7 +101,7 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
         preset: index === "sp500" ? "UPRO" : "TQQQ",
         startDate: modernStartDate, endDate: snapshot.endDate, smaEnabled: true,
         smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
-        smaVolGate: SMA_CALIBRATION_VOL_GATE[index],
+        smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaInflationAdjusted: inflationAdjusted,
         riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
       });
       assert.equal(result.startDate, modernStartDate);
@@ -126,7 +139,7 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
           preset: index === "sp500" ? "UPRO" : "TQQQ", smaEnabled: true,
           startDate: era.startDate, endDate: era.endDate,
           smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
-          smaVolGate: SMA_CALIBRATION_VOL_GATE[index],
+          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaInflationAdjusted: inflationAdjusted,
           riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
         });
         assert.equal(recorded.startDate, historical.startDate);
@@ -160,7 +173,7 @@ test("CAGR presets retain their actual engine returns, rank and distinct trade r
 });
 
 
-test("preset selection uses full-period scores, stability penalties and the calibrated default", async () => {
+test(`${variant} preset selection uses full-period scores, stability penalties and the calibrated default`, async () => {
   const defaults = snapshot.presets.filter((preset) => preset.isCalibratedDefault);
   assert.equal(defaults.length, 1);
   for (const index of ["sp500", "nasdaq100"] as const) {
@@ -171,7 +184,7 @@ test("preset selection uses full-period scores, stability penalties and the cali
       `${index} calibrated default must include the manual search's strongest discovery`);
     for (const field of ["smaPeriod", "smaUpperBuffer", "smaLowerBuffer"] as const) assert.equal(actualDefault[field], expectedDefault[field]);
     const contexts = await buildSmaEraContexts({ indexKey: index, endDate: snapshot.endDate,
-      windowLength: snapshot.windowLength, maxPeriod: SMA_SEARCH_MAX_PERIOD });
+      windowLength: snapshot.windowLength, maxPeriod: SMA_SEARCH_MAX_PERIOD, inflationAdjusted });
     const combos = snapshot.presets.flatMap((preset) => planCombos(
       planPeriodNeighborhood(preset[index].smaPeriod, 1, { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD }),
       planBufferNeighborhood(preset[index].smaUpperBuffer, preset[index].smaLowerBuffer, 0.1, 0.1,
@@ -201,7 +214,7 @@ test("preset selection uses full-period scores, stability penalties and the cali
 
   }
 });
-
+}
 
 test("joint refinement covers every integer period and fractional buffers within search bounds", () => {
   const center = snapPresetCombo({ smaPeriod: 62, smaUpperBuffer: 8, smaLowerBuffer: 6.2 });

@@ -18,14 +18,12 @@ import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "../src/l
 import { comboKey, planBufferNeighborhood, planCombos, planPeriodNeighborhood, summarizePlateau, type SmaCombo } from "../src/lib/simulation/sma-search";
 import { SMA_SEARCH_MIN_PERIOD, SMA_SEARCH_MAX_PERIOD, SMA_SEARCH_MIN_BUFFER, SMA_SEARCH_MAX_BUFFER } from "../src/lib/simulation/sma-search-bounds";
 import type { EtfResult, IndexKey } from "../src/lib/simulation/types";
-import seeds from "../src/lib/tool-snapshots/sma-search-space.json";
-import calibration from "../src/lib/tool-snapshots/sma-calibration.json";
 import { CONSTANT_INITIAL_INVESTMENT, CONSTANT_SP500_SHORTCUT_DATE, CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../src/lib/constants";
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
 import { rankSmaPresetSets, SMA_PRESET_RANKING } from "../src/lib/simulation/sma-preset-ranking";
 import { findPlateau, PLATEAU_TOLERANCE } from "../src/lib/simulation/plateau";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
-import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_VOL_GATE } from "../src/lib/simulation/sma-calibration-eras";
+import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_INFLATION_ADJUSTED, SMA_CALIBRATION_VOL_GATE } from "../src/lib/simulation/sma-calibration-eras";
 import { type EraEvaluatedCombo } from "./lib/sma-sweep-context";
 import { withEraCagrs } from "./lib/sma-preset-era-cagrs";
 import { rescoreSavedPresets } from "./lib/sma-preset-rescore";
@@ -33,8 +31,12 @@ import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapP
 import { presetScoreCache } from "./lib/sma-preset-cache";
 import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
 import { SMA_CALIBRATION_SNAPSHOT_PATH, type SmaCalibrationIndexResult } from "../src/lib/sma-calibration";
-import currentPresets from "../src/lib/tool-snapshots/sma-cagr-presets.json";
 import { SmaSearchBudget, smaBudgetMinutes } from "./lib/sma-search-budget";
+import { readSmaArtifact, smaArtifactPath } from "./lib/sma-artifacts";
+
+const seeds = readSmaArtifact("sma-search-space");
+const calibration = readSmaArtifact("sma-calibration");
+const currentPresets = readSmaArtifact("sma-cagr-presets");
 
 interface Candidate extends SmaCombo {
   cagr: number; finalMultiple: number; maxDrawdown: number; trades: number;
@@ -160,7 +162,7 @@ async function main(): Promise<void> {
         const cached = summaries.get(comboKey(row.combo));
         if (cached?.score === score) return cached;
         const config = createPresetEtfConfig(comboKey(row.combo), preset, { ...row.combo,
-          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: "next-day-open" });
+          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[index], riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: "next-day-open" });
         const result = simulateWithWarmUp(prices, rates, [config], modernStartDate, row.combo.smaPeriod, {
           riskOffValuesByAsset: riskOff.closeValuesByAsset, riskOffOpenValuesByAsset: riskOff.openValuesByAsset, endDate,
         });
@@ -333,7 +335,7 @@ async function main(): Promise<void> {
   }));
   const minRegimeDifferencePct = (index: IndexKey) => 100 * Math.min(...selected[index].flatMap((left, i) =>
     selected[index].slice(i + 1).map((right) => regimeDistance(left, right))));
-  const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAssets: DEFAULT_RISK_OFF_ASSETS,
+  const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED,
     executionMode: "next-day-open", windowLength: calibrationYears("sp500", endDate),
     selection: "Calibrated default plus three distinct alternatives selected by stability-adjusted full-period score from per-period search seeds with joint buffer refinement",
     grid: { periodStep: PRESET_PERIOD_STEP, bufferStep: PRESET_BUFFER_STEP, basinBufferHalfWidth: PRESET_BUFFER_HALF_WIDTH },
@@ -347,27 +349,27 @@ async function main(): Promise<void> {
   if (process.argv.includes("--write-presets")) {
     writeFileSync(SMA_CALIBRATION_SNAPSHOT_PATH, JSON.stringify({ generatedAt: payload.generatedAt,
       endDate, windowLength: calibrationYears("sp500", endDate), ...calibratedDefaults }, null, 2) + "\n");
-    const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
+    const path = smaArtifactPath("sma-cagr-presets");
     writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
     console.log(`Wrote ${path}`);
   }
 }
 async function refreshEraCagrs(): Promise<void> {
-  const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS,
+  const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED,
     presets: await withEraCagrs(rankSmaPresetSets(currentPresets.presets), currentPresets.startDate, currentPresets.endDate) };
-  const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
+  const path = smaArtifactPath("sma-cagr-presets");
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Refreshed era CAGRs in ${path}`);
 }
 async function rerankPresets(): Promise<void> {
   const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, presets: rankSmaPresetSets(currentPresets.presets) };
-  const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
+  const path = smaArtifactPath("sma-cagr-presets");
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Ranked presets by full-period score in ${path}`);
 }
 async function rescorePresets(): Promise<void> {
-  const payload = await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS });
-  const path = fileURLToPath(new URL("../src/lib/tool-snapshots/sma-cagr-presets.json", import.meta.url));
+  const payload = await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED });
+  const path = smaArtifactPath("sma-cagr-presets");
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Re-scored saved presets under the current engine in ${path}`);
 }

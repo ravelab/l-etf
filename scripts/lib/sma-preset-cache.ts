@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EraEvaluatedCombo } from "./sma-sweep-context";
 import { comboKey } from "../../src/lib/simulation/sma-search";
+import { smaCalibrationVariantFromEnv } from "../../src/lib/sma-calibration-variant";
 
 /** Resume expensive searches only when their scoring code and data match. */
 export function presetScoreCache(index: string, endDate: string) {
-  const hash = createHash("sha256").update(endDate);
+  // The variant changes every score without changing a file, so it keys the cache too.
+  const hash = createHash("sha256").update(endDate).update(smaCalibrationVariantFromEnv());
   for (const file of readdirSync("src/lib/simulation").filter((file) => file.endsWith(".ts")).sort())
     hash.update(readFileSync(join("src/lib/simulation", file)));
   for (const file of ["scripts/lib/sma-sweep-context.ts", "scripts/lib/sweep-data.ts", "src/lib/constants.ts", "src/lib/inflation.ts", "src/lib/fetch-market-data.ts"])

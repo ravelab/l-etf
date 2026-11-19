@@ -134,7 +134,7 @@ export function FuturesPageContent({
     smaSpPeriod,
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     spxRiskOffAsset,
     ndxRiskOffAsset,
     riskOffAssets,
@@ -302,6 +302,9 @@ export function FuturesPageContent({
     if (smaBuffers.smaVolGate != null) {
       handleFieldChange("smaVolGate", smaBuffers.smaVolGate);
     }
+    if (smaBuffers.smaInflationAdjusted != null) {
+      handleFieldChange("smaInflationAdjusted", smaBuffers.smaInflationAdjusted);
+    }
     const urlRiskOffAssets = parseRiskOffUrlParams(params);
     if (urlRiskOffAssets.sp500) handleFieldChange("spxRiskOffAsset", urlRiskOffAssets.sp500);
     if (urlRiskOffAssets.nasdaq100) handleFieldChange("ndxRiskOffAsset", urlRiskOffAssets.nasdaq100);
@@ -362,7 +365,7 @@ export function FuturesPageContent({
       smaSpLowerBuffer,
       smaNqUpperBuffer,
       smaNqLowerBuffer,
-      smaVolGate,
+      smaVolGate, smaInflationAdjusted,
     });
     appendRiskOffUrlParams(params, riskOffAssets);
     params.set("amt", String(amount));
@@ -387,7 +390,7 @@ export function FuturesPageContent({
     smaSpUpperBuffer,
     smaSpLowerBuffer,
     smaSpPeriod,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     startDate,
     perIndexStart,
   ]);
@@ -459,6 +462,7 @@ export function FuturesPageContent({
         normalizeNumberValue(snapshot.smaNqLowerBuffer, 11.9, { min: 0 })
       );
       handleFieldChange("smaVolGate", snapshot.smaVolGate === true);
+      handleFieldChange("smaInflationAdjusted", snapshot.smaInflationAdjusted === true);
       handleFieldChange(
         "spxRiskOffAsset",
         normalizeRiskOffAsset(snapshot.spxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.sp500)
@@ -497,7 +501,7 @@ export function FuturesPageContent({
       save(snapshot as any);
     },
     onNoData: () => setPendingRun(true),
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     perIndexStart,
     hasPersistedResults: (state) => Boolean(state.result),
   });
@@ -603,8 +607,8 @@ export function FuturesPageContent({
       // One band per index feeds both the ladders and their LETF twins below, so
       // the pair cannot disagree about its own SMA rule (see futures-plan.ts).
       const smaBands: SmaBandsByIndex = {
-        sp500: { period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer, volGate: smaVolGate },
-        nasdaq100: { period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer, volGate: smaVolGate },
+        sp500: { period: smaSpPeriod, upperBuffer: smaSpUpperBuffer, lowerBuffer: smaSpLowerBuffer, volGate: smaVolGate, inflationAdjusted: smaInflationAdjusted },
+        nasdaq100: { period: smaNqPeriod, upperBuffer: smaNqUpperBuffer, lowerBuffer: smaNqLowerBuffer, volGate: smaVolGate, inflationAdjusted: smaInflationAdjusted },
       };
       const futuresPlan = buildFuturesLadderPlan({
         showEmulations,
@@ -631,6 +635,7 @@ export function FuturesPageContent({
         smaPeriod: sma.period,
         smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
         smaVolGate: sma.volGate === true,
+        smaInflationAdjusted: sma.inflationAdjusted === true,
         riskOffAsset: riskOffAssets[index],
         riskOffCloseByTicker: riskOffAlignedFor(index, sleeveStartDate).closeByTicker,
         riskOffOpenByTicker: riskOffAlignedFor(index, sleeveStartDate).openByTicker,
@@ -800,7 +805,7 @@ export function FuturesPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         spxRiskOffAsset,
         ndxRiskOffAsset,
         amount,
@@ -818,7 +823,7 @@ export function FuturesPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         spxRiskOffAsset,
         ndxRiskOffAsset,
         amount,
@@ -863,7 +868,7 @@ export function FuturesPageContent({
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     startDate,
     perIndexStart,
     spxStartDate,
@@ -904,7 +909,7 @@ export function FuturesPageContent({
             smaSpPeriod,
             smaNqPeriod,
             smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-            smaVolGate,
+            smaVolGate, smaInflationAdjusted,
             spxRiskOffAsset,
             ndxRiskOffAsset,
           }}

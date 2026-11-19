@@ -142,6 +142,8 @@ export type FuturesStrategyParams = {
   smaLowerBuffer: number;
   /** Also hold risk-off while the volatility gate or RSI crash brake is tripped (`risk-off-gates.ts`). */
   smaVolGate?: boolean;
+  /** Run the SMA band on the CPI-deflated index (`generateSmaSignals`' `inflationAdjusted`). */
+  smaInflationAdjusted?: boolean;
   riskOffAsset: RiskOffAsset;
   /**
    * Every ticker this sleeve may hold, a superset of `riskOffAsset`'s. A two-sleeve

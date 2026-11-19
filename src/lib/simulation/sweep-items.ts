@@ -52,6 +52,7 @@ export function makeSweepEtfConfig(
     /** Left undefined, the engine applies DEFAULT_SMA_EXECUTION_MODE. */
     smaExecutionMode?: SmaExecutionMode;
     smaVolGate?: boolean;
+    smaInflationAdjusted?: boolean;
   },
 ): EtfConfig {
   return {
@@ -68,6 +69,7 @@ export function makeSweepEtfConfig(
     riskOffAsset: opts.riskOffAsset,
     ...(opts.smaExecutionMode ? { smaExecutionMode: opts.smaExecutionMode } : {}),
     ...(opts.smaVolGate ? { smaVolGate: true } : {}),
+    ...(opts.smaInflationAdjusted ? { smaInflationAdjusted: true } : {}),
   };
 }
 
@@ -104,6 +106,7 @@ export function buildSmaPeriodSweepItems(p: {
   lowerBuffer: number;
   smaExecutionMode?: SmaExecutionMode;
   smaVolGate?: boolean;
+  smaInflationAdjusted?: boolean;
 }): SweepItem[] {
   const items: SweepItem[] = [
     { paramValue: 0, config: defaultPeriodBaseline(p.preset, p.riskOffAsset, p.smaExecutionMode) },
@@ -121,6 +124,7 @@ export function buildSmaPeriodSweepItems(p: {
         riskOffAsset: p.riskOffAsset,
         smaExecutionMode: p.smaExecutionMode,
         smaVolGate: p.smaVolGate,
+        smaInflationAdjusted: p.smaInflationAdjusted,
       }),
     });
   }
@@ -140,6 +144,7 @@ export function buildRiskOffVariantConfigs(p: {
   lowerBuffer: number;
   smaExecutionMode?: SmaExecutionMode;
   smaVolGate?: boolean;
+  smaInflationAdjusted?: boolean;
 }): LabeledSweepConfig[] {
   const variants: LabeledSweepConfig[] = p.assets.map((asset) => ({
     label: asset,
@@ -153,6 +158,7 @@ export function buildRiskOffVariantConfigs(p: {
       riskOffAsset: asset,
       smaExecutionMode: p.smaExecutionMode,
       smaVolGate: p.smaVolGate,
+      smaInflationAdjusted: p.smaInflationAdjusted,
     }),
   }));
   return [
@@ -177,6 +183,7 @@ export function buildSymmetricBufferSweepItems(p: {
   fineStep: number;
   smaExecutionMode?: SmaExecutionMode;
   smaVolGate?: boolean;
+  smaInflationAdjusted?: boolean;
 }): SweepItem[] {
   const items: SweepItem[] = [
     {
@@ -208,6 +215,7 @@ export function buildSymmetricBufferSweepItems(p: {
         riskOffAsset: p.riskOffAsset,
         smaExecutionMode: p.smaExecutionMode,
         smaVolGate: p.smaVolGate,
+        smaInflationAdjusted: p.smaInflationAdjusted,
       }),
     });
   }
@@ -232,6 +240,7 @@ export function makeAsymmetricSweepItem(p: {
   variant: "coarse" | "fine";
   smaExecutionMode?: SmaExecutionMode;
   smaVolGate?: boolean;
+  smaInflationAdjusted?: boolean;
 }): SweepItem {
   const encoded = encodeAsymBuffer(p.upper, p.lower);
   return {
@@ -246,6 +255,7 @@ export function makeAsymmetricSweepItem(p: {
       riskOffAsset: p.riskOffAsset,
       smaExecutionMode: p.smaExecutionMode,
       smaVolGate: p.smaVolGate,
+      smaInflationAdjusted: p.smaInflationAdjusted,
     }),
   };
 }

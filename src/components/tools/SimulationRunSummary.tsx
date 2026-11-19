@@ -95,6 +95,11 @@ export function SimulationRunSummary({
             Volatility + RSI: <span className="text-foreground">{SMA_RISK_OFF_GATES_PARAMS_TEXT}</span>
           </span>
         )}
+        {summary.smaInflationAdjusted && (
+          <span className="text-muted min-w-0">
+            SMA Buffer: <span className="text-foreground">inflation adjusted</span>
+          </span>
+        )}
         {showRiskOffAsset && (
           <span className="text-muted min-w-0">
             SPX Risk-Off: <span className="text-foreground">{formatRiskOffAsset(summary.spxRiskOffAsset)}</span>

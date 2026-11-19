@@ -1,4 +1,5 @@
 import { computeSma } from "@/lib/simulation/sma";
+import { cpiDeflatorForDates } from "@/lib/simulation/cpi-deflator";
 import { computeRealizedVol, nextVolGateRiskOff, type VolGateParams } from "@/lib/simulation/vol-gate";
 import { computeWilderRsi, nextRsiBrakeRiskOff, type RsiBrakeParams } from "@/lib/simulation/rsi-brake";
 import { DailyPrice } from "@/lib/data/storage/types";
@@ -19,6 +20,11 @@ export interface SmaSignalResult {
   /** Present only when the RSI crash brake was requested. */
   rsi?: number;
   rsiBrakeRiskOff?: boolean;
+  /**
+   * Present only when the band ran on the CPI-deflated index: `smaValue` is then the
+   * real SMA in the latest CPI's dollars, and `percentDiff` the real gap to it.
+   */
+  inflationAdjusted?: true;
 }
 
 /**
@@ -37,7 +43,7 @@ export function getSmaSignal(
   prices: DailyPrice[],
   period: number,
   buffer: { upper: number; lower: number },
-  options: { volGate?: VolGateParams; rsiBrake?: RsiBrakeParams } = {}
+  options: { volGate?: VolGateParams; rsiBrake?: RsiBrakeParams; inflationAdjusted?: boolean } = {}
 ): SmaSignalResult {
   const upperPercent = buffer.upper;
   const lowerPercent = buffer.lower;
@@ -59,11 +65,17 @@ export function getSmaSignal(
   }
 
   const priceIndex = prices.map((p) => p.close as number);
+  // Inflation adjusted: the band runs on the CPI-deflated index, as in
+  // `generateSmaSignals`; the reported SMA is re-inflated to today's dollars.
+  const deflator = options.inflationAdjusted ? cpiDeflatorForDates(prices.map((p) => p.date)) : null;
+  const bandPrices = deflator ? priceIndex.map((price, i) => price / deflator[i]) : priceIndex;
 
   const currentPrice = priceIndex[priceIndex.length - 1];
+  const currentBandPrice = bandPrices[bandPrices.length - 1];
   const indexDate = prices[prices.length - 1].date;
-  const smaValues = computeSma(priceIndex, period);
-  const currentSma = smaValues[smaValues.length - 1];
+  const smaValues = computeSma(bandPrices, period);
+  const currentBandSma = smaValues[smaValues.length - 1];
+  const currentSma = deflator ? currentBandSma * deflator[deflator.length - 1] : currentBandSma;
 
   if (!isFinite(currentSma) || currentSma === 0) {
     return {
@@ -77,7 +89,7 @@ export function getSmaSignal(
     };
   }
 
-  const percentDiff = ((currentPrice - currentSma) / currentSma) * 100;
+  const percentDiff = ((currentBandPrice - currentBandSma) / currentBandSma) * 100;
   const upperDecimal = upperPercent / 100;
   const lowerDecimal = lowerPercent / 100;
 
@@ -86,7 +98,7 @@ export function getSmaSignal(
   for (let i = priceIndex.length - 1; i >= 0; i--) {
     const sma = smaValues[i];
     if (!isFinite(sma) || sma === 0) break;
-    const price = priceIndex[i];
+    const price = bandPrices[i];
     if (price > sma * (1 + upperDecimal)) {
       lastPosition = "risk-on";
       break;
@@ -101,11 +113,11 @@ export function getSmaSignal(
   let signalLabel = lastPosition === "risk-on" ? "Buy L-ETFs" : "Sell L-ETFs";
   let signalEmoji = lastPosition === "risk-on" ? "🟢" : "🔴";
 
-  if (currentPrice > currentSma * (1 + upperDecimal)) {
+  if (currentBandPrice > currentBandSma * (1 + upperDecimal)) {
     signal = "buy";
     signalLabel = "Buy";
     signalEmoji = "🟢";
-  } else if (currentPrice < currentSma * (1 - lowerDecimal)) {
+  } else if (currentBandPrice < currentBandSma * (1 - lowerDecimal)) {
     signal = "sell";
     signalLabel = "Sell";
     signalEmoji = "🔴";
@@ -131,6 +143,7 @@ export function getSmaSignal(
     signalEmoji,
     ...(volState ? { volatility: volState.value, volGateRiskOff: volState.riskOff } : {}),
     ...(brakeState ? { rsi: brakeState.value, rsiBrakeRiskOff: brakeState.riskOff } : {}),
+    ...(deflator ? { inflationAdjusted: true as const } : {}),
   };
 }
 

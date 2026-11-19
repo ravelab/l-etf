@@ -25,6 +25,8 @@ export type SmaBand = {
   lowerBuffer: number;
   /** Also hold risk-off while the volatility gate (`vol-gate.ts`) is tripped. */
   volGate?: boolean;
+  /** Run the band on the CPI-deflated index. */
+  inflationAdjusted?: boolean;
 };
 
 /** What each index's rungs and sleeves hold while risk-off: the site-wide per-index default. */
@@ -181,6 +183,7 @@ export function buildEmulationEtfConfigs(params: {
       smaUpperBuffer: band.upperBuffer,
       smaLowerBuffer: band.lowerBuffer,
       ...(band.volGate ? { smaVolGate: true } : {}),
+      ...(band.inflationAdjusted ? { smaInflationAdjusted: true } : {}),
       riskOffAsset: riskOffAssets[pair.index as keyof DualRiskOffAssets],
     });
   });

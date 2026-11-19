@@ -26,7 +26,7 @@ import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "@/lib/mc
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
 import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import { readSmaCalibrationSnapshot, type SmaCalibrationResult } from "@/lib/sma-calibration";
-import { SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
+import { SMA_CALIBRATION_INFLATION_ADJUSTED, SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { EtfConfig } from "@/lib/simulation/types";
@@ -133,6 +133,7 @@ async function simulateStrategy(presetKey: PresetKey, calibration: SmaCalibratio
     smaLowerBuffer,
     smaIndex: index,
     smaVolGate: SMA_CALIBRATION_VOL_GATE[index],
+    smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[index],
     smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
     riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index],
   };

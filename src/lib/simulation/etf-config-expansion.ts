@@ -77,6 +77,7 @@ function buildDedupeKey(config: EtfConfig): string {
     smaUpperBuffer: config.smaUpperBuffer,
     smaLowerBuffer: config.smaLowerBuffer,
     smaVolGate: config.smaVolGate === true,
+    smaInflationAdjusted: config.smaInflationAdjusted === true,
     signalRule: config.signalRule ?? null,
     riskOffAsset: config.riskOffAsset,
     smaExecutionMode: config.smaExecutionMode,

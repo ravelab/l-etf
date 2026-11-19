@@ -20,6 +20,7 @@ export const pushSmaConfigSchema = z.object({
   smaNqLowerBuffer: z.number().min(0).max(30),
   smaNqEnabled: z.boolean().default(true),
   smaVolGate: z.boolean().default(false),
+  smaInflationAdjusted: z.boolean().default(false),
   notifyEveryClose: z.boolean().default(false),
   useCalibratedDefaults: z.boolean().default(false),
 });

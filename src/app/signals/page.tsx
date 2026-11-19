@@ -4,25 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { BufferPairInput } from "@/components/ui/BufferPairInput";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { SignalCard } from "@/components/home/SignalCard";
 import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
 import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
+import { InflationAdjustedCheckbox } from "@/components/tools/InflationAdjustedCheckbox";
 import { getSharedInputs } from "@/lib/hooks/use-shared-inputs";
-import { formatSmaSummary } from "@/lib/buffer-format";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
+import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, getInflationAdjustedDefaultSmaBand } from "@/lib/simulation/defaults";
 import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 import cagrPresets from "@/lib/tool-snapshots/sma-cagr-presets.json";
+import inflationCagrPresets from "@/lib/tool-snapshots/sma-cagr-presets-inflation.json";
+import { SmaPresetsCard, type SmaPreset } from "@/components/home/SmaPresetsCard";
+import type { SmaCalibrationVariant } from "@/lib/sma-calibration-variant";
 
 const USE_CALIBRATED_DEFAULTS_KEY = "signals-use-calibrated-defaults";
-const SMA_PRESETS = cagrPresets.presets.map((preset, index) => ({
-  ...preset,
-  label: preset.isCalibratedDefault ? "Set default"
-    : `Set alternative ${cagrPresets.presets.slice(0, index + 1).filter((row) => !row.isCalibratedDefault).length}`,
-}));
 interface SmaSignalsResponse {
   sp500: SmaSignalResult;
   nasdaq100: SmaSignalResult;
@@ -49,6 +46,7 @@ export default function SignalsPage() {
   const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(inputs.smaNqLowerBuffer ?? 12);
   const [smaNqEnabled, setSmaNqEnabled] = useState(inputs.smaNqEnabled ?? true);
   const [smaVolGate, setSmaVolGate] = useState(inputs.smaVolGate ?? true);
+  const [smaInflationAdjusted, setSmaInflationAdjusted] = useState(inputs.smaInflationAdjusted ?? false);
   // notifyEveryClose is push-only, persisted under the push alert config blob,
   // so it survives reloads even though it isn't part of the shared input set.
   const [notifyEveryClose, setNotifyEveryClose] = useState(false);
@@ -69,6 +67,7 @@ export default function SignalsPage() {
     smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqEnabled,
     smaVolGate,
+    smaInflationAdjusted,
     notifyEveryClose,
     useCalibratedDefaults,
   };
@@ -78,18 +77,24 @@ export default function SignalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [calibration, setCalibration] = useState<SmaCalibrationResult | null>(null);
 
+  // Push alerts that follow the calibration follow the set matching the switch.
   useEffect(() => {
-    fetch("/api/sma-calibration")
+    fetch(`/api/sma-calibration${smaInflationAdjusted ? "?variant=inflation" : ""}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setCalibration(data))
       .catch(() => setCalibration(null));
-  }, []);
-  const handleSetPreset = useCallback((indexKey: "sp500" | "nasdaq100", preset: (typeof cagrPresets.presets)[number]) => {
-    const rule = preset.isCalibratedDefault ? {
-      smaPeriod: getDefaultSmaPeriod(indexKey),
-      smaUpperBuffer: getDefaultSmaUpperBuffer(indexKey),
-      smaLowerBuffer: getDefaultSmaLowerBuffer(indexKey),
-    } : preset[indexKey];
+  }, [smaInflationAdjusted]);
+  // A preset applies its own index's band and the set's inflation switch: the
+  // inflation-adjusted bands were calibrated on the deflated index, the others on
+  // the index as quoted, so each only means what it scored with its own setting.
+  const handleSetPreset = useCallback((indexKey: "sp500" | "nasdaq100", preset: SmaPreset, variant: SmaCalibrationVariant) => {
+    const rule = !preset.isCalibratedDefault ? preset[indexKey]
+      : variant === "inflation" ? getInflationAdjustedDefaultSmaBand(indexKey)
+        : {
+          smaPeriod: getDefaultSmaPeriod(indexKey),
+          smaUpperBuffer: getDefaultSmaUpperBuffer(indexKey),
+          smaLowerBuffer: getDefaultSmaLowerBuffer(indexKey),
+        };
     if (indexKey === "sp500") {
       setSmaSpPeriod(rule.smaPeriod);
       setSmaSpUpperBuffer(rule.smaUpperBuffer);
@@ -99,6 +104,7 @@ export default function SignalsPage() {
       setSmaNqUpperBuffer(rule.smaUpperBuffer);
       setSmaNqLowerBuffer(rule.smaLowerBuffer);
     }
+    setSmaInflationAdjusted(variant === "inflation");
   }, []);
 
   useEffect(() => {
@@ -120,8 +126,9 @@ export default function SignalsPage() {
       smaNqUpperBuffer, smaNqLowerBuffer,
       smaNqEnabled,
       smaVolGate,
+      smaInflationAdjusted,
     });
-  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaSpEnabled, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaNqEnabled, smaVolGate, persist]);
+  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaSpEnabled, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaNqEnabled, smaVolGate, smaInflationAdjusted, persist]);
 
   const fetchSignals = useCallback(async () => {
     setLoading(true);
@@ -137,6 +144,7 @@ export default function SignalsPage() {
         smaNqLowerBuffer: String(smaNqLowerBuffer),
       });
       if (smaVolGate) params.set("smaVolGate", "1");
+      if (smaInflationAdjusted) params.set("smaInflationAdjusted", "1");
 
       const res = await fetch(`/api/sma-signals?${params}`);
       if (!res.ok) {
@@ -151,7 +159,7 @@ export default function SignalsPage() {
     } finally {
       setLoading(false);
     }
-  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate]);
+  }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, smaInflationAdjusted]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -212,6 +220,7 @@ export default function SignalsPage() {
                 onUpperChange={setSmaNqUpperBuffer}
               />
               <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} />
+              <InflationAdjustedCheckbox checked={smaInflationAdjusted} onChange={setSmaInflationAdjusted} />
             </fieldset>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <SignalCard
@@ -263,50 +272,21 @@ export default function SignalsPage() {
           </div>
         )}
 
-        <Card>
-          <h2 className="text-lg font-semibold mb-4">SMA defaults and alternatives</h2>
-          <p className="text-sm text-muted mb-4">
-            Apply the calibrated default or choose an alternative SMA rule for either index.
-          </p>
-          <div className="flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
-            <div className="flex w-full min-w-0 flex-col gap-2">
-              {SMA_PRESETS.map((preset, index) => (
-                <div key={`cagr-preset-${index}`} data-sma-preset={index} className="grid min-w-0 grid-cols-1 items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums md:grid-cols-2 md:gap-6">
-                  {(["sp500", "nasdaq100"] as const).map((indexKey) => {
-                    const rule = preset[indexKey];
-                    return (
-                      <div key={indexKey} className="w-full min-w-0 leading-7">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          aria-label={`${indexKey === "sp500" ? "SPX" : "NDX"} ${preset.label}`}
-                          onClick={() => handleSetPreset(indexKey, preset)}
-                          className="mr-2 inline-flex px-2 py-0.5 align-middle text-[11px] md:px-2.5 md:py-1"
-                        >
-                          {preset.label}
-                        </Button>
-                        <span data-index-cagrs={indexKey} className="align-middle text-[11px] leading-5">
-                          <span className="font-medium text-foreground">
-                            {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
-                          </span>
-                          <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
-                          {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
-                            <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>
-                              {" · "}{eraKey === "proto" ? "Proto" : "Proxy"}: {era.realCagr.toFixed(2)}%
-                            </span>
-                          ))}
-                          <span title={`${indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.startDate : cagrPresets.startDate}–${cagrPresets.endDate}`}>
-                            {" · "}{indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.count : rule.trades} switches
-                          </span>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
+        <SmaPresetsCard
+          title="SMA defaults and alternatives"
+          description="Apply the calibrated default or choose an alternative SMA rule for either index. These bands run on the index as quoted; choosing one clears “SMA buffer inflation adjusted”."
+          set={cagrPresets}
+          testId="sma-presets-nominal"
+          onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "nominal")}
+        />
+        <SmaPresetsCard
+          title="Inflation-adjusted SMA defaults and alternatives"
+          description="Calibrated with each band run on the index divided by CPI, so the strategy needs a real gain to stay in. Choosing one sets “SMA buffer inflation adjusted”."
+          set={inflationCagrPresets}
+          ariaSuffix=" (inflation adjusted)"
+          testId="sma-presets-inflation"
+          onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "inflation")}
+        />
       </div>
     </div>
   );

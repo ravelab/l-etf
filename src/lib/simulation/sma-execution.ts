@@ -99,6 +99,7 @@ function runConfiguredSignalRule(
         ? { initialInvested: seed.smaInitialInvested, seedAtIndex: seed.smaSeedAtIndex }
         : {}),
       ...(config.smaVolGate === true ? smaRiskOffGates(config.smaIndex) : {}),
+      ...(config.smaInflationAdjusted === true ? { inflationAdjusted: true } : {}),
     }
   );
 }

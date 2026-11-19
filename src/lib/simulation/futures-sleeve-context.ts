@@ -85,7 +85,10 @@ export function createSleeveContext(
     fullSmaInput,
     params.smaPeriod,
     { upper: params.smaUpperBuffer, lower: params.smaLowerBuffer },
-    params.smaVolGate === true ? smaRiskOffGates(params.index) : {}
+    {
+      ...(params.smaVolGate === true ? smaRiskOffGates(params.index) : {}),
+      ...(params.smaInflationAdjusted === true ? { inflationAdjusted: true } : {}),
+    }
   );
   const fullInvestedByDate = new Map<string, boolean>();
   const fullAboveSmaByDate = new Map<string, boolean>();

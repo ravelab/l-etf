@@ -8,6 +8,7 @@ import {
   CONSTANT_SP500_SHORTCUT_DATE,
 } from "../constants";
 import type { IndexKey } from "./types";
+import { smaCalibrationVariantFromEnv } from "../sma-calibration-variant";
 
 export type SmaEraKey = "proto" | "proxy" | "start";
 
@@ -36,6 +37,14 @@ export const SMA_CALIBRATION_ERAS: Record<IndexKey, SmaCalibrationEra[]> = {
  * so each default and alternative must be the rule that works best WITH it.
  */
 export const SMA_CALIBRATION_VOL_GATE: Record<IndexKey, boolean> = { sp500: true, nasdaq100: true };
+
+/**
+ * Whether an index's rules are scored with the band on the CPI-deflated index
+ * (`smaInflationAdjusted`, `cpi-deflator.ts`): on for the inflation-adjusted
+ * artifact set (`sma-calibration-variant.ts`), off for the nominal one.
+ */
+const INFLATION_VARIANT = smaCalibrationVariantFromEnv() === "inflation";
+export const SMA_CALIBRATION_INFLATION_ADJUSTED: Record<IndexKey, boolean> = { sp500: INFLATION_VARIANT, nasdaq100: INFLATION_VARIANT };
 
 /** The era whose per-window metrics the calibration reports alongside the band. */
 export function primaryEra(indexKey: IndexKey): SmaCalibrationEra {

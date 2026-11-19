@@ -26,6 +26,8 @@ type UseToolSnapshotParams<T> = {
    *  it was generated with the other setting, report no data instead so the
    *  page autoruns with its own inputs rather than showing the wrong run. */
   smaVolGate?: boolean;
+  /** The form's "SMA buffer inflation adjusted" flag, held to the snapshot the same way as the gate. */
+  smaInflationAdjusted?: boolean;
   /** The form's per-index risk-off assets, held to the snapshot the same way as the gate. */
   riskOffAssets?: RiskOffAssetsByIndex;
   /** The form's "SPX/NDX start" flag, held to the snapshot the same way as the gate. */
@@ -59,11 +61,13 @@ export function useToolSnapshot<T = Record<string, unknown>>({
   onNoData,
   hasPersistedResults,
   smaVolGate,
+  smaInflationAdjusted,
   riskOffAssets,
   perIndexStart,
 }: UseToolSnapshotParams<T>) {
   const appliedRef = useRef(false);
   const smaVolGateRef = useRef(smaVolGate);
+  const smaInflationAdjustedRef = useRef(smaInflationAdjusted);
   const riskOffAssetsRef = useRef(riskOffAssets);
   const perIndexStartRef = useRef(perIndexStart);
   const [metadata, setMetadata] = useState<ToolSnapshotMetadata | null>(null);
@@ -79,6 +83,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
     onNoDataRef.current = onNoData;
     hasPersistedResultsRef.current = hasPersistedResults;
     smaVolGateRef.current = smaVolGate;
+    smaInflationAdjustedRef.current = smaInflationAdjusted;
     riskOffAssetsRef.current = riskOffAssets;
     perIndexStartRef.current = perIndexStart;
   });
@@ -154,6 +159,11 @@ export function useToolSnapshot<T = Record<string, unknown>>({
           onNoDataRef.current?.();
           return;
         }
+        const formInflation = smaInflationAdjustedRef.current;
+        if (formInflation !== undefined && (payload.sharedInputs?.smaInflationAdjusted === true) !== formInflation) {
+          onNoDataRef.current?.();
+          return;
+        }
         const formPerIndexStart = perIndexStartRef.current;
         if (
           formPerIndexStart !== undefined &&
@@ -200,6 +210,7 @@ export function useToolSnapshot<T = Record<string, unknown>>({
                   smaNqUpperBuffer: payload.sharedInputs.smaNqUpperBuffer,
                   smaNqLowerBuffer: payload.sharedInputs.smaNqLowerBuffer,
                   smaVolGate: payload.sharedInputs.smaVolGate === true,
+                  smaInflationAdjusted: payload.sharedInputs.smaInflationAdjusted === true,
                   letf: typeof payload.sharedInputs.preset === "string" ? payload.sharedInputs.preset : undefined,
                   spxRiskOffAsset: snapshotRiskOff.sp500,
                   ndxRiskOffAsset: snapshotRiskOff.nasdaq100,

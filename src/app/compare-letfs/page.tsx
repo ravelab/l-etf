@@ -390,7 +390,7 @@ export function CompareLETFsPageContent({
     windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
   } = form;
@@ -460,7 +460,7 @@ export function CompareLETFsPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     perIndexStart,
     riskOffAssets,
     hasPersistedResults: (state) =>
@@ -482,7 +482,7 @@ export function CompareLETFsPageContent({
       startDate, perIndexStart, endDate, windowLength,
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-      smaVolGate,
+      smaVolGate, smaInflationAdjusted,
       spxRiskOffAsset,
       ndxRiskOffAsset,
       annualizedInflation,
@@ -499,7 +499,7 @@ export function CompareLETFsPageContent({
     startDate, perIndexStart, endDate, windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     spxRiskOffAsset,
     ndxRiskOffAsset,
     annualizedInflation,
@@ -637,7 +637,7 @@ export function CompareLETFsPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         riskOffAssets,
         tradeAfterHours,
       });
@@ -731,7 +731,7 @@ export function CompareLETFsPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         letf,
         spxRiskOffAsset,
         ndxRiskOffAsset,
@@ -746,7 +746,7 @@ export function CompareLETFsPageContent({
       startDate, perIndexStart, endDate, windowLength,
       smaSpPeriod, smaNqPeriod,
       smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-      smaVolGate,
+      smaVolGate, smaInflationAdjusted,
       spxRiskOffAsset,
       ndxRiskOffAsset,
       annualizedInflation: inflationData.annualizedInflation,
@@ -790,7 +790,7 @@ export function CompareLETFsPageContent({
         abortControllerRef.current = null;
       }
     }
-  }, [startDate, perIndexStart, spxStartDate, ndxStartDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
+  }, [startDate, perIndexStart, spxStartDate, ndxStartDate, endDate, windowLength, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, smaInflationAdjusted, riskOffAssets, spxRiskOffAsset, ndxRiskOffAsset, form.letf, form.index, save, setRunSummary, updateUrl, clearMetadata, tradeAfterHours, letf, getStrategiesUrlParams, setRunProgress]);
 
   // Auto-run when page opened with URL params
   useEffect(() => {
@@ -1015,7 +1015,7 @@ export function CompareLETFsPageContent({
           endDate: dates.end,
           smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer,
           smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
-          smaVolGate,
+          smaVolGate, smaInflationAdjusted,
           riskOffAssets,
         });
       }
@@ -1027,11 +1027,11 @@ export function CompareLETFsPageContent({
         smaPeriod: meta.smaPeriod,
         smaUpperBuffer: meta.smaUpperBuffer,
         smaLowerBuffer: meta.smaLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         riskOffAsset: riskOffAssets[meta.preset.index],
       });
     },
-    [getStrategyLinkMeta, smaVolGate, riskOffAssets, smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer]
+    [getStrategyLinkMeta, smaVolGate, smaInflationAdjusted, riskOffAssets, smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer]
   );
 
   const liveStrategyDistributionSeries = useMemo(
@@ -1267,7 +1267,7 @@ export function CompareLETFsPageContent({
             startDate, perIndexStart, endDate, windowLength,
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer,
             smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
-            smaVolGate,
+            smaVolGate, smaInflationAdjusted,
             spxRiskOffAsset,
             ndxRiskOffAsset,
           }}

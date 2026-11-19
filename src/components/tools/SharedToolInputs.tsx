@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { CalendarShortcutIcon } from "@/components/ui/CalendarShortcutIcon";
 import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
+import { InflationAdjustedCheckbox } from "@/components/tools/InflationAdjustedCheckbox";
 import {
   CONSTANT_NASDAQ100_SHORTCUT_DATE,
   CONSTANT_SP500_PROXY_START_DATE,
@@ -148,6 +149,7 @@ export type SharedFieldValues = {
   smaNqUpperBuffer?: number;
   smaNqLowerBuffer?: number;
   smaVolGate?: boolean;
+  smaInflationAdjusted?: boolean;
   spxRiskOffAsset?: EtfConfig["riskOffAsset"];
   ndxRiskOffAsset?: EtfConfig["riskOffAsset"];
 };
@@ -444,6 +446,12 @@ export function SharedToolInputs({
           <VolGateCheckbox
             checked={values.smaVolGate}
             onChange={(v) => onChange("smaVolGate", v)}
+          />
+        )}
+        {values.smaInflationAdjusted !== undefined && (
+          <InflationAdjustedCheckbox
+            checked={values.smaInflationAdjusted}
+            onChange={(v) => onChange("smaInflationAdjusted", v)}
           />
         )}
         {values.spxRiskOffAsset !== undefined && (

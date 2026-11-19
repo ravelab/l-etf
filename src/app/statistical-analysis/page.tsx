@@ -92,7 +92,7 @@ export function StatisticalAnalysisPageContent({
     windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     isCombo, selectedPreset,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
@@ -154,7 +154,7 @@ export function StatisticalAnalysisPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applyStatSnapshot,
     onNoData: () => setPendingRun(true),
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     perIndexStart,
     riskOffAssets,
     hasPersistedResults: (state) =>
@@ -298,6 +298,7 @@ export function StatisticalAnalysisPageContent({
           smaUpperBuffer: sub.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer, smaLowerBuffer: sub.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
           smaIndex: sub.index,
           ...(smaVolGate ? { smaVolGate: true } : {}),
+          ...(smaInflationAdjusted ? { smaInflationAdjusted: true } : {}),
           riskOffAsset: riskOffAssets[sub.index],
         };
         const noSmaConfig: EtfConfig = { ...smaConfig, id: `${sub.name}-wr-nosma`, smaEnabled: false, smaVolGate: false };
@@ -336,7 +337,7 @@ export function StatisticalAnalysisPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         letf,
         spxRiskOffAsset,
         ndxRiskOffAsset,
@@ -360,7 +361,7 @@ export function StatisticalAnalysisPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         spxRiskOffAsset,
         ndxRiskOffAsset,
         annualizedInflation: inflationData.annualizedInflation,
@@ -429,7 +430,7 @@ export function StatisticalAnalysisPageContent({
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     startDate,
     perIndexStart,
     startDateForIndex,
@@ -458,7 +459,7 @@ export function StatisticalAnalysisPageContent({
         <SharedToolInputs
           values={{
             letf, startDate, perIndexStart, endDate, windowLength,
-            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate,
+            smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, smaInflationAdjusted,
             spxRiskOffAsset, ndxRiskOffAsset,
           }}
           onChange={handleFieldChange}

@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import { writeCpiModule } from "./lib/cpi-module";
 import { fileURLToPath } from "node:url";
 config({ path: ".env.local" });
 
@@ -2734,6 +2735,7 @@ async function fetchIndex(indexName: string, options?: { forceRebuild?: boolean 
 async function fetchInflation(forceRebuild = false) {
   console.log("=== Generating inflation.csv (CPI) ===");
   await generateInflationCsv(forceRebuild);
+  writeCpiModule();
 }
 
 async function fetchRates(rateType?: string, forceRebuild = false) {

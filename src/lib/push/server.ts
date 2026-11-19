@@ -549,10 +549,11 @@ async function syncCalibratedPushSubscriptions(
     return { subscriptions, updated: 0 };
   }
 
-  const calibration = await readSmaCalibrationSnapshot();
-  if (!calibration) {
-    return { subscriptions, updated: 0 };
-  }
+  // Each subscription follows the calibration of its own inflation setting.
+  const [nominalCalibration, inflationCalibration] = await Promise.all([
+    readSmaCalibrationSnapshot("nominal"),
+    readSmaCalibrationSnapshot("inflation"),
+  ]);
 
   const redis = getPushRedis();
   const now = new Date().toISOString();
@@ -560,7 +561,8 @@ async function syncCalibratedPushSubscriptions(
 
   const results = await Promise.allSettled(
     subscriptions.map(async (subscription): Promise<PushSubscriptionRecord> => {
-      if (!subscription.smaConfig.useCalibratedDefaults) {
+      const calibration = subscription.smaConfig.smaInflationAdjusted ? inflationCalibration : nominalCalibration;
+      if (!subscription.smaConfig.useCalibratedDefaults || !calibration) {
         return subscription;
       }
 

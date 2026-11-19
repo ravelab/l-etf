@@ -133,6 +133,7 @@ export function buildStrategyVariants(params: {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaVolGate: boolean;
+  smaInflationAdjusted?: boolean;
   riskOffAssets: RiskOffAssetsByIndex;
   tradeAfterHours?: boolean;
 }): StrategyVariantBuckets {
@@ -161,6 +162,7 @@ export function buildStrategyVariants(params: {
     smaIndex: preset.index,
     smaExecutionMode: executionMode,
     ...(smaEnabled && params.smaVolGate ? { smaVolGate: true } : {}),
+    ...(smaEnabled && params.smaInflationAdjusted ? { smaInflationAdjusted: true } : {}),
     riskOffAsset: params.riskOffAssets[preset.index],
   });
 

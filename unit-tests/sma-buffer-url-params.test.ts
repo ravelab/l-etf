@@ -15,6 +15,7 @@ test("appendSmaBufferUrlParams writes all four asymmetric keys", () => {
     smaNqUpperBuffer: 20.4,
     smaNqLowerBuffer: 17.6,
     smaVolGate: false,
+    smaInflationAdjusted: false,
   });
   assert.equal(params.get("smatspU"), "3");
   assert.equal(params.get("vg"), null);
@@ -33,6 +34,7 @@ test("parseSmaBufferUrlParams reads canonical keys", () => {
     smaNqUpperBuffer: 20.4,
     smaNqLowerBuffer: 17.6,
     smaVolGate: false,
+    smaInflationAdjusted: false,
   });
 });
 
@@ -44,6 +46,7 @@ test("volatility gate round-trips through the URL", () => {
     smaNqUpperBuffer: 20.4,
     smaNqLowerBuffer: 17.6,
     smaVolGate: true,
+    smaInflationAdjusted: false,
   });
   assert.equal(params.get("vg"), "1");
   assert.equal(parseSmaBufferUrlParams(params).smaVolGate, true);
@@ -83,4 +86,18 @@ test("deleteSmaBufferUrlParams removes canonical keys", () => {
   const params = new URLSearchParams("smatspU=1&smatspL=2&smatnqU=3&smatnqL=4&sd=2020-01-01");
   deleteSmaBufferUrlParams(params);
   assert.equal(params.toString(), "sd=2020-01-01");
+});
+
+test("the inflation-adjusted flag round-trips through the URL", () => {
+  const params = new URLSearchParams();
+  const buffers = { smaSpUpperBuffer: 3, smaSpLowerBuffer: 3.3, smaNqUpperBuffer: 20.4, smaNqLowerBuffer: 17.6 };
+  appendSmaBufferUrlParams(params, { ...buffers, smaVolGate: false, smaInflationAdjusted: true });
+  assert.equal(params.get("ia"), "1");
+  assert.equal(parseSmaBufferUrlParams(params).smaInflationAdjusted, true);
+  assert.equal(urlSmaBuffersMatchState(params, { ...buffers, smaInflationAdjusted: false }), false);
+  // Buffers without the flag mean "off"; no SMA params at all say nothing.
+  assert.equal(parseSmaBufferUrlParams(new URLSearchParams("smatspU=3")).smaInflationAdjusted, false);
+  assert.equal(parseSmaBufferUrlParams(new URLSearchParams("sd=2000-01-01")).smaInflationAdjusted, undefined);
+  deleteSmaBufferUrlParams(params);
+  assert.equal(params.has("ia"), false);
 });

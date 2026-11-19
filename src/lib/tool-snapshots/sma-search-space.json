@@ -17,6 +17,7 @@
       "start": 100
     },
     "riskOffAsset": "BRK.B+GLDM",
+    "inflationAdjusted": false,
     "periodSeeds": [
       {
         "smaPeriod": 50,
@@ -2114,6 +2115,7 @@
       "start": 100
     },
     "riskOffAsset": "VGSH",
+    "inflationAdjusted": false,
     "periodSeeds": [
       {
         "smaPeriod": 50,

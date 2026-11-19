@@ -1,5 +1,6 @@
 import type { SmaSignal } from "./types";
 import { CONSTANT_SMA_CHECK_FREQUENCY } from "../constants";
+import { cpiDeflatorForDates } from "./cpi-deflator";
 import { SMA_CACHE_MAX_ENTRIES, boundedCacheGet, boundedCacheSet } from "./bounded-cache";
 import { computeRealizedVol, nextVolGateRiskOff, type VolGateParams } from "./vol-gate";
 import { computeWilderRsi, nextRsiBrakeRiskOff, type RsiBrakeParams } from "./rsi-brake";
@@ -85,6 +86,18 @@ export function computeSma(prices: number[], period: number): number[] {
  */
 const signalCache = new WeakMap<number[], Map<string, { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] }>>();
 
+const realPriceCache = new WeakMap<number[], number[]>();
+
+/** Prices over the CPI known on each day; cached per price series so its SMA is too. */
+function realPricesFor(prices: number[], deflator: number[]): number[] {
+  let real = realPriceCache.get(prices);
+  if (!real || real.length !== prices.length) {
+    real = prices.map((price, i) => price / deflator[i]);
+    realPriceCache.set(prices, real);
+  }
+  return real;
+}
+
 export function generateSmaSignals(
   dates: string[],
   prices: number[],
@@ -96,6 +109,13 @@ export function generateSmaSignals(
     volGate?: VolGateParams;
     rsiBrake?: RsiBrakeParams;
     shockGate?: VolShockGateParams;
+    /**
+     * Run the band on the index deflated by the CPI known on each day
+     * (`cpi-deflator.ts`): the price and its SMA are both in real terms, so the
+     * band demands a real gain to stay in. `smaValues` come back re-inflated to
+     * each day's dollars so they still plot against the nominal price.
+     */
+    inflationAdjusted?: boolean;
   }
 ): { signals: SmaSignal[]; smaValues: number[]; invested: boolean[] } {
   const { upper: upperBufferPct, lower: lowerBufferPct } = buffer;
@@ -109,14 +129,18 @@ export function generateSmaSignals(
   const shockKey = shockGate
     ? `|${shockGate.windowDays}/${shockGate.baselineDays}/${shockGate.exitAbove}/${shockGate.reenterBelow}/${shockGate.confirmDays}`
     : "";
-  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}|${gateKey}|${brakeKey}${shockKey}`;
+  const inflationAdjusted = options?.inflationAdjusted === true;
+  const cacheKey = `${smaPeriod}|${upperBufferPct}|${lowerBufferPct}|${initialInvested}|${seedAtIndex}|${gateKey}|${brakeKey}${shockKey}${inflationAdjusted ? "|real" : ""}`;
   let byPrices = signalCache.get(prices);
   if (byPrices) {
     const cached = boundedCacheGet(byPrices, cacheKey);
     if (cached) return cached;
   }
 
-  const smaValues = computeSma(prices, smaPeriod);
+  const deflator = inflationAdjusted ? cpiDeflatorForDates(dates) : null;
+  const bandPrices = deflator ? realPricesFor(prices, deflator) : prices;
+  const bandSma = computeSma(bandPrices, smaPeriod);
+  const smaValues = deflator ? bandSma.map((value, i) => value * deflator[i]) : bandSma;
   const signals: SmaSignal[] = [];
   const invested: boolean[] = new Array(dates.length);
 
@@ -140,7 +164,7 @@ export function generateSmaSignals(
   let position = initialInvested;
 
   for (let i = 0; i < dates.length; i++) {
-    warmUpSum += prices[i];
+    warmUpSum += bandPrices[i];
 
     if (i === seedAtIndex) {
       isInvested = initialInvested;
@@ -152,8 +176,8 @@ export function generateSmaSignals(
     }
 
     // Use full SMA when available; otherwise progressive average of all data so far
-    const effectiveSma = !isNaN(smaValues[i])
-      ? smaValues[i]
+    const effectiveSma = !isNaN(bandSma[i])
+      ? bandSma[i]
       : i >= 1
         ? warmUpSum / (i + 1)
         : NaN;
@@ -172,9 +196,9 @@ export function generateSmaSignals(
       const upperBand = effectiveSma * (1 + upperBufferPct / 100);
       const lowerBand = effectiveSma * (1 - lowerBufferPct / 100);
 
-      if (!isInvested && prices[i] > upperBand) {
+      if (!isInvested && bandPrices[i] > upperBand) {
         isInvested = true;
-      } else if (isInvested && prices[i] < lowerBand) {
+      } else if (isInvested && bandPrices[i] < lowerBand) {
         isInvested = false;
       }
     }

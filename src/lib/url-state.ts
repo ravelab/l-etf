@@ -23,6 +23,7 @@ export function decodeBacktestParams(search: string): {
   smaNqUpperBuffer?: number;
   smaNqLowerBuffer?: number;
   smaVolGate?: boolean;
+  smaInflationAdjusted?: boolean;
   spxRiskOffAsset?: RiskOffAsset;
   ndxRiskOffAsset?: RiskOffAsset;
   etfConfigs?: Partial<EtfConfig>[];
@@ -70,6 +71,7 @@ export function decodeBacktestParams(search: string): {
     smaNqUpperBuffer: smaBuffers.smaNqUpperBuffer,
     smaNqLowerBuffer: smaBuffers.smaNqLowerBuffer,
     smaVolGate: smaBuffers.smaVolGate,
+    smaInflationAdjusted: smaBuffers.smaInflationAdjusted,
     spxRiskOffAsset: riskOffAssets.sp500,
     ndxRiskOffAsset: riskOffAssets.nasdaq100,
     etfConfigs: etfConfigs.length > 0 ? etfConfigs : undefined,

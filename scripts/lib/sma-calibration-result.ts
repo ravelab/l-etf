@@ -1,4 +1,5 @@
 import type { SmaCalibrationIndexResult } from "../../src/lib/sma-calibration";
+import { SMA_CALIBRATION_INFLATION_ADJUSTED } from "../../src/lib/simulation/sma-calibration-eras";
 import { primaryEra, SMA_CALIBRATION_ERAS } from "../../src/lib/simulation/sma-calibration-eras";
 import { DEFAULT_RISK_OFF_ASSETS } from "../../src/lib/simulation/defaults";
 import type { IndexKey } from "../../src/lib/simulation/types";
@@ -12,6 +13,7 @@ export function buildSmaCalibrationResult(indexKey: IndexKey, winner: EraEvaluat
     windowLength: winner.row.avgWindowYears, historyWrap: false,
     eraWeights: Object.fromEntries(SMA_CALIBRATION_ERAS[indexKey].map((era) => [era.key, era.weight])),
     riskOffAsset: DEFAULT_RISK_OFF_ASSETS[indexKey],
+    inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[indexKey],
     scoresByEra: { ...winner.scoresByEra },
     smaPeriod: winner.combo.smaPeriod, smaUpperBuffer: winner.combo.smaUpperBuffer, smaLowerBuffer: winner.combo.smaLowerBuffer,
     smaOnlySwitches: winner.smaOnlySwitches,

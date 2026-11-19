@@ -16,7 +16,7 @@ import {
 } from "../../src/lib/simulation/sma-search-bounds";
 import { stabilityAdjustedSmaScore } from "../../src/lib/simulation/sma-stability-score";
 import { rankSmaPresetSets } from "../../src/lib/simulation/sma-preset-ranking";
-import { SMA_CALIBRATION_VOL_GATE } from "../../src/lib/simulation/sma-calibration-eras";
+import { SMA_CALIBRATION_INFLATION_ADJUSTED, SMA_CALIBRATION_VOL_GATE } from "../../src/lib/simulation/sma-calibration-eras";
 import { DEFAULT_RISK_OFF_ASSETS } from "../../src/lib/simulation/defaults";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../../src/lib/input-normalization";
 import { CONSTANT_NASDAQ100_SHORTCUT_DATE } from "../../src/lib/constants";
@@ -85,6 +85,7 @@ async function minRegimeDifferencePct(index: IndexKey, rules: SmaCombo[], startD
       preset: index === "sp500" ? "UPRO" : "TQQQ", startDate: modernStart, endDate, smaEnabled: true,
       smaPeriod: rule.smaPeriod, smaUpperBuffer: rule.smaUpperBuffer, smaLowerBuffer: rule.smaLowerBuffer,
       smaVolGate: SMA_CALIBRATION_VOL_GATE[index],
+      smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[index],
       riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
     });
     let invested = result.smaStartInvested ?? true;

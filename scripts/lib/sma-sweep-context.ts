@@ -32,6 +32,7 @@ import { smaScorePenaltyFraction } from "../../src/lib/simulation/sma-search-bou
 import {
   SMA_CALIBRATION_ERAS,
   SMA_CALIBRATION_VOL_GATE,
+  SMA_CALIBRATION_INFLATION_ADJUSTED,
   combineEraScores,
   primaryEra,
   type SmaEraKey,
@@ -66,6 +67,8 @@ interface SmaSweepContext {
   monthlyCpi: MonthlyCpiPoint[];
   inflPct: number;
   windowLength: number;
+  /** Band on the CPI-deflated index: which artifact set this context scores for. */
+  inflationAdjusted: boolean;
 }
 
 interface EvaluatedCombo {
@@ -81,12 +84,14 @@ async function buildSmaSweepContext({
   endDate,
   windowLength,
   maxPeriod,
+  inflationAdjusted,
 }: {
   indexKey: IndexKey;
   startDate: string;
   endDate: string;
   windowLength: number;
   maxPeriod: number;
+  inflationAdjusted: boolean;
 }): Promise<SmaSweepContext> {
   const preset = getComboSubPresets(DEFAULT_COMBO_PRESET).find((p) => p.index === indexKey);
   if (!preset) throw new Error(`No combo sub-preset for index ${indexKey}`);
@@ -134,6 +139,7 @@ async function buildSmaSweepContext({
     monthlyCpi: inflationData.monthlyCpi,
     inflPct,
     windowLength,
+    inflationAdjusted,
   };
 }
 
@@ -164,6 +170,7 @@ function evaluateCombos(
         smaUpperBuffer: combo.smaUpperBuffer,
         smaLowerBuffer: combo.smaLowerBuffer,
         smaVolGate: SMA_CALIBRATION_VOL_GATE[ctx.indexKey],
+        smaInflationAdjusted: ctx.inflationAdjusted,
         // The basket the Signals page and a visitor's backtest hold for this index.
         riskOffAsset: DEFAULT_RISK_OFF_ASSETS[ctx.indexKey],
       })
@@ -188,7 +195,8 @@ function evaluateCombos(
       // Gate trades must not make an otherwise dormant SMA rule look active.
       // Warm-up establishes state; a signal at the final close cannot execute.
       const ungated = generateSmaSignals(inputs.dates, inputs.closes, combo.smaPeriod,
-        { upper: combo.smaUpperBuffer, lower: combo.smaLowerBuffer });
+        { upper: combo.smaUpperBuffer, lower: combo.smaLowerBuffer },
+        { inflationAdjusted: ctx.inflationAdjusted });
       const smaOnlySwitches = ungated.signals.filter(signal =>
         signal.date >= ctx.windows[0].startDate && signal.date < ctx.windows[0].endDate).length;
       out.push({ combo, score: scoreFullPeriod(row, ctx.inflPct, ctx.windowLength, smaOnlySwitches), row, smaOnlySwitches });
@@ -219,11 +227,14 @@ export async function buildSmaEraContexts({
   endDate,
   windowLength,
   maxPeriod,
+  inflationAdjusted = SMA_CALIBRATION_INFLATION_ADJUSTED[indexKey],
 }: {
   indexKey: IndexKey;
   endDate: string;
   windowLength: number;
   maxPeriod: number;
+  /** Defaults to the variant this script runs (`SMA_CALIBRATION_VARIANT`). */
+  inflationAdjusted?: boolean;
 }): Promise<SmaEraContexts> {
   const contexts: Array<{ era: SmaEraKey; ctx: SmaSweepContext }> = [];
   for (const era of SMA_CALIBRATION_ERAS[indexKey]) {
@@ -236,6 +247,7 @@ export async function buildSmaEraContexts({
         endDate: era.endDate ?? endDate,
         windowLength,
         maxPeriod,
+        inflationAdjusted,
       }),
     });
   }

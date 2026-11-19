@@ -8,13 +8,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import {
   readSmaCalibrationSnapshot,
   type SmaCalibrationIndexResult,
 } from "../src/lib/sma-calibration";
+import { smaArtifactFileName, type SmaCalibrationVariant } from "../src/lib/sma-calibration-variant";
 import {
-  SMA_SEARCH_SPACE_SNAPSHOT_PATH,
   readSmaSearchSpaceSnapshot,
   seedForPeriod,
   type SmaSeed,
@@ -32,9 +33,14 @@ import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-s
 
 const INDICES = ["sp500", "nasdaq100"] as const;
 
-describe("sma-calibration snapshot", () => {
+// Both artifact sets: the nominal band and the inflation-adjusted one (`sma-calibration-variant.ts`).
+for (const variant of ["nominal", "inflation"] as const satisfies readonly SmaCalibrationVariant[]) {
+const inflationAdjusted = variant === "inflation";
+const searchSpacePath = join(process.cwd(), "src", "lib", "tool-snapshots", smaArtifactFileName("sma-search-space", variant));
+
+describe(`${variant} sma-calibration snapshot`, () => {
   it("parses and stays inside the searched parameter box", async () => {
-    const snapshot = await readSmaCalibrationSnapshot();
+    const snapshot = await readSmaCalibrationSnapshot(variant);
     assert.ok(snapshot, "sma-calibration.json must parse");
     for (const index of INDICES) {
       // Annotated: inside a loop narrowed by assert.ok, @types/node 26's assertion
@@ -54,7 +60,7 @@ describe("sma-calibration snapshot", () => {
   });
 
   it("records every era's raw score, so a band's weak range is visible", async () => {
-    const snapshot = await readSmaCalibrationSnapshot();
+    const snapshot = await readSmaCalibrationSnapshot(variant);
     assert.ok(snapshot);
     for (const index of INDICES) {
       const band: SmaCalibrationIndexResult = snapshot[index];
@@ -66,6 +72,7 @@ describe("sma-calibration snapshot", () => {
       );
       assert.deepEqual(Object.keys(band.eraWeights ?? {}).sort(), expected);
       assert.equal(band.riskOffAsset, DEFAULT_RISK_OFF_ASSETS[index], `${index} band was scored with a different risk-off basket`);
+      assert.equal(band.inflationAdjusted, inflationAdjusted, `${index} band belongs to the other artifact set`);
       // The base score remains the weighted mean; the final score includes stability.
       let weighted = 0;
       let total = 0;
@@ -85,7 +92,7 @@ describe("sma-calibration snapshot", () => {
   });
 
   it("still parses a snapshot written before the diagnostic fields existed", async () => {
-    const snapshot = await readSmaCalibrationSnapshot();
+    const snapshot = await readSmaCalibrationSnapshot(variant);
     assert.ok(snapshot);
     // The Signals page and the push-alert cron only ever read the six band
     // fields, so an older artifact must keep working untouched.
@@ -102,6 +109,7 @@ describe("sma-calibration snapshot", () => {
         scoresByEra,
         eraWeights,
         riskOffAsset,
+        inflationAdjusted: recordedInflation,
         ...legacy
       } = snapshot[index];
       void smaOnlySwitches;
@@ -115,6 +123,7 @@ describe("sma-calibration snapshot", () => {
       void scoresByEra;
       void eraWeights;
       void riskOffAsset;
+      void recordedInflation;
       assert.deepEqual(Object.keys(legacy).sort(), [
         "avgMaxDrawdown",
         "avgReturn",
@@ -130,14 +139,14 @@ describe("sma-calibration snapshot", () => {
   });
 });
 
-describe("sma-search-space snapshot", () => {
+describe(`${variant} sma-search-space snapshot`, () => {
   it("is committed, parses, and seeds every period the calibrator scans", async () => {
-    const raw = await readFile(SMA_SEARCH_SPACE_SNAPSHOT_PATH, "utf-8").catch(() => null);
+    const raw = await readFile(searchSpacePath, "utf-8").catch(() => null);
     assert.ok(
       raw,
-      `${SMA_SEARCH_SPACE_SNAPSHOT_PATH} is missing — run \`npm run explore-sma\` and commit it`
+      `${searchSpacePath} is missing — run \`npm run explore-sma\` and commit it`
     );
-    const snapshot = await readSmaSearchSpaceSnapshot();
+    const snapshot = await readSmaSearchSpaceSnapshot(searchSpacePath);
     assert.ok(snapshot, "sma-search-space.json must parse against its schema");
 
     assert.equal(snapshot.grid.minPeriod, SMA_SEARCH_MIN_PERIOD);
@@ -167,6 +176,8 @@ describe("sma-search-space snapshot", () => {
       );
       assert.equal(snapshot[index].riskOffAsset, DEFAULT_RISK_OFF_ASSETS[index],
         `${index} seeds were scored with a different risk-off basket — re-run \`npm run explore-sma\``);
+      assert.equal(snapshot[index].inflationAdjusted, inflationAdjusted, `${index} seeds belong to the other artifact set`);
     }
   });
 });
+}

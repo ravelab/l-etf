@@ -15,6 +15,7 @@
  */
 
 import { readFile } from "node:fs/promises";
+import { smaArtifactFileName, smaCalibrationVariantFromEnv } from "./sma-calibration-variant";
 import { join } from "node:path";
 import { z } from "zod";
 
@@ -35,6 +36,7 @@ export interface SmaSearchSpaceIndexResult {
   eraWeights?: Record<string, number>;
   /** Risk-off basket the seeds were scored with, so a stale file can be spotted after a change. */
   riskOffAsset?: string;
+  inflationAdjusted?: boolean;
   /** Best combo over the whole exhaustive grid, at the time it was run. */
   best: SmaSeed;
   /** One entry per period on the grid, ascending. */
@@ -73,6 +75,7 @@ const smaSearchSpaceIndexResultSchema = z.object({
   startDate: z.string(),
   eraWeights: z.record(z.string(), z.number()).optional(),
   riskOffAsset: z.string().optional(),
+  inflationAdjusted: z.boolean().optional(),
   best: smaSeedSchema,
   periodSeeds: z.array(smaSeedSchema).min(1),
 });
@@ -94,17 +97,18 @@ const smaSearchSpaceSnapshotSchema = z.object({
   nasdaq100: smaSearchSpaceIndexResultSchema,
 });
 
+/** The seeds of the variant a calibration script runs (`SMA_CALIBRATION_VARIANT`). */
 export const SMA_SEARCH_SPACE_SNAPSHOT_PATH = join(
   process.cwd(),
   "src",
   "lib",
   "tool-snapshots",
-  "sma-search-space.json"
+  smaArtifactFileName("sma-search-space", smaCalibrationVariantFromEnv())
 );
 
-export async function readSmaSearchSpaceSnapshot(): Promise<SmaSearchSpaceSnapshot | null> {
+export async function readSmaSearchSpaceSnapshot(path = SMA_SEARCH_SPACE_SNAPSHOT_PATH): Promise<SmaSearchSpaceSnapshot | null> {
   try {
-    const raw = await readFile(SMA_SEARCH_SPACE_SNAPSHOT_PATH, "utf-8");
+    const raw = await readFile(path, "utf-8");
     const parsed = smaSearchSpaceSnapshotSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : null;
   } catch {

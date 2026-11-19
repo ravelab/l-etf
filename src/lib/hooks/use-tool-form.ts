@@ -49,6 +49,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     smaVolGate: shared.smaVolGate,
+    smaInflationAdjusted: shared.smaInflationAdjusted,
     spxRiskOffAsset: shared.spxRiskOffAsset,
     ndxRiskOffAsset: shared.ndxRiskOffAsset,
   };
@@ -94,6 +95,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     next.smaNqUpperBuffer = normalizeNumberValue(next.smaNqUpperBuffer, shared.smaNqUpperBuffer, { min: 0 });
     next.smaNqLowerBuffer = normalizeNumberValue(next.smaNqLowerBuffer, shared.smaNqLowerBuffer, { min: 0 });
     next.smaVolGate = normalizeBooleanValue(next.smaVolGate, shared.smaVolGate);
+    next.smaInflationAdjusted = normalizeBooleanValue(next.smaInflationAdjusted, shared.smaInflationAdjusted);
     next.spxRiskOffAsset = normalizeRiskOffAsset(next.spxRiskOffAsset, shared.spxRiskOffAsset);
     next.ndxRiskOffAsset = normalizeRiskOffAsset(next.ndxRiskOffAsset, shared.ndxRiskOffAsset);
     return next;
@@ -134,6 +136,7 @@ export function useToolForm<T extends Record<string, unknown>>(
   const [smaNqUpperBuffer, setSmaNqUpperBuffer] = useState(sanitizedInitial.smaNqUpperBuffer);
   const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(sanitizedInitial.smaNqLowerBuffer);
   const [smaVolGate, setSmaVolGate] = useState<boolean>(sanitizedInitial.smaVolGate === true);
+  const [smaInflationAdjusted, setSmaInflationAdjusted] = useState<boolean>(sanitizedInitial.smaInflationAdjusted === true);
   const [spxRiskOffAsset, setSpxRiskOffAsset] = useState<EtfConfig["riskOffAsset"]>(
     normalizeRiskOffAsset(sanitizedInitial.spxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.sp500)
   );
@@ -165,6 +168,7 @@ export function useToolForm<T extends Record<string, unknown>>(
           smaNqUpperBuffer: setSmaNqUpperBuffer,
           smaNqLowerBuffer: setSmaNqLowerBuffer,
           smaVolGate: setSmaVolGate,
+          smaInflationAdjusted: setSmaInflationAdjusted,
           spxRiskOffAsset: setSpxRiskOffAsset,
           ndxRiskOffAsset: setNdxRiskOffAsset,
         } as unknown as Parameters<typeof applySharedFieldChange>[2]["setters"],
@@ -202,6 +206,7 @@ export function useToolForm<T extends Record<string, unknown>>(
       smaNqUpperBuffer,
       smaNqLowerBuffer,
       smaVolGate,
+      smaInflationAdjusted,
     });
     appendRiskOffUrlParams(urlParams, riskOffAssets);
     return urlParams;
@@ -209,7 +214,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     letf, startDate, perIndexStart, endDate, windowLength,
     smaSpPeriod, smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate, riskOffAssets
+    smaVolGate, smaInflationAdjusted, riskOffAssets
   ]);
 
   return {
@@ -227,6 +232,7 @@ export function useToolForm<T extends Record<string, unknown>>(
     smaNqUpperBuffer, setSmaNqUpperBuffer,
     smaNqLowerBuffer, setSmaNqLowerBuffer,
     smaVolGate, setSmaVolGate,
+    smaInflationAdjusted, setSmaInflationAdjusted,
     spxRiskOffAsset, setSpxRiskOffAsset,
     ndxRiskOffAsset, setNdxRiskOffAsset,
     riskOffAssets,

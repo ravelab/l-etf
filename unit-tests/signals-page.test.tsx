@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getDefaultSmaPeriod } from "@/lib/simulation/defaults";
 import cagrPresets from "@/lib/tool-snapshots/sma-cagr-presets.json";
+import inflationCagrPresets from "@/lib/tool-snapshots/sma-cagr-presets-inflation.json";
 
 const persist = vi.fn();
 const inputs = {
@@ -88,5 +89,28 @@ describe("Signals page SMA inputs", () => {
         expect(persist).toHaveBeenLastCalledWith(expect.objectContaining(expected));
       }
     });
+  });
+
+  it("inflation-adjusted presets set the checkbox and nominal presets clear it", () => {
+    render(<SignalsPage />);
+    const checkbox = screen.getByTestId("sma-inflation-adjusted");
+    expect(checkbox).not.toBeChecked();
+    const alternative = inflationCagrPresets.presets.findIndex((preset) => !preset.isCalibratedDefault);
+    const rule = inflationCagrPresets.presets[alternative].nasdaq100;
+    fireEvent.click(screen.getByRole("button", { name: "NDX Set alternative 1 (inflation adjusted)" }));
+    expect(checkbox).toBeChecked();
+    expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(rule.smaPeriod));
+    expect(screen.getByLabelText("NDX SMA Buffer lower")).toHaveValue(String(rule.smaLowerBuffer));
+    expect(screen.getByLabelText("NDX SMA Buffer upper")).toHaveValue(String(rule.smaUpperBuffer));
+    expect(persist).toHaveBeenLastCalledWith(expect.objectContaining({ smaInflationAdjusted: true }));
+
+    fireEvent.click(screen.getByRole("button", { name: "SPX Set default (inflation adjusted)" }));
+    expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(inflationCagrPresets.presets.find((p) => p.isCalibratedDefault)!.sp500.smaPeriod));
+    expect(checkbox).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "SPX Set default" }));
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("sp500")));
+    expect(persist).toHaveBeenLastCalledWith(expect.objectContaining({ smaInflationAdjusted: false }));
   });
 });

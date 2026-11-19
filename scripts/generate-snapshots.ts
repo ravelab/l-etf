@@ -239,6 +239,7 @@ type SharedInputs = {
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaVolGate: boolean;
+  smaInflationAdjusted: boolean;
   spxRiskOffAsset: RiskOffAsset;
   ndxRiskOffAsset: RiskOffAsset;
   smaExecutionMode: NonNullable<EtfConfig["smaExecutionMode"]>;
@@ -290,6 +291,7 @@ async function main() {
     smaNqUpperBuffer: calibration?.nasdaq100.smaUpperBuffer ?? getDefaultSmaUpperBuffer("nasdaq100"),
     smaNqLowerBuffer: calibration?.nasdaq100.smaLowerBuffer ?? getDefaultSmaLowerBuffer("nasdaq100"),
     smaVolGate: DEFAULT_SMA_VOL_GATE,
+    smaInflationAdjusted: false,
     spxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.sp500,
     ndxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.nasdaq100,
     smaExecutionMode: "next-day-open",
@@ -707,6 +709,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaNqUpperBuffer: shared.smaNqUpperBuffer,
     smaNqLowerBuffer: shared.smaNqLowerBuffer,
     smaVolGate: shared.smaVolGate,
+    smaInflationAdjusted: shared.smaInflationAdjusted,
     spxRiskOffAsset: dualRiskOffAssets.sp500,
     ndxRiskOffAsset: dualRiskOffAssets.nasdaq100,
     amount,

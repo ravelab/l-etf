@@ -9,12 +9,16 @@ export const SMA_BUFFER_URL_KEYS = {
 /** Present as "1" only when the volatility risk-off gate is on. */
 export const SMA_VOL_GATE_URL_KEY = "vg";
 
+/** Present as "1" only when the SMA band runs on the CPI-deflated index. */
+export const SMA_INFLATION_URL_KEY = "ia";
+
 type SmaBufferUrlFields = {
   smaSpUpperBuffer: number;
   smaSpLowerBuffer: number;
   smaNqUpperBuffer: number;
   smaNqLowerBuffer: number;
   smaVolGate: boolean;
+  smaInflationAdjusted: boolean;
 };
 
 function parseNumParam(params: URLSearchParams, key: string): number | undefined {
@@ -33,7 +37,7 @@ function urlNumMatchesState(params: URLSearchParams, key: string, stateVal: unkn
   return a === b;
 }
 
-/** Write all four asymmetric SMA buffer params and the volatility gate flag. */
+/** Write all four asymmetric SMA buffer params, the volatility gate and inflation flags. */
 export function appendSmaBufferUrlParams(params: URLSearchParams, values: SmaBufferUrlFields): void {
   deleteSmaBufferUrlParams(params);
   params.set(SMA_BUFFER_URL_KEYS.spUpper, String(values.smaSpUpperBuffer));
@@ -41,12 +45,14 @@ export function appendSmaBufferUrlParams(params: URLSearchParams, values: SmaBuf
   params.set(SMA_BUFFER_URL_KEYS.nqUpper, String(values.smaNqUpperBuffer));
   params.set(SMA_BUFFER_URL_KEYS.nqLower, String(values.smaNqLowerBuffer));
   if (values.smaVolGate) params.set(SMA_VOL_GATE_URL_KEY, "1");
+  if (values.smaInflationAdjusted) params.set(SMA_INFLATION_URL_KEY, "1");
 }
 
-/** Remove SMA buffer keys (and the volatility gate flag) from a URLSearchParams object. */
+/** Remove SMA buffer keys (and the gate and inflation flags) from a URLSearchParams object. */
 export function deleteSmaBufferUrlParams(params: URLSearchParams): void {
   for (const key of Object.values(SMA_BUFFER_URL_KEYS)) params.delete(key);
   params.delete(SMA_VOL_GATE_URL_KEY);
+  params.delete(SMA_INFLATION_URL_KEY);
 }
 
 function hasSmaBufferUrlParams(params: URLSearchParams): boolean {
@@ -57,8 +63,8 @@ function hasSmaBufferUrlParams(params: URLSearchParams): boolean {
  * The gate flag is written only when on, so a link that carries the SMA
  * buffers but no flag means "off". A link with neither says nothing.
  */
-function parseSmaVolGateUrlParam(params: URLSearchParams): boolean | undefined {
-  if (params.has(SMA_VOL_GATE_URL_KEY)) return params.get(SMA_VOL_GATE_URL_KEY) === "1";
+function parseSmaFlagUrlParam(params: URLSearchParams, key: string): boolean | undefined {
+  if (params.has(key)) return params.get(key) === "1";
   return hasSmaBufferUrlParams(params) ? false : undefined;
 }
 
@@ -78,8 +84,11 @@ export function parseSmaBufferUrlParams(params: URLSearchParams): Partial<SmaBuf
   const nqLower = parseNumParam(params, SMA_BUFFER_URL_KEYS.nqLower);
   if (nqLower != null) out.smaNqLowerBuffer = nqLower;
 
-  const volGate = parseSmaVolGateUrlParam(params);
+  const volGate = parseSmaFlagUrlParam(params, SMA_VOL_GATE_URL_KEY);
   if (volGate != null) out.smaVolGate = volGate;
+
+  const inflationAdjusted = parseSmaFlagUrlParam(params, SMA_INFLATION_URL_KEY);
+  if (inflationAdjusted != null) out.smaInflationAdjusted = inflationAdjusted;
 
   return out;
 }
@@ -93,7 +102,9 @@ export function urlSmaBuffersMatchState(
   if (!urlNumMatchesState(params, SMA_BUFFER_URL_KEYS.spLower, state.smaSpLowerBuffer)) return false;
   if (!urlNumMatchesState(params, SMA_BUFFER_URL_KEYS.nqUpper, state.smaNqUpperBuffer)) return false;
   if (!urlNumMatchesState(params, SMA_BUFFER_URL_KEYS.nqLower, state.smaNqLowerBuffer)) return false;
-  const volGate = parseSmaVolGateUrlParam(params);
+  const volGate = parseSmaFlagUrlParam(params, SMA_VOL_GATE_URL_KEY);
   if (volGate != null && volGate !== (state.smaVolGate === true)) return false;
+  const inflationAdjusted = parseSmaFlagUrlParam(params, SMA_INFLATION_URL_KEY);
+  if (inflationAdjusted != null && inflationAdjusted !== (state.smaInflationAdjusted === true)) return false;
   return true;
 }

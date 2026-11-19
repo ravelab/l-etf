@@ -1,4 +1,5 @@
 import calibration from "../tool-snapshots/sma-calibration.json";
+import inflationCalibration from "../tool-snapshots/sma-calibration-inflation.json";
 import type { IndexKey, RiskOffAsset } from "./types";
 
 /**
@@ -70,6 +71,20 @@ export function getDefaultSmaUpperBuffer(index: "sp500" | "nasdaq100"): number {
 /** Default exit threshold, percent below the SMA. */
 export function getDefaultSmaLowerBuffer(index: "sp500" | "nasdaq100"): number {
   return DEFAULT_SMA_BANDS[index].lowerBuffer;
+}
+
+/**
+ * The inflation-adjusted calibration's band (`sma-calibration-inflation.json`): the
+ * default to use with "SMA buffer inflation adjusted" on. The site's input defaults
+ * stay nominal.
+ */
+export function getInflationAdjustedDefaultSmaBand(index: "sp500" | "nasdaq100"): {
+  smaPeriod: number;
+  smaUpperBuffer: number;
+  smaLowerBuffer: number;
+} {
+  const band = inflationCalibration[index];
+  return { smaPeriod: band.smaPeriod, smaUpperBuffer: band.smaUpperBuffer, smaLowerBuffer: band.smaLowerBuffer };
 }
 
 export function getDefaultWindowLength(): number {

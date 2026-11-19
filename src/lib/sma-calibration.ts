@@ -5,6 +5,7 @@
  */
 
 import { readFile } from "node:fs/promises";
+import { smaArtifactFileName, smaCalibrationVariantFromEnv, type SmaCalibrationVariant } from "./sma-calibration-variant";
 import { join } from "node:path";
 import { z } from "zod";
 
@@ -41,6 +42,8 @@ export interface SmaCalibrationIndexResult {
   eraWeights?: Record<string, number>;
   /** Risk-off basket the band was scored with (`DEFAULT_RISK_OFF_ASSETS[index]`). */
   riskOffAsset?: string;
+  /** Scored with the band on the CPI-deflated index (the `-inflation` artifact set). */
+  inflationAdjusted?: boolean;
   /**
    * Score of the winner's worst / median immediate neighbour — one SMA day or
    * 0.1% of buffer away. The score surface is spiky along the period axis, so
@@ -80,6 +83,7 @@ const smaCalibrationIndexResultSchema = z.object({
   scoresByEra: z.record(z.string(), z.number()).optional(),
   eraWeights: z.record(z.string(), z.number()).optional(),
   riskOffAsset: z.string().optional(),
+  inflationAdjusted: z.boolean().optional(),
   neighborhoodMinScore: z.number().optional(),
   neighborhoodMedianScore: z.number().optional(),
 });
@@ -92,11 +96,16 @@ const smaCalibrationResultSchema = z.object({
   nasdaq100: smaCalibrationIndexResultSchema,
 });
 
-export const SMA_CALIBRATION_SNAPSHOT_PATH = join(process.cwd(), "src", "lib", "tool-snapshots", "sma-calibration.json");
+function smaCalibrationSnapshotPath(variant: SmaCalibrationVariant): string {
+  return join(process.cwd(), "src", "lib", "tool-snapshots", smaArtifactFileName("sma-calibration", variant));
+}
 
-export async function readSmaCalibrationSnapshot(): Promise<SmaCalibrationResult | null> {
+/** Where a calibration script writes: the variant it runs (`SMA_CALIBRATION_VARIANT`). */
+export const SMA_CALIBRATION_SNAPSHOT_PATH = smaCalibrationSnapshotPath(smaCalibrationVariantFromEnv());
+
+export async function readSmaCalibrationSnapshot(variant: SmaCalibrationVariant = "nominal"): Promise<SmaCalibrationResult | null> {
   try {
-    const raw = await readFile(SMA_CALIBRATION_SNAPSHOT_PATH, "utf-8");
+    const raw = await readFile(smaCalibrationSnapshotPath(variant), "utf-8");
     const parsed = smaCalibrationResultSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : null;
   } catch {

@@ -42,6 +42,7 @@ export function toValidRunSummary(value: unknown): RunSummary | null {
     smaNqUpperBuffer: typeof v.smaNqUpperBuffer === "number" ? v.smaNqUpperBuffer : 12,
     smaNqLowerBuffer: typeof v.smaNqLowerBuffer === "number" ? v.smaNqLowerBuffer : 12,
     smaVolGate: v.smaVolGate === true,
+    smaInflationAdjusted: v.smaInflationAdjusted === true,
     tradeAfterHours: typeof v.tradeAfterHours === "boolean" ? v.tradeAfterHours : false,
     amount: typeof v.amount === "number" && Number.isFinite(v.amount) ? v.amount : undefined,
     leverageTolerance: typeof v.leverageTolerance === "string" ? v.leverageTolerance : undefined,

@@ -39,6 +39,8 @@ export interface EtfConfig {
    * through `smaRiskOffGates`.
    */
   smaVolGate?: boolean;
+  /** Run the SMA band on the CPI-deflated index (`generateSmaSignals`' `inflationAdjusted`). */
+  smaInflationAdjusted?: boolean;
   /**
    * Id of a plug-in timing rule (`signal-rules.ts`) that replaces the SMA band.
    * The SMA fields and `smaVolGate` are then unused except `smaPeriod`, which

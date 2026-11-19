@@ -78,11 +78,14 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
     return "text-muted";
   };
 
+  // Inflation adjusted: the band compares the CPI-deflated index with its own SMA,
+  // so the line and the gap are real, not the quoted index's.
+  const smaName = result?.inflationAdjusted ? "real SMA" : "SMA";
   const getPercentLabel = () => {
     if (!result) return "";
-    if (result.percentDiff > 0) return `${result.percentDiff.toFixed(2)}% above SMA`;
-    if (result.percentDiff < 0) return `${Math.abs(result.percentDiff).toFixed(2)}% below SMA`;
-    return "At SMA";
+    if (result.percentDiff > 0) return `${result.percentDiff.toFixed(2)}% above ${smaName}`;
+    if (result.percentDiff < 0) return `${Math.abs(result.percentDiff).toFixed(2)}% below ${smaName}`;
+    return `At ${smaName}`;
   };
 
   return (
@@ -101,7 +104,12 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
             {result ? getSignalLabel() : loading ? <span className="invisible">{placeholderSignal}</span> : <span className="invisible">{placeholderSignal}</span>}
           </span>
           <span className="ml-auto tabular-nums text-sm leading-tight font-medium text-muted">
-            <span className="mr-2">{smaPeriod} SMA</span>
+            <span
+              className="mr-2"
+              title={result?.inflationAdjusted ? "SMA of the index divided by CPI, shown in today's dollars" : undefined}
+            >
+              {smaPeriod}d {result?.inflationAdjusted ? "Real SMA" : "SMA"}
+            </span>
             <span className="text-foreground/80 font-semibold">
               {result ? result.smaValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : <span className="invisible">00000.00</span>}
             </span>

@@ -159,7 +159,7 @@ export function BacktestingPageContent({
     smaSpPeriod, setSmaSpPeriod, smaNqPeriod, setSmaNqPeriod,
     smaSpUpperBuffer, setSmaSpUpperBuffer, smaSpLowerBuffer, setSmaSpLowerBuffer,
     smaNqUpperBuffer, setSmaNqUpperBuffer, smaNqLowerBuffer, setSmaNqLowerBuffer,
-    smaVolGate, setSmaVolGate,
+    smaVolGate, setSmaVolGate, smaInflationAdjusted, setSmaInflationAdjusted,
     spxRiskOffAsset, setSpxRiskOffAsset, ndxRiskOffAsset, setNdxRiskOffAsset, riskOffAssets,
     handleFieldChange, initial, save, restoredFromCache,
   } = form;
@@ -260,6 +260,7 @@ export function BacktestingPageContent({
           smaUpperBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer) : 0,
           smaLowerBuffer: smaMode !== 0 ? (cfg.smaIndex === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer) : 0,
           smaVolGate: smaMode !== 0 && smaVolGate,
+          smaInflationAdjusted: smaMode !== 0 && smaInflationAdjusted,
           riskOffAsset: riskOffAssets[cfg.smaIndex],
         };
       });
@@ -267,7 +268,7 @@ export function BacktestingPageContent({
       // Plug-in rule lines ride along with the SMA lines, never in Check Emulations.
       return smaMode === 0 ? baseConfigs : withSignalRuleLines(baseConfigs, extraStrategies);
     },
-    [baseEtfConfigs, etfConfigs, letf, startDateForIndex, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, smaMode, extraStrategies, checkSimulationDisplayStarts, etfLaunchDates]
+    [baseEtfConfigs, etfConfigs, letf, startDateForIndex, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, smaInflationAdjusted, riskOffAssets, smaMode, extraStrategies, checkSimulationDisplayStarts, etfLaunchDates]
   );
 
   type BacktestingSnapshotState = typeof initial;
@@ -309,6 +310,7 @@ export function BacktestingPageContent({
       if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaUpperBuffer("nasdaq100"), { min: 0 }));
       if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }));
       if (decoded.smaVolGate != null) setSmaVolGate(decoded.smaVolGate);
+      if (decoded.smaInflationAdjusted != null) setSmaInflationAdjusted(decoded.smaInflationAdjusted);
       if (decoded.spxRiskOffAsset) setSpxRiskOffAsset(decoded.spxRiskOffAsset);
       if (decoded.ndxRiskOffAsset) setNdxRiskOffAsset(decoded.ndxRiskOffAsset);
       const urlExtraStrategies = parseExtraStrategiesUrlParam(params);
@@ -370,6 +372,7 @@ export function BacktestingPageContent({
     setSmaNqPeriod,
     setSmaSpUpperBuffer, setSmaSpLowerBuffer, setSmaNqUpperBuffer, setSmaNqLowerBuffer,
     setSmaVolGate,
+    setSmaInflationAdjusted,
     setSpxRiskOffAsset,
     setNdxRiskOffAsset,
   ]);
@@ -566,7 +569,7 @@ export function BacktestingPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applyBacktestSnapshot,
     onNoData: () => setPendingRun(true),
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     perIndexStart,
     riskOffAssets,
     // Backtesting does not persist `result` to avoid quota issues, so we always
@@ -626,7 +629,7 @@ export function BacktestingPageContent({
       smaSpLowerBuffer,
       smaNqUpperBuffer,
       smaNqLowerBuffer,
-      smaVolGate,
+      smaVolGate, smaInflationAdjusted,
     });
     appendRiskOffUrlParams(urlParams, riskOffAssets);
     appendExtraStrategiesUrlParam(urlParams, extraStrategies);
@@ -640,7 +643,7 @@ export function BacktestingPageContent({
 
     markNextSearchAsInternal();
     router.push(buildToolsUrl("backtest", urlParams));
-  }, [letf, startDate, perIndexStart, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, riskOffAssets, extraStrategies, etfConfigs, router, markNextSearchAsInternal]);
+  }, [letf, startDate, perIndexStart, endDate, smaMode, smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, smaInflationAdjusted, riskOffAssets, extraStrategies, etfConfigs, router, markNextSearchAsInternal]);
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -990,6 +993,7 @@ export function BacktestingPageContent({
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
         smaVolGate: smaMode !== 0 && smaVolGate,
+        smaInflationAdjusted: smaMode !== 0 && smaInflationAdjusted,
         spxRiskOffAsset,
         ndxRiskOffAsset,
         taxRates: getTaxRates(),
@@ -1006,7 +1010,7 @@ export function BacktestingPageContent({
         smaSpPeriod,
         smaNqPeriod,
         smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         spxRiskOffAsset,
         ndxRiskOffAsset,
         etfConfigs,
@@ -1071,7 +1075,7 @@ export function BacktestingPageContent({
           smaSpLowerBuffer,
           smaNqUpperBuffer,
           smaNqLowerBuffer,
-          smaVolGate,
+          smaVolGate, smaInflationAdjusted,
         });
         appendRiskOffUrlParams(historyParams, riskOffAssets);
         appendExtraStrategiesUrlParam(historyParams, extraStrategies);
@@ -1092,6 +1096,7 @@ export function BacktestingPageContent({
             smaNqPeriod,
             smaNqUpperBuffer, smaNqLowerBuffer,
             smaVolGate: smaMode !== 0 && smaVolGate,
+            smaInflationAdjusted: smaMode !== 0 && smaInflationAdjusted,
             letf: getValidPresetKey(letf, DEFAULT_COMBO_PRESET),
             spxRiskOffAsset,
             ndxRiskOffAsset,
@@ -1135,7 +1140,7 @@ export function BacktestingPageContent({
     smaNqPeriod,
     smaSpUpperBuffer, smaSpLowerBuffer,
     smaSpPeriod,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     smaMode,
     startDate,
     perIndexStart,
@@ -1326,7 +1331,7 @@ export function BacktestingPageContent({
             smaSpPeriod,
             smaNqPeriod,
             smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-            smaVolGate,
+            smaVolGate, smaInflationAdjusted,
             spxRiskOffAsset,
             ndxRiskOffAsset,
           }}

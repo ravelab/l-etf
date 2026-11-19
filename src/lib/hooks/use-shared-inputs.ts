@@ -55,6 +55,7 @@ type SharedInputs = {
   smaNqLowerBuffer: number;
   smaNqEnabled: boolean;
   smaVolGate: boolean;
+  smaInflationAdjusted: boolean;
   spxRiskOffAsset: EtfConfig["riskOffAsset"];
   ndxRiskOffAsset: EtfConfig["riskOffAsset"];
   hateDrawdown: boolean;
@@ -76,6 +77,7 @@ export const SHARED_KEYS = new Set<string>([
   "smaSpEnabled",
   "smaNqEnabled",
   "smaVolGate",
+  "smaInflationAdjusted",
   "spxRiskOffAsset",
   "ndxRiskOffAsset",
   "hateDrawdown",
@@ -98,6 +100,7 @@ const DEFAULTS: SharedInputs = {
   smaSpEnabled: true,
   smaNqEnabled: true,
   smaVolGate: DEFAULT_SMA_VOL_GATE,
+  smaInflationAdjusted: false,
   spxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.sp500,
   ndxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.nasdaq100,
   hateDrawdown: false,
@@ -134,6 +137,7 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     smaSpEnabled: normalizeBooleanValue(base.smaSpEnabled, true),
     smaNqEnabled: normalizeBooleanValue(base.smaNqEnabled, true),
     smaVolGate: normalizeBooleanValue(base.smaVolGate, DEFAULT_SMA_VOL_GATE),
+    smaInflationAdjusted: normalizeBooleanValue(base.smaInflationAdjusted, false),
     spxRiskOffAsset: normalizeRiskOffAsset(base.spxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.sp500),
     ndxRiskOffAsset: normalizeRiskOffAsset(base.ndxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.nasdaq100),
     hateDrawdown: normalizeBooleanValue(base.hateDrawdown, false),
@@ -218,6 +222,7 @@ export function getSharedInputs(urlParams?: URLSearchParams): {
     if (smaBuffers.smaNqUpperBuffer != null) merged.smaNqUpperBuffer = smaBuffers.smaNqUpperBuffer;
     if (smaBuffers.smaNqLowerBuffer != null) merged.smaNqLowerBuffer = smaBuffers.smaNqLowerBuffer;
     if (smaBuffers.smaVolGate != null) merged.smaVolGate = smaBuffers.smaVolGate;
+    if (smaBuffers.smaInflationAdjusted != null) merged.smaInflationAdjusted = smaBuffers.smaInflationAdjusted;
     const riskOffAssets = parseRiskOffUrlParams(p);
     if (riskOffAssets.sp500) merged.spxRiskOffAsset = riskOffAssets.sp500;
     if (riskOffAssets.nasdaq100) merged.ndxRiskOffAsset = riskOffAssets.nasdaq100;

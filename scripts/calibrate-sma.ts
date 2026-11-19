@@ -80,9 +80,11 @@ import {
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
 import { rankStableSmaCandidates } from "../src/lib/simulation/sma-stability-score";
 import type { IndexKey } from "../src/lib/simulation/types";
-import savedPresets from "../src/lib/tool-snapshots/sma-cagr-presets.json";
-import savedCalibration from "../src/lib/tool-snapshots/sma-calibration.json";
+import { readSmaArtifact } from "./lib/sma-artifacts";
 import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
+
+const savedPresets = readSmaArtifact("sma-cagr-presets");
+const savedCalibration = readSmaArtifact("sma-calibration");
 
 const PERIOD_BOUNDS = { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD };
 const BUFFER_BOUNDS = { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER };

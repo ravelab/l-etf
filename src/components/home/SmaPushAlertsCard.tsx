@@ -49,6 +49,7 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
   }
   if (parts.length === 0) return " (Disabled)";
   if (config.smaVolGate) parts.push(`vol ${SMA_RISK_OFF_GATES_PARAMS_TEXT}`);
+  if (config.smaInflationAdjusted) parts.push("inflation adjusted");
   return ` (${parts.join(", ")})`;
 }
 

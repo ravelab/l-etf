@@ -739,6 +739,16 @@ choose equal numbers (SPX 175d, 3.6% on both sides under half-gap scoring).
 There is no `getDefaultSmaBuffer`: feeding one default to both sides is the
 futures-ladder bug above waiting to happen.
 
+Every SMA artifact has an inflation-adjusted twin (`*-inflation.json`), scored with
+the band on the CPI-deflated index (`smaInflationAdjusted`; `cpi-deflator.ts` reads
+`cpi-monthly.json`, which `fetch-data` regenerates with `inflation.csv`). Scripts pick
+the set from `SMA_CALIBRATION_VARIANT=inflation` (`sma-calibration-variant.ts`), which
+phases and forked workers inherit; `npm run refresh-sma` and the monthly build do both
+sets, `explore-sma` needs the variable for the second. The Signals page shows each set
+in its own card, and a preset sets or clears the shared "SMA buffer inflation adjusted"
+checkbox, because a band only means what it scored under its own setting. Site input
+defaults and canned snapshots stay nominal.
+
 The Signals page's saved `signals-use-calibrated-defaults` preference is for
 push alerts only. `SmaPushAlertsCard` applies the calibration snapshot when it
 builds an alert subscription; loading that preference or the snapshot must not

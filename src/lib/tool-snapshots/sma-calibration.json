@@ -10,6 +10,7 @@
       "start": 100
     },
     "riskOffAsset": "BRK.B+GLDM",
+    "inflationAdjusted": false,
     "scoresByEra": {
       "start": 6015.806393124019
     },
@@ -36,6 +37,7 @@
       "start": 100
     },
     "riskOffAsset": "VGSH",
+    "inflationAdjusted": false,
     "scoresByEra": {
       "start": 17226.046756148597
     },

@@ -85,7 +85,7 @@ export function CompareRiskOffAssetsPageContent({
     perIndexStart, startDateForIndex,
     windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     spxRiskOffAsset, ndxRiskOffAsset, riskOffAssets,
     isCombo, selectedPreset, comboSubs,
     handleFieldChange, getUrlParams, initial, save, restoredFromCache,
@@ -149,7 +149,7 @@ export function CompareRiskOffAssetsPageContent({
     shouldHydrate: shouldHydrateSnapshot,
     onSnapshot: applySnapshot,
     onNoData: () => setPendingRun(true),
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     perIndexStart,
     hasPersistedResults: (state) =>
       !!(state as Partial<CompareRiskOffSnapshotState>).runSummaryInputs ||
@@ -167,6 +167,7 @@ export function CompareRiskOffAssetsPageContent({
         smaPeriod: p.index === "nasdaq100" ? display.summary.smaNqPeriod : display.summary.smaSpPeriod,
         smaUpperBuffer: p.index === "nasdaq100" ? display.summary.smaNqUpperBuffer : display.summary.smaSpUpperBuffer, smaLowerBuffer: p.index === "nasdaq100" ? display.summary.smaNqLowerBuffer : display.summary.smaSpLowerBuffer,
         smaVolGate: display.summary.smaVolGate,
+        smaInflationAdjusted: display.summary.smaInflationAdjusted,
         riskOffAsset: row.riskOffAsset,
       });
     },
@@ -254,7 +255,7 @@ export function CompareRiskOffAssetsPageContent({
       smaPeriod: presetDef.index === "nasdaq100" ? smaNqPeriod : smaSpPeriod,
       upperBuffer: presetDef.index === "nasdaq100" ? smaNqUpperBuffer : smaSpUpperBuffer,
       lowerBuffer: presetDef.index === "nasdaq100" ? smaNqLowerBuffer : smaSpLowerBuffer,
-      smaVolGate,
+      smaVolGate, smaInflationAdjusted,
     });
 
     const variantResults = await runParallelVariantSummaries({
@@ -278,7 +279,7 @@ export function CompareRiskOffAssetsPageContent({
       });
 
     return { rows: nextRows, baseline: bl };
-  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, windowLength, startDateForIndex, endDate, riskOffLabelByAsset]);
+  }, [riskOffAssets, smaNqPeriod, smaSpPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaSpUpperBuffer, smaSpLowerBuffer, smaVolGate, smaInflationAdjusted, windowLength, startDateForIndex, endDate, riskOffLabelByAsset]);
 
   const buildRiskoffUrlParams = useCallback(() => {
     const params = getUrlParams();
@@ -348,7 +349,7 @@ export function CompareRiskOffAssetsPageContent({
         smaSpUpperBuffer, smaSpLowerBuffer,
         smaNqPeriod,
         smaNqUpperBuffer, smaNqLowerBuffer,
-        smaVolGate,
+        smaVolGate, smaInflationAdjusted,
         letf,
         spxRiskOffAsset,
         ndxRiskOffAsset,
@@ -358,7 +359,7 @@ export function CompareRiskOffAssetsPageContent({
 
       save({
         letf, index, startDate, perIndexStart, endDate, windowLength,
-        smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, spxRiskOffAsset, ndxRiskOffAsset, showBaseline: true,
+        smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer, smaVolGate, smaInflationAdjusted, spxRiskOffAsset, ndxRiskOffAsset, showBaseline: true,
         annualizedInflation: inflationData.annualizedInflation, monthlyCpi: inflationData.monthlyCpi,
         rows: computedRows,
         baseline: computedBaseline,
@@ -397,7 +398,7 @@ export function CompareRiskOffAssetsPageContent({
   }, [perIndexStart,
     index, startDate, endDate, windowLength,
     smaSpPeriod, smaNqPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqUpperBuffer, smaNqLowerBuffer,
-    smaVolGate,
+    smaVolGate, smaInflationAdjusted,
     letf, selectedPreset,
     save, updateUrl, clearMetadata,
     spxRiskOffAsset, ndxRiskOffAsset, comboSubs, buildRiskoffUrlParams,
@@ -500,7 +501,7 @@ export function CompareRiskOffAssetsPageContent({
           values={{
             letf: letf as string, startDate, perIndexStart, endDate, windowLength,
             smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer,
-            smaVolGate,
+            smaVolGate, smaInflationAdjusted,
           }}
           onChange={handleFieldChange}
           taxRates={taxRates}

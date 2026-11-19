@@ -18,6 +18,7 @@
  */
 
 import { config } from "dotenv";
+import { SMA_CALIBRATION_INFLATION_ADJUSTED } from "../src/lib/simulation/sma-calibration-eras";
 config({ path: ".env.local", quiet: true });
 
 import { fork, type ChildProcess } from "node:child_process";
@@ -259,7 +260,8 @@ async function explodeIndex(
   const eraWeights = Object.fromEntries(
     SMA_CALIBRATION_ERAS[indexKey].map((era) => [era.key, era.weight])
   );
-  return { startDate, eraWeights, riskOffAsset: DEFAULT_RISK_OFF_ASSETS[indexKey], best, periodSeeds: seeds };
+  return { startDate, eraWeights, riskOffAsset: DEFAULT_RISK_OFF_ASSETS[indexKey],
+    inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[indexKey], best, periodSeeds: seeds };
 }
 
 async function main(): Promise<void> {

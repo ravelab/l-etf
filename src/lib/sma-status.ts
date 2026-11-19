@@ -17,6 +17,8 @@ export type SmaSignalConfig = {
   smaNqEnabled: boolean;
   /** Risk-off gate switch (volatility gate + RSI crash brake, see risk-off-gates.ts) on top of both SMAs. Absent on older stored subscriptions. */
   smaVolGate?: boolean;
+  /** Run both SMA bands on the CPI-deflated index (`cpi-deflator.ts`). Absent on older stored subscriptions. */
+  smaInflationAdjusted?: boolean;
   /** If true, deliver a push every market close regardless of whether the SMA signal changed. */
   notifyEveryClose: boolean;
   /** If true, the period/buffer fields above are kept in sync with the latest SMA calibration snapshot. */
@@ -65,6 +67,7 @@ export function buildSmaSignalConfigFingerprint(config: SmaSignalConfig): string
     config.notifyEveryClose ? "1" : "0",
     // Appended only when on so every existing subscription keeps its fingerprint.
     ...(config.smaVolGate ? ["vg"] : []),
+    ...(config.smaInflationAdjusted ? ["ia"] : []),
   ].join("|");
 }
 
@@ -96,7 +99,9 @@ function getSmaRegimeLabel(result: SmaSignalResult): string {
 function formatSmaStatus(result: SmaSignalResult): string {
   const vol = result.volatility != null && Number.isFinite(result.volatility)
     ? `, vol ${Math.round(result.volatility * 100)}%` : "";
-  return `${getSmaRegimeLabel(result)} (${formatSignedPercent(result.percentDiff)}${vol})`;
+  // An inflation-adjusted band's gap is to the real SMA.
+  const real = result.inflationAdjusted ? " real" : "";
+  return `${getSmaRegimeLabel(result)} (${formatSignedPercent(result.percentDiff)}${real}${vol})`;
 }
 
 export function buildSmaSignalFingerprint(snapshot: SmaSignalSnapshot, config?: SmaSignalConfig): string {
@@ -137,6 +142,7 @@ export function describeSmaSignalConfig(config: SmaSignalConfig): string {
     parts.push(`NDX ${config.smaNqPeriod} SMA, −${formatCompactPercent(config.smaNqLowerBuffer)}/${formatCompactPercent(config.smaNqUpperBuffer)}`);
   }
   if (parts.length > 0 && config.smaVolGate) parts.push(volGateLabelFor(config));
+  if (parts.length > 0 && config.smaInflationAdjusted) parts.push("inflation adjusted");
   return parts.length > 0 ? parts.join("; ") : "None";
 }
 
@@ -200,7 +206,10 @@ export function computeSmaSignalSnapshot(params: {
   timestamp?: string;
 }): SmaSignalSnapshot {
   const { sp500Prices, nasdaqPrices, config, timestamp = new Date().toISOString() } = params;
-  const options = (index: IndexKey) => (config.smaVolGate === true ? smaRiskOffGates(index) : {});
+  const options = (index: IndexKey) => ({
+    ...(config.smaVolGate === true ? smaRiskOffGates(index) : {}),
+    ...(config.smaInflationAdjusted === true ? { inflationAdjusted: true } : {}),
+  });
 
   return {
     sp500: getSmaSignal(sp500Prices, config.smaSpPeriod, { upper: config.smaSpUpperBuffer, lower: config.smaSpLowerBuffer }, options("sp500")),

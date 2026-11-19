@@ -6,6 +6,10 @@
     "sp500": "BRK.B+GLDM",
     "nasdaq100": "VGSH"
   },
+  "inflationAdjusted": {
+    "sp500": false,
+    "nasdaq100": false
+  },
   "executionMode": "next-day-open",
   "windowLength": 38.61190965092403,
   "selection": "Calibrated default plus three distinct alternatives selected by stability-adjusted full-period score from per-period search seeds with joint buffer refinement",

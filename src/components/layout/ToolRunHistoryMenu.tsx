@@ -79,6 +79,7 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
   smaNqUpperBuffer: 9.6,
   smaNqLowerBuffer: 17.9,
   smaVolGate: true,
+  smaInflationAdjusted: false,
 } as const;
 
 /**
@@ -128,6 +129,7 @@ function buildWorstTimeBacktestParams(letf: string, startDate: string, endDate: 
     smaNqUpperBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqUpperBuffer,
     smaNqLowerBuffer: WORST_TIME_BACKTEST_BASE_PARAMS.smaNqLowerBuffer,
     smaVolGate: WORST_TIME_BACKTEST_BASE_PARAMS.smaVolGate,
+    smaInflationAdjusted: WORST_TIME_BACKTEST_BASE_PARAMS.smaInflationAdjusted,
   });
   appendRiskOffUrlParams(params, DEFAULT_RISK_OFF_ASSETS);
   return params;
@@ -153,6 +155,7 @@ function buildSavedRunMeta(entry: ToolRunHistoryEntry): string {
     pieces.push(`SPX Risk-Off ${summary.spxRiskOffAsset}`, `NDX Risk-Off ${summary.ndxRiskOffAsset}`);
   }
   if (summary.smaVolGate) pieces.push(`Vol ${SMA_RISK_OFF_GATES_PARAMS_TEXT}`);
+  if (summary.smaInflationAdjusted) pieces.push("SMA inflation adjusted");
   return pieces.join(" - ");
 }
 

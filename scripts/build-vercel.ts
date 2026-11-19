@@ -200,6 +200,8 @@ async function main() {
       `[build:vercel] Running SMA calibration (${forceSmaCalibration ? "forced" : "Deploy Hook on first Monday of month"})`
     );
     run("npm run calibrate-sma");
+    // The inflation-adjusted set (`sma-calibration-variant.ts`), offered beside it on the Signals page.
+    run("SMA_CALIBRATION_VARIANT=inflation npm run calibrate-sma");
   } else {
     console.log(
       `[build:vercel] Skipping SMA calibration (${isDeployHookBuild ? "not first Monday of month" : "not Deploy Hook build"})`

@@ -1,5 +1,6 @@
 /** Refresh every saved period's seed under today's data and scoring formula. */
 import { writeFileSync } from "node:fs";
+import { SMA_CALIBRATION_INFLATION_ADJUSTED } from "../src/lib/simulation/sma-calibration-eras";
 import { readSmaSearchSpaceSnapshot, SMA_SEARCH_SPACE_SNAPSHOT_PATH, type SmaSeed } from "../src/lib/sma-search-space";
 import { readSmaCalibrationSnapshot } from "../src/lib/sma-calibration";
 import { SMA_CALIBRATION_ERAS, primaryEra } from "../src/lib/simulation/sma-calibration-eras";
@@ -31,7 +32,7 @@ async function main() {
     const periodSeeds = [...byPeriod.values()].sort((a, b) => a.smaPeriod - b.smaPeriod);
     refreshed[indexKey] = { startDate: primaryEra(indexKey).startDate,
       eraWeights: Object.fromEntries(SMA_CALIBRATION_ERAS[indexKey].map((era) => [era.key, era.weight])),
-      riskOffAsset: DEFAULT_RISK_OFF_ASSETS[indexKey], periodSeeds, best: periodSeeds.reduce((best, seed) => seed.score > best.score ? seed : best) };
+      riskOffAsset: DEFAULT_RISK_OFF_ASSETS[indexKey], inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[indexKey], periodSeeds, best: periodSeeds.reduce((best, seed) => seed.score > best.score ? seed : best) };
     console.log(`[refresh-sma-seeds] ${indexKey}: ${periodSeeds.length} periods rescored`);
   }
   writeFileSync(SMA_SEARCH_SPACE_SNAPSHOT_PATH, JSON.stringify(refreshed, null, 2) + "\n");

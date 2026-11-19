@@ -1,0 +1,59 @@
+{
+  "generatedAt": "2026-11-19T08:13:41.110Z",
+  "endDate": "2026-11-18",
+  "windowLength": 38.61738535249829,
+  "sp500": {
+    "startDate": "1988-04-06",
+    "windowLength": 38.61738535249829,
+    "historyWrap": false,
+    "eraWeights": {
+      "start": 100
+    },
+    "riskOffAsset": "BRK.B+GLDM",
+    "inflationAdjusted": true,
+    "scoresByEra": {
+      "start": 6354.1242148641395
+    },
+    "smaPeriod": 224,
+    "smaUpperBuffer": 2.3,
+    "smaLowerBuffer": 5.6,
+    "smaOnlySwitches": 25,
+    "score": 6307.372439629615,
+    "baseScore": 6354.1242148641395,
+    "stabilityPenalty": 46.75177523452476,
+    "avgReturn": 21.7428635302767,
+    "worstReturn": 21.7428635302767,
+    "avgMaxDrawdown": 50.599589283092826,
+    "avgTrades": 29,
+    "evaluatedCombos": 60391,
+    "neighborhoodMinScore": 5942.914453651883,
+    "neighborhoodMedianScore": 6183.9856869004325
+  },
+  "nasdaq100": {
+    "startDate": "1985-01-31",
+    "windowLength": 41.79603011635866,
+    "historyWrap": false,
+    "eraWeights": {
+      "start": 100
+    },
+    "riskOffAsset": "VGSH",
+    "inflationAdjusted": true,
+    "scoresByEra": {
+      "start": 17522.03320662694
+    },
+    "smaPeriod": 139,
+    "smaUpperBuffer": 9,
+    "smaLowerBuffer": 18.2,
+    "smaOnlySwitches": 10,
+    "score": 17522.03320662694,
+    "baseScore": 17522.03320662694,
+    "stabilityPenalty": 0,
+    "avgReturn": 30.768554749985032,
+    "worstReturn": 30.768554749985032,
+    "avgMaxDrawdown": 77.52581269421796,
+    "avgTrades": 24,
+    "evaluatedCombos": 63499,
+    "neighborhoodMinScore": 17007.97863358581,
+    "neighborhoodMedianScore": 17451.308045057453
+  }
+}

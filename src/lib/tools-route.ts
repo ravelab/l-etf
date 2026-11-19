@@ -182,6 +182,7 @@ export function persistedToolStateMatchesUrl(state: Record<string, unknown>, par
     smaNqUpperBuffer: state.smaNqUpperBuffer as number | undefined,
     smaNqLowerBuffer: state.smaNqLowerBuffer as number | undefined,
     smaVolGate: state.smaVolGate as boolean | undefined,
+    smaInflationAdjusted: state.smaInflationAdjusted as boolean | undefined,
   })) return false;
 
   if (!riskOffUrlParamsMatchState(params, state)) return false;
