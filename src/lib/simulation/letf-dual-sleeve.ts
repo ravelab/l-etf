@@ -85,18 +85,29 @@ export type LetfFundPathSleeve = {
   totalTradingCostPct: number;
 };
 
+/** Each sleeve's dollars and own day index on every fund day of a composed path. */
+export type LetfFundSleeveTrack = { values: number[]; dayIndex: number[] };
+
 /**
  * The fund's path over fund days `[firstDay, firstDay + dayCount)`. Both sleeves
  * must have traded on `firstDay`. Given the fund calendar as `taxDates`, it also
  * records the trades and year-ends a tax estimate needs; the rolling-window caller
- * passes none and pays nothing for it.
+ * passes none and pays nothing for it. `trackSleeves` also returns each sleeve's
+ * dollars per fund day, which the holdings chart splits by ticker.
  */
 export function composeLetfFundPath(
   sleeves: readonly [LetfFundPathSleeve, LetfFundPathSleeve],
   firstDay: number,
   dayCount: number,
-  taxDates?: readonly string[]
-): { dailyValues: number[]; finalValue: number; totalTradingCostPct: number; taxEvents?: LetfTaxEvent[] } {
+  taxDates?: readonly string[],
+  trackSleeves = false
+): {
+  dailyValues: number[];
+  finalValue: number;
+  totalTradingCostPct: number;
+  taxEvents?: LetfTaxEvent[];
+  sleeveTracks?: [LetfFundSleeveTrack, LetfFundSleeveTrack];
+} {
   const sameBasket = sleeves[0].riskOffAsset === sleeves[1].riskOffAsset;
   let value = sleeves.map((sleeve) => sleeve.startValue);
   const cursor = sleeves.map((sleeve) => sleeve.dayIndex[firstDay]);
@@ -104,6 +115,9 @@ export function composeLetfFundPath(
   let resetCost = 0;
   const lastDay = firstDay + dayCount - 1;
   const taxEvents: LetfTaxEvent[] | undefined = taxDates ? [] : undefined;
+  const tracks: [LetfFundSleeveTrack, LetfFundSleeveTrack] | undefined = trackSleeves
+    ? [{ values: [value[0]], dayIndex: [cursor[0]] }, { values: [value[1]], dayIndex: [cursor[1]] }]
+    : undefined;
   const pricesNow = () => sleeves.map((sleeve, s) => sleeve.dailyValues[cursor[s]]);
   const recordClose = (k: number) => {
     if (taxEvents) {
@@ -148,6 +162,10 @@ export function composeLetfFundPath(
       return v * growth;
     });
     dailyValues.push(value[0] + value[1]);
+    tracks?.forEach((track, s) => {
+      track.values.push(value[s]);
+      track.dayIndex.push(cursor[s]);
+    });
     recordClose(k);
   }
 
@@ -163,6 +181,7 @@ export function composeLetfFundPath(
     finalValue,
     totalTradingCostPct: finalValue > 0 ? ((sleeveCosts + resetCost) / finalValue) * 100 : 0,
     ...(taxEvents ? { taxEvents } : {}),
+    ...(tracks ? { sleeveTracks: tracks } : {}),
   };
 }
 
@@ -187,6 +206,27 @@ export function letfFundTaxSchedule(
   };
 }
 
+/** Both sleeves on the fund's calendar: the union of their trading days. */
+export function toLetfFundPathSleeves(
+  primary: LetfFundSleeve,
+  secondary: LetfFundSleeve
+): { dates: string[]; sleeves: [LetfFundPathSleeve, LetfFundPathSleeve] } {
+  const dates = [...new Set([...primary.result.dates, ...secondary.result.dates])].sort();
+  const toPath = ({ result, riskOffAsset }: LetfFundSleeve): LetfFundPathSleeve => {
+    const indexByDate = new Map(result.dates.map((date, i) => [date, i]));
+    return {
+      dayIndex: dates.map((date) => indexByDate.get(date) ?? -1),
+      dailyValues: result.dailyValues,
+      heldRiskOn: heldRiskOnByDay(result),
+      startValue: result.dailyValues[0] / 2,
+      riskOffAsset,
+      exitFraction: exitFraction(result),
+      totalTradingCostPct: result.totalTradingCostPct,
+    };
+  };
+  return { dates, sleeves: [toPath(primary), toPath(secondary)] };
+}
+
 /**
  * The fund's daily values on the union of the sleeves' calendars, or null when the
  * sleeves do not start together (a 50/50 fund needs both from day one).
@@ -201,19 +241,7 @@ export function composeLetfDualSleeveFund(params: {
   if (sleeves.some(({ result }) => result.dates.length < 2 || !(result.dailyValues[0] > 0))) return null;
   if (sleeves[0].result.dates[0] !== sleeves[1].result.dates[0]) return null;
 
-  const dates = [...new Set(sleeves.flatMap(({ result }) => result.dates))].sort();
-  const [primary, secondary] = sleeves.map(({ result, riskOffAsset }): LetfFundPathSleeve => {
-    const indexByDate = new Map(result.dates.map((date, i) => [date, i]));
-    return {
-      dayIndex: dates.map((date) => indexByDate.get(date) ?? -1),
-      dailyValues: result.dailyValues,
-      heldRiskOn: heldRiskOnByDay(result),
-      startValue: result.dailyValues[0] / 2,
-      riskOffAsset,
-      exitFraction: exitFraction(result),
-      totalTradingCostPct: result.totalTradingCostPct,
-    };
-  });
+  const { dates, sleeves: [primary, secondary] } = toLetfFundPathSleeves(params.primary, params.secondary);
   const { dailyValues, finalValue, totalTradingCostPct, taxEvents } = composeLetfFundPath(
     [primary, secondary], 0, dates.length, dates
   );
@@ -240,17 +268,27 @@ export function composeLetfDualSleeveFund(params: {
  * null when they cannot form one. The backtest and futures pages both show it as
  * "TQQQ/UPRO SMA", so both build it here.
  */
-export function buildLetfComboFund(params: {
+export type LetfComboSleeves = {
+  /** UPRO on SPX, then TQQQ on NDX, both opening on the fund's start date. */
+  sleeves: [LetfFundSleeve, LetfFundSleeve];
+  /** The LETF each sleeve holds while risk-on, in sleeve order. */
+  letfNames: [string, string];
+};
+
+/**
+ * The fund's two sleeves, both opening on the later of their starts: "SPX/NDX
+ * start" opens UPRO in 1988 and TQQQ in 1985, and a 50/50 fund needs both, so the
+ * earlier sleeve enters there as a fresh position.
+ */
+export function alignLetfComboSleeves(params: {
   spxSleeve: EtfResult;
   ndxSleeve: EtfResult;
   spxRiskOffAsset: string;
   ndxRiskOffAsset: string;
-}): EtfResult | null {
+}): LetfComboSleeves {
   const { spxSleeve, ndxSleeve, spxRiskOffAsset, ndxRiskOffAsset } = params;
   const subPresets = getComboSubPresets(DEFAULT_COMBO_PRESET);
   const sleeveRiskOffAssets = [spxRiskOffAsset, ndxRiskOffAsset] as RiskOffAsset[];
-  // "SPX/NDX start" opens UPRO in 1988 and TQQQ in 1985. The fund needs both, so it
-  // opens on the later start, the earlier sleeve entering there as a fresh position.
   const fundStartDate = spxSleeve.dates[0] > ndxSleeve.dates[0] ? spxSleeve.dates[0] : ndxSleeve.dates[0];
   const [primary, secondary] = [spxSleeve, ndxSleeve].map((etf, k) => (
     etf.dates[0] === fundStartDate
@@ -259,14 +297,32 @@ export function buildLetfComboFund(params: {
           riskOffAsset: sleeveRiskOffAssets[k],
         }))
   ));
+  return {
+    sleeves: [
+      { result: primary, riskOffAsset: spxRiskOffAsset },
+      { result: secondary, riskOffAsset: ndxRiskOffAsset },
+    ],
+    letfNames: [subPresets[0].name, subPresets[1].name],
+  };
+}
+
+export function buildLetfComboFund(params: {
+  spxSleeve: EtfResult;
+  ndxSleeve: EtfResult;
+  spxRiskOffAsset: string;
+  ndxRiskOffAsset: string;
+}): EtfResult | null {
+  const { spxRiskOffAsset, ndxRiskOffAsset } = params;
+  const { sleeves: [primarySleeve, secondarySleeve] } = alignLetfComboSleeves(params);
+  const primary = primarySleeve.result;
   const volRsi = primary.name.includes("(SMA Vol RSI") ? " Vol RSI" : "";
   const riskOff = [spxRiskOffAsset, ndxRiskOffAsset].map(formatRiskOffLiquidationAbbrev).join(" / ");
   return composeLetfDualSleeveFund({
     id: LETF_FUND_RESULT_ID,
     // The results table and chart shorten this to "TQQQ/UPRO SMA Vol RSI".
     name: `TQQQ/UPRO (SMA${volRsi}, ${riskOff})`,
-    primary: { result: primary, riskOffAsset: spxRiskOffAsset },
-    secondary: { result: secondary, riskOffAsset: ndxRiskOffAsset },
+    primary: primarySleeve,
+    secondary: secondarySleeve,
   });
 }
 
@@ -276,18 +332,30 @@ export function buildLetfComboFund(params: {
  * returned untouched. Derived on display, so a fresh run, a cached one and the
  * canned snapshot all get it without storing it.
  */
-export function withLetfComboFund(
+export type LetfComboRun = { letf: string; spxRiskOffAsset: string; ndxRiskOffAsset: string };
+
+/** The two `-sma` sleeves the fund is built from, or null when the run has no fund. */
+export function findLetfComboSleeves(
   result: BacktestResult | null,
-  run: { letf: string; spxRiskOffAsset: string; ndxRiskOffAsset: string } | null
-): BacktestResult | null {
-  if (!result || run?.letf !== DEFAULT_COMBO_PRESET) return result;
-  if (result.etfResults.some((etf) => etf.id === LETF_FUND_RESULT_ID)) return result;
+  run: LetfComboRun | null
+): { spxSleeve: EtfResult; ndxSleeve: EtfResult } | null {
+  if (!result || run?.letf !== DEFAULT_COMBO_PRESET) return null;
   // The combo's sub-presets are configs etf1 and etf2, in this order.
   const [spxSleeve, ndxSleeve] = getComboSubPresets(DEFAULT_COMBO_PRESET).map((preset, k) => {
     const etf = findEtfResult(result, `etf${k + 1}-sma`);
     return etf && etf.name.startsWith(`${preset.name} (SMA`) ? etf : undefined;
   });
-  if (!spxSleeve || !ndxSleeve) return result;
+  return spxSleeve && ndxSleeve ? { spxSleeve, ndxSleeve } : null;
+}
+
+export function withLetfComboFund(
+  result: BacktestResult | null,
+  run: LetfComboRun | null
+): BacktestResult | null {
+  if (!result || result.etfResults.some((etf) => etf.id === LETF_FUND_RESULT_ID)) return result;
+  const found = findLetfComboSleeves(result, run);
+  if (!found || !run) return result;
+  const { spxSleeve, ndxSleeve } = found;
   const fund = buildLetfComboFund({
     spxSleeve,
     ndxSleeve,

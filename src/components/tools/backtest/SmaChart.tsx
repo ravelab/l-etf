@@ -1,28 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TablePagination } from "@/components/ui/TablePagination";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { useIsDarkTheme } from "@/lib/hooks/use-is-dark-theme";
 import { createLegendHoverIsolation, getChartThemeColors } from "@/lib/chart-options";
 import type { BacktestResult, EtfConfig, PricePoint } from "@/lib/simulation/types";
-import { formatDate } from "@/lib/format";
 import {
   getVisibleIndexBounds,
   pickLineChartIndices,
   selectSampledIndices,
   type VisibleRange,
 } from "@/lib/chart-resampling";
-import { buildSmaTradeRows, formatSignedNumber, type SmaTradeRow } from "@/lib/sma-trade-rows";
-import { SmaTriggerBadge } from "@/components/tools/SmaTriggerBadge";
-import {
-  buildRiskOffLookups,
-  getDaysTillNextEvent,
-  getRiskOffAdvantage,
-  getRiskOffRealCagr,
-  getRiskOnRealCagr,
-  type SmaSegmentContext,
-} from "@/lib/sma-trade-metrics";
+import { buildSmaTradeRows } from "@/lib/sma-trade-rows";
+import { riskOffSharePct } from "@/lib/sma-trade-metrics";
+import { buildSmaTradeTableRows, SmaTradesTable } from "@/components/tools/backtest/SmaTradesTable";
 
 const MAX_VISIBLE_POINTS = 1400;
 
@@ -51,10 +42,6 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
     const base = stripVariantSuffix(etf.id);
     return etfConfigs.find((cfg) => cfg.id === base) ?? null;
   }, [etf, etfConfigs]);
-  const dateToIndex = useMemo(
-    () => new Map(etfDates.map((date, idx) => [date, idx])),
-    [etfDates]
-  );
   const indexPriceLabel = baseConfig?.smaIndex === "nasdaq100" ? "QQQ" : "VOO";
   const etfPriceLabel = baseConfig?.name ?? "ETF";
   const priceDatasetLabel = `${indexPriceLabel} Price`;
@@ -79,29 +66,7 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
     }
     return 1;
   }, [adjustedClosePrices, closePrices, syntheticPriceScale]);
-  const riskOffPct = useMemo(() => {
-    if (!etf || etf.smaSignals.length === 0 || etfDates.length === 0) return null;
-    const signals = [...etf.smaSignals].sort((a, b) => a.date.localeCompare(b.date));
-    let riskOffDays = 0;
-    let isRiskOn = etf.smaStartInvested ?? true;
-    let prevIdx = 0;
-    for (const signal of signals) {
-      const idx = dateToIndex.get(signal.date);
-      if (idx == null) continue;
-      if (!isRiskOn) {
-        riskOffDays += idx - prevIdx;
-      }
-      isRiskOn = signal.type === "buy";
-      prevIdx = idx;
-    }
-    // Count remaining days after last signal
-    if (!isRiskOn) {
-      riskOffDays += etfDates.length - 1 - prevIdx;
-    }
-    const totalDays = etfDates.length - 1;
-    if (totalDays <= 0) return null;
-    return (riskOffDays / totalDays) * 100;
-  }, [dateToIndex, etf, etfDates]);
+  const riskOffPct = useMemo(() => (etf ? riskOffSharePct(etf, etfDates) : null), [etf, etfDates]);
 
   const tradeRows = useMemo(() => {
     if (!etf || !baseConfig) return [];
@@ -117,6 +82,18 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
       annualizedInflation,
     });
   }, [annualizedInflation, baseConfig, closePrices, etf, etfDates, openPrices, syntheticPriceScale, tradeClosePrices, tradeOpenPrices]);
+
+  const tableRows = useMemo(
+    () => buildSmaTradeTableRows({
+      tradeRows,
+      riskOffAsset: baseConfig?.riskOffAsset,
+      dates: etfDates,
+      riskOffPricesByTicker,
+      annualizedInflation,
+      finalEtfPrice: tradeClosePrices[tradeClosePrices.length - 1] ?? closePrices[closePrices.length - 1],
+    }),
+    [tradeRows, baseConfig, etfDates, riskOffPricesByTicker, annualizedInflation, tradeClosePrices, closePrices]
+  );
 
   const fullData = useMemo(() => {
     if (!etf || !etf.smaPrices.length) {
@@ -357,127 +334,10 @@ export function SmaChart({ result, etfIndex, etfDates, closePrices, adjustedClos
         {tradeRows.length === 0 ? (
           <p className="text-xs text-muted">No trades triggered for this SMA run.</p>
         ) : (
-          <TradingDaysTable
-            tradeRows={tradeRows}
-            etfPriceLabel={etfPriceLabel}
-            riskOffPricesByTicker={riskOffPricesByTicker}
-            riskOffAsset={baseConfig?.riskOffAsset}
-            dates={etfDates}
-            annualizedInflation={annualizedInflation}
-            endDate={etfDates[etfDates.length - 1]}
-            finalEtfPrice={tradeClosePrices[tradeClosePrices.length - 1] ?? closePrices[closePrices.length - 1]}
-          />
-          )}
-          </div>
-          </div>
-          );
-          }
-
-          const TRADES_PAGE_SIZE = 10;
-
-          function TradingDaysTable({
-          tradeRows,
-          etfPriceLabel,
-          riskOffPricesByTicker,
-          riskOffAsset,
-          dates,
-          annualizedInflation,
-          endDate,
-          finalEtfPrice,
-          }: {
-          tradeRows: SmaTradeRow[];
-          etfPriceLabel: string;
-          riskOffPricesByTicker?: Record<string, PricePoint[]>;
-          riskOffAsset?: string;
-          dates: string[];
-          annualizedInflation: number;
-          endDate: string;
-          finalEtfPrice: number;
-          }) {
-  const [page, setPage] = useState(0);
-  const riskOffLookups = useMemo(
-    () => buildRiskOffLookups(riskOffAsset, dates, riskOffPricesByTicker),
-    [riskOffAsset, dates, riskOffPricesByTicker]
-  );
-
-  const pageSafe = Math.min(page, Math.max(0, Math.ceil(tradeRows.length / TRADES_PAGE_SIZE) - 1));
-  const paged = tradeRows.slice(pageSafe * TRADES_PAGE_SIZE, (pageSafe + 1) * TRADES_PAGE_SIZE);
-  const segmentCtx: SmaSegmentContext = {
-    tradeRows,
-    endDate,
-    finalEtfPrice,
-    annualizedInflation,
-    riskOffLookups,
-  };
-
-  return (
-    <>
-      <TablePagination
-        page={page}
-        pageSize={TRADES_PAGE_SIZE}
-        totalItems={tradeRows.length}
-        onPageChange={setPage}
-      />
-      <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-card-border text-left text-muted">
-            <th className="pb-2 pr-4 font-medium">Trigger Day</th>
-            <th className="pb-2 pr-4 font-medium">Action ({etfPriceLabel} Inflation-Adjusted)</th>
-            <th className="pb-2 pr-4 font-medium text-right">Risk-Off Real CAGR</th>
-            <th className="pb-2 pr-4 font-medium text-right">Risk-Off / If Risk-On</th>
-            <th className="pb-2 pr-4 font-medium text-right">Risk-On Real CAGR</th>
-            <th className="pb-2 font-medium text-right">Till Next Event</th>
-          </tr>
-        </thead>
-        <tbody>
-          {paged.map((row, pageIndex) => {
-            const absoluteIndex = page * TRADES_PAGE_SIZE + pageIndex;
-            const isTerminal = row.isEndLiquidation === true;
-            const daysTillNextEvent = getDaysTillNextEvent(segmentCtx, absoluteIndex);
-            const riskOffReturn = isTerminal ? null : getRiskOffRealCagr(segmentCtx, absoluteIndex);
-            const riskOffAdvantage = getRiskOffAdvantage(segmentCtx, absoluteIndex);
-            const riskOnReturn = getRiskOnRealCagr(segmentCtx, absoluteIndex);
-            return (
-            <tr
-              key={`${row.signalDate}-${row.action}-${isTerminal ? "liq" : row.isInitialEntry ? "init" : "sig"}`}
-              className="border-b border-card-border/50"
-            >
-              <td className="py-2.5 pr-4">
-                {formatDate(row.signalDate)}
-                {row.triggerClose != null && (
-                  <span className="text-muted text-xs block md:inline md:ml-1">
-                    ({row.triggerClose.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    {row.triggerSmaPctDiff != null && (
-                      <span className={row.triggerSmaPctDiff >= 0 ? "text-positive" : "text-negative"}>
-                        {" "}{row.triggerSmaPctDiff >= 0 ? "+" : ""}{row.triggerSmaPctDiff.toFixed(1)}%
-                      </span>
-                    )})
-                  </span>
-                )}
-              </td>
-              <td className={`py-2.5 pr-4 ${row.actionToneClass}`}>
-                {row.action}
-                {row.trigger && <SmaTriggerBadge trigger={row.trigger} vol={row.triggerVol} rsi={row.triggerRsi} shock={row.triggerShock} />}
-              </td>
-              <td className={`py-2.5 pr-4 text-right ${riskOffReturn == null ? "" : riskOffReturn >= 0 ? "text-positive" : "text-negative"}`}>
-                {riskOffReturn == null ? "\u2014" : formatSignedNumber(riskOffReturn, "", "%")}
-              </td>
-              <td className={`py-2.5 pr-4 text-right ${riskOffAdvantage == null ? "" : riskOffAdvantage >= 1 ? "text-positive" : "text-negative"}`}>
-                {riskOffAdvantage == null ? "\u2014" : `${riskOffAdvantage.toFixed(2)}X`}
-              </td>
-              <td className={`py-2.5 pr-4 text-right ${riskOnReturn == null ? "" : riskOnReturn >= 0 ? "text-positive" : "text-negative"}`}>
-                {riskOnReturn == null ? "\u2014" : formatSignedNumber(riskOnReturn, "", "%")}
-              </td>
-              <td className="py-2.5 text-right">
-                {daysTillNextEvent === null ? "\u2014" : `${(daysTillNextEvent / 365.25).toFixed(2)}y`}
-              </td>
-            </tr>
-          )})}
-        </tbody>
-      </table>
+          <SmaTradesTable rows={tableRows} actionLabel={`Action (${etfPriceLabel} Inflation-Adjusted)`} />
+        )}
       </div>
-    </>
+    </div>
   );
 }
 

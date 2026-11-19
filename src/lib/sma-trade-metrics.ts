@@ -1,5 +1,5 @@
 import type { SmaTradeRow } from "@/lib/sma-trade-rows";
-import type { PricePoint } from "@/lib/simulation/types";
+import type { EtfResult, PricePoint } from "@/lib/simulation/types";
 import { getRiskOffFetchTickers } from "@/lib/constants";
 import { alignCloseSeriesToDates } from "@/lib/utils";
 
@@ -145,4 +145,29 @@ export function getRiskOffAdvantage(ctx: SmaSegmentContext, index: number): numb
   if (realRiskOnRatio <= 0) return null;
   const realRiskOffRatio = 1 + riskOff / 100;
   return realRiskOffRatio / realRiskOnRatio;
+}
+
+/**
+ * Share of the line's days (between its first and last date) spent risk-off, as a
+ * percentage, or null with no signals. A signal moves the position on its own date.
+ */
+export function riskOffSharePct(
+  etf: Pick<EtfResult, "smaSignals" | "smaStartInvested">,
+  dates: string[]
+): number | null {
+  if (etf.smaSignals.length === 0 || dates.length < 2) return null;
+  const dateToIndex = new Map(dates.map((date, idx) => [date, idx]));
+  const signals = [...etf.smaSignals].sort((a, b) => a.date.localeCompare(b.date));
+  let riskOffDays = 0;
+  let isRiskOn = etf.smaStartInvested ?? true;
+  let prevIdx = 0;
+  for (const signal of signals) {
+    const idx = dateToIndex.get(signal.date);
+    if (idx == null) continue;
+    if (!isRiskOn) riskOffDays += idx - prevIdx;
+    isRiskOn = signal.type === "buy";
+    prevIdx = idx;
+  }
+  if (!isRiskOn) riskOffDays += dates.length - 1 - prevIdx;
+  return (riskOffDays / (dates.length - 1)) * 100;
 }

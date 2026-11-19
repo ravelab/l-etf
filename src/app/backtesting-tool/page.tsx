@@ -23,6 +23,7 @@ import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer
 import { EtfConfigCard } from "@/components/tools/backtest/EtfConfigCard";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
 import { SmaChart } from "@/components/tools/backtest/SmaChart";
+import { LetfFundDetails } from "@/components/tools/backtest/LetfFundDetails";
 import { ResultsTable } from "@/components/tools/backtest/ResultsTable";
 import { RunSpinnerOverlay } from "@/components/ui/RunSpinnerOverlay";
 import { Button } from "@/components/ui/Button";
@@ -600,7 +601,8 @@ export function BacktestingPageContent({
       }
       return;
     }
-    const validIds = new Set(result.etfResults.map((etf) => etf.id));
+    // The fund row is added on display, so its id is never in the raw result.
+    const validIds = new Set([...result.etfResults.map((etf) => etf.id), LETF_FUND_RESULT_ID]);
     Promise.resolve().then(() => {
       setExpandedSmaCharts((current) => {
         const next = current.filter((id) => validIds.has(id));
@@ -1423,9 +1425,10 @@ export function BacktestingPageContent({
             />
             {smaMode !== 0 && displayResult.etfResults
               .map((etf, i) => ({ etf, i }))
-              .filter(({ etf }) => etf.smaPrices.length > 0)
+              .filter(({ etf }) => etf.smaPrices.length > 0 || etf.id === LETF_FUND_RESULT_ID)
               .map(({ etf, i }) => {
               const isExpanded = expandedSmaCharts.includes(etf.id);
+              const isFund = etf.id === LETF_FUND_RESULT_ID;
               return (
                 <div key={etf.id} className="rounded-lg border border-card-border bg-card-bg">
                   <button
@@ -1438,7 +1441,24 @@ export function BacktestingPageContent({
                       {isExpanded ? "Hide SMA Details" : "Show SMA Details"}
                     </span>
                   </button>
-                  {isExpanded && (
+                  {isExpanded && isFund && (
+                    <div className="border-t border-card-border px-4 py-4">
+                      <LetfFundDetails
+                        result={displayResult}
+                        run={runSummary}
+                        etfConfigs={resolvedEtfConfigs}
+                        datesByEtfId={datesByEtfId}
+                        closePricesByEtfId={closePricesByEtfId}
+                        openPricesByEtfId={openPricesByEtfId}
+                        tradeClosePricesByEtfId={tradeClosePricesByEtfId}
+                        tradeOpenPricesByEtfId={tradeOpenPricesByEtfId}
+                        syntheticPriceScaleByEtfId={syntheticPriceScaleByEtfId}
+                        annualizedInflation={annualizedInflation}
+                        riskOffPricesByTicker={riskOffPricesByTicker}
+                      />
+                    </div>
+                  )}
+                  {isExpanded && !isFund && (
                     <div className="border-t border-card-border px-4 py-4">
                       <SmaChart
                         result={displayResult}
