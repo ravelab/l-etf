@@ -6,9 +6,12 @@ import { getSwapSpreadModel } from "@/lib/simulation/swap-spread";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
+import { DEFAULT_RISK_OFF_ASSET, DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata } from "@/lib/seo";
 import {
+  CONSTANT_BRK_REAL_START_DATE,
+  CONSTANT_GOLD_STANDARD_END_DATE,
   FINRA_TAF_PER_SHARE,
   LIMIT_ORDER_OFFSET_DOLLARS,
   COLLATERAL_LIMIT_ORDER_OFFSET_DOLLARS,
@@ -18,6 +21,18 @@ import {
 
 /** Rendered from the engine's cost table so the FAQ cannot drift from what runs. */
 const TRADING_COST_FAQ_TICKERS = ["TQQQ", "UPRO", "QLD", "SSO", "SGOV", "VGSH", "GLDM", "BRK.B", "VOO", "QQQ"] as const;
+
+/** "BRK.B+GLDM" → "BRK.B + GLDM", as the risk-off selects spell a blend. */
+const formatRiskOffAsset = (asset: string) => asset.split("+").join(" + ");
+
+/** "1971-08-15" → "August 15, 1971", for a preset date stated in prose. */
+const formatLongDate = (isoDate: string) =>
+  new Date(`${isoDate}T00:00:00Z`).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 
 const formatCostPct = (fraction: number) => `${(fraction * 100).toFixed(3)}%`;
 
@@ -308,9 +323,11 @@ const FAQ_DATA: FAQItem[] = [
         <p className="mt-3">
           Tool pages choose a risk-off asset separately for SPX and NDX, so each sleeve can use the
           defensive asset that matches its index. The current tool-page defaults are
-          <strong className="text-foreground"> BRK.B + GLDM</strong> for SPX and
-          <strong className="text-foreground"> VGSH</strong> for NDX. The calibration and MCP
-          analysis use their own three-asset default where noted by those tools.
+          <strong className="text-foreground"> {formatRiskOffAsset(DEFAULT_RISK_OFF_ASSETS.sp500)}</strong> for SPX and
+          <strong className="text-foreground"> {formatRiskOffAsset(DEFAULT_RISK_OFF_ASSETS.nasdaq100)}</strong> for NDX,
+          and the SMA calibration scores each index with these same defaults. The MCP API for AI
+          agents takes a single risk-off asset, defaulting to
+          <strong className="text-foreground"> {formatRiskOffAsset(DEFAULT_RISK_OFF_ASSET)}</strong>.
         </p>
         <p className="mt-3">
           For long backtests, the app extends these series backward with historical proxy data when
@@ -462,12 +479,14 @@ const FAQ_DATA: FAQItem[] = [
   },
   {
     id: "index-start-dates",
-    question: "Why do the SPX and NDX start-date shortcuts use 1988 and 1985?",
+    question: "What do the start-date shortcuts mean, and why do SPX and NDX use 1988 and 1985?",
     answer: (
       <>
         <p className="mb-3">
           The shortcut buttons choose practical starts for modern index regimes. They are not the
-          earliest dates available in the app.
+          earliest dates available in the app. The default, <strong className="text-foreground">SPX/NDX
+          start</strong>, runs SPX from 1988 and NDX from 1985 in the same run; picking any single
+          date starts both indices there.
         </p>
         <ul className="ml-4 list-disc space-y-2">
           <li>
@@ -480,6 +499,17 @@ const FAQ_DATA: FAQItem[] = [
             Nasdaq-100 launch date. L-ETF uses Nasdaq&apos;s history through September 1985, then
             Yahoo&apos;s <code>^NDX</code>, so this shortcut uses actual NDX history. Early Nasdaq
             data has closes only; opens are carried forward from the prior close.
+          </li>
+          <li>
+            <strong className="text-foreground">{formatLongDate(CONSTANT_BRK_REAL_START_DATE)} — BRK start.</strong>{" "}
+            The first day of real Berkshire Hathaway prices. Before it, the BRK.B risk-off asset is
+            a stand-in (see risk-off assets above), so start here to test BRK.B on its own history.
+          </li>
+          <li>
+            <strong className="text-foreground">{formatLongDate(CONSTANT_GOLD_STANDARD_END_DATE)} — Gold std end.</strong>{" "}
+            The Nixon shock ended the dollar&apos;s convertibility to gold, opening the era of floating
+            exchange rates, the 1970s inflation and freely priced gold. It was a Sunday, so a run
+            starting here begins on the next trading day.
           </li>
           <li>
             <strong className="text-foreground">July 1, 1926 — NDX proxy.</strong>{" "}Before
@@ -589,6 +619,31 @@ const FAQ_DATA: FAQItem[] = [
         <p>
           Buffers can reduce false switches and trading costs. The tradeoff is that they can also
           delay exits or delay buying back in.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "inflation-adjusted-sma",
+    question: "What does the Inflation adjusted SMA Buffer checkbox do?",
+    answer: (
+      <>
+        <p className="mb-3">
+          It runs the SMA rule on the index divided by CPI, so the price and its moving average are
+          both in real dollars. A rise that only keeps pace with inflation no longer keeps the
+          strategy invested. With prices rising 10% a year, a 200-day average trails the price by
+          about 5% more than it would in real terms, so the exit and re-entry levels move up by
+          about that much.
+        </p>
+        <p className="mb-3">
+          Each day uses only the CPI that had been published by then (a month&apos;s CPI counts
+          from the 15th of the next month), so there is no look-ahead. The volatility gate and the
+          RSI brake still read the index as quoted.
+        </p>
+        <p>
+          A band only means what it was scored with, so the inflation-adjusted bands are calibrated
+          separately. The Signals page lists them in their own card, and choosing one turns the
+          checkbox on; choosing a nominal band turns it off.
         </p>
       </>
     ),

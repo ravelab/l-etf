@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { BufferPairInput } from "@/components/ui/BufferPairInput";
 import { Card } from "@/components/ui/Card";
+import { ClientOnly } from "@/components/tools/ClientOnly";
 import { SignalCard } from "@/components/home/SignalCard";
 import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
 import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
@@ -34,7 +35,25 @@ interface SmaSignalsResponse {
   };
 }
 
+/**
+ * The form restores the visitor's saved inputs from localStorage in its first
+ * render, so it cannot be server-rendered: a saved band that differs from the
+ * calibrated default failed hydration. Only the heading is in the server HTML.
+ */
 export default function SignalsPage() {
+  return (
+    <div className="min-h-screen bg-background text-foreground p-3 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+        <h1 className="text-3xl md:text-4xl font-bold">Signals</h1>
+        <ClientOnly>
+          <SignalsPageContent />
+        </ClientOnly>
+      </div>
+    </div>
+  );
+}
+
+function SignalsPageContent() {
   const { inputs, persist } = getSharedInputs();
 
   const [smaSpPeriod, setSmaSpPeriod] = useState(inputs.smaSpPeriod ?? 160);
@@ -176,118 +195,114 @@ export default function SignalsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-3 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
-        <h1 className="text-3xl md:text-4xl font-bold">Signals</h1>
-
-        <Card>
-            <h2 className="text-lg font-semibold mb-4">SMA Parameters</h2>
-            <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border-0 m-0 p-0">
-              <Input
-                label="SPX SMA Period"
-                info="How many trading days the SPX moving-average line is averaged over. When the SPX price rises above this line, the strategy holds the leveraged ETF. When it falls below, the strategy switches to the safe asset."
-                type="number"
-                min={5}
-                max={500}
-                suffix="days"
-                value={smaSpPeriod}
-                onChange={(e) => setSmaSpPeriod(Number(e.target.value))}
-              />
-              <BufferPairInput
-                label="SPX SMA Buffer"
-                info="Two cushions around the SPX moving-average line. The first (with the −) is the below-SMA threshold: SPX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: SPX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
-                lowerValue={smaSpLowerBuffer}
-                upperValue={smaSpUpperBuffer}
-                onLowerChange={setSmaSpLowerBuffer}
-                onUpperChange={setSmaSpUpperBuffer}
-              />
-              <Input
-                label="NDX SMA Period"
-                info="How many trading days the NDX moving-average line is averaged over. When the NDX price rises above this line, the strategy holds the leveraged ETF. When it falls below, the strategy switches to the safe asset."
-                type="number"
-                min={5}
-                max={500}
-                suffix="days"
-                value={smaNqPeriod}
-                onChange={(e) => setSmaNqPeriod(Number(e.target.value))}
-              />
-              <BufferPairInput
-                label="NDX SMA Buffer"
-                info="Two cushions around the NDX moving-average line. The first (with the −) is the below-SMA threshold: NDX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: NDX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
-                lowerValue={smaNqLowerBuffer}
-                upperValue={smaNqUpperBuffer}
-                onLowerChange={setSmaNqLowerBuffer}
-                onUpperChange={setSmaNqUpperBuffer}
-              />
-              <InflationAdjustedCheckbox checked={smaInflationAdjusted} onChange={setSmaInflationAdjusted} />
-              <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} />
-            </fieldset>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-            <SignalCard
-              indexName="SPX"
-              indexKey="sp500"
-              smaPeriod={smaSpPeriod}
-              result={signals?.sp500 ?? null}
-              loading={loading}
+    <>
+      <Card>
+          <h2 className="text-lg font-semibold mb-4">SMA Parameters</h2>
+          <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-4 border-0 m-0 p-0">
+            <Input
+              label="SPX SMA Period"
+              info="How many trading days the SPX moving-average line is averaged over. When the SPX price rises above this line, the strategy holds the leveraged ETF. When it falls below, the strategy switches to the safe asset."
+              type="number"
+              min={5}
+              max={500}
+              suffix="days"
+              value={smaSpPeriod}
+              onChange={(e) => setSmaSpPeriod(Number(e.target.value))}
             />
-            <SignalCard
-              indexName="NDX"
-              indexKey="nasdaq100"
-              smaPeriod={smaNqPeriod}
-              result={signals?.nasdaq100 ?? null}
-              loading={loading}
+            <BufferPairInput
+              label="SPX SMA Buffer"
+              info="Two cushions around the SPX moving-average line. The first (with the −) is the below-SMA threshold: SPX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: SPX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
+              lowerValue={smaSpLowerBuffer}
+              upperValue={smaSpUpperBuffer}
+              onLowerChange={setSmaSpLowerBuffer}
+              onUpperChange={setSmaSpUpperBuffer}
             />
-          </div>
-        </Card>
+            <Input
+              label="NDX SMA Period"
+              info="How many trading days the NDX moving-average line is averaged over. When the NDX price rises above this line, the strategy holds the leveraged ETF. When it falls below, the strategy switches to the safe asset."
+              type="number"
+              min={5}
+              max={500}
+              suffix="days"
+              value={smaNqPeriod}
+              onChange={(e) => setSmaNqPeriod(Number(e.target.value))}
+            />
+            <BufferPairInput
+              label="NDX SMA Buffer"
+              info="Two cushions around the NDX moving-average line. The first (with the −) is the below-SMA threshold: NDX has to fall this far below to switch out of the leveraged ETF. The second is the above-SMA threshold: NDX has to rise this far above to switch back in. Set both the same for symmetric behaviour."
+              lowerValue={smaNqLowerBuffer}
+              upperValue={smaNqUpperBuffer}
+              onLowerChange={setSmaNqLowerBuffer}
+              onUpperChange={setSmaNqUpperBuffer}
+            />
+            <InflationAdjustedCheckbox checked={smaInflationAdjusted} onChange={setSmaInflationAdjusted} />
+            <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} />
+          </fieldset>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <SignalCard
+            indexName="SPX"
+            indexKey="sp500"
+            smaPeriod={smaSpPeriod}
+            result={signals?.sp500 ?? null}
+            loading={loading}
+          />
+          <SignalCard
+            indexName="NDX"
+            indexKey="nasdaq100"
+            smaPeriod={smaNqPeriod}
+            result={signals?.nasdaq100 ?? null}
+            loading={loading}
+          />
+        </div>
+      </Card>
 
-        <SmaPushAlertsCard
-          smaConfig={pushSmaConfig}
-          calibration={calibration}
-          onConfigChange={handleConfigChange}
-          useCalibratedDefaults={useCalibratedDefaults}
-          onUseCalibratedDefaultsChange={handleUseCalibratedDefaultsChange}
-        />
+      <SmaPushAlertsCard
+        smaConfig={pushSmaConfig}
+        calibration={calibration}
+        onConfigChange={handleConfigChange}
+        useCalibratedDefaults={useCalibratedDefaults}
+        onUseCalibratedDefaultsChange={handleUseCalibratedDefaultsChange}
+      />
 
-        {error && (
-          <div className="mt-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
-            <p className="text-red-400 font-semibold mb-2">{error}</p>
-            {signals?.error && typeof signals.error === "object" && (
-              <div className="text-sm text-red-300 mt-2">
-                {signals.error.details && (
-                  <>
-                    <p className="mb-1">Requested range: {signals.error.details.requestedRange?.startDate} to {signals.error.details.requestedRange?.endDate}</p>
-                    <p className="mb-1">SPX rows: {signals.error.details.sp500Rows}, NDX rows: {signals.error.details.nasdaq100Rows}</p>
-                  </>
-                )}
-                {signals.error.troubleshooting && (
-                  <div className="mt-2 space-y-1">
-                    <p className="font-semibold">Troubleshooting:</p>
-                    {signals.error.troubleshooting.map((step: string, i: number) => (
-                      <p key={i} className="ml-4">• {step}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+      {error && (
+        <div className="mt-6 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
+          <p className="text-red-400 font-semibold mb-2">{error}</p>
+          {signals?.error && typeof signals.error === "object" && (
+            <div className="text-sm text-red-300 mt-2">
+              {signals.error.details && (
+                <>
+                  <p className="mb-1">Requested range: {signals.error.details.requestedRange?.startDate} to {signals.error.details.requestedRange?.endDate}</p>
+                  <p className="mb-1">SPX rows: {signals.error.details.sp500Rows}, NDX rows: {signals.error.details.nasdaq100Rows}</p>
+                </>
+              )}
+              {signals.error.troubleshooting && (
+                <div className="mt-2 space-y-1">
+                  <p className="font-semibold">Troubleshooting:</p>
+                  {signals.error.troubleshooting.map((step: string, i: number) => (
+                    <p key={i} className="ml-4">• {step}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
-        <SmaPresetsCard
-          title="SMA defaults and alternatives"
-          description="Apply the calibrated default or choose an alternative SMA rule for either index. These bands run on the index as quoted; choosing one clears “SMA buffer inflation adjusted”."
-          set={cagrPresets}
-          testId="sma-presets-nominal"
-          onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "nominal")}
-        />
-        <SmaPresetsCard
-          title="Inflation-adjusted SMA defaults and alternatives"
-          description="Calibrated with each band run on the index divided by CPI, so the strategy needs a real gain to stay in. Choosing one sets “SMA buffer inflation adjusted”."
-          set={inflationCagrPresets}
-          ariaSuffix=" (inflation adjusted)"
-          testId="sma-presets-inflation"
-          onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "inflation")}
-        />
-      </div>
-    </div>
+      <SmaPresetsCard
+        title="SMA defaults and alternatives"
+        description="Apply the calibrated default or choose an alternative SMA rule for either index. These bands run on the index as quoted; choosing one clears “SMA buffer inflation adjusted”."
+        set={cagrPresets}
+        testId="sma-presets-nominal"
+        onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "nominal")}
+      />
+      <SmaPresetsCard
+        title="Inflation-adjusted SMA defaults and alternatives"
+        description="Calibrated with each band run on the index divided by CPI, so the strategy needs a real gain to stay in. Choosing one sets “SMA buffer inflation adjusted”."
+        set={inflationCagrPresets}
+        ariaSuffix=" (inflation adjusted)"
+        testId="sma-presets-inflation"
+        onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "inflation")}
+      />
+    </>
   );
 }
