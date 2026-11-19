@@ -5,16 +5,15 @@
 
 This file is the project's committed home for project-intrinsic agent knowledge: build, test, release, architecture, and sharp-edge notes that should travel with the code.
 
-- **Read the maintainer's agent memory first.** Standing preferences and
-  finished research live outside the repo, in
-  `~/.claude/projects/-Users-alan-l-etf/memory/`. Every agent, not only Claude
-  Code, must read its index `MEMORY.md` at the start of a session and open every
-  entry that touches the task before planning. Do this especially before any
-  SMA, vol-gate, RSI, proxy or risk-off research: most such searches have
-  already been run, and the entries record the results and the rejection rules
-  (for example, a new risk-off shorter than 21 trading days disqualifies a
-  rule). Claude Code loads only the index automatically; the entries themselves
-  must be opened. Record a new durable preference or research result there as
+- **Read the local agent memory first.** Standing preferences and finished
+  research live outside the repo, in Claude Code's per-checkout memory
+  directory (`~/.claude/projects/<checkout path, / replaced by ->/memory/`).
+  Every agent, not only Claude Code, should read its index `MEMORY.md` at the
+  start of a session when it exists, and open every entry that touches the task
+  before planning — especially before SMA, vol-gate, RSI, proxy or risk-off
+  research, since most such searches have already been run and the entries
+  record the results and the rejection rules. Claude Code loads only the index
+  automatically. Record a new durable preference or research result there as
   one file with frontmatter, plus a one-line pointer in `MEMORY.md`.
 - Add durable project-specific notes here as they are discovered through real work.
 - `npm install` is required before `npm run typecheck` / `npm run lint` / `npm test` — `node_modules` is not pre-provisioned in fresh worktrees.
