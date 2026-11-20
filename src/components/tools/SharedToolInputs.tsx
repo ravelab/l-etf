@@ -43,7 +43,7 @@ const HISTORICAL_DATE_PRESETS: readonly DatePresetOption[] = [
   {
     value: CONSTANT_SP500_START_DATE,
     label: "SPX proto",
-    title: "Earliest S&P row (Cowles-era reconstruction)",
+    title: "Earliest S&P row (Schwert's Dow Jones composite)",
   },
   {
     // One entry for both: the two proxies start the same day, and a preset is a date.

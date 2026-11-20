@@ -102,7 +102,7 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1931-12-17", days: 835, drawdown: "-61.5%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1931-12-17", days: 835, drawdown: "-61.9%" },
   { letf: "UPRO" as const, startDate: "1998-07-17", endDate: "1998-09-11", days: 56, drawdown: "-50.6%" },
   { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-43.7%" },
   { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1988-11-21", days: 413, drawdown: "-77.5%" },

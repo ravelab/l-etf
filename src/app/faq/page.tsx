@@ -74,6 +74,22 @@ const CALIBRATED_SWAP_ROWS = (["SSO", "UPRO", "QLD", "TQQQ"] as const).map((etf)
   };
 });
 
+/** FRED FEDFUNDS, 1981 annual average: the rate level the uncapped-spread example uses. */
+const FED_FUNDS_1981_AVERAGE = 0.1638;
+
+const formatRatePct = (rate: number) => `${(rate * 100).toFixed(1)}%`;
+
+/** What the fitted spread lines would charge at that rate without the 6% cap, low-high across the four ETFs. */
+const UNCAPPED_1981_PREMIUM_RANGE = (() => {
+  const premiums = (["SSO", "UPRO", "QLD", "TQQQ"] as const).flatMap((etf) => {
+    const preset = ETF_PRESETS[etf];
+    const model = getSwapSpreadModel()[preset.index]?.[preset.leverage];
+    return model ? [model.rateSensitivity * FED_FUNDS_1981_AVERAGE + model.baseSpread] : [];
+  });
+  const pct = (value: number) => Math.round(value * 100);
+  return `${pct(Math.min(...premiums))}-${pct(Math.max(...premiums))}%`;
+})();
+
 type FAQItem = {
   id?: string;
   question: string;
@@ -461,9 +477,10 @@ const FAQ_DATA: FAQItem[] = [
           the data, there may not be enough future days left to complete the full window.
         </p>
         <p className="mb-3">
-          On the <strong className="text-accent">SMA Period</strong>, <strong className="text-accent">SMA Buffer</strong>,
-          <strong className="text-accent"> Risk-Off Assets</strong>, and <strong className="text-accent">Holding Period</strong>{" "}
-          pages, the app can still include those recent starting months.
+          On the <strong className="text-accent">Strategies</strong>, <strong className="text-accent">Holding Period</strong>,
+          <strong className="text-accent"> SMA Buffer</strong>, <strong className="text-accent">SMA Period</strong>, and{" "}
+          <strong className="text-accent">Risk-Off Assets</strong> pages, the app can still include those recent
+          starting months.
         </p>
         <p className="mb-3">
           The app does <strong className="text-foreground">not</strong> look past your selected end
@@ -528,7 +545,9 @@ const FAQ_DATA: FAQItem[] = [
           </li>
           <li>
             <strong className="text-foreground">March 20, 1885 — SPX proto.</strong>{" "}Before
-            July 1926, the series is a rescaled Cowles-era reconstruction—the least reliable
+            July 1926, the series is G. William Schwert&apos;s daily index of Dow Jones industrial
+            and railroad stocks, with Robert Shiller&apos;s annual dividends added and rescaled to
+            meet the 1926 proxy. It is not the S&amp;P 500, and it is the least reliable
             historical stretch in the app.
           </li>
         </ul>
@@ -632,7 +651,7 @@ const FAQ_DATA: FAQItem[] = [
           It runs the SMA rule on the index divided by CPI, so the price and its moving average are
           both in real dollars. A rise that only keeps pace with inflation no longer keeps the
           strategy invested. With prices rising 10% a year, a 200-day average trails the price by
-          about 5% more than it would in real terms, so the exit and re-entry levels move up by
+          about 4% more than it would in real terms, so the exit and re-entry levels move up by
           about that much.
         </p>
         <p className="mb-3">
@@ -658,8 +677,8 @@ const FAQ_DATA: FAQItem[] = [
           young — UPRO and SSO launched in 2006-2009, TQQQ and QLD in 2006-2010. That&apos;s not
           enough history to test how a strategy would have done through, say, the 1929 crash or
           the 1970s. So the app builds a synthetic version of each ETF going back as far as the
-          underlying index data exists (S&amp;P 500 since the 1800s; Nasdaq 100 since 1985, with a
-          computer-and-electronics stock proxy back to 1926).
+          underlying index data exists (the S&amp;P 500 and its predecessors since 1885; Nasdaq 100
+          since 1985, with a computer-and-electronics stock proxy back to 1926).
         </p>
 
         <p className="mb-3">
@@ -681,8 +700,9 @@ const FAQ_DATA: FAQItem[] = [
 
         <p className="mb-3">
           <strong className="text-foreground">Modeling the borrowing cost.</strong> The base
-          borrowing rate is a real interest-rate series: historical bank rates back to 1885,
-          stitched with the modern overnight SOFR rate from 2018 onward. On top of that base rate
+          borrowing rate is a real short-term funding rate in every era: New York commercial
+          paper from 1885, the effective fed funds rate from mid-1954, 1-month LIBOR from 1986,
+          and the overnight SOFR rate from 2018 onward. On top of that base rate
           the bank charges an extra premium (called the &quot;swap spread&quot;). The premium
           isn&apos;t fixed — when interest rates are higher, banks charge a higher premium. So we
           model it as a slope and an intercept: <em>rate-sensitivity</em> (how much the premium
@@ -739,9 +759,10 @@ const FAQ_DATA: FAQItem[] = [
           2009-10 for UPRO and TQQQ — and across that entire window the base rate never rose above
           5.8%. Inside that range the slope is well supported: forcing it to zero throws UPRO&apos;s
           simulated final return off by about 6%. Outside it there is no evidence at all, and a
-          straight line runs away quickly — at the ~15% rates of 1981 it would have banks charging
-          a 5-7%/yr premium <em>on top of</em> an already-15% rate, several times anything a
-          funding market has charged. So above 6% the premium holds flat at its end-of-range value
+          straight line runs away quickly — at 1981&apos;s average fed funds rate of{" "}
+          {formatRatePct(FED_FUNDS_1981_AVERAGE)} it would have banks charging a{" "}
+          {UNCAPPED_1981_PREMIUM_RANGE}/yr premium <em>on top of</em> that rate, several times
+          anything a funding market has charged. So above 6% the premium holds flat at its end-of-range value
           while the base rate keeps passing through in full. Every backtest that stays inside the
           fitted range — anything from 2006 on — is completely unaffected.
         </p>
@@ -776,9 +797,9 @@ NAV(t) = NAV(t-1) × (1 + R_LETF(t))      (floored at 0)`}
 
         <p className="mb-3">
           <strong className="text-foreground">How well does it match reality?</strong> After the
-          latest calibration, the simulated cumulative returns for UPRO, TQQQ, SSO, and QLD match
-          their real counterparts to within roughly a few basis points of final return over
-          15-20 years. You can verify this yourself on the{" "}
+          latest calibration, simulated UPRO, TQQQ, SSO, and QLD each end within about 0.15% of the
+          real fund&apos;s final value over 15-20 years, about one basis point a year of CAGR or
+          less. You can verify this yourself on the{" "}
           <Link
             href="/tools?tab=backtest&letf=UPRO%2BTQQQ&sd=2006-06-21&sma=0&e0_n=QLD&e1_n=SSO&e2_n=UPRO-real&e3_n=TQQQ-real&e4_n=QLD-real&e5_n=SSO-real"
             className="text-accent underline hover:opacity-80"

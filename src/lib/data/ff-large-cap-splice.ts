@@ -13,7 +13,7 @@ import type { DailyPrice } from "./storage/types";
  * Only the FF *returns* are used. Levels are re-anchored to the untouched
  * modern S&P row at `spliceEndExclusive`, so the seam is exactly continuous and
  * the modern series remains the source of truth. Rows before `spliceStart`
- * (the 1885-1926 Cowles-era segment) keep their own returns and are rescaled by
+ * (the 1885-1926 Dow Jones composite segment) keep their own returns and are rescaled by
  * a single constant so that seam stays continuous too.
  *
  * `close` is rebuilt as `adj_close * (oldClose / oldAdjClose)`, which holds the

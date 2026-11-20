@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { writeCpiModule } from "./lib/cpi-module";
+import { writeRateHikeShockModule } from "./lib/rate-hike-shock-module";
 import { fileURLToPath } from "node:url";
 config({ path: ".env.local" });
 
@@ -21,6 +22,29 @@ import {
   type YahooDailyBar,
 } from "../src/lib/data/fetcher";
 import type { DailyPrice } from "../src/lib/data/storage/types";
+import {
+  COMMERCIAL_PAPER_END_DATE,
+  COMMERCIAL_PAPER_FRED_SERIES,
+  FED_FUNDS_END_DATE,
+  FED_FUNDS_START_DATE,
+  SOFR_START_DATE,
+  composeBorrowRateHistory,
+  type BorrowRateRow,
+} from "./lib/borrow-rate-history";
+import {
+  SHORT_GOV_END_DATE,
+  SHORT_GOV_FRED_SERIES,
+  SHORT_TREASURY_YIELD_NAMES,
+  composeShortTreasuryYieldsByMonth,
+  type MonthlyYield,
+} from "./lib/short-treasury-yields";
+import {
+  CPI_NSA_END_DATE,
+  CPI_SA_START_MONTH,
+  composeCpiHistory,
+  monthlyCpiFromInterpolatedDaily,
+  type CpiRow,
+} from "./lib/cpi-history";
 import { getNewYorkIsoDate } from "../src/lib/utils";
 
 // ============================================================================
@@ -1287,21 +1311,6 @@ function minIsoDate(a: string, b: string): string {
   return a < b ? a : b;
 }
 
-function maxIsoDate(...dates: Array<string | undefined | null>): string | null {
-  let max: string | null = null;
-  for (const date of dates) {
-    if (!date) continue;
-    if (max === null || date > max) {
-      max = date;
-    }
-  }
-  return max;
-}
-
-function normalizeFredObservationStart(date: string): string {
-  return date.length === 7 ? `${date}-01` : date;
-}
-
 /**
  * Tiingo start date for incremental index merges. Must overlap prior calendar days
  * so rows that already have SPX/NDX `close` (e.g. from Yahoo) still receive fresh
@@ -1469,33 +1478,53 @@ async function fetchGithubCsvRows(): Promise<Array<{ date: string; close: number
   return rows;
 }
 
-async function fetchGithubRateRows(): Promise<Array<{ date: string; value: number }>> {
+/** One numeric column of the upstream seed CSV, per row, in file order. */
+async function fetchGithubCsvColumn(column: string): Promise<Array<{ date: string; value: number }>> {
   const csv = await getGithubCsvText();
   const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== "");
   const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
   const dateIdx = header.indexOf("date");
-  const rateIdx = header.indexOf("risk free rate");
-  const swapIdx = header.indexOf("swap rate");
-
-  const rateByMonth = new Map<string, number>();
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",");
-    const date = (cols[dateIdx] ?? "").trim();
-    let rate = cols[rateIdx];
-
-    if (rate === "0" && swapIdx !== -1) {
-      rate = cols[swapIdx];
-    }
-
-    if (!date || rate === "0" || !isFinite(Number(rate))) continue;
-    const monthKey = date.slice(0, 7);
-    rateByMonth.set(monthKey, parseFloat(rate) / 100);
+  const valueIdx = header.indexOf(column);
+  if (dateIdx < 0 || valueIdx < 0) {
+    throw new Error(`GitHub CSV lacks a "${column}" column`);
   }
+  return lines.slice(1).flatMap((line) => {
+    const cols = line.split(",");
+    const date = (cols[dateIdx] ?? "").trim();
+    return date ? [{ date, value: Number(cols[valueIdx]) }] : [];
+  });
+}
 
-  return Array.from(rateByMonth.entries())
-    .map(([month, value]) => ({ date: month, value }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+/**
+ * The upstream "Risk Free Rate" at each month's last row, as a decimal. Only its
+ * pre-1920 part (Shiller 10-year minus 1%) is used; see short-treasury-yields.ts.
+ */
+async function fetchUpstreamRiskFreeByMonth(): Promise<Map<string, number>> {
+  const rows = await fetchGithubCsvColumn("risk free rate");
+  return new Map(rows.filter((r) => Number.isFinite(r.value)).map((r) => [r.date.slice(0, 7), r.value / 100]));
+}
+
+function fredPctByMonth(rows: Array<{ date: string; value: number }>): Map<string, number> {
+  return new Map(rows.map((r) => [r.date.slice(0, 7), r.value]));
+}
+
+/** Monthly short-Treasury yields behind the SGOV and VGSH proxies. */
+async function fetchShortTreasuryYieldsByMonth(): Promise<MonthlyYield[]> {
+  const [upstreamRiskFreeByMonth, shortGov, tb3ms] = await Promise.all([
+    fetchUpstreamRiskFreeByMonth(),
+    fetchFredSeries(SHORT_GOV_FRED_SERIES, undefined, SHORT_GOV_END_DATE),
+    fetchFredSeries("TB3MS"),
+  ]);
+  return composeShortTreasuryYieldsByMonth({
+    upstreamRiskFreeByMonth,
+    shortGovPctByMonth: fredPctByMonth(shortGov),
+    tb3msPctByMonth: fredPctByMonth(tb3ms),
+  });
+}
+
+/** Source tag for a rate-proxy row: only the pre-1920 upstream yields come from the seed CSV. */
+function yieldProxySource(yieldName: string): string {
+  return yieldName === SHORT_TREASURY_YIELD_NAMES.upstream ? "github-csv+er" : "fred+er";
 }
 
 async function fetchDatahubGoldRows(): Promise<Array<{ date: string; close: number }>> {
@@ -2069,24 +2098,24 @@ async function fetchVgshHistory(): Promise<DailyPrice[]> {
   const proxyAnchorMonth = proxyAnchorDate.slice(0, 7);
   const proxyAnchorPrice = shyRows[0].adjClose * shyToVgshScale;
 
-  const githubRateRows = await fetchGithubRateRows();
-  const fredRows = await fetchFredSeries("DGS2");
+  const [shortYields, fredRows] = await Promise.all([fetchShortTreasuryYieldsByMonth(), fetchFredSeries("DGS2")]);
 
-  const rateMap = new Map<string, number>();
-  for (const row of githubRateRows) {
+  // Short-Treasury yields until DGS2 starts (1976-06), then DGS2 at each month's last print.
+  const rateMap = new Map<string, { value: number; name: string }>();
+  for (const row of shortYields) {
     if (row.date < proxyAnchorMonth) {
-      rateMap.set(row.date, row.value);
+      rateMap.set(row.date, { value: row.value, name: row.name });
     }
   }
   for (const row of fredRows) {
     const monthKey = row.date.slice(0, 7);
     if (monthKey < proxyAnchorMonth) {
-      rateMap.set(monthKey, row.value / 100);
+      rateMap.set(monthKey, { value: row.value / 100, name: "DGS2" });
     }
   }
 
   const rateRows = Array.from(rateMap.entries())
-    .map(([date, value]) => ({ date, value }))
+    .map(([date, rate]) => ({ date, ...rate }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // WORK-BACKWARDS STITCHING:
@@ -2138,8 +2167,8 @@ async function fetchVgshHistory(): Promise<DailyPrice[]> {
     tempPriceSeries.push({
       date: rateRows[i].date,
       adj_close: tempPrice,
-      name: "DGS2",
-      source: "github-csv+er",
+      name: rateRows[i].name,
+      source: yieldProxySource(rateRows[i].name),
     });
     prevYield = annualYield;
   }
@@ -2169,7 +2198,7 @@ async function fetchVgshHistory(): Promise<DailyPrice[]> {
         date: gapDate.toISOString().slice(0, 10),
         adj_close: gapPrice,
         name: "DGS2",
-        source: "github-csv-extended+er",
+        source: "fred-extended+er",
       });
     }
   }
@@ -2209,25 +2238,7 @@ async function fetchSgovHistory(): Promise<DailyPrice[]> {
   const sgovFirstMonth = sgovFirstDate.slice(0, 7);
   const sgovFirstPrice = sgovRows[0].adjClose;
 
-  const githubRateRows = await fetchGithubRateRows();
-  const fredRows = await fetchFredSeries("TB3MS");
-
-  const rateMap = new Map<string, number>();
-  for (const row of githubRateRows) {
-    if (row.date < sgovFirstMonth) {
-      rateMap.set(row.date, row.value);
-    }
-  }
-  for (const row of fredRows) {
-    const monthKey = row.date.slice(0, 7);
-    if (monthKey < sgovFirstMonth) {
-      rateMap.set(monthKey, row.value / 100);
-    }
-  }
-
-  const rateRows = Array.from(rateMap.entries())
-    .map(([date, value]) => ({ date, value }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const rateRows = (await fetchShortTreasuryYieldsByMonth()).filter((row) => row.date < sgovFirstMonth);
 
   // WORK-BACKWARDS STITCHING (same as VGSH):
   // Start from SGOV's first price and work backwards through rate data
@@ -2267,8 +2278,8 @@ async function fetchSgovHistory(): Promise<DailyPrice[]> {
     tempPriceSeries.push({
       date: rateRows[i].date,
       adj_close: tempPrice,
-      name: "TB3MS",
-      source: "github-csv+er",
+      name: rateRows[i].name,
+      source: yieldProxySource(rateRows[i].name),
     });
   }
 
@@ -2297,7 +2308,7 @@ async function fetchSgovHistory(): Promise<DailyPrice[]> {
         date: gapDate.toISOString().slice(0, 10),
         adj_close: gapPrice,
         name: "TB3MS",
-        source: "github-csv-extended+er",
+        source: "fred-extended+er",
       });
     }
   }
@@ -2313,112 +2324,45 @@ async function fetchSgovHistory(): Promise<DailyPrice[]> {
   return [...historicalPrices, ...gapPrices, ...sgovPrices];
 }
 
-async function fetchInflationHistory(tailDate?: string): Promise<Array<{ date: string; value: number; name: string; source: string }>> {
-  const preFredCpiByMonth = new Map<string, number>();
-  const githubCpiByMonth = new Map<string, number>();
-  let latestPreFredGithubDate: string | null = null;
-
-  try {
-    const csv = await getGithubCsvText();
-    const lines = csv.split(/\r?\n/).filter((l) => l.trim() !== "");
-    const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-    const dateIdx = header.indexOf("date");
-    const cpiIdx = header.indexOf("cpi");
-
-    if (cpiIdx !== -1) {
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",");
-        const date = (cols[dateIdx] ?? "").trim();
-        const cpi = cols[cpiIdx];
-        if (!date || !isFinite(Number(cpi)) || cpi === "0" || !cpi) continue;
-        const monthKey = date.slice(0, 7);
-        githubCpiByMonth.set(monthKey, parseFloat(cpi));
-        if (date < "1947-01-01") {
-          preFredCpiByMonth.set(monthKey, parseFloat(cpi));
-          if (!latestPreFredGithubDate || date > latestPreFredGithubDate) {
-            latestPreFredGithubDate = date;
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("GitHub CSV unavailable for inflation history:", err instanceof Error ? err.message : err);
-  }
-
-  const rows: Array<{ date: string; value: number; name: string; source: string }> = [];
-
-  for (const [month, value] of preFredCpiByMonth.entries()) {
-    rows.push({ date: month, value, name: "CPI", source: "github-csv" });
-  }
-
-  const fredStartDate = maxIsoDate(tailDate, latestPreFredGithubDate);
-  const fredRows = await fetchFredSeries(
-    "CPIAUCSL",
-    fredStartDate ? normalizeFredObservationStart(fredStartDate) : undefined,
-    undefined,
-    { carryForwardMissing: true }
-  );
-  const fredMonths = new Set<string>();
-  for (const row of fredRows) {
-    const monthKey = row.date.slice(0, 7);
-    fredMonths.add(monthKey);
-    rows.push({
-      date: monthKey,
-      value: row.value,
-      name: "CPIAUCSL",
-      source: row.carriedForward ? "fred-carry-forward" : "fred",
-    });
-  }
-
-  // FRED can publish a placeholder "." for an otherwise known month; fill only
-  // those missing modern months from the cached market-data CPI column.
-  for (const [month, value] of githubCpiByMonth.entries()) {
-    if (month < "1947-01") continue;
-    if (fredMonths.has(month)) continue;
-    rows.push({ date: month, value, name: "CPI", source: "github-csv-fred-gap" });
-  }
-
-  return rows.sort((a, b) => a.date.localeCompare(b.date));
+/** Full CPI history (see scripts/lib/cpi-history.ts); any missing source throws. */
+async function fetchInflationHistory(): Promise<CpiRow[]> {
+  const [upstreamCpi, nsaRows, saRows] = await Promise.all([
+    fetchGithubCsvColumn("cpi"),
+    fetchFredSeries("CPIAUCNS", undefined, CPI_NSA_END_DATE),
+    fetchFredSeries("CPIAUCSL", `${CPI_SA_START_MONTH}-01`, undefined, { carryForwardMissing: true }),
+  ]);
+  return composeCpiHistory({
+    upstreamCpiByMonth: monthlyCpiFromInterpolatedDaily(upstreamCpi.map((r) => ({ date: r.date, cpi: r.value }))),
+    nsaRows,
+    saRows,
+  });
 }
 
-async function fetchRateHistory(rateType: string, tailDate?: string): Promise<Array<{ date: string; value: number; name: string; source: string }>> {
-  const rateByDate = new Map<string, { value: number; name: string; source: string }>();
+/**
+ * Full borrow-rate history: commercial paper, fed funds, LIBOR, then SOFR (see
+ * scripts/lib/borrow-rate-history.ts). Any missing source throws, so a full rebuild
+ * keeps the existing file instead of writing a truncated history.
+ */
+async function fetchBorrowRateHistory(): Promise<BorrowRateRow[]> {
+  const [upstreamSwap, commercialPaper, fedFunds, sofr] = await Promise.all([
+    fetchGithubCsvColumn("swap rate"),
+    fetchFredSeries(COMMERCIAL_PAPER_FRED_SERIES, undefined, COMMERCIAL_PAPER_END_DATE),
+    fetchFredSeries("DFF", FED_FUNDS_START_DATE, FED_FUNDS_END_DATE),
+    fetchFredSeries("SOFR", SOFR_START_DATE),
+  ]);
+  return composeBorrowRateHistory({
+    upstreamRows: upstreamSwap.map((r) => ({ date: r.date, swapRatePct: r.value })),
+    commercialPaperPctByMonth: fredPctByMonth(commercialPaper),
+    fedFundsPctByDate: new Map(fedFunds.map((r) => [r.date, r.value])),
+    sofrRows: sofr.map((r) => ({ date: r.date, valuePct: r.value })),
+  });
+}
 
-  if (rateType === "borrow") {
-    let latestGithubDate: string | null = null;
-    try {
-      const csv = await getGithubCsvText();
-      const lines = csv.split(/\r?\n/).filter((l) => l.trim() !== "");
-      const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const dateIdx = header.indexOf("date");
-      const swapIdx = header.indexOf("swap rate");
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",");
-        const date = (cols[dateIdx] ?? "").trim();
-        const rate = cols[swapIdx];
-        if (!date || date >= "2018-04-03" || !isFinite(Number(rate)) || rate === "0") continue;
-        rateByDate.set(date, { value: parseFloat(rate) / 100, name: "SWAP", source: "github-csv" });
-        if (!latestGithubDate || date > latestGithubDate) {
-          latestGithubDate = date;
-        }
-      }
-    } catch (err) {
-      console.warn("GitHub CSV unavailable for borrow rate history:", err instanceof Error ? err.message : err);
-    }
-
-    const fredStartDate = maxIsoDate(tailDate, latestGithubDate);
-    const fredRows = await fetchFredSeries("SOFR", fredStartDate ?? undefined);
-    for (const row of fredRows) {
-      rateByDate.set(row.date, { value: row.value / 100, name: "SOFR", source: "fred" });
-    }
-  } else {
+async function fetchRateHistory(rateType: string): Promise<BorrowRateRow[]> {
+  if (rateType !== "borrow") {
     throw new Error(`Unknown rate type "${rateType}". Available: borrow`);
   }
-
-  return Array.from(rateByDate.entries())
-    .map(([date, data]) => ({ date, ...data }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  return fetchBorrowRateHistory();
 }
 
 async function fetchIndexSpRecentRows(startDate: string): Promise<DailyPrice[]> {
@@ -2554,7 +2498,7 @@ async function generateInflationCsv(forceRebuild = false): Promise<void> {
   await generateIncrementalValueCsv({
     filename: "inflation.csv",
     label: "CPI",
-    fetchFullRows: (tailDate) => fetchInflationHistory(tailDate),
+    fetchFullRows: () => fetchInflationHistory(),
     fetchFreshRows: async (startDate) => {
       const fredRows = await fetchFredSeries("CPIAUCSL", `${startDate}-01`, undefined, {
         carryForwardMissing: true,
@@ -2574,7 +2518,7 @@ async function generateRateCsv(rateType: string, forceRebuild = false): Promise<
   await generateIncrementalValueCsv({
     filename: `rate-${rateType}.csv`,
     label: rateType.toUpperCase(),
-    fetchFullRows: (tailDate) => fetchRateHistory(rateType, tailDate),
+    fetchFullRows: () => fetchRateHistory(rateType),
     fetchFreshRows: async (startDate) => {
       if (rateType !== "borrow") {
         throw new Error(`Unknown rate type "${rateType}". Available: borrow`);
@@ -2614,13 +2558,17 @@ export async function fetchAll(forceRebuild = false) {
   }
 
   console.log("\n=== Generating Inflation & Rate Files ===");
+  // The bundled modules derived from these CSVs are rewritten on every run, so a build
+  // that appends a CPI print or a rate row never ships them stale.
   try {
     await generateInflationCsv(forceRebuild);
+    writeCpiModule();
   } catch (err) {
     errors.push(`inflation: ${err instanceof Error ? err.message : String(err)}`);
   }
   try {
     await generateRateCsv("borrow", forceRebuild);
+    writeRateHikeShockModule();
   } catch (err) {
     errors.push(`rate-borrow: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -2743,12 +2691,14 @@ async function fetchRates(rateType?: string, forceRebuild = false) {
     console.log("=== Generating borrow rate file ===");
     try {
       await generateRateCsv("borrow", forceRebuild);
+      writeRateHikeShockModule();
     } catch (err) {
       console.error(`borrow failed:`, err instanceof Error ? err.message : err);
     }
   } else if (rateType === "borrow") {
     try {
       await generateRateCsv(rateType, forceRebuild);
+      writeRateHikeShockModule();
     } catch (err) {
       console.error(`${rateType} failed:`, err instanceof Error ? err.message : err);
       process.exit(1);

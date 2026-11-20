@@ -20,7 +20,7 @@ export function InflationAdjustedCheckbox({
           <InfoPopoverButton label="SMA buffer inflation adjusted">
             Runs each SMA band on the index divided by CPI, so both the price and its moving average are in
             real dollars. A nominal rise that only keeps pace with inflation no longer holds the strategy in:
-            with prices rising 10% a year, a 200-day SMA lags the price by about 5% more than it would in real
+            with prices rising 10% a year, a 200-day SMA lags the price by about 4% more than it would in real
             terms, so the exit and re-entry levels move up by about that much. Each day uses the CPI that had
             been published by then (a month&apos;s CPI counts from the 15th of the next month). The vol gate and
             RSI brake still read the nominal index.

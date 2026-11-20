@@ -2,13 +2,11 @@ import type { RatePoint } from "./types";
 
 /**
  * Borrowing rate for leveraged ETF simulation.
- * Single source: rate-borrow.csv (GitHub CSV 1885-2018 + FRED SOFR 2018-present)
+ * Single source: rate-borrow.csv, one overnight/short funding rate per era —
+ * commercial paper to 1954-06, fed funds to 1985, 1-month LIBOR to 2018-04-02,
+ * SOFR after (built by scripts/lib/borrow-rate-history.ts).
  *
- * Boundary handling (standard pattern):
- * - GitHub CSV: 1885-01-01 to 2018-04-03 (last INCLUDED row)
- * - FRED SOFR: 2018-04-03 (REFERENCE only) → 2018-04-04 (first INCLUDED row)
- *
- * The CSV is pre-filled with no gaps (forward-filled during generation).
+ * The CSV has a row per trading day; lookups fall back to the latest prior row.
  */
 
 interface RateLookup {

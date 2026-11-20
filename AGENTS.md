@@ -272,6 +272,15 @@ drawdown, not its volatility, which is company-specific. Pre-1980 rows are only
 rebuilt on a forced or offline rebuild, so they can go stale when `index-sp.csv`
 history changes; the 1926-1980 rows had, after the S&P's Fama-French splice.
 
+Rates and CPI are assembled per era by `scripts/lib/borrow-rate-history.ts`
+(commercial paper → fed funds → LIBOR → SOFR), `short-treasury-yields.ts` (SGOV/VGSH
+proxy yields) and `cpi-history.ts`. Never read the seed CSV's swap or risk-free
+columns before 1986: they come from Ken French's daily T-bill file, a two-decimal
+percent per day, so they move in 2.52% steps and sit at 0% from 1932 to 1950. That
+understated pre-1986 LETF financing by about 1-5 points a year and gave the VGSH
+proxy fake ±5% months. Its CPI column is interpolated to days, so a month's last
+row is nearly the next month's CPI. `data-integrity.test.ts` guards all three.
+
 Production futures callers enable `treasuryCollateral`. `futures-cash-account.ts`
 models the live **sweep-to-securities** election: futures P&L/fees enter commodities
 cash; maintenance cash plus a 5% buffer stays there; elective excess transfers use
@@ -426,7 +435,12 @@ regime array from index closes; `three-gate.ts` is the example) to
 ticked by default, and the canned snapshot uses `DEFAULT_EXTRA_STRATEGY_IDS`. A rule
 line must not lengthen the other lines' warm-up — the SMA band, vol gate and RSI
 brake carry state from the first loaded close, so it moves their results — which is
-why warm-up is per index (`warm-up-by-index.ts`).
+why warm-up is per index (`warm-up-by-index.ts`). A rule that needs data other than
+index closes reads a bundle `fetch-data` derives from the CSV on every run, as
+`sma-rate-shock.ts` reads `rate-hike-shock.json` (and the inflation band reads
+`cpi-monthly.json`); a test pins each bundle to its CSV. Write a new bundle in
+`fetchAll`, not only in a single-file CLI path: the CPI bundle was once rewritten
+only by `--inflation`, so builds shipped it stale.
 
 ## After-tax results
 

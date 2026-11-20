@@ -3,6 +3,7 @@ import { SMA_ONLY_RULE, SMA_RSI_ONLY_RULE, SMA_VOL_ONLY_RULE } from "./sma-gate-
 import { NDX_THREE_GATE_RULE } from "./three-gate";
 import { NDX_SMA_VOL_ARGMAX_RULE } from "./sma-vol-argmax";
 import { NDX_SMA_VOL_SHOCK_RULE } from "./sma-vol-shock";
+import { SMA_RATE_SHOCK_RULE } from "./sma-rate-shock";
 
 /**
  * Plug-in timing rules: anything that decides "hold the LETF or sit in risk-off"
@@ -18,7 +19,7 @@ import { NDX_SMA_VOL_SHOCK_RULE } from "./sma-vol-shock";
  * results table and chart) is the engine's usual SMA path.
  */
 /** The SMA line a rule line twins; a rule may reuse its band or ignore it. */
-export type SignalRuleLine = Pick<EtfConfig, "smaIndex" | "smaPeriod" | "smaUpperBuffer" | "smaLowerBuffer">;
+export type SignalRuleLine = Pick<EtfConfig, "smaIndex" | "smaPeriod" | "smaUpperBuffer" | "smaLowerBuffer" | "smaInflationAdjusted">;
 
 export interface SignalRule {
   /** Stable key stored in `EtfConfig.signalRule`. */
@@ -60,6 +61,7 @@ const BUILT_IN_SIGNAL_RULES: readonly SignalRule[] = [
   NDX_THREE_GATE_RULE,
   NDX_SMA_VOL_ARGMAX_RULE,
   NDX_SMA_VOL_SHOCK_RULE,
+  SMA_RATE_SHOCK_RULE,
 ];
 
 /** Extra strategies ticked by default on the backtest page (and in its canned snapshot). */

@@ -185,11 +185,11 @@ If preview deployments are Vercel-protected, add the project's automation bypass
 Public-domain or freely-licensed sources used by `fetch-data`:
 
 - **Tiingo** — modern ETF prices and some proxy anchors. Free tier with attribution.
-- **FRED (St. Louis Fed)** — `CPIAUCSL`, `SOFR`, `DGS2`, `TB3MS`, etc. Public domain.
+- **FRED (St. Louis Fed)** — `CPIAUCSL`, `CPIAUCNS`, `SOFR`, `DFF`, `DGS2`, `TB3MS`, and NBER Macrohistory commercial paper / short-term government yields. Public domain.
 - **Yahoo Finance** chart endpoint — benchmark `^GSPC` / `^NDX` open/close. Unofficial; rate-limit politely.
 - **Stooq** — early S&P 500 history before Yahoo `^GSPC` starts.
 - **Datahub** — monthly gold price history for the GLDM proxy.
-- **`SteelCerberus/swap_rates`** (GitHub) — historical USD swap rates used in the stitched borrow curve.
+- **`SteelCerberus/us-market-data`** (GitHub) — 1-month LIBOR 1986–2018 for the borrow curve, Shiller CPI before 1913, and early short-rate history.
 
 See [`DataFetch.md`](./DataFetch.md) for the detailed fetch and stitching logic.
 

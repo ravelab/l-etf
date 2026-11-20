@@ -216,8 +216,14 @@ async function main(): Promise<void> {
   console.log("\nWORST_TIME_TO_INVEST_ITEMS (paste into ToolRunHistoryMenu.tsx):\n");
   for (const era of ERAS) {
     const curve = curves.get(era.letf);
-    // Declines are depth-sorted, so the first one peaking in the era's year is that era's worst.
-    const decline = curve?.declines.find((d) => d.peakDate.startsWith(era.peakYear));
+    // Record highs count from the era's own year: a 1987 TQQQ buyer never held the
+    // proxy-era 1968 peak, which the 1926-start curve only retakes in 1996. Where the
+    // year's high is also an all-time record this is the full-curve decline unchanged.
+    // Declines are depth-sorted, so the first one peaking in the era's year is its worst.
+    const from = curve ? curve.dates.findIndex((d) => d >= `${era.peakYear}-01-01`) : -1;
+    const decline = curve && from >= 0
+      ? findDeclines(curve.dates.slice(from), curve.values.slice(from)).find((d) => d.peakDate.startsWith(era.peakYear))
+      : undefined;
     if (!curve || !decline) {
       console.log(`  // no ${era.letf} decline peaking in ${era.peakYear}`);
       continue;

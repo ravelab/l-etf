@@ -22,8 +22,12 @@ Main upstream sources:
 - Tiingo for modern ETF prices and some proxy anchors
 - Yahoo Finance for benchmark index open/close data
 - Stooq API only for S&P 500 open/close rows before Yahoo `^GSPC` starts
-- FRED for CPIAUCSL, SOFR, DGS2, and TB3MS
-- GitHub seed CSV data for long-history rates, inflation, and returns
+- FRED for CPIAUCSL, CPIAUCNS, SOFR, DFF, DGS2, TB3MS, and two NBER
+  Macrohistory series (NY commercial paper `M13002US35620M156NNBR`, short-term
+  government yields `M1329AUSM193NNBR`)
+- GitHub seed CSV (`SteelCerberus/us-market-data`) for 1-month LIBOR 1986-2018,
+  Shiller CPI and the Shiller 10-year-minus-1% rate before 1913/1920, the
+  pre-1928 Dow and the trading-day grid
 - Datahub monthly gold history for the GLDM proxy
 - Tiingo `VOO` / `QQQ` adjusted close for modern index total-return anchors
 
@@ -92,7 +96,7 @@ Eras:
 
 | Range | Series |
 | --- | --- |
-| `1885-03-20`..`1926-06-30` | Cowles-era S&P Composite reconstruction, rescaled onto the Fama-French level |
+| `1885-03-20`..`1926-06-30` | Schwert daily Dow Jones industrial + railroad composite with Shiller dividends (via the seed CSV), rescaled onto the Fama-French level |
 | `1926-07-01`..`1988-04-05` | Fama-French value-weighted large-cap (`Hi 30`) total return |
 | `1988-04-06`..present | actual S&P 500 / `VOO` |
 
@@ -111,7 +115,7 @@ What it contains:
 - `close`: SPX index level used for SMA signals. In the Fama-French era this is
   the spliced total return with the S&P's own cumulative dividend contribution
   stripped back out, so signals still run on a price index. Before `1926-07-01`
-  it is the Cowles-era level rescaled by one constant.
+  it is the Dow Jones composite level rescaled by one constant.
 - `open`: SPX index open used for open-execution logic. In the spliced eras each
   row's open is scaled by the same factor as its `close`, preserving the day's
   open-to-close gap.
@@ -253,7 +257,7 @@ Sharp edges:
   `1988-04-05`, but means this file alone is not current for modern comparisons.
 - The `Hi 30`/`Hi 20`/`Hi 10` cuts cannot be extended before `1926-07-01`: CRSP
   itself starts end-1925, and no free stock-level database with market caps
-  exists earlier. `index-sp.csv`'s `1885`-`1926` rows remain Cowles-era data.
+  exists earlier. `index-sp.csv`'s `1885`-`1926` rows remain the Dow Jones composite.
 
 ### Leveraged ETFs
 
@@ -280,14 +284,17 @@ These combine real ETF history with synthetic pre-inception proxies.
 #### `risk-sgov.csv`
 
 - Modern SGOV rows from Tiingo
-- Pre-inception proxy from GitHub short-rate history and FRED `TB3MS`
+- Pre-inception proxy from the monthly short-Treasury yield history
+  (`scripts/lib/short-treasury-yields.ts`): Shiller 10-year minus 1% before 1920,
+  NBER short-term government yields 1920-1933, FRED `TB3MS` from 1934
 - Carry-style monthly return model plus expense-ratio drag
 - Daily gap fill up to SGOV inception
 
 #### `risk-vgsh.csv`
 
 - Modern VGSH rows from Tiingo
-- Pre-inception proxy from GitHub rate history and FRED `DGS2`
+- Pre-inception proxy from the same short-Treasury yield history until FRED
+  `DGS2` starts in 1976-06 (month-end), then `DGS2`
 - Duration-style monthly return model plus expense-ratio drag
 - Daily gap fill up to VGSH inception
 
@@ -315,17 +322,38 @@ These combine real ETF history with synthetic pre-inception proxies.
 
 #### `inflation.csv`
 
-- Monthly CPI history
-- Older rows from the GitHub seed CSV
-- Newer rows from FRED `CPIAUCSL`
-- On rebuild, FRED is only asked for rows newer than the existing tail when possible
+- Monthly CPI history (`scripts/lib/cpi-history.ts`)
+- Before 1913: Shiller CPI, recovered from the seed CSV. Its CPI column is monthly
+  CPI interpolated to days, so each month's own value is solved from two rows of
+  that month; the month's last row is nearly the NEXT month's CPI and shifted
+  the series a month early when it was used
+- 1913-1946: FRED `CPIAUCNS`; from 1947: FRED `CPIAUCSL` (a missing print, such as
+  October 2025, carries the prior month forward)
+- Incremental runs append `CPIAUCSL` only
 
 #### `rate-borrow.csv`
 
-- Borrow-rate history for leveraged ETF simulations
-- Older rows from the GitHub swap-rate seed CSV
-- Newer rows from FRED `SOFR`
-- On rebuild, FRED is only asked for rows newer than the existing tail when possible
+- Borrow-rate history for leveraged ETF simulations and futures carry
+  (`scripts/lib/borrow-rate-history.ts`), always an overnight or short private
+  funding rate, on the seed CSV's trading-day grid:
+  - 1885-03 to 1954-06: NBER NY commercial paper (monthly, `CP`)
+  - 1954-07 to 1985-12: effective fed funds (`DFF`)
+  - 1986-01 to 2018-04-02: 1-month LIBOR from the seed CSV (`LIBOR1M`)
+  - from 2018-04-03: FRED `SOFR`
+- Never take the seed CSV's swap or risk-free columns before 1986: they come from
+  Ken French's daily T-bill file, a two-decimal percent per day, so they move in
+  2.52% steps (0% from 1932 to 1950); before 1926 they are the Shiller 10-year
+  yield minus 1%
+- Incremental runs append `SOFR` only
+
+#### Bundles derived from these files
+
+Every `fetch-data` run that touches them rewrites two bundled modules the browser and
+serverless engine import instead of fetching CSVs:
+
+- `src/lib/tool-snapshots/cpi-monthly.json` from `inflation.csv` (inflation-adjusted SMA band)
+- `src/lib/tool-snapshots/rate-hike-shock.json` from `rate-borrow.csv` (the "SMA Vol RSI +
+  Rate shock" extra strategy's episodes, `src/lib/simulation/rate-hike-shock.ts`)
 
 ## Rebuild Rules
 
@@ -335,7 +363,7 @@ When overlap does not match, the script handles files differently:
 - `risk-brka.csv` and `risk-gldm.csv` rebase older rows by the overlap ratio, then append newer rows
 - `risk-sgov.csv` and `risk-vgsh.csv` rebuild from their full source logic
 - `index-sp.csv` and `index-nq.csv` rebuild from their full source logic
-- `inflation.csv` and `rate-borrow.csv` rebuild from their source logic, but only ask FRED for the tail when possible
+- `inflation.csv` and `rate-borrow.csv` rebuild their whole history from source
 
 ## File Formats
 

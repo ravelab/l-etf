@@ -44,9 +44,9 @@ const DEFAULT_SWAP_MODEL: SwapSpreadModel = { rateSensitivity: 0.7, baseSpread: 
  * 2006-06-21 on for SSO/QLD, 2009/2010 on for UPRO/TQQQ — and the benchmark
  * tops out at 5.82% across it. The slope is well identified inside that range
  * (pinning it to zero blows UPRO's final tracking error out to 6%), but above
- * it there is no evidence at all, and a straight line compounds fast: at the
- * ~15% rates of 1981 it implies a 5–7%/yr credit spread over the risk-free
- * rate, several times anything a funding market has charged.
+ * it there is no evidence at all, and a straight line compounds fast: at 1981's
+ * 16.4% average fed funds rate it implies a 12-14%/yr credit spread over the
+ * funding rate, several times anything a funding market has charged.
  */
 const SWAP_SPREAD_CALIBRATED_RATE_MAX = 0.06;
 

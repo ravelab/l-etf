@@ -63,7 +63,7 @@ export interface SmaSignal {
    * crossed that close, "vol" when the volatility gate tripped or released, "rsi"
    * when the RSI crash brake did, "shock" when the volatility-shock gate did.
    */
-  trigger?: "sma" | "vol" | "rsi" | "shock";
+  trigger?: "sma" | "vol" | "rsi" | "shock" | "rate";
 }
 
 export interface EtfResult {

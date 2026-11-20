@@ -52,7 +52,7 @@ export const CONSTANT_NASDAQ100_START_DATE = "1926-07-01";
  *  here to CONSTANT_SP500_SHORTCUT_DATE the S&P series is replaced by the
  *  Fama-French cap-weighted basket of the market's biggest 30% by size
  *  (FF_SPLICE_START in scripts/fetch-data.ts); everything earlier is the
- *  Cowles-era reconstruction. */
+ *  Schwert daily Dow Jones industrial + railroad composite. */
 export const CONSTANT_SP500_PROXY_START_DATE = "1926-07-01";
 /** Calendar icon shortcut: the Nixon shock ended dollar convertibility to gold
  *  (a Sunday; runs use the nearest trading day). */

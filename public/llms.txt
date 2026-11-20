@@ -2,7 +2,7 @@
 
 > L-ETF is a free, open-source research tool for backtesting leveraged ETF (UPRO, TQQQ, SSO, QLD) SMA (simple moving average) timing strategies over long market history, and for tracking today's live SPX/NDX SMA signals.
 
-L-ETF simulates leveraged ETFs back beyond their real launch dates (S&P 500 data since the 1800s, Nasdaq 100 since the 1980s) by modeling daily leverage reset, expense ratios, and borrowing costs, then calibrates that model against real UPRO/TQQQ/SSO/QLD prices. The core strategy idea: hold the leveraged ETF while price is above its N-day moving average, switch to a defensive "risk-off" asset (e.g. SGOV, VGSH, GLDM, BRK.B) when price falls below it, with a percentage buffer around the line to reduce whipsaw trades.
+L-ETF simulates leveraged ETFs back beyond their real launch dates (the S&P 500 and its predecessors since 1885, the Nasdaq 100 since its 1985 launch with a proxy back to 1926) by modeling daily leverage reset, expense ratios, and borrowing costs, then calibrates that model against real UPRO/TQQQ/SSO/QLD prices. The core strategy idea: hold the leveraged ETF while price is above its N-day moving average, switch to a defensive "risk-off" asset (e.g. SGOV, VGSH, GLDM, BRK.B) when price falls below it, with a percentage buffer around the line to reduce whipsaw trades.
 
 This is **not investment advice**. It is an educational/research tool; past backtested performance does not predict future results, and leveraged ETFs are high-risk instruments.
 

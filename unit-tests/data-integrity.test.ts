@@ -105,6 +105,42 @@ test("rate-borrow.csv is valid", () => {
   }
 });
 
+test("rate-borrow.csv takes each era from its own source (no upstream T-bill steps)", () => {
+  const rows = parseCsv("rate-borrow.csv");
+  const expectedName = (date: string) =>
+    date < "1954-07-01" ? "CP" : date < "1986-01-02" ? "DFF" : date < "2018-04-03" ? "LIBOR1M" : "SOFR";
+  for (const row of rows) {
+    assert.equal(row.name, expectedName(row.date), `${row.date} should come from ${expectedName(row.date)}`);
+    if (row.date < "2008-01-01") assert.ok(Number(row.value) > 0, `non-positive pre-2008 rate on ${row.date}`);
+  }
+  // The upstream swap column moved in 2.52% steps (0.01%/day x 252) from 1926 to 1985.
+  const pre1986 = rows.filter((r) => r.date >= "1926-07-01" && r.date < "1986-01-01");
+  const onGrid = pre1986.filter((r) => Math.abs(Number(r.value) / 0.0252 - Math.round(Number(r.value) / 0.0252)) < 1e-6);
+  assert.ok(onGrid.length / pre1986.length < 0.05, `${onGrid.length}/${pre1986.length} rows sit on the 2.52% grid`);
+});
+
+test("risk-vgsh.csv proxy has no fake yield-step swings before DGS2 (1976-06)", () => {
+  const rows = parseCsv("risk-vgsh.csv").filter((r) => r.date.length === 7 && r.date < "1976-06");
+  assert.ok(rows.length > 1000);
+  for (let i = 1; i < rows.length; i++) {
+    const change = Number(rows[i].adj_close) / Number(rows[i - 1].adj_close) - 1;
+    assert.ok(Math.abs(change) < 0.035, `VGSH proxy moved ${(change * 100).toFixed(2)}% in ${rows[i].date}`);
+  }
+});
+
+test("inflation.csv is contiguous monthly CPI: Shiller, CPIAUCNS 1913-46, CPIAUCSL from 1947", () => {
+  const rows = parseCsv("inflation.csv");
+  const nextMonth = (m: string) => {
+    const [y, mo] = m.split("-").map(Number);
+    return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
+  };
+  for (let i = 1; i < rows.length; i++) {
+    assert.equal(rows[i].date, nextMonth(rows[i - 1].date), `CPI gap before ${rows[i].date}`);
+  }
+  const expectedName = (m: string) => (m < "1913-01" ? "CPI" : m < "1947-01" ? "CPIAUCNS" : "CPIAUCSL");
+  for (const row of rows) assert.equal(row.name, expectedName(row.date), `CPI source for ${row.date}`);
+});
+
 test("all public CSVs are readable and not empty", () => {
   const files = readdirSync(DATA_DIR).filter(f => f.endsWith(".csv"));
   for (const file of files) {
