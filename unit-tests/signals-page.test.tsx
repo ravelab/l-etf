@@ -114,4 +114,18 @@ describe("Signals page SMA inputs", () => {
     expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(inflationCagrPresets.presets.find((p) => p.isCalibratedDefault)!.sp500.smaPeriod));
     expect(checkbox).toBeChecked();
   });
+
+  it("asks the signal API for the nominal SMA when unchecked, since an absent flag means the default (on)", async () => {
+    const fetchMock = vi.mocked(fetch);
+    const signalFlags = () => fetchMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.startsWith("/api/sma-signals?"))
+      .map((url) => new URLSearchParams(url.split("?")[1]).get("smaInflationAdjusted"));
+
+    render(<SignalsPage />);
+    await waitFor(() => expect(signalFlags()).toContain("1"), { timeout: 2000 });
+
+    fireEvent.click(screen.getByTestId("sma-inflation-adjusted"));
+    await waitFor(() => expect(signalFlags().at(-1)).toBe("0"), { timeout: 2000 });
+  });
 });

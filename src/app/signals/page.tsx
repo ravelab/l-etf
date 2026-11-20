@@ -163,7 +163,9 @@ function SignalsPageContent() {
         smaNqLowerBuffer: String(smaNqLowerBuffer),
       });
       if (smaVolGate) params.set("smaVolGate", "1");
-      if (smaInflationAdjusted) params.set("smaInflationAdjusted", "1");
+      // Always explicit: the API reads an absent flag as the site default (on),
+      // so omitting it when unchecked would still return the real-SMA signal.
+      params.set("smaInflationAdjusted", smaInflationAdjusted ? "1" : "0");
 
       const res = await fetch(`/api/sma-signals?${params}`);
       if (!res.ok) {
@@ -289,8 +291,8 @@ function SignalsPageContent() {
       )}
 
       <SmaPresetsCard
-        title="SMA defaults and alternatives"
-        description="The site default. Each band runs on the index divided by CPI, so the strategy needs a real gain to stay in. Apply the calibrated default or choose an alternative for either index; choosing one sets “SMA buffer inflation adjusted”."
+        title="Inflation-adjusted SMA defaults and alternatives"
+        description="The site default. These bands measure the index in today's dollars, so only a gain after inflation keeps the strategy in. Pick the calibrated default or an alternative for each index; picking one turns on “SMA buffer inflation adjusted”."
         set={inflationCagrPresets}
         ariaSuffix=" (inflation adjusted)"
         testId="sma-presets-inflation"
