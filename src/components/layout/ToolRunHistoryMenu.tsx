@@ -64,7 +64,8 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
 };
 
 /**
- * The monthly Signals calibration (`src/lib/tool-snapshots/sma-calibration.json`), which is what
+ * The monthly Signals calibration the site defaults to (the inflation-adjusted set,
+ * `src/lib/tool-snapshots/sma-calibration-inflation.json`, with its inflation flag), which is what
  * the app means by "the default" band — not the compile-time fallbacks in `defaults.ts`. Copied
  * rather than imported so it always matches the band the windows below were measured under: a
  * recalibration that moved these without moving the windows would leave the menu advertising a
@@ -72,14 +73,14 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
  * per-index `DEFAULT_RISK_OFF_ASSETS`, imported, so changing those defaults also means regenerating.
  */
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
-  smaPsp: "262",
-  smaPnq: "136",
-  smaSpUpperBuffer: 3.4,
-  smaSpLowerBuffer: 2.3,
-  smaNqUpperBuffer: 9.6,
-  smaNqLowerBuffer: 17.9,
+  smaPsp: "239",
+  smaPnq: "139",
+  smaSpUpperBuffer: 2.2,
+  smaSpLowerBuffer: 5.4,
+  smaNqUpperBuffer: 9,
+  smaNqLowerBuffer: 18.2,
   smaVolGate: true,
-  smaInflationAdjusted: false,
+  smaInflationAdjusted: true,
 } as const;
 
 /**
@@ -102,11 +103,11 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1931-12-17", days: 835, drawdown: "-61.9%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1933-02-27", days: 1273, drawdown: "-65.0%" },
   { letf: "UPRO" as const, startDate: "1998-07-17", endDate: "1998-09-11", days: 56, drawdown: "-50.6%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-43.7%" },
+  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-46.1%" },
   { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1988-11-21", days: 413, drawdown: "-77.5%" },
-  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-04-25", days: 522, drawdown: "-62.1%" },
+  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-04-25", days: 522, drawdown: "-62.3%" },
 ] as const;
 
 /** Years once a window runs a year or longer, then months, then days — "0.16y" reads as a typo. */

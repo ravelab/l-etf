@@ -39,7 +39,8 @@ export function registerGetSmaSignals(server: McpServer): void {
     },
     async (args) => {
       try {
-        const defaults = getDefaultSmaSignalConfig();
+        // Nominal: this tool has no inflation flag and applies the nominal calibration.
+        const defaults = getDefaultSmaSignalConfig(false);
         const calibration = await readSmaCalibrationSnapshot();
         const base = calibration
           ? applyCalibratedSmaDefaults({ ...defaults, useCalibratedDefaults: true }, calibration)

@@ -660,9 +660,10 @@ const FAQ_DATA: FAQItem[] = [
           RSI brake still read the index as quoted.
         </p>
         <p>
-          A band only means what it was scored with, so the inflation-adjusted bands are calibrated
-          separately. The Signals page lists them in their own card, and choosing one turns the
-          checkbox on; choosing a nominal band turns it off.
+          It is on by default, with the inflation-adjusted calibration&apos;s bands as the default
+          rule. A band only means what it was scored with, so the two settings are calibrated
+          separately. The Signals page lists each set in its own card, and choosing a band turns
+          the checkbox on or off to match. The MCP API for AI agents runs nominal bands.
         </p>
       </>
     ),

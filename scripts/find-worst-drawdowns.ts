@@ -12,9 +12,9 @@
  * ships. The menu keeps recognizable episodes rather than the top of the ranking, which reaches
  * back to eras nobody has heard of.
  *
- * The band comes from `sma-calibration.json` — the monthly Signals calibration, which is what
- * the app means by "the default" — not the compile-time fallbacks in `defaults.ts` — and runs with
- * the volatility gate exactly as the calibration scored it (`SMA_CALIBRATION_VOL_GATE`). It emits
+ * The band comes from the monthly Signals calibration set the site defaults to
+ * (`DEFAULT_SMA_CALIBRATION_VARIANT`, inflation-adjusted since 2026-11) and runs with that set's
+ * inflation flag and the volatility gate exactly as the calibration scored it (`SMA_CALIBRATION_VOL_GATE`). It emits
  * those parameters alongside the windows because the two have to be pasted together: a window
  * is only the strategy's worst under the band it was measured with.
  *
@@ -24,9 +24,9 @@ import { INDEX_DATE_RANGES } from "@/lib/constants";
 import { alignRiskOffPriceSeries, getMarketDataWarmUpStartDate } from "@/lib/fetch-market-data";
 import { loadBorrowRates, loadIndexPrices, loadRiskOffRawSeries } from "@/lib/mcp/server-data";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
-import { DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSETS, DEFAULT_SMA_CALIBRATION_VARIANT, DEFAULT_SMA_INFLATION_ADJUSTED } from "@/lib/simulation/defaults";
 import { readSmaCalibrationSnapshot, type SmaCalibrationResult } from "@/lib/sma-calibration";
-import { SMA_CALIBRATION_INFLATION_ADJUSTED, SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
+import { SMA_CALIBRATION_VOL_GATE } from "@/lib/simulation/sma-calibration-eras";
 import { DEFAULT_SMA_EXECUTION_MODE } from "@/lib/input-normalization";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import type { EtfConfig } from "@/lib/simulation/types";
@@ -133,7 +133,7 @@ async function simulateStrategy(presetKey: PresetKey, calibration: SmaCalibratio
     smaLowerBuffer,
     smaIndex: index,
     smaVolGate: SMA_CALIBRATION_VOL_GATE[index],
-    smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[index],
+    smaInflationAdjusted: DEFAULT_SMA_INFLATION_ADJUSTED,
     smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
     riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index],
   };
@@ -188,7 +188,7 @@ function describe(curve: Curve, decline: Decline): Record<string, string | numbe
 }
 
 async function main(): Promise<void> {
-  const calibration = await readSmaCalibrationSnapshot();
+  const calibration = await readSmaCalibrationSnapshot(DEFAULT_SMA_CALIBRATION_VARIANT);
   if (!calibration) throw new Error("No SMA calibration snapshot — run `npm run calibrate-sma` first.");
   console.log(`Calibration generated ${calibration.generatedAt} (through ${calibration.endDate}).`);
 
@@ -212,6 +212,8 @@ async function main(): Promise<void> {
   console.log(`  smaSpLowerBuffer: ${calibration.sp500.smaLowerBuffer},`);
   console.log(`  smaNqUpperBuffer: ${calibration.nasdaq100.smaUpperBuffer},`);
   console.log(`  smaNqLowerBuffer: ${calibration.nasdaq100.smaLowerBuffer},`);
+  console.log(`  smaVolGate: true,`);
+  console.log(`  smaInflationAdjusted: ${DEFAULT_SMA_INFLATION_ADJUSTED},`);
 
   console.log("\nWORST_TIME_TO_INVEST_ITEMS (paste into ToolRunHistoryMenu.tsx):\n");
   for (const era of ERAS) {

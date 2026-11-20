@@ -31,3 +31,19 @@ test("asymmetric calibrated bands keep distinct entry and exit buffers", () => {
     );
   }
 });
+
+test("the site default is the inflation-adjusted set with its flag; MCP keeps the nominal pair", async () => {
+  const { DEFAULT_SMA_INFLATION_ADJUSTED, getSiteDefaultSmaRule, getInflationAdjustedDefaultSmaBand, getDefaultSmaPeriod } =
+    await import("../src/lib/simulation/defaults");
+  const { getDefaultSmaSignalConfig } = await import("../src/lib/sma-status");
+  assert.equal(DEFAULT_SMA_INFLATION_ADJUSTED, true);
+  for (const index of ["sp500", "nasdaq100"] as const) {
+    assert.deepEqual(getSiteDefaultSmaRule(index), { ...getInflationAdjustedDefaultSmaBand(index), smaInflationAdjusted: true });
+  }
+  const site = getDefaultSmaSignalConfig();
+  assert.equal(site.smaInflationAdjusted, true);
+  assert.equal(site.smaSpPeriod, getInflationAdjustedDefaultSmaBand("sp500").smaPeriod);
+  const nominal = getDefaultSmaSignalConfig(false);
+  assert.equal(nominal.smaInflationAdjusted, false);
+  assert.equal(nominal.smaSpPeriod, getDefaultSmaPeriod("sp500"));
+});

@@ -91,10 +91,16 @@ describe("Signals page SMA inputs", () => {
     });
   });
 
-  it("inflation-adjusted presets set the checkbox and nominal presets clear it", () => {
+  it("starts inflation adjusted; nominal presets clear the checkbox and inflation-adjusted presets set it", () => {
     render(<SignalsPage />);
     const checkbox = screen.getByTestId("sma-inflation-adjusted");
+    expect(checkbox).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "SPX Set default" }));
     expect(checkbox).not.toBeChecked();
+    expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("sp500")));
+    expect(persist).toHaveBeenLastCalledWith(expect.objectContaining({ smaInflationAdjusted: false }));
+
     const alternative = inflationCagrPresets.presets.findIndex((preset) => !preset.isCalibratedDefault);
     const rule = inflationCagrPresets.presets[alternative].nasdaq100;
     fireEvent.click(screen.getByRole("button", { name: "NDX Set alternative 1 (inflation adjusted)" }));
@@ -107,10 +113,5 @@ describe("Signals page SMA inputs", () => {
     fireEvent.click(screen.getByRole("button", { name: "SPX Set default (inflation adjusted)" }));
     expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(inflationCagrPresets.presets.find((p) => p.isCalibratedDefault)!.sp500.smaPeriod));
     expect(checkbox).toBeChecked();
-
-    fireEvent.click(screen.getByRole("button", { name: "SPX Set default" }));
-    expect(checkbox).not.toBeChecked();
-    expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("sp500")));
-    expect(persist).toHaveBeenLastCalledWith(expect.objectContaining({ smaInflationAdjusted: false }));
   });
 });

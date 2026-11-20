@@ -43,6 +43,15 @@ function tradingFrequencyPenalty(avgTradesPerYear: number, sparseTradesPerYear =
  */
 const CAPITULATION_EXPONENT = 2.7;
 
+/**
+ * Score per point of worst rolling-window real CAGR (rolling tables only; the
+ * full-period calibration score passes 0). It was 9 until 2026-11, which made a
+ * 3.6-point better worst decade worth less than 0.03 point of average CAGR, so
+ * BRK.B alone outranked BRK.B + GLDM despite an 11-point smaller worst drawdown.
+ * At 25 a point of worst-window CAGR is still only ~2% of a point of average.
+ */
+const WORST_WINDOW_CAGR_WEIGHT = 25;
+
 function computeScore(
   avgRealCagr: number,
   worstRealCagr: number,
@@ -55,7 +64,7 @@ function computeScore(
     Math.sign(value) * Math.pow(Math.abs(value), exp);
 
   // Allow negative CAGRs without producing NaN (fractional exponent).
-  const returnScore = signedPow(avgRealCagr, 2.9) + worstRealCagr * 9;
+  const returnScore = signedPow(avgRealCagr, 2.9) + worstRealCagr * WORST_WINDOW_CAGR_WEIGHT;
 
   const avgDrawdownExponent = options.hateDrawdown ? 2.5 : 1.7;
   const drawdownPenalty =

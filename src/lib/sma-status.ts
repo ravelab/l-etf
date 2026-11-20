@@ -1,5 +1,11 @@
 import storage, { type DailyPrice } from "@/lib/data/storage";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
+import {
+  DEFAULT_SMA_INFLATION_ADJUSTED,
+  getDefaultSmaLowerBuffer,
+  getDefaultSmaPeriod,
+  getDefaultSmaUpperBuffer,
+  getInflationAdjustedDefaultSmaBand,
+} from "@/lib/simulation/defaults";
 import { getSmaSignal, type SmaSignalResult } from "@/lib/sma-signals";
 import { volGateParamsTextFor } from "@/lib/simulation/vol-gate";
 import { rsiBrakeParamsTextFor } from "@/lib/simulation/rsi-brake";
@@ -31,24 +37,36 @@ export type SmaSignalSnapshot = {
   timestamp: string;
 };
 
-const DEFAULT_SMA_SIGNAL_CONFIG: SmaSignalConfig = {
-  smaSpPeriod: getDefaultSmaPeriod("sp500"),
-  smaSpUpperBuffer: getDefaultSmaUpperBuffer("sp500"),
-  smaSpLowerBuffer: getDefaultSmaLowerBuffer("sp500"),
-  smaSpEnabled: true,
-  smaNqPeriod: getDefaultSmaPeriod("nasdaq100"),
-  smaNqUpperBuffer: getDefaultSmaUpperBuffer("nasdaq100"),
-  smaNqLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
-  smaNqEnabled: true,
-  smaVolGate: true,
-  notifyEveryClose: false,
-  useCalibratedDefaults: false,
-};
+function bandFor(index: IndexKey, inflationAdjusted: boolean) {
+  return inflationAdjusted
+    ? getInflationAdjustedDefaultSmaBand(index)
+    : { smaPeriod: getDefaultSmaPeriod(index), smaUpperBuffer: getDefaultSmaUpperBuffer(index), smaLowerBuffer: getDefaultSmaLowerBuffer(index) };
+}
 
 const DEFAULT_LOOKBACK_YEARS = 2;
 
-export function getDefaultSmaSignalConfig(): SmaSignalConfig {
-  return { ...DEFAULT_SMA_SIGNAL_CONFIG };
+/**
+ * The default signal rule: the site's (inflation-adjusted) band with its flag, or the
+ * nominal pair for callers that only run nominal (the MCP signal tools). Band and flag
+ * always come from the same calibration set.
+ */
+export function getDefaultSmaSignalConfig(inflationAdjusted = DEFAULT_SMA_INFLATION_ADJUSTED): SmaSignalConfig {
+  const sp = bandFor("sp500", inflationAdjusted);
+  const nq = bandFor("nasdaq100", inflationAdjusted);
+  return {
+    smaSpPeriod: sp.smaPeriod,
+    smaSpUpperBuffer: sp.smaUpperBuffer,
+    smaSpLowerBuffer: sp.smaLowerBuffer,
+    smaSpEnabled: true,
+    smaNqPeriod: nq.smaPeriod,
+    smaNqUpperBuffer: nq.smaUpperBuffer,
+    smaNqLowerBuffer: nq.smaLowerBuffer,
+    smaNqEnabled: true,
+    smaVolGate: true,
+    smaInflationAdjusted: inflationAdjusted,
+    notifyEveryClose: false,
+    useCalibratedDefaults: false,
+  };
 }
 
 // useCalibratedDefaults is deliberately excluded: it describes where the period/buffer
@@ -187,7 +205,7 @@ export async function fetchSmaMarketData(): Promise<{ sp500Prices: DailyPrice[];
 }
 
 export async function getCurrentSmaSignalSnapshot(
-  config: SmaSignalConfig = DEFAULT_SMA_SIGNAL_CONFIG,
+  config: SmaSignalConfig = getDefaultSmaSignalConfig(),
   preFetchedData?: { sp500Prices: DailyPrice[]; nasdaqPrices: DailyPrice[] }
 ): Promise<SmaSignalSnapshot> {
   const data = preFetchedData ?? (await fetchSmaMarketData());

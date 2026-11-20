@@ -89,6 +89,7 @@ test("describeSmaSignalConfig collapses whole-number buffers", () => {
     smaSpLowerBuffer: 3,
     smaNqEnabled: false,
     smaVolGate: false,
+    smaInflationAdjusted: false,
   };
   assert.equal(describeSmaSignalConfig(config), "SPX 200 SMA, −3%/3%");
 });

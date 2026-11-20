@@ -10,10 +10,11 @@ import type { IndexKey, RiskOffAsset } from "./types";
  * the band and rode 1973-74 down 91.5% where its LETF twin stopped at 65.9%
  * (see the futures-plan notes in AGENTS.md).
  *
- * Read the last `npm run calibrate-sma` result directly so input defaults,
- * omitted MCP parameters, and calibrated push alerts share the same band.
- * The monthly build refreshes the snapshot before bundling the app. Importing
- * JSON keeps this module safe for both browser and server callers.
+ * Read the last `npm run calibrate-sma` result (nominal set) directly so the
+ * engine's preset fallback and omitted MCP parameters share the nominal band; the
+ * site's inputs default to `getSiteDefaultSmaRule` below. The monthly build
+ * refreshes both snapshots before bundling the app. Importing JSON keeps this
+ * module safe for both browser and server callers.
  */
 const DEFAULT_SMA_BANDS = {
   sp500: { period: calibration.sp500.smaPeriod, upperBuffer: calibration.sp500.smaUpperBuffer, lowerBuffer: calibration.sp500.smaLowerBuffer },
@@ -74,9 +75,38 @@ export function getDefaultSmaLowerBuffer(index: "sp500" | "nasdaq100"): number {
 }
 
 /**
+ * The site's default SMA rule runs the band on the CPI-deflated index ("SMA buffer
+ * inflation adjusted" on) with the inflation-adjusted calibration's band. A band only
+ * means what it was scored with, so the flag and the band always travel together:
+ * read both through `getSiteDefaultSmaRule`.
+ *
+ * `getDefaultSmaPeriod` / `...UpperBuffer` / `...LowerBuffer` above stay the NOMINAL
+ * calibration: the engine's preset fallback and every MCP tool, whose schemas have no
+ * inflation flag and therefore always run nominal.
+ */
+export const DEFAULT_SMA_INFLATION_ADJUSTED = true;
+
+/** The calibration snapshot set the site defaults to. */
+export const DEFAULT_SMA_CALIBRATION_VARIANT = DEFAULT_SMA_INFLATION_ADJUSTED ? "inflation" : "nominal";
+
+export interface SiteDefaultSmaRule {
+  smaPeriod: number;
+  smaUpperBuffer: number;
+  smaLowerBuffer: number;
+  smaInflationAdjusted: boolean;
+}
+
+/** The site's default band for an index together with the inflation flag it was scored with. */
+export function getSiteDefaultSmaRule(index: "sp500" | "nasdaq100"): SiteDefaultSmaRule {
+  const band = DEFAULT_SMA_INFLATION_ADJUSTED
+    ? getInflationAdjustedDefaultSmaBand(index)
+    : { smaPeriod: getDefaultSmaPeriod(index), smaUpperBuffer: getDefaultSmaUpperBuffer(index), smaLowerBuffer: getDefaultSmaLowerBuffer(index) };
+  return { ...band, smaInflationAdjusted: DEFAULT_SMA_INFLATION_ADJUSTED };
+}
+
+/**
  * The inflation-adjusted calibration's band (`sma-calibration-inflation.json`): the
- * default to use with "SMA buffer inflation adjusted" on. The site's input defaults
- * stay nominal.
+ * band to use with "SMA buffer inflation adjusted" on.
  */
 export function getInflationAdjustedDefaultSmaBand(index: "sp500" | "nasdaq100"): {
   smaPeriod: number;

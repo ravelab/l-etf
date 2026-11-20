@@ -10,7 +10,7 @@ import { SmaPushAlertsCard } from "@/components/home/SmaPushAlertsCard";
 import { VolGateCheckbox } from "@/components/tools/VolGateCheckbox";
 import { InflationAdjustedCheckbox } from "@/components/tools/InflationAdjustedCheckbox";
 import { getSharedInputs } from "@/lib/hooks/use-shared-inputs";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, getInflationAdjustedDefaultSmaBand } from "@/lib/simulation/defaults";
+import { DEFAULT_SMA_INFLATION_ADJUSTED, getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer, getInflationAdjustedDefaultSmaBand } from "@/lib/simulation/defaults";
 import { getStoredPushAlertConfig } from "@/lib/push/client";
 import type { PushSmaConfig } from "@/lib/push/types";
 import type { SmaSignalResult } from "@/lib/sma-signals";
@@ -65,7 +65,7 @@ function SignalsPageContent() {
   const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(inputs.smaNqLowerBuffer ?? 12);
   const [smaNqEnabled, setSmaNqEnabled] = useState(inputs.smaNqEnabled ?? true);
   const [smaVolGate, setSmaVolGate] = useState(inputs.smaVolGate ?? true);
-  const [smaInflationAdjusted, setSmaInflationAdjusted] = useState(inputs.smaInflationAdjusted ?? false);
+  const [smaInflationAdjusted, setSmaInflationAdjusted] = useState(inputs.smaInflationAdjusted ?? DEFAULT_SMA_INFLATION_ADJUSTED);
   // notifyEveryClose is push-only, persisted under the push alert config blob,
   // so it survives reloads even though it isn't part of the shared input set.
   const [notifyEveryClose, setNotifyEveryClose] = useState(false);
@@ -290,18 +290,18 @@ function SignalsPageContent() {
 
       <SmaPresetsCard
         title="SMA defaults and alternatives"
-        description="Apply the calibrated default or choose an alternative SMA rule for either index. These bands run on the index as quoted; choosing one clears “SMA buffer inflation adjusted”."
-        set={cagrPresets}
-        testId="sma-presets-nominal"
-        onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "nominal")}
-      />
-      <SmaPresetsCard
-        title="Inflation-adjusted SMA defaults and alternatives"
-        description="Calibrated with each band run on the index divided by CPI, so the strategy needs a real gain to stay in. Choosing one sets “SMA buffer inflation adjusted”."
+        description="The site default. Each band runs on the index divided by CPI, so the strategy needs a real gain to stay in. Apply the calibrated default or choose an alternative for either index; choosing one sets “SMA buffer inflation adjusted”."
         set={inflationCagrPresets}
         ariaSuffix=" (inflation adjusted)"
         testId="sma-presets-inflation"
         onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "inflation")}
+      />
+      <SmaPresetsCard
+        title="Nominal SMA defaults and alternatives"
+        description="Calibrated with each band run on the index as quoted; choosing one clears “SMA buffer inflation adjusted”."
+        set={cagrPresets}
+        testId="sma-presets-nominal"
+        onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "nominal")}
       />
     </>
   );

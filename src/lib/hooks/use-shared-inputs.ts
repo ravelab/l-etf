@@ -9,11 +9,10 @@
  */
 
 import {
-  getDefaultSmaPeriod,
-  getDefaultSmaUpperBuffer,
-  getDefaultSmaLowerBuffer,
+  getSiteDefaultSmaRule,
   getDefaultWindowLength,
   DEFAULT_SMA_VOL_GATE,
+  DEFAULT_SMA_INFLATION_ADJUSTED,
 } from "@/lib/simulation/defaults";
 import { DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { getIsoDate } from "@/lib/date";
@@ -85,22 +84,25 @@ export const SHARED_KEYS = new Set<string>([
 ]);
 
 
+const SPX_DEFAULT_RULE = getSiteDefaultSmaRule("sp500");
+const NDX_DEFAULT_RULE = getSiteDefaultSmaRule("nasdaq100");
+
 const DEFAULTS: SharedInputs = {
   letf: DEFAULT_COMBO_PRESET,
   startDate: DEFAULT_START_SELECTION.startDate,
   perIndexStart: DEFAULT_START_SELECTION.perIndexStart,
   endDate: getIsoDate(new Date()),
   windowLength: getDefaultWindowLength(),
-  smaSpPeriod: getDefaultSmaPeriod("sp500"),
-  smaNqPeriod: getDefaultSmaPeriod("nasdaq100"),
-  smaSpUpperBuffer: getDefaultSmaUpperBuffer("sp500"),
-  smaSpLowerBuffer: getDefaultSmaLowerBuffer("sp500"),
-  smaNqUpperBuffer: getDefaultSmaUpperBuffer("nasdaq100"),
-  smaNqLowerBuffer: getDefaultSmaLowerBuffer("nasdaq100"),
+  smaSpPeriod: SPX_DEFAULT_RULE.smaPeriod,
+  smaNqPeriod: NDX_DEFAULT_RULE.smaPeriod,
+  smaSpUpperBuffer: SPX_DEFAULT_RULE.smaUpperBuffer,
+  smaSpLowerBuffer: SPX_DEFAULT_RULE.smaLowerBuffer,
+  smaNqUpperBuffer: NDX_DEFAULT_RULE.smaUpperBuffer,
+  smaNqLowerBuffer: NDX_DEFAULT_RULE.smaLowerBuffer,
   smaSpEnabled: true,
   smaNqEnabled: true,
   smaVolGate: DEFAULT_SMA_VOL_GATE,
-  smaInflationAdjusted: false,
+  smaInflationAdjusted: DEFAULT_SMA_INFLATION_ADJUSTED,
   spxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.sp500,
   ndxRiskOffAsset: DEFAULT_RISK_OFF_ASSETS.nasdaq100,
   hateDrawdown: false,
@@ -128,16 +130,16 @@ function normalizeSharedInputs(inputs: Partial<SharedInputs>): SharedInputs {
     perIndexStart,
     endDate: normalizeDateString(base.endDate, today),
     windowLength: normalizeNumberValue(base.windowLength, getDefaultWindowLength(), { integer: true, min: 1 }),
-    smaSpPeriod: normalizeNumberValue(base.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }),
-    smaNqPeriod: normalizeNumberValue(base.smaNqPeriod, getDefaultSmaPeriod("nasdaq100"), { integer: true, min: 1 }),
-    smaSpUpperBuffer: normalizeNumberValue(base.smaSpUpperBuffer, getDefaultSmaUpperBuffer("sp500"), { min: 0 }),
-    smaSpLowerBuffer: normalizeNumberValue(base.smaSpLowerBuffer, getDefaultSmaLowerBuffer("sp500"), { min: 0 }),
-    smaNqUpperBuffer: normalizeNumberValue(base.smaNqUpperBuffer, getDefaultSmaUpperBuffer("nasdaq100"), { min: 0 }),
-    smaNqLowerBuffer: normalizeNumberValue(base.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }),
+    smaSpPeriod: normalizeNumberValue(base.smaSpPeriod, SPX_DEFAULT_RULE.smaPeriod, { integer: true, min: 1 }),
+    smaNqPeriod: normalizeNumberValue(base.smaNqPeriod, NDX_DEFAULT_RULE.smaPeriod, { integer: true, min: 1 }),
+    smaSpUpperBuffer: normalizeNumberValue(base.smaSpUpperBuffer, SPX_DEFAULT_RULE.smaUpperBuffer, { min: 0 }),
+    smaSpLowerBuffer: normalizeNumberValue(base.smaSpLowerBuffer, SPX_DEFAULT_RULE.smaLowerBuffer, { min: 0 }),
+    smaNqUpperBuffer: normalizeNumberValue(base.smaNqUpperBuffer, NDX_DEFAULT_RULE.smaUpperBuffer, { min: 0 }),
+    smaNqLowerBuffer: normalizeNumberValue(base.smaNqLowerBuffer, NDX_DEFAULT_RULE.smaLowerBuffer, { min: 0 }),
     smaSpEnabled: normalizeBooleanValue(base.smaSpEnabled, true),
     smaNqEnabled: normalizeBooleanValue(base.smaNqEnabled, true),
     smaVolGate: normalizeBooleanValue(base.smaVolGate, DEFAULT_SMA_VOL_GATE),
-    smaInflationAdjusted: normalizeBooleanValue(base.smaInflationAdjusted, false),
+    smaInflationAdjusted: normalizeBooleanValue(base.smaInflationAdjusted, DEFAULT_SMA_INFLATION_ADJUSTED),
     spxRiskOffAsset: normalizeRiskOffAsset(base.spxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.sp500),
     ndxRiskOffAsset: normalizeRiskOffAsset(base.ndxRiskOffAsset, DEFAULT_RISK_OFF_ASSETS.nasdaq100),
     hateDrawdown: normalizeBooleanValue(base.hateDrawdown, false),

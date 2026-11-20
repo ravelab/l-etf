@@ -28,7 +28,7 @@ const DEFAULT_LOOKBACK_YEARS = 10;
 async function defaultBand(index: IndexKey): Promise<{ period: number; upper: number; lower: number }> {
   const calibration = await readSmaCalibrationSnapshot();
   const base = calibration
-    ? applyCalibratedSmaDefaults({ ...getDefaultSmaSignalConfig(), useCalibratedDefaults: true }, calibration)
+    ? applyCalibratedSmaDefaults({ ...getDefaultSmaSignalConfig(false), useCalibratedDefaults: true }, calibration)
     : null;
   if (!base) {
     return {

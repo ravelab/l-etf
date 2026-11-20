@@ -743,11 +743,15 @@ stale seed costs accuracy at one period rather than hiding a basin — which is
 what lets the expensive run stay a one-off. With no snapshot at all a bounded
 coarse scan stands in, so a missing artifact costs a minute, not an hour.
 
-`src/lib/simulation/defaults.ts` imports the calibration JSON directly for its
-asymmetric band (`getDefaultSmaUpperBuffer` / `getDefaultSmaLowerBuffer`), so
-new input defaults and omitted MCP parameters follow the same snapshot as
-calibrated push alerts. The monthly build rewrites the snapshot before bundling;
-do not reintroduce a separate literal band. `defaults.test.ts` checks agreement.
+`src/lib/simulation/defaults.ts` imports both calibration JSONs directly for its
+asymmetric bands, so defaults follow the snapshots; the monthly build rewrites them
+before bundling. Do not reintroduce a separate literal band. The SITE default is the
+inflation-adjusted set WITH the flag on (`DEFAULT_SMA_INFLATION_ADJUSTED`,
+`getSiteDefaultSmaRule`, `getDefaultSmaSignalConfig()`): shared inputs, Signals,
+the signal API's fallback, canned snapshots and worst-time windows. `getDefaultSma*`
+stay the NOMINAL band for the engine's preset fallback and every MCP tool, whose
+schemas have no inflation flag; a nominal band with the flag on (or the reverse) is
+a band nobody calibrated, so take band and flag from the same set. `defaults.test.ts` checks agreement.
 Upper and lower remain independent fields even when calibration happens to
 choose equal numbers (SPX 175d, 3.6% on both sides under half-gap scoring).
 There is no `getDefaultSmaBuffer`: feeding one default to both sides is the
@@ -761,7 +765,9 @@ phases and forked workers inherit; `npm run refresh-sma` and the monthly build d
 sets, `explore-sma` needs the variable for the second. The Signals page shows each set
 in its own card, and a preset sets or clears the shared "SMA buffer inflation adjusted"
 checkbox, because a band only means what it scored under its own setting. Site input
-defaults and canned snapshots stay nominal.
+defaults and canned snapshots use the inflation-adjusted set (2026-11); the snapshot
+generator passes `smaInflationAdjusted` to every builder, which only the futures one
+did while the default was nominal.
 
 The Signals page's saved `signals-use-calibrated-defaults` preference is for
 push alerts only. `SmaPushAlertsCard` applies the calibration snapshot when it

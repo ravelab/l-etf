@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
 
   const { smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer } = parsed.data;
   const smaVolGate = searchParams.get("smaVolGate") === "1";
-  const smaInflationAdjusted = searchParams.get("smaInflationAdjusted") === "1";
+  // Absent means the default rule, whose band the other fallbacks above supply.
+  const smaInflationAdjusted = searchParams.has("smaInflationAdjusted")
+    ? searchParams.get("smaInflationAdjusted") === "1"
+    : defaults.smaInflationAdjusted === true;
 
   try {
     // Fetch latest prices for both indexes (last 2 years of data for SMA calculation)

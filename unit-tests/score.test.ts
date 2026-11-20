@@ -115,3 +115,15 @@ test("scoreRow adjusts real CAGR based on inflationPct", () => {
   const score2 = scoreRow(row, 5);
   assert.equal(score1 > score2, true);
 });
+
+test("a much better worst 10-year window outweighs a slightly higher average CAGR", () => {
+  // SPX inflation-adjusted band 239/-5.4/+2.2, 10-year windows from 1988 (2026-11):
+  // BRK.B alone vs BRK.B + GLDM as the risk-off asset.
+  const brk = mockRow({ avgReturn: 23.35, worstReturn: 2.64, avgMaxDrawdown: 49.92, biggestMaxDrawdown: 61.68, avgTrades: 8.6 });
+  const brkGold = mockRow({ avgReturn: 23.14, worstReturn: 6.25, avgMaxDrawdown: 43.73, biggestMaxDrawdown: 50.6, avgTrades: 8.6 });
+  const [a, b] = [scoreRow(brk, 0, 10), scoreRow(brkGold, 0, 10)];
+  assert.ok(b > a, `BRK.B + GLDM ${b.toFixed(1)} should edge out BRK.B ${a.toFixed(1)}`);
+  assert.ok(b - a < 0.01 * a, "only slightly: average CAGR still dominates the score");
+  // A full point of average CAGR still beats the same worst-window edge.
+  assert.ok(scoreRow({ ...brk, avgReturn: 24.14 }, 0, 10) > b);
+});

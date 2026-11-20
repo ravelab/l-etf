@@ -19,7 +19,7 @@ import {
   getValidPresetKey,
   DEFAULT_COMBO_PRESET,
 } from "@/lib/simulation/presets";
-import { getDefaultSmaLowerBuffer, getDefaultSmaPeriod, getDefaultSmaUpperBuffer } from "@/lib/simulation/defaults";
+import { getSiteDefaultSmaRule } from "@/lib/simulation/defaults";
 import { EtfConfigCard } from "@/components/tools/backtest/EtfConfigCard";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
 import { SmaChart } from "@/components/tools/backtest/SmaChart";
@@ -303,12 +303,12 @@ export function BacktestingPageContent({
         if (urlPerIndexStart) setStartDate(PER_INDEX_EARLIEST_START_DATE);
       }
       if (decoded.endDate) setEndDate(normalizeDateString(decoded.endDate, getIsoDate(new Date())));
-      if (decoded.smaSpPeriod != null) setSmaSpPeriod(normalizeNumberValue(decoded.smaSpPeriod, getDefaultSmaPeriod("sp500"), { integer: true, min: 1 }));
-      if (decoded.smaNqPeriod != null) setSmaNqPeriod(normalizeNumberValue(decoded.smaNqPeriod, getDefaultSmaPeriod("nasdaq100"), { integer: true, min: 1 }));
-      if (decoded.smaSpUpperBuffer != null) setSmaSpUpperBuffer(normalizeNumberValue(decoded.smaSpUpperBuffer, getDefaultSmaUpperBuffer("sp500"), { min: 0 }));
-      if (decoded.smaSpLowerBuffer != null) setSmaSpLowerBuffer(normalizeNumberValue(decoded.smaSpLowerBuffer, getDefaultSmaLowerBuffer("sp500"), { min: 0 }));
-      if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getDefaultSmaUpperBuffer("nasdaq100"), { min: 0 }));
-      if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getDefaultSmaLowerBuffer("nasdaq100"), { min: 0 }));
+      if (decoded.smaSpPeriod != null) setSmaSpPeriod(normalizeNumberValue(decoded.smaSpPeriod, getSiteDefaultSmaRule("sp500").smaPeriod, { integer: true, min: 1 }));
+      if (decoded.smaNqPeriod != null) setSmaNqPeriod(normalizeNumberValue(decoded.smaNqPeriod, getSiteDefaultSmaRule("nasdaq100").smaPeriod, { integer: true, min: 1 }));
+      if (decoded.smaSpUpperBuffer != null) setSmaSpUpperBuffer(normalizeNumberValue(decoded.smaSpUpperBuffer, getSiteDefaultSmaRule("sp500").smaUpperBuffer, { min: 0 }));
+      if (decoded.smaSpLowerBuffer != null) setSmaSpLowerBuffer(normalizeNumberValue(decoded.smaSpLowerBuffer, getSiteDefaultSmaRule("sp500").smaLowerBuffer, { min: 0 }));
+      if (decoded.smaNqUpperBuffer != null) setSmaNqUpperBuffer(normalizeNumberValue(decoded.smaNqUpperBuffer, getSiteDefaultSmaRule("nasdaq100").smaUpperBuffer, { min: 0 }));
+      if (decoded.smaNqLowerBuffer != null) setSmaNqLowerBuffer(normalizeNumberValue(decoded.smaNqLowerBuffer, getSiteDefaultSmaRule("nasdaq100").smaLowerBuffer, { min: 0 }));
       if (decoded.smaVolGate != null) setSmaVolGate(decoded.smaVolGate);
       if (decoded.smaInflationAdjusted != null) setSmaInflationAdjusted(decoded.smaInflationAdjusted);
       if (decoded.spxRiskOffAsset) setSpxRiskOffAsset(decoded.spxRiskOffAsset);
