@@ -1,20 +1,11 @@
-// `get_sma_signals` — current SMA buy/sell/hold signal for the S&P 500 and
-// Nasdaq-100, given an SMA period/buffer config. Mirrors the server-side logic
-// of `src/app/api/sma-signals/route.ts` but reads data directly (no self-HTTP).
-
 import type { McpServer } from "@modelcontextprotocol/server";
 import { READ_ONLY_ANNOTATIONS } from "@/lib/mcp/annotations";
-import { getPrices } from "@/lib/db/queries";
-import { readSmaCalibrationSnapshot } from "@/lib/sma-calibration";
-import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
-import { computeSmaSignalSnapshot, getDefaultSmaSignalConfig } from "@/lib/sma-status";
+import { loadCurrentSmaSignals, SmaMarketDataUnavailable } from "@/lib/sma-status";
 import { McpToolError, toolError, toolSuccessTyped } from "@/lib/mcp/tool-result";
 import { getSmaSignalsOutput } from "@/lib/mcp/output-schemas";
 import { smaBufferSchema, smaPeriodSchema, smaVolGateSchema } from "@/lib/mcp/schemas";
 import { z } from "zod/v4";
 import { signalExitThresholds } from "@/lib/mcp/signal-exit-thresholds";
-
-const TWO_YEARS_MS = 2 * 365.25 * 24 * 60 * 60 * 1000;
 
 export function registerGetSmaSignals(server: McpServer): void {
   server.registerTool(
@@ -40,33 +31,7 @@ export function registerGetSmaSignals(server: McpServer): void {
     },
     async (args) => {
       try {
-        const defaults = getDefaultSmaSignalConfig(args.smaInflationAdjusted);
-        const calibration = await readSmaCalibrationSnapshot(defaults.smaInflationAdjusted ? "inflation" : "nominal");
-        const base = calibration
-          ? applyCalibratedSmaDefaults({ ...defaults, useCalibratedDefaults: true }, calibration)
-          : defaults;
-        const config = {
-          ...base,
-          ...(args.smaVolGate != null ? { smaVolGate: args.smaVolGate } : {}),
-          ...(args.smaSpPeriod != null ? { smaSpPeriod: args.smaSpPeriod } : {}),
-          ...(args.smaSpUpperBuffer != null ? { smaSpUpperBuffer: args.smaSpUpperBuffer } : {}),
-          ...(args.smaSpLowerBuffer != null ? { smaSpLowerBuffer: args.smaSpLowerBuffer } : {}),
-          ...(args.smaNqPeriod != null ? { smaNqPeriod: args.smaNqPeriod } : {}),
-          ...(args.smaNqUpperBuffer != null ? { smaNqUpperBuffer: args.smaNqUpperBuffer } : {}),
-          ...(args.smaNqLowerBuffer != null ? { smaNqLowerBuffer: args.smaNqLowerBuffer } : {}),
-        };
-
-        const endDate = new Date().toISOString().slice(0, 10);
-        const startDate = new Date(Date.now() - TWO_YEARS_MS).toISOString().slice(0, 10);
-        const [sp500Prices, nasdaqPrices] = await Promise.all([
-          getPrices("sp500", startDate, endDate),
-          getPrices("nasdaq100", startDate, endDate),
-        ]);
-        if (sp500Prices.length === 0 || nasdaqPrices.length === 0) {
-          throw new McpToolError("Price data is unavailable. The market-data refresh may not have run.");
-        }
-
-        const snapshot = computeSmaSignalSnapshot({ sp500Prices, nasdaqPrices, config });
+        const { config, signals: snapshot, sp500Prices, nasdaqPrices } = await loadCurrentSmaSignals(args);
         return toolSuccessTyped(
           `SPX: ${snapshot.sp500.signalLabel}; NDX: ${snapshot.nasdaq100.signalLabel}.`,
           { config, signals: snapshot, exitThresholds: {
@@ -81,7 +46,8 @@ export function registerGetSmaSignals(server: McpServer): void {
           } },
         );
       } catch (error) {
-        return toolError(error);
+        return toolError(error instanceof SmaMarketDataUnavailable
+          ? new McpToolError(error.message) : error);
       }
     },
   );

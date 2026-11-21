@@ -162,7 +162,7 @@ function SignalsPageContent() {
         smaNqUpperBuffer: String(smaNqUpperBuffer),
         smaNqLowerBuffer: String(smaNqLowerBuffer),
       });
-      if (smaVolGate) params.set("smaVolGate", "1");
+      params.set("smaVolGate", smaVolGate ? "1" : "0");
       // Always explicit: the API reads an absent flag as the site default (on),
       // so omitting it when unchecked would still return the real-SMA signal.
       params.set("smaInflationAdjusted", smaInflationAdjusted ? "1" : "0");

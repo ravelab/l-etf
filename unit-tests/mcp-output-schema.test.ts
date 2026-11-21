@@ -5,6 +5,8 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { NextRequest } from "next/server";
+import { GET as getSmaSignals } from "@/app/api/sma-signals/route";
 import { McpServer } from "@modelcontextprotocol/server";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { registerAll } from "@/lib/mcp/register";
@@ -265,6 +267,29 @@ test("get_sma_signals validates against its declared schema", async () => {
   assert.equal(off.exitThresholds.sp500.volatility.status, "disabled");
   assert.deepEqual(off.exitThresholds.nasdaq100.volatility.constantDeclineScenarios, []);
   await client.close();
+});
+
+test("the SMA JSON route and MCP tool report the same index signals", async () => {
+  const client = await connectClient();
+  try {
+    for (const [query, args] of [
+      ["", {}],
+      ["?smaInflationAdjusted=0&smaVolGate=0&smaSpPeriod=100", {
+        smaInflationAdjusted: false, smaVolGate: false, smaSpPeriod: 100,
+      }],
+    ] as const) {
+      const rest = await getSmaSignals(new NextRequest(`http://localhost/api/sma-signals${query}`));
+      assert.equal(rest.status, 200);
+      const { sp500, nasdaq100 } = await rest.json();
+      const result = await client.callTool({ name: "get_sma_signals", arguments: args });
+      assert.notEqual(result.isError, true, JSON.stringify(result.content));
+      const mcp = result.structuredContent as { signals: { sp500: unknown; nasdaq100: unknown } };
+      assert.deepEqual(mcp.signals.sp500, sp500);
+      assert.deepEqual(mcp.signals.nasdaq100, nasdaq100);
+    }
+  } finally {
+    await client.close();
+  }
 });
 
 test("compare_backtests and compare_letfs validate against their schemas", async () => {

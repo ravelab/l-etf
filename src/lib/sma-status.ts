@@ -183,6 +183,15 @@ export function describeSmaSignalChange(
   return `${changes.join("; ")}. Current: ${describeSmaSignalStatus(current, config)}`;
 }
 
+export class SmaMarketDataUnavailable extends Error {}
+
+export async function loadCurrentSmaSignals(overrides: Partial<SmaSignalConfig> = {}) {
+  const config = { ...getDefaultSmaSignalConfig(overrides.smaInflationAdjusted), ...overrides };
+  const marketData = await fetchSmaMarketData();
+  const signals = computeSmaSignalSnapshot({ ...marketData, config });
+  return { ...marketData, config, signals };
+}
+
 export async function fetchSmaMarketData(): Promise<{ sp500Prices: DailyPrice[]; nasdaqPrices: DailyPrice[] }> {
   const endDate = new Date().toISOString().slice(0, 10);
   const startDate = new Date(Date.now() - DEFAULT_LOOKBACK_YEARS * 365.25 * 24 * 60 * 60 * 1000)
@@ -195,10 +204,10 @@ export async function fetchSmaMarketData(): Promise<{ sp500Prices: DailyPrice[];
   ]);
 
   if (sp500Prices.length === 0) {
-    throw new Error(`SPX price data unavailable for ${startDate} to ${endDate}.`);
+    throw new SmaMarketDataUnavailable(`SPX price data unavailable for ${startDate} to ${endDate}.`);
   }
   if (nasdaqPrices.length === 0) {
-    throw new Error(`NDX price data unavailable for ${startDate} to ${endDate}.`);
+    throw new SmaMarketDataUnavailable(`NDX price data unavailable for ${startDate} to ${endDate}.`);
   }
 
   return { sp500Prices, nasdaqPrices };
