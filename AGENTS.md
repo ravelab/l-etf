@@ -749,8 +749,8 @@ before bundling. Do not reintroduce a separate literal band. The SITE default is
 inflation-adjusted set WITH the flag on (`DEFAULT_SMA_INFLATION_ADJUSTED`,
 `getSiteDefaultSmaRule`, `getDefaultSmaSignalConfig()`): shared inputs, Signals,
 the signal API's fallback, canned snapshots and worst-time windows. `getDefaultSma*`
-stay the NOMINAL band for the engine's preset fallback and every MCP tool, whose
-schemas have no inflation flag; a nominal band with the flag on (or the reverse) is
+stay the NOMINAL band for the engine's preset fallback and nominal-only MCP tools.
+MCP `get_sma_signals` follows the site default and accepts `smaInflationAdjusted: false`; a nominal band with the flag on (or the reverse) is
 a band nobody calibrated, so take band and flag from the same set. `defaults.test.ts` checks agreement.
 Upper and lower remain independent fields even when calibration happens to
 choose equal numbers (SPX 175d, 3.6% on both sides under half-gap scoring).

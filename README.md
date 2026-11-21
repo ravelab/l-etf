@@ -85,7 +85,7 @@ Tools:
 |---|---|
 | `list_presets` | Available ETF presets, risk-off assets, and default SMA settings. |
 | `get_market_data` | Raw index prices, borrowing rates, or CPI over a date range. |
-| `get_sma_signals` | Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100. |
+| `get_sma_signals` | Current SMA buy/sell/hold signal for the S&P 500 and Nasdaq-100. Uses the inflation-adjusted site defaults. Pass `smaInflationAdjusted: false` for nominal settings. |
 | `get_sma_calibration` | Precomputed best SMA period/buffer per index (cached snapshot). |
 | `run_backtest` | Single-strategy backtest → CAGR, max drawdown, Sharpe, trade log, 1x benchmark. |
 | `compare_backtests` | Backtest several presets (simulated and/or real ETFs, either index) over one shared range. |

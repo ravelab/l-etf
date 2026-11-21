@@ -395,6 +395,7 @@ const smaSignalSchema = z.object({
   percentDiff: metric,
   signalLabel: z.string(),
   signalEmoji: z.string(),
+  inflationAdjusted: z.boolean().optional(),
   /** Present only when the gate switch is on (volatility gate + RSI crash brake). */
   volatility: metric.optional(),
   volGateRiskOff: z.boolean().optional(),

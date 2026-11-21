@@ -81,8 +81,7 @@ export function getDefaultSmaLowerBuffer(index: "sp500" | "nasdaq100"): number {
  * read both through `getSiteDefaultSmaRule`.
  *
  * `getDefaultSmaPeriod` / `...UpperBuffer` / `...LowerBuffer` above stay the NOMINAL
- * calibration: the engine's preset fallback and every MCP tool, whose schemas have no
- * inflation flag and therefore always run nominal.
+ * calibration: the engine's preset fallback and MCP tools that use nominal prices.
  */
 export const DEFAULT_SMA_INFLATION_ADJUSTED = true;
 

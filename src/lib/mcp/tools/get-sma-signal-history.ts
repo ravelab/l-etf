@@ -23,7 +23,7 @@ const DEFAULT_LOOKBACK_YEARS = 10;
 /**
  * The band to use when the caller doesn't specify one: the latest calibration
  * snapshot for that index, falling back to the hardcoded defaults — the same
- * precedence `get_sma_signals` applies, so the two tools agree.
+ * precedence `get_sma_signals` applies when nominal settings are requested.
  */
 async function defaultBand(index: IndexKey): Promise<{ period: number; upper: number; lower: number }> {
   const calibration = await readSmaCalibrationSnapshot();

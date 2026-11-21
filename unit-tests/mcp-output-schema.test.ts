@@ -247,8 +247,15 @@ test("get_sma_signals validates against its declared schema", async () => {
   const client = await connectClient();
   const res = await client.callTool({ name: "get_sma_signals", arguments: {} });
   assert.notEqual(res.isError, true, JSON.stringify(res.content));
-  const data = res.structuredContent as { signals: { sp500: { signalLabel: string } }; exitThresholds: { sp500: ReturnType<typeof signalExitThresholds>; nasdaq100: ReturnType<typeof signalExitThresholds> } };
+  const data = res.structuredContent as { config: { smaInflationAdjusted: boolean }; signals: { sp500: { signalLabel: string; inflationAdjusted?: boolean } }; exitThresholds: { sp500: ReturnType<typeof signalExitThresholds>; nasdaq100: ReturnType<typeof signalExitThresholds> } };
   assert.ok(data.signals.sp500.signalLabel.length > 0);
+  assert.equal(data.config.smaInflationAdjusted, true);
+  assert.equal(data.signals.sp500.inflationAdjusted, true);
+  const nominal = await client.callTool({ name: "get_sma_signals", arguments: { smaInflationAdjusted: false } });
+  assert.notEqual(nominal.isError, true, JSON.stringify(nominal.content));
+  const nominalData = nominal.structuredContent as typeof data;
+  assert.equal(nominalData.config.smaInflationAdjusted, false);
+  assert.equal(nominalData.signals.sp500.inflationAdjusted, undefined);
   assert.equal(data.exitThresholds.sp500.volatility.exitAbovePct, SMA_VOL_GATE.sp500.exitAbove * 100);
   assert.equal(data.exitThresholds.nasdaq100.volatility.exitAbovePct, SMA_VOL_GATE.nasdaq100.exitAbove * 100);
   assert.ok(data.exitThresholds.sp500.nextSmaExitClose! > 0);

@@ -1,3 +1,4 @@
+import { cpiKnownOn } from "@/lib/simulation/cpi-deflator";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { SMA_RSI_BRAKE, computeWilderAverages, rsiFromAverages, type RsiBrakeParams } from "@/lib/simulation/rsi-brake";
 import type { IndexKey } from "@/lib/simulation/types";
@@ -8,6 +9,7 @@ export function signalExitThresholds(input: {
   prices: ReadonlyArray<{ date: string; close?: number }>;
   smaPeriod: number;
   smaLowerBuffer: number;
+  inflationAdjusted?: boolean;
   volEnabled: boolean;
   volGateRiskOff: boolean;
   rsiBrakeEnabled: boolean;
@@ -18,7 +20,14 @@ export function signalExitThresholds(input: {
   const last = closes.at(-1);
   const gate = SMA_VOL_GATE[input.index];
   const valid = (values: number[]) => values.every(v => Number.isFinite(v) && v > 0);
-  const smaTail = closes.slice(-(smaPeriod - 1));
+  // Express past real closes in the latest close's index units. The next-close
+  // threshold assumes the latest known CPI remains in force.
+  const asOf = prices.at(-1)?.date;
+  const latestCpi = input.inflationAdjusted && asOf ? cpiKnownOn(asOf) : null;
+  const smaTail = prices.slice(-(smaPeriod - 1)).map(p => {
+    const close = p.close ?? NaN;
+    return latestCpi == null ? close : close * latestCpi / cpiKnownOn(p.date);
+  });
   const multiplier = 1 - smaLowerBuffer / 100;
   const nextSmaExitClose = last != null && valid([last]) && smaTail.length === smaPeriod - 1 && valid(smaTail)
     ? multiplier * smaTail.reduce((sum, value) => sum + value, 0) / (smaPeriod - multiplier)
@@ -52,7 +61,7 @@ export function signalExitThresholds(input: {
   }
   const rsiBrake = rsiBrakeThreshold(closes, SMA_RSI_BRAKE[input.index], input.rsiBrakeEnabled, input.rsiBrakeRiskOff);
   return {
-    asOf: prices.at(-1)?.date ?? null,
+    asOf: asOf ?? null,
     nextSmaExitClose,
     nextSmaExitReturnPct: nextSmaExitClose != null && last != null ? (nextSmaExitClose / last - 1) * 100 : null,
     volatility: {
@@ -64,7 +73,7 @@ export function signalExitThresholds(input: {
       constantDeclineScenarios: scenarios,
     },
     rsiBrake,
-    note: "Boundaries, not probabilities. Signed close-to-close returns; each scenario repeats the same percentage return every day. AtHorizon measures volatility on that close; ByHorizon means on any close up to that day. Zero means a flat path reaches the boundary. Volatility must exceed its threshold; price must fall below the SMA exit close; the RSI brake trips when the next close is below its exit close (Wilder RSI below the exit level). SMA updates with the next close. Whichever rule's boundary is nearest exits first. Already-active or disabled gates have no new-exit boundary. Default execution is the following trading day's open.",
+    note: (input.inflationAdjusted ? "The SMA boundary assumes the latest known CPI remains in force. " : "") + "Boundaries, not probabilities. Signed close-to-close returns; each scenario repeats the same percentage return every day. AtHorizon measures volatility on that close; ByHorizon means on any close up to that day. Zero means a flat path reaches the boundary. Volatility must exceed its threshold; price must fall below the SMA exit close; the RSI brake trips when the next close is below its exit close (Wilder RSI below the exit level). SMA updates with the next close. Whichever rule's boundary is nearest exits first. Already-active or disabled gates have no new-exit boundary. Default execution is the following trading day's open.",
   };
 }
 

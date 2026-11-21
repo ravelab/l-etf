@@ -47,7 +47,7 @@ const DEFAULT_LOOKBACK_YEARS = 2;
 
 /**
  * The default signal rule: the site's (inflation-adjusted) band with its flag, or the
- * nominal pair for callers that only run nominal (the MCP signal tools). Band and flag
+ * nominal pair for callers requesting nominal signals. Band and flag
  * always come from the same calibration set.
  */
 export function getDefaultSmaSignalConfig(inflationAdjusted = DEFAULT_SMA_INFLATION_ADJUSTED): SmaSignalConfig {
