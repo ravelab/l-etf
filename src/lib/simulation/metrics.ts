@@ -252,7 +252,7 @@ const sharpeCache = new WeakMap<number[], number>();
 
 /**
  * Calculate annualized Sharpe ratio from daily portfolio values.
- * Assumes a 0% risk-free rate (the same 0% hurdle Sortino uses) and divides
+ * Assumes a 0% risk-free rate and divides
  * by the sample standard deviation of daily returns.
  * Flat or insufficient paths return 0. Cached by values array identity.
  */
@@ -275,34 +275,6 @@ export function calcSharpeRatio(values: number[]): number {
   return result;
 }
 
-const sortinoCache = new WeakMap<number[], number>();
-
-/**
- * Calculate annualized Sortino ratio from daily portfolio values.
- * Uses a 0% minimum acceptable return and 252 trading days per year.
- * Downside deviation averages squared negative returns over ALL observations.
- * Positive paths without downside return Infinity; flat/insufficient paths return 0.
- * Results are cached by values array identity.
- */
-export function calcSortinoRatio(values: number[]): number {
-  const cached = sortinoCache.get(values);
-  if (cached !== undefined) return cached;
-
-  const dailyReturns = ratioDailyReturns(values);
-  if (!dailyReturns) return 0;
-
-  const mean = meanOf(dailyReturns);
-  const downsideVariance =
-    dailyReturns.reduce((sum, r) => sum + Math.min(r, 0) ** 2, 0) /
-    dailyReturns.length;
-  const downsideDeviation = Math.sqrt(downsideVariance);
-  const result = downsideDeviation === 0
-    ? (mean > 0 ? Infinity : 0)
-    : (mean / downsideDeviation) * Math.sqrt(RATIO_TRADING_DAYS_PER_YEAR);
-  sortinoCache.set(values, result);
-  return result;
-}
-
 /**
  * Everything an `EtfResult` reads off its daily value path other than CAGR,
  * which depends on the caller's choice of start value and final-value costs.
@@ -310,7 +282,6 @@ export function calcSortinoRatio(values: number[]): number {
 export type PathMetrics = Pick<
   EtfResult,
   | "sharpeRatio"
-  | "sortinoRatio"
   | "maxDrawdownPct"
   | "maxDrawdownDollar"
   | "maxDrawdownDates"
@@ -325,7 +296,6 @@ export type PathMetrics = Pick<
 /** Path metrics of a result whose metrics were skipped or whose path is degenerate. */
 export const EMPTY_PATH_METRICS: PathMetrics = Object.freeze({
   sharpeRatio: 0,
-  sortinoRatio: 0,
   maxDrawdownPct: 0,
   maxDrawdownDollar: 0,
   longestDrawdownDays: 0,
@@ -334,7 +304,7 @@ export const EMPTY_PATH_METRICS: PathMetrics = Object.freeze({
 });
 
 /**
- * Drawdown, monthly extremes and both risk-adjusted ratios for one value path.
+ * Drawdown, monthly extremes and Sharpe for one value path.
  * Every `EtfResult` builder goes through this, so a metric added to the result
  * cannot be forgotten by one of them.
  */
@@ -343,7 +313,6 @@ export function calcPathMetrics(values: number[], dates: string[]): PathMetrics 
   const monthlyExtremes = calcMonthlyExtremes(values, dates);
   return {
     sharpeRatio: calcSharpeRatio(values),
-    sortinoRatio: calcSortinoRatio(values),
     maxDrawdownPct: drawdown.pct,
     maxDrawdownDollar: drawdown.dollar,
     maxDrawdownDates: drawdown.maxDrawdownDates,

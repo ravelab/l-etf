@@ -7,6 +7,7 @@ import { getInflation } from "@/lib/db/queries";
 const querySchema = z.object({
   startDate: z.iso.date(),
   endDate: z.iso.date(),
+  lookbackMonths: z.coerce.number().int().min(0).max(12).default(2),
 });
 
 /**
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
   const parsed = querySchema.safeParse({
     startDate: searchParams.get("startDate"),
     endDate: searchParams.get("endDate"),
+    lookbackMonths: searchParams.get("lookbackMonths") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { startDate, endDate } = parsed.data;
+  const { startDate, endDate, lookbackMonths } = parsed.data;
 
   try {
     // We need all observations to find the start/end CPI accurately, 
@@ -56,10 +58,9 @@ export async function GET(request: NextRequest) {
       getInflation("1800-01-01", endDate)
     );
 
-    // Filter to range for display: include observations from 2 months before startDate
-    // so annualizedInflationForRange() has a CPI value before the start
-    const rangeStartDate = new Date(`${startDate}T00:00:00Z`);
-    rangeStartDate.setUTCMonth(rangeStartDate.getUTCMonth() - 2);
+    // Include the entire lookback month so year-over-year comparisons have its observation.
+    const rangeStartDate = new Date(`${startDate.slice(0, 7)}-01T00:00:00Z`);
+    rangeStartDate.setUTCMonth(rangeStartDate.getUTCMonth() - lookbackMonths);
     const rangeStart = rangeStartDate.toISOString().slice(0, 10);
 
     const filtered = allObservations.filter(

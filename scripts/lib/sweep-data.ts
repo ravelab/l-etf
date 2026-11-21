@@ -84,7 +84,7 @@ export async function loadRiskOffValuesForReference(
   return { closeValuesByAsset, openValuesByAsset };
 }
 
-export async function fetchInflationData(startDate: string, endDate: string): Promise<{
+export async function fetchInflationData(startDate: string, endDate: string, lookbackMonths = 2): Promise<{
   annualizedInflation: number;
   monthlyCpi: MonthlyCpiPoint[];
 }> {
@@ -114,9 +114,8 @@ export async function fetchInflationData(startDate: string, endDate: string): Pr
   }
   allObservations.sort((a, b) => a.date.localeCompare(b.date));
 
-  // Filter to range: include observations from 2 months before startDate
-  const rangeStartDate = new Date(`${startDate}T00:00:00Z`);
-  rangeStartDate.setUTCMonth(rangeStartDate.getUTCMonth() - 2);
+  const rangeStartDate = new Date(`${startDate.slice(0, 7)}-01T00:00:00Z`);
+  rangeStartDate.setUTCMonth(rangeStartDate.getUTCMonth() - lookbackMonths);
   const rangeStart = rangeStartDate.toISOString().slice(0, 10);
 
   const monthlyCpi = allObservations.filter(

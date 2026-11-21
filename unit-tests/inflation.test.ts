@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildYearlyCpiInflation,
+  buildMonthlyCpiYoY,
   annualizedInflationForRange,
   cpiIndexRatioEndOverStart,
   displayedAnnualizedInflationPct,
@@ -15,6 +16,17 @@ const cpiSeries = [
   { date: "2021-06-01", value: 105 },
   { date: "2022-06-01", value: 110.25 },
 ];
+
+test("monthly inflation compares matching calendar months and leaves gaps", () => {
+  const rates = buildMonthlyCpiYoY([
+    { date: "2020-01", value: 100 },
+    { date: "2021-01-01", value: 98 },
+    { date: "2021-02-01", value: 110 },
+  ]);
+  assert.ok(Math.abs(rates.get("2021-01")! + 2) < 1e-9);
+  assert.equal(rates.has("2021-02"), false);
+  assert.equal(rates.has("2020-01"), false);
+});
 
 test("buildYearlyCpiInflation computes year-over-year rates from last CPI per year", () => {
   const map = buildYearlyCpiInflation(cpiSeries);

@@ -5,8 +5,7 @@ function isDarkTheme(): boolean {
   return typeof document !== "undefined" && document.documentElement.classList.contains("dark");
 }
 
-export function getChartThemeColors() {
-  const dark = isDarkTheme();
+export function getChartThemeColors(dark = isDarkTheme()) {
   return {
     legendText: dark ? "#9ca3af" : "#475569",
     tickText: dark ? "#6b7280" : "#475569",

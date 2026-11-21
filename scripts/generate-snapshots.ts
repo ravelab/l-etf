@@ -430,7 +430,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
   );
   const pricesByIndex = Object.fromEntries(priceRows.map((prices, idx) => [requiredIndexes[idx], prices])) as Record<IndexKey, PricePoint[]>;
   const rates = await loadRates(expandedStartDate, shared.endDate);
-  const inflationData = await fetchInflationData(displayStartDate, shared.endDate);
+  const inflationData = await fetchInflationData(displayStartDate, shared.endDate, 12);
   const annualizedInflation =
     inflationData.monthlyCpi.length >= 2
       ? annualizedInflationForRange(inflationData.monthlyCpi, displayStartDate, shared.endDate)

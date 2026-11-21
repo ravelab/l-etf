@@ -13,7 +13,6 @@ export interface FormattedBacktest {
   finalMultiple: number;
   cagrPct: number;
   sharpeRatio: number;
-  sortinoRatio: number;
   maxDrawdownPct: number;
   maxDrawdownDates?: { start: string; end: string };
   longestDrawdownDays: number;
@@ -47,7 +46,6 @@ export function formatBacktest(
     finalMultiple: etf.finalValue / CONSTANT_INITIAL_INVESTMENT,
     cagrPct: etf.cagr,
     sharpeRatio: etf.sharpeRatio,
-    sortinoRatio: etf.sortinoRatio,
     maxDrawdownPct: etf.maxDrawdownPct,
     maxDrawdownDates: etf.maxDrawdownDates,
     longestDrawdownDays: etf.longestDrawdownDays,

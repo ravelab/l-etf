@@ -87,7 +87,6 @@ type SortKey =
   | "finalValue"
   | "cagr"
   | "sharpeRatio"
-  | "sortinoRatio"
   | "avgActualLeverage"
   | "maxLeverageDeltaPct"
   | "maxDrawdownPct"
@@ -272,7 +271,7 @@ function ResultsTableImpl({
         if (bMissing) return -1;
         return ((aLev as number) - (bLev as number)) * direction;
       }
-      if (sortKey === "maxDrawdownPct" || sortKey === "longestDrawdownDays" || sortKey === "sharpeRatio" || sortKey === "sortinoRatio") {
+      if (sortKey === "maxDrawdownPct" || sortKey === "longestDrawdownDays" || sortKey === "sharpeRatio") {
         const av = afterTaxMetricsById[a.id]?.metrics[sortKey] ?? a[sortKey];
         const bv = afterTaxMetricsById[b.id]?.metrics[sortKey] ?? b[sortKey];
         if (typeof av === "number" && typeof bv === "number") return (av - bv) * direction;
@@ -344,9 +343,6 @@ function ResultsTableImpl({
               <SortButton label="Sharpe" active={sortKey === "sharpeRatio"} dir={sortDir} onClick={() => toggleSort("sharpeRatio")} />
             </th>
             <th className="pb-2 pr-4 font-medium">
-              <SortButton label="Sortino" active={sortKey === "sortinoRatio"} dir={sortDir} onClick={() => toggleSort("sortinoRatio")} />
-            </th>
-            <th className="pb-2 pr-4 font-medium">
               <SortButton label="Total Trade Cost" active={sortKey === "totalTradingCostPct"} dir={sortDir} onClick={() => toggleSort("totalTradingCostPct")} />
             </th>
             {variant === "futures" && (
@@ -383,7 +379,6 @@ function ResultsTableImpl({
             const afterTaxDrawdownDates = afterTaxMetrics?.metrics.maxDrawdownDates ?? r.maxDrawdownDates;
             const afterTaxLongestDrawdownDates = afterTaxMetrics?.metrics.longestDrawdownDates ?? r.longestDrawdownDates;
             const afterTaxSharpe = afterTaxMetrics?.metrics.sharpeRatio ?? r.sharpeRatio;
-            const afterTaxSortino = afterTaxMetrics?.metrics.sortinoRatio ?? r.sortinoRatio;
             return (
             <tr
               key={r.id}
@@ -424,7 +419,6 @@ function ResultsTableImpl({
                 />
               </td>
               <td className="py-2.5 pr-4">{(afterTaxSharpe ?? 0).toFixed(2)}</td>
-              <td className="py-2.5 pr-4">{afterTaxSortino === Infinity ? "∞" : (afterTaxSortino ?? 0).toFixed(2)}</td>
               <td className="py-2.5 pr-4 text-muted">
                 {formatPercent(r.totalTradingCostPct ?? 0)}
               </td>

@@ -25,7 +25,7 @@ type RiskOffSeriesByAsset = Partial<Record<EtfConfig["riskOffAsset"], number[]>>
 const PROGRESS_REPORT_INTERVAL_DAYS = 256;
 
 export interface SimulateSingleEtfOptions extends SmaSeed {
-  /** Skip metric calculations (drawdown, Sharpe, Sortino, etc.) — use when only dailyValues/smaSignals are needed */
+  /** Skip metric calculations (drawdown, Sharpe, etc.) — use when only dailyValues/smaSignals are needed */
   skipMetrics?: boolean;
   /** Pre-computed leveraged risk-on daily returns (same leverage/ER/index across sweep configs) */
   precomputedRiskOnReturns?: number[];

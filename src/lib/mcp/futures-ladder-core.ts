@@ -41,7 +41,6 @@ interface LadderRungResult {
   finalEquity: number;
   cagrPct: number;
   sharpeRatio: number;
-  sortinoRatio: number;
   maxDrawdownPct: number;
   totalTradingCostPct: number;
   avgActualLeverageRiskOn: number;
@@ -191,7 +190,6 @@ export async function runFuturesLadder(params: {
       finalEquity: etf.finalValue,
       cagrPct: etf.cagr,
       sharpeRatio: etf.sharpeRatio,
-      sortinoRatio: etf.sortinoRatio,
       maxDrawdownPct: etf.maxDrawdownPct,
       totalTradingCostPct: etf.totalTradingCostPct,
       avgActualLeverageRiskOn: run.avgActualLeverageRiskOn,

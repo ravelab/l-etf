@@ -1,10 +1,11 @@
 "use client";
 
+import type { ChartData, ChartOptions, Plugin } from "chart.js";
 import { memo, useMemo, useState } from "react";
 import { ZoomableChart } from "@/components/ui/ZoomableChart";
 import { useIsDarkTheme } from "@/lib/hooks/use-is-dark-theme";
-import { createValueChartOptions } from "@/lib/chart-options";
-import { annualizedInflationForRange } from "@/lib/inflation";
+import { createValueChartOptions, getChartThemeColors } from "@/lib/chart-options";
+import { annualizedInflationForRange, buildMonthlyCpiYoY } from "@/lib/inflation";
 import type { BacktestResult, IndexKey } from "@/lib/simulation/types";
 import { Button } from "@/components/ui/Button";
 import { formatNumber } from "@/lib/format";
@@ -17,12 +18,51 @@ import {
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 
 const MAX_VISIBLE_POINTS = 1800;
+const INFLATION_AXIS = "inflation";
+const formatInflation = (value: number) => `${value.toFixed(1)}%`;
+
+const INFLATION_BAND_HEIGHT = 96;
+const inflationBandPlugins: Plugin<"line">[] = [{
+  id: "backtest-inflation-band",
+  afterLayout(chart) {
+    const portfolio = chart.scales.y;
+    const inflation = chart.scales[INFLATION_AXIS];
+    if (!portfolio || !inflation) return;
+
+    // Give the two vertical scales disjoint pixel ranges on the same date axis.
+    portfolio.bottom = chart.chartArea.bottom - INFLATION_BAND_HEIGHT - 8;
+    inflation.top = chart.chartArea.bottom - INFLATION_BAND_HEIGHT;
+    portfolio.configure();
+    inflation.configure();
+  },
+  beforeDatasetsDraw(chart) {
+    const inflation = chart.scales[INFLATION_AXIS];
+    const isVisible = chart.data.datasets.some((dataset, index) =>
+      dataset.yAxisID === INFLATION_AXIS && chart.isDatasetVisible(index)
+    );
+    if (!inflation || !isVisible) return;
+
+    const zero = inflation.getPixelForValue(0);
+    const { left, right } = chart.chartArea;
+    const { ctx } = chart;
+    ctx.save();
+    ctx.strokeStyle = getChartThemeColors().emphasisGrid;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(left, zero);
+    ctx.lineTo(right, zero);
+    ctx.stroke();
+    ctx.restore();
+  },
+}];
 
 interface ValueChartProps {
   result: BacktestResult;
   /** Annualized inflation as a decimal (e.g. 0.03 for 3%). */
   annualizedInflation: number;
   /** Monthly CPI series used to match the table's per-row real value calculation. */
+  showInflation?: boolean;
   monthlyCpi?: Array<{ date: string; value: number }>;
   underlyingIndexSeries?: Array<{
     index: IndexKey;
@@ -36,6 +76,7 @@ function ValueChartImpl({
   result,
   annualizedInflation,
   monthlyCpi,
+  showInflation = false,
   underlyingIndexSeries,
 }: ValueChartProps) {
   const [logScale, setLogScale] = useState(true);
@@ -136,7 +177,7 @@ function ValueChartImpl({
           })
         : [];
 
-    const datasets = [
+    const datasets: ChartData<"line">["datasets"] = [
       ...underlyingDatasets,
       {
         label: "",
@@ -176,8 +217,25 @@ function ValueChartImpl({
       }),
     ];
 
+    if (showInflation && monthlyCpi) {
+      const inflationByMonth = buildMonthlyCpiYoY(monthlyCpi);
+      const inflation = labels.map(date => inflationByMonth.get(date.slice(0, 7)) ?? null);
+      if (inflation.some(value => value !== null)) {
+        datasets.push({
+          label: "Inflation (YoY)",
+          data: inflation,
+          yAxisID: INFLATION_AXIS,
+          borderColor: isDarkTheme ? "#c4b5fd" : "#6d28d9",
+          borderWidth: 0.8,
+          borderDash: [5, 3],
+          pointRadius: 0,
+          order: 4,
+        });
+      }
+    }
+
     return { labels, datasets };
-  }, [result, underlyingIndexSeries, annualizedInflation, monthlyCpi, isDarkTheme]);
+  }, [result, underlyingIndexSeries, annualizedInflation, monthlyCpi, isDarkTheme, showInflation]);
 
   const labelTimes = useMemo(
     () =>
@@ -198,14 +256,51 @@ function ValueChartImpl({
     return `${first}|${last}|${result.etfResults.length}|${underlyingIndexSeries?.length ?? 0}`;
   }, [result.dates, result.etfResults.length, underlyingIndexSeries?.length]);
 
-  const options = useMemo(
-    () =>
-      createValueChartOptions(logScale, {
-        omitEmptyLegendLabels: true,
-        emptyLineTooltipLabel: "Nominal baseline",
-      }),
-    [logScale]
-  );
+  const hasInflation = fullData.datasets.some(dataset => dataset.yAxisID === INFLATION_AXIS);
+  const options = useMemo<ChartOptions<"line">>(() => {
+    const base = createValueChartOptions(logScale, {
+      omitEmptyLegendLabels: true,
+      emptyLineTooltipLabel: "Nominal baseline",
+    });
+    if (!hasInflation) return base;
+
+    const colors = getChartThemeColors(isDarkTheme);
+    const tooltip = base.plugins?.tooltip;
+    return {
+      ...base,
+      scales: {
+        ...base.scales,
+        y: { ...base.scales?.y, suggestedMin: 5 },
+        [INFLATION_AXIS]: {
+          type: "linear",
+          position: "right",
+          bounds: "data",
+          afterDataLimits(scale) {
+            scale.min = Math.min(0, scale.min);
+            scale.max = Math.max(0, scale.max);
+            const padding = (scale.max - scale.min) * 0.05;
+            scale.min -= padding;
+            scale.max += padding;
+          },
+          grid: { drawOnChartArea: false },
+          ticks: { color: colors.tickText, maxTicksLimit: 4, callback: value => formatInflation(Number(value)) },
+        },
+      },
+      plugins: {
+        ...base.plugins,
+        tooltip: {
+          ...tooltip,
+          callbacks: {
+            ...tooltip?.callbacks,
+            label(item) {
+              if (item.dataset.yAxisID !== INFLATION_AXIS) return tooltip?.callbacks?.label?.call(this, item);
+              return item.parsed.y === null ? "" : `${item.dataset.label}: ${formatInflation(item.parsed.y)}`;
+            },
+          },
+        },
+      },
+    };
+  }, [logScale, hasInflation, isDarkTheme]);
 
   return (
     <div>
@@ -234,6 +329,7 @@ function ValueChartImpl({
         <ZoomableChart
           data={data}
           options={options}
+          plugins={showInflation ? inflationBandPlugins : undefined}
           onRangeChange={setVisibleRange}
           resetKey={resetKey}
         />

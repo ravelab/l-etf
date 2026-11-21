@@ -42,7 +42,6 @@ test("formatted metrics faithfully mirror the engine's EtfResult", async () => {
   assert.equal(out.finalMultiple, expected.finalMultiple);
   assert.equal(out.maxDrawdownPct, expected.maxDrawdownPct);
   assert.equal(out.sharpeRatio, expected.sharpeRatio);
-  assert.equal(out.sortinoRatio, expected.sortinoRatio);
 });
 
 test("SMA-enabled backtest engages the timing rule through the GFC", async () => {

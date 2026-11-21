@@ -3,6 +3,7 @@ import { SMA_ONLY_RULE, SMA_RSI_ONLY_RULE, SMA_VOL_ONLY_RULE } from "./sma-gate-
 import { NDX_THREE_GATE_RULE } from "./three-gate";
 import { NDX_SMA_VOL_ARGMAX_RULE } from "./sma-vol-argmax";
 import { NDX_SMA_VOL_SHOCK_RULE } from "./sma-vol-shock";
+import { NDX_TREND_SHIELD_RULE } from "./trend-shield";
 import { SMA_RATE_SHOCK_RULE } from "./sma-rate-shock";
 
 /**
@@ -13,7 +14,8 @@ import { SMA_RATE_SHOCK_RULE } from "./sma-rate-shock";
  * file, like `three-gate.ts`) and add it to `BUILT_IN_SIGNAL_RULES`. It then appears
  * in the page's "Extra Strategies" picker; ticking it adds one more line beside each
  * matching SMA line, on the same LETF and risk-off asset, so the two differ only in
- * timing. None are ticked by default, and the canned snapshot uses that default.
+ * timing unless the rule specifies its own risk-off asset. None are ticked by
+ * default, and the canned snapshot uses that default.
  *
  * Everything else (execution at the next open, spreads, risk-off holdings, the
  * results table and chart) is the engine's usual SMA path.
@@ -39,6 +41,8 @@ export interface SignalRule {
   warmUpDays: number;
   /** Indices it applies to; all when omitted. */
   indices?: readonly IndexKey[];
+  /** Fixed defensive asset for a rule that defines its own holdings. */
+  riskOffAsset?: EtfConfig["riskOffAsset"];
   /**
    * Regime decided at each close (true = hold the LETF), one entry per date.
    * The engine acts on a change at the next session, like an SMA signal.
@@ -62,6 +66,7 @@ const BUILT_IN_SIGNAL_RULES: readonly SignalRule[] = [
   NDX_SMA_VOL_ARGMAX_RULE,
   NDX_SMA_VOL_SHOCK_RULE,
   SMA_RATE_SHOCK_RULE,
+  NDX_TREND_SHIELD_RULE,
 ];
 
 /** Extra strategies ticked by default on the backtest page (and in its canned snapshot). */
@@ -163,7 +168,12 @@ export function withSignalRuleLines(configs: EtfConfig[], ruleIds: readonly stri
     return configs
       .filter((cfg) => cfg.simulated && cfg.smaEnabled && !cfg.signalRule)
       .filter((cfg) => !rule.indices || rule.indices.includes(cfg.smaIndex))
-      .map((cfg) => ({ ...cfg, signalRule: rule.id, smaVolGate: false }));
+      .map((cfg) => ({
+        ...cfg,
+        signalRule: rule.id,
+        smaVolGate: false,
+        riskOffAsset: rule.riskOffAsset ?? cfg.riskOffAsset,
+      }));
   });
   return [...configs, ...twins.map((cfg, k) => ({ ...cfg, id: `etf${configs.length + k + 1}` }))];
 }

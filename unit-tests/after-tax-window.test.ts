@@ -182,7 +182,7 @@ function sleeveResult(name: string, dates: string[], raw: number[], held: boolea
   return {
     id: `${name}-sma`, name: `${name} (SMA)`, sourceIndex: "sp500", dates, dailyValues, finalValue,
     cagr: calcCagr(C, finalValue, dates[0], dates[dates.length - 1]),
-    sharpeRatio: 0, sortinoRatio: 0, maxDrawdownPct: 0, maxDrawdownDollar: 0, longestDrawdownDays: 0,
+    sharpeRatio: 0, maxDrawdownPct: 0, maxDrawdownDollar: 0, longestDrawdownDays: 0,
     bestMonth: 0, worstMonth: 0, smaPrices: dates.map(() => 1), totalTradingCostPct: 0,
     smaStartInvested: held[0], smaSignals,
   };

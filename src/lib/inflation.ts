@@ -78,6 +78,20 @@ export function buildYearlyCpiInflation(
   return map;
 }
 
+/** Headline year-over-year CPI change, in percent, keyed by observation month. */
+export function buildMonthlyCpiYoY(monthlyCpi: CpiObservation[]): Map<string, number> {
+  const byMonth = new Map(monthlyCpi.map(observation => [observation.date.slice(0, 7), observation.value]));
+  const inflationByMonth = new Map<string, number>();
+  for (const [month, cpi] of byMonth) {
+    const priorYear = String(Number(month.slice(0, 4)) - 1);
+    const priorCpi = byMonth.get(priorYear + month.slice(4));
+    if (priorCpi !== undefined && Number.isFinite(priorCpi) && priorCpi > 0 && Number.isFinite(cpi) && cpi > 0) {
+      inflationByMonth.set(month, (cpi / priorCpi - 1) * 100);
+    }
+  }
+  return inflationByMonth;
+}
+
 /**
  * Compute annualized inflation rate for a specific date range using monthly CPI data.
  * Finds the nearest CPI observations to start and end dates, then annualizes.

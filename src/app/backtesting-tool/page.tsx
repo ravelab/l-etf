@@ -21,6 +21,7 @@ import {
 } from "@/lib/simulation/presets";
 import { getSiteDefaultSmaRule } from "@/lib/simulation/defaults";
 import { EtfConfigCard } from "@/components/tools/backtest/EtfConfigCard";
+import dynamic from "next/dynamic";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
 import { SmaChart } from "@/components/tools/backtest/SmaChart";
 import { LetfFundDetails } from "@/components/tools/backtest/LetfFundDetails";
@@ -84,6 +85,10 @@ import {
 } from "@/lib/simulation/signal-rules";
 import { ExtraStrategiesSelect } from "@/components/tools/ExtraStrategiesSelect";
 import { warmUpStartDatesByIndex } from "@/lib/simulation/warm-up-by-index";
+
+const HistoryRelevanceChart = dynamic(() =>
+  import("@/components/tools/backtest/HistoryRelevanceChart").then(module => module.HistoryRelevanceChart)
+);
 
 const EXTRA_STRATEGY_RULES = listSignalRules();
 
@@ -745,7 +750,7 @@ export function BacktestingPageContent({
       // Fetch rates and inflation in parallel
       const [ratesRes, inflationRes] = await Promise.all([
         fetchJsonCached<RatePoint[]>(`/api/interest-rates?startDate=${expandedStartDate}&endDate=${endDate}`, signal),
-        fetchJsonCached<{ annualizedInflation: number; monthlyCpi: Array<{ date: string; value: number }> }>(`/api/inflation?startDate=${startDate}&endDate=${endDate}`, signal),
+        fetchJsonCached<{ annualizedInflation: number; monthlyCpi: Array<{ date: string; value: number }> }>(`/api/inflation?startDate=${startDate}&endDate=${endDate}&lookbackMonths=12`, signal),
       ]);
       if (!ratesRes.ok) {
         const payload = (ratesRes.data ?? {}) as { error?: string };
@@ -1405,6 +1410,7 @@ export function BacktestingPageContent({
         {displayResult && (
           <div className="space-y-6">
             <ValueChart
+              showInflation
               result={displayResult}
               annualizedInflation={annualizedInflation}
               monthlyCpi={monthlyCpi}
@@ -1439,6 +1445,7 @@ export function BacktestingPageContent({
                   <button
                     type="button"
                     onClick={() => toggleSmaChart(etf.id)}
+                    aria-expanded={isExpanded}
                     className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors hover:bg-white/5"
                   >
                     <span className="font-medium text-foreground">{shortBacktestAssetLabel(etf.name)}</span>
@@ -1446,41 +1453,41 @@ export function BacktestingPageContent({
                       {isExpanded ? "Hide SMA Details" : "Show SMA Details"}
                     </span>
                   </button>
-                  {isExpanded && isFund && (
-                    <div className="border-t border-card-border px-4 py-4">
-                      <LetfFundDetails
-                        result={displayResult}
-                        run={runSummary}
-                        etfConfigs={resolvedEtfConfigs}
-                        datesByEtfId={datesByEtfId}
-                        closePricesByEtfId={closePricesByEtfId}
-                        openPricesByEtfId={openPricesByEtfId}
-                        tradeClosePricesByEtfId={tradeClosePricesByEtfId}
-                        tradeOpenPricesByEtfId={tradeOpenPricesByEtfId}
-                        syntheticPriceScaleByEtfId={syntheticPriceScaleByEtfId}
-                        annualizedInflation={annualizedInflation}
-                        riskOffPricesByTicker={riskOffPricesByTicker}
-                        monthlyCpi={monthlyCpi}
-                      />
-                    </div>
-                  )}
-                  {isExpanded && !isFund && (
-                    <div className="border-t border-card-border px-4 py-4">
-                      <SmaChart
-                        result={displayResult}
-                        etfIndex={i}
-                        etfDates={datesByEtfId[etf.id] ?? etf.dates}
-                        closePrices={closePricesByEtfId[etf.id] ?? []}
-                        adjustedClosePrices={adjustedClosePricesByEtfId[etf.id] ?? []}
-                        openPrices={openPricesByEtfId[etf.id] ?? []}
-                        tradeClosePrices={tradeClosePricesByEtfId[etf.id] ?? []}
-                        tradeOpenPrices={tradeOpenPricesByEtfId[etf.id] ?? []}
-                        syntheticPriceScale={syntheticPriceScaleByEtfId[etf.id] ?? 1}
-                        etfConfigs={resolvedEtfConfigs}
-                        annualizedInflation={annualizedInflation}
-                        riskOffPricesByTicker={riskOffPricesByTicker}
-                        monthlyCpi={monthlyCpi}
-                      />
+                  {isExpanded && (
+                    <div className="space-y-4 border-t border-card-border px-4 py-4">
+                      {isFund ? (
+                        <LetfFundDetails
+                          result={displayResult}
+                          run={runSummary}
+                          etfConfigs={resolvedEtfConfigs}
+                          datesByEtfId={datesByEtfId}
+                          closePricesByEtfId={closePricesByEtfId}
+                          openPricesByEtfId={openPricesByEtfId}
+                          tradeClosePricesByEtfId={tradeClosePricesByEtfId}
+                          tradeOpenPricesByEtfId={tradeOpenPricesByEtfId}
+                          syntheticPriceScaleByEtfId={syntheticPriceScaleByEtfId}
+                          annualizedInflation={annualizedInflation}
+                          riskOffPricesByTicker={riskOffPricesByTicker}
+                          monthlyCpi={monthlyCpi}
+                        />
+                      ) : (
+                        <SmaChart
+                          result={displayResult}
+                          etfIndex={i}
+                          etfDates={datesByEtfId[etf.id] ?? etf.dates}
+                          closePrices={closePricesByEtfId[etf.id] ?? []}
+                          adjustedClosePrices={adjustedClosePricesByEtfId[etf.id] ?? []}
+                          openPrices={openPricesByEtfId[etf.id] ?? []}
+                          tradeClosePrices={tradeClosePricesByEtfId[etf.id] ?? []}
+                          tradeOpenPrices={tradeOpenPricesByEtfId[etf.id] ?? []}
+                          syntheticPriceScale={syntheticPriceScaleByEtfId[etf.id] ?? 1}
+                          etfConfigs={resolvedEtfConfigs}
+                          annualizedInflation={annualizedInflation}
+                          riskOffPricesByTicker={riskOffPricesByTicker}
+                          monthlyCpi={monthlyCpi}
+                        />
+                      )}
+                      <HistoryRelevanceChart path={etf} monthlyCpi={growthMonthlyCpi} />
                     </div>
                   )}
                 </div>
