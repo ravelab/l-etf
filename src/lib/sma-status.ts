@@ -6,7 +6,7 @@ import {
   getDefaultSmaUpperBuffer,
   getInflationAdjustedDefaultSmaBand,
 } from "@/lib/simulation/defaults";
-import { getSmaSignal, type SmaSignalResult } from "@/lib/sma-signals";
+import { getSmaSignal, type SmaRegime, type SmaSignalResult } from "@/lib/sma-signals";
 import { volGateParamsTextFor } from "@/lib/simulation/vol-gate";
 import { rsiBrakeParamsTextFor } from "@/lib/simulation/rsi-brake";
 import { smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
@@ -99,16 +99,15 @@ function formatSignedPercent(value: number): string {
   return `${prefix}${value.toFixed(2)}%`;
 }
 
-type SmaRegime = "risk-on" | "risk-off";
-
 function getSmaRegime(result: SmaSignalResult): SmaRegime {
-  if (result.signal === "sell" || result.signalLabel === "Sell L-ETFs") {
-    return "risk-off";
-  }
-  return "risk-on";
+  if (result.signal === "sell") return "risk-off";
+  if (result.signal === "buy") return "risk-on";
+  // Older persisted notifications encoded the remembered regime in the label.
+  return result.regime ?? (result.signalLabel === "Sell L-ETFs" ? "risk-off" : "risk-on");
 }
 
 function getSmaRegimeLabel(result: SmaSignalResult): string {
+  if (result.signal === "hold" && (result.signalLabel === "Buy L-ETFs" || result.signalLabel === "Sell L-ETFs")) return "Hold";
   if (result.signalLabel === "Buy") return "Buy L-ETFs";
   if (result.signalLabel === "Sell") return "Sell L-ETFs";
   return result.signalLabel;

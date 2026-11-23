@@ -76,9 +76,10 @@ test("the Signals page replay agrees with the engine on the inflation-adjusted b
     const engine = generateSmaSignals(d, c, 100, band, { inflationAdjusted: true }).invested[end - 1];
     const daily = d.map((date, i) => ({ date, close: c[i], name: "SPX" })) as Parameters<typeof getSmaSignal>[0];
     const replay = getSmaSignal(daily, 100, band, { inflationAdjusted: true });
-    const replayRiskOn = replay.signal === "buy" || (replay.signal === "hold" && replay.signalLabel.startsWith("Buy"));
+    const replayRiskOn = replay.regime === "risk-on";
     if (replayRiskOn !== engine) disagreements++;
-    if (getSmaSignal(daily, 100, band).signalLabel !== replay.signalLabel) realOnlyDiffers++;
+    const nominal = getSmaSignal(daily, 100, band);
+    if (nominal.signal !== replay.signal || nominal.regime !== replay.regime) realOnlyDiffers++;
   }
   assert.equal(disagreements, 0);
   assert.ok(realOnlyDiffers > 0, "the fixture must reach a day where inflation changes the call");

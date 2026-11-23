@@ -5,9 +5,11 @@ import { computeWilderRsi, nextRsiBrakeRiskOff, type RsiBrakeParams } from "@/li
 import { DailyPrice } from "@/lib/data/storage/types";
 
 type SmaSignal = "buy" | "sell" | "hold";
+export type SmaRegime = "risk-on" | "risk-off";
 
 export interface SmaSignalResult {
   signal: SmaSignal;
+  regime?: SmaRegime;
   indexValue: number;
   indexDate: string;
   smaValue: number;
@@ -94,7 +96,7 @@ export function getSmaSignal(
   const lowerDecimal = lowerPercent / 100;
 
   // Determine current position by finding the last time price crossed outside the buffer zone
-  let lastPosition: "risk-on" | "risk-off" = "risk-on";
+  let lastPosition: SmaRegime = "risk-on";
   for (let i = priceIndex.length - 1; i >= 0; i--) {
     const sma = smaValues[i];
     if (!isFinite(sma) || sma === 0) break;
@@ -110,8 +112,8 @@ export function getSmaSignal(
   }
 
   let signal: SmaSignal = "hold";
-  let signalLabel = lastPosition === "risk-on" ? "Buy L-ETFs" : "Sell L-ETFs";
-  let signalEmoji = lastPosition === "risk-on" ? "🟢" : "🔴";
+  let signalLabel = "Hold";
+  let signalEmoji = "⏸️";
 
   if (currentBandPrice > currentBandSma * (1 + upperDecimal)) {
     signal = "buy";
@@ -135,6 +137,7 @@ export function getSmaSignal(
 
   return {
     signal,
+    regime: signal === "sell" ? "risk-off" : lastPosition,
     indexValue: currentPrice,
     indexDate,
     smaValue: currentSma,

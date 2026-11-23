@@ -104,6 +104,20 @@ test("buildSmaSignalFingerprint ignores disabled indexes", () => {
   assert.equal(spOnly, "risk-on|disabled");
 });
 
+test("hold labels stay neutral and preserve fingerprints from older notifications", () => {
+  const legacy = snap({
+    sp500: { ...snap().sp500, signal: "hold", signalLabel: "Buy L-ETFs" },
+    nasdaq100: { ...snap().nasdaq100, signal: "hold", signalLabel: "Sell L-ETFs" },
+  });
+  const current = snap({
+    sp500: { ...legacy.sp500, signalLabel: "Hold", regime: "risk-on" },
+    nasdaq100: { ...legacy.nasdaq100, signalLabel: "Hold", regime: "risk-off" },
+  });
+  assert.equal(buildSmaSignalFingerprint(current), buildSmaSignalFingerprint(legacy));
+  assert.equal(describeSmaSignalStatus(current), "SPX: Hold (+2.50%); NDX: Hold (-3.25%)");
+  assert.equal(describeSmaSignalStatus(legacy), describeSmaSignalStatus(current));
+});
+
 test("describeSmaSignalChange reports a regime switch", () => {
   const previous = snap({
     sp500: { ...snap().sp500, signal: "sell", signalLabel: "Sell L-ETFs", percentDiff: -1 },

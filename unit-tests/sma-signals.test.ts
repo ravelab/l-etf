@@ -55,7 +55,7 @@ test("getSmaSignal calculates correct sell signal", () => {
   assert.equal(res.smaValue, 95);
 });
 
-test("getSmaSignal outputs Buy L-ETFs within buffer if last cross was up", () => {
+test("getSmaSignal displays Hold within the buffer and remembers an upward cross", () => {
   const prices: DailyPrice[] = [
     { date: "p1", name: "SPY", close: 100, source: "test" },
     { date: "p2", name: "SPY", close: 100, source: "test" },
@@ -64,11 +64,12 @@ test("getSmaSignal outputs Buy L-ETFs within buffer if last cross was up", () =>
   ];
   const res = getSmaSignal(prices, 2, { upper: 10, lower: 10 });
   assert.equal(res.signal, "hold");
-  assert.equal(res.signalLabel, "Buy L-ETFs");
-  assert.equal(res.signalEmoji, "🟢");
+  assert.equal(res.signalLabel, "Hold");
+  assert.equal(res.signalEmoji, "⏸️");
+  assert.equal(res.regime, "risk-on");
 });
 
-test("getSmaSignal outputs Sell L-ETFs within buffer if last cross was down", () => {
+test("getSmaSignal displays Hold within the buffer and remembers a downward cross", () => {
   const prices: DailyPrice[] = [
     { date: "p1", name: "SPY", close: 200, source: "test" },
     { date: "p2", name: "SPY", close: 200, source: "test" },
@@ -77,6 +78,7 @@ test("getSmaSignal outputs Sell L-ETFs within buffer if last cross was down", ()
   ];
   const res = getSmaSignal(prices, 2, { upper: 10, lower: 10 });
   assert.equal(res.signal, "hold");
-  assert.equal(res.signalLabel, "Sell L-ETFs");
-  assert.equal(res.signalEmoji, "🔴");
+  assert.equal(res.signalLabel, "Hold");
+  assert.equal(res.signalEmoji, "⏸️");
+  assert.equal(res.regime, "risk-off");
 });

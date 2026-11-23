@@ -11,7 +11,7 @@ interface SignalCardProps {
   loading?: boolean;
 }
 
-function SignalIcon({ signal, signalLabel }: { signal?: SmaSignalResult["signal"]; signalLabel?: string }) {
+function SignalIcon({ signal }: { signal?: SmaSignalResult["signal"] }) {
   if (signal === "buy") {
     return (
       <svg className="w-6 h-6 text-positive" viewBox="0 0 24 24" fill="currentColor">
@@ -26,12 +26,8 @@ function SignalIcon({ signal, signalLabel }: { signal?: SmaSignalResult["signal"
       </svg>
     );
   }
-  // No data yet: grey. Hold: color based on last buffer crossing.
-  const holdColor = signal === undefined
-    ? "text-muted"
-    : signalLabel === "Sell L-ETFs" ? "text-negative" : "text-positive";
   return (
-    <svg className={`w-6 h-6 ${holdColor}`} viewBox="0 0 24 24" fill="currentColor">
+    <svg className="w-6 h-6 text-muted" viewBox="0 0 24 24" fill="currentColor">
       <circle cx="12" cy="12" r="10"/>
     </svg>
   );
@@ -59,13 +55,12 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
     if (!result) return "text-muted";
     if (result.signal === "buy") return "text-positive";
     if (result.signal === "sell") return "text-negative";
-    // Hold: color based on label (determined by last buffer crossing)
-    if (result.signalLabel === "Sell L-ETFs") return "text-negative";
-    return "text-positive";
+    return "text-muted";
   };
 
   const getSignalLabel = () => {
     if (!result) return "";
+    if (result.signal === "hold" && (result.signalLabel === "Buy L-ETFs" || result.signalLabel === "Sell L-ETFs")) return "Hold";
     if (result.signalLabel === "Buy") return "Buy L-ETFs";
     if (result.signalLabel === "Sell") return "Sell L-ETFs";
     return result.signalLabel;
@@ -99,7 +94,7 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
         </div>
 
         <div className={`flex items-center gap-1 text-sm font-semibold tabular-nums ${getSignalColor()}`}>
-          <SignalIcon signal={result?.signal} signalLabel={result?.signalLabel} />
+          <SignalIcon signal={result?.signal} />
           <span>
             {result ? getSignalLabel() : loading ? <span className="invisible">{placeholderSignal}</span> : <span className="invisible">{placeholderSignal}</span>}
           </span>

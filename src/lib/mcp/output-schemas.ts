@@ -389,6 +389,7 @@ export const compareLetfsOutput = z.object({
 
 const smaSignalSchema = z.object({
   signal: z.string(),
+  regime: z.enum(["risk-on", "risk-off"]).optional(),
   indexValue: metric,
   indexDate: z.string(),
   smaValue: metric,
