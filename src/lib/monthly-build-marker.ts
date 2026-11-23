@@ -31,15 +31,12 @@ export async function writeLastMonthlyRunMonth(monthKey: string): Promise<void> 
   await getRedis().set(KEY, monthKey);
 }
 
-/**
- * True when a YYYY-MM-DD date key falls on the first Monday of its calendar
- * month. Pure date arithmetic (no trading-calendar lookup) — the user asked
- * for the literal first Monday of the month, not the first trading day.
- */
-export function isFirstMondayOfMonth(dateKey: string): boolean {
+/** Keep the window open through month-end so a missed Monday can catch up. */
+export function isOnOrAfterFirstMondayOfMonth(dateKey: string): boolean {
   const [y, m, d] = dateKey.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  return dt.getUTCDay() === 1 && d <= 7;
+  const firstDayOfWeek = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+  const firstMonday = 1 + ((8 - firstDayOfWeek) % 7);
+  return d >= firstMonday;
 }
 
 /** "YYYY-MM" month key for a YYYY-MM-DD date key. */

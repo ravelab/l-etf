@@ -117,6 +117,11 @@ Fixing it moves every SMA result, the calibration and all snapshots.
 
 ## Deployment updates
 
+Monthly calibration becomes due on the first Monday in New York and stays due
+through month-end until a cron-triggered production build records success.
+Generate canned snapshots after both SMA calibrations: the generator reads the
+site default band from the calibration on disk.
+
 `DeployVersionWatcher` must compare the server version with the loaded build's
 `BUILD_DEPLOY_VERSION`, frozen by `next.config.ts` and shared with
 `/api/deploy-version`. Never use localStorage as the running version: a fresh

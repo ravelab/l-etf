@@ -19,8 +19,8 @@ import {
   writeLastWeeklyRunTradingDate,
 } from "@/lib/weekly-build-marker";
 import {
-  isFirstMondayOfMonth,
   isMonthlyBuildMarkerStorageReady,
+  isOnOrAfterFirstMondayOfMonth,
   monthKeyOf,
   readLastMonthlyRunMonth,
   writeLastMonthlyRunMonth,
@@ -110,10 +110,13 @@ async function isFirstTradingDayOfWeek(currentNyDate: string): Promise<{ should:
   return { should: false, latestTradingDate, weekMarkerDate: monday, reason: `already ran this week (last ${lastRunDate}, current monday ${monday})` };
 }
 
-async function isFirstMondayOfMonthPending(currentNyDate: string): Promise<{ should: boolean; monthMarker: string; reason: string }> {
+async function isMonthlyRunPending(currentNyDate: string, isDeployHookBuild: boolean): Promise<{ should: boolean; monthMarker: string; reason: string }> {
   const monthMarker = monthKeyOf(currentNyDate);
-  if (!isFirstMondayOfMonth(currentNyDate)) {
-    return { should: false, monthMarker, reason: "not the first Monday of the month" };
+  if (!isDeployHookBuild) {
+    return { should: false, monthMarker, reason: "not a cron-triggered production build" };
+  }
+  if (!isOnOrAfterFirstMondayOfMonth(currentNyDate)) {
+    return { should: false, monthMarker, reason: "first Monday of the month has not arrived" };
   }
   if (!isMonthlyBuildMarkerStorageReady()) {
     return { should: false, monthMarker, reason: "monthly build marker storage is not configured" };
@@ -164,47 +167,47 @@ async function main() {
   const weekly = await isFirstTradingDayOfWeek(currentNyDate);
   console.log(`[build:vercel] First trading day of week? ${weekly.should} (${weekly.reason})`);
   const runWeekly = weekly.should;
-  const monthly = await isFirstMondayOfMonthPending(currentNyDate);
-  console.log(`[build:vercel] First Monday of month? ${monthly.should} (${monthly.reason})`);
-  const runMonthlyTasks = monthly.should;
+  const monthly = await isMonthlyRunPending(currentNyDate, isDeployHookBuild);
+  console.log(`[build:vercel] Monthly run pending? ${monthly.should} (${monthly.reason})`);
   const isDeployHookWeeklyRun = isDeployHookBuild && runWeekly;
-  const isDeployHookMonthlyRun = isDeployHookBuild && runMonthlyTasks;
+  const isDeployHookMonthlyRun = monthly.should;
   const ranMonthlyEtfCalibration = forceCalibrate || isDeployHookMonthlyRun;
   const ranMonthlySmaCalibration = forceSmaCalibration || isDeployHookMonthlyRun;
   const ranMonthlySnapshots = forceSnapshots || isDeployHookMonthlyRun;
 
   if (ranMonthlyEtfCalibration) {
     console.log(
-      `[build:vercel] Running ETF calibration (${forceCalibrate ? "forced" : "Deploy Hook on first Monday of month"})`
+      `[build:vercel] Running ETF calibration (${forceCalibrate ? "forced" : "monthly Deploy Hook build"})`
     );
     run("npm run calibrate");
   } else {
     console.log(
-      `[build:vercel] Skipping ETF calibration (${isDeployHookBuild ? "not first Monday of month" : "not Deploy Hook build"})`
-    );
-  }
-
-  if (ranMonthlySnapshots) {
-    console.log(
-      `[build:vercel] Generating snapshots (${forceSnapshots ? "forced" : "Deploy Hook on first Monday of month"})`
-    );
-    run("npm run snapshots:generate");
-  } else {
-    console.log(
-      `[build:vercel] Skipping snapshot generation (${isDeployHookBuild ? "not first Monday of month" : "not Deploy Hook build"})`
+      `[build:vercel] Skipping ETF calibration (${monthly.reason})`
     );
   }
 
   if (ranMonthlySmaCalibration) {
     console.log(
-      `[build:vercel] Running SMA calibration (${forceSmaCalibration ? "forced" : "Deploy Hook on first Monday of month"})`
+      `[build:vercel] Running SMA calibration (${forceSmaCalibration ? "forced" : "monthly Deploy Hook build"})`
     );
     run("npm run calibrate-sma");
     // The inflation-adjusted set (`sma-calibration-variant.ts`), offered beside it on the Signals page.
     run("SMA_CALIBRATION_VARIANT=inflation npm run calibrate-sma");
   } else {
     console.log(
-      `[build:vercel] Skipping SMA calibration (${isDeployHookBuild ? "not first Monday of month" : "not Deploy Hook build"})`
+      `[build:vercel] Skipping SMA calibration (${monthly.reason})`
+    );
+  }
+
+  if (ranMonthlySnapshots) {
+    console.log(
+      `[build:vercel] Generating snapshots (${forceSnapshots ? "forced" : "monthly Deploy Hook build"})`
+    );
+    // The snapshot generator reads the site's freshly calibrated SMA defaults.
+    run("npm run snapshots:generate");
+  } else {
+    console.log(
+      `[build:vercel] Skipping snapshot generation (${monthly.reason})`
     );
   }
 
@@ -231,7 +234,7 @@ async function main() {
     );
     run("npm run commit-data");
   } else {
-    console.log(`[build:vercel] Skipping generated artifact commit (not first trading day of week or first Monday of month)`);
+    console.log("[build:vercel] Skipping generated artifact commit (no weekly or monthly refresh)");
   }
 
   // Update markers only after the build pipeline succeeded so a failed weekly/monthly

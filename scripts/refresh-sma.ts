@@ -33,7 +33,7 @@ async function refreshVariant(variant: SmaCalibrationVariant, fetchData: boolean
     console.log("[refresh-sma] finalizing fully checked candidates from saved scores");
     await run("explore-sma-cagr-presets", limits.finalization, ["--write-presets", "--budget-minutes=0"]);
   }
-  if (variant === "nominal") await run("generate-snapshots", limits.snapshots);
+  if (variant === "inflation") await run("generate-snapshots", limits.snapshots);
 }
 
 async function main() {
