@@ -11,6 +11,20 @@ interface SignalCardProps {
   loading?: boolean;
 }
 
+function formatVolatility(volatility: number, threshold: number) {
+  if (!Number.isFinite(volatility)) return "n/a";
+
+  const percent = volatility * 100;
+  const thresholdPercent = threshold * 100;
+  const rounded = percent.toFixed(1);
+  if (volatility === threshold || Number(rounded) !== thresholdPercent) return `${rounded}%`;
+
+  const precise = percent.toFixed(2);
+  if (Number(precise) !== thresholdPercent) return `${precise}%`;
+
+  return `Just ${volatility < threshold ? "below" : "above"} ${thresholdPercent}%`;
+}
+
 function SignalIcon({ signal }: { signal?: SmaSignalResult["signal"] }) {
   if (signal === "buy") {
     return (
@@ -124,7 +138,7 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
           <div data-testid="vol-gate-status" className="flex items-center justify-between gap-4 text-sm">
             <span className="text-muted">{gate.windowDays}d volatility</span>
             <span className={`font-medium tabular-nums ${result.volGateRiskOff ? "text-negative" : "text-muted"}`}>
-              {Number.isFinite(result.volatility) ? `${(result.volatility * 100).toFixed(1)}%` : "n/a"}
+              {formatVolatility(result.volatility, result.volGateRiskOff ? gate.reenterBelow : gate.exitAbove)}
               {result.volGateRiskOff
                 ? ` · re-enter < ${Math.round(gate.reenterBelow * 100)}%`
                 : ` · exit > ${Math.round(gate.exitAbove * 100)}%`}
