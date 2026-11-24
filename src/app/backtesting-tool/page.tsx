@@ -21,7 +21,6 @@ import {
 } from "@/lib/simulation/presets";
 import { getSiteDefaultSmaRule } from "@/lib/simulation/defaults";
 import { EtfConfigCard } from "@/components/tools/backtest/EtfConfigCard";
-import dynamic from "next/dynamic";
 import { ValueChart } from "@/components/tools/backtest/ValueChart";
 import { SmaChart } from "@/components/tools/backtest/SmaChart";
 import { LetfFundDetails } from "@/components/tools/backtest/LetfFundDetails";
@@ -85,10 +84,6 @@ import {
 } from "@/lib/simulation/signal-rules";
 import { ExtraStrategiesSelect } from "@/components/tools/ExtraStrategiesSelect";
 import { warmUpStartDatesByIndex } from "@/lib/simulation/warm-up-by-index";
-
-const HistoryRelevanceChart = dynamic(() =>
-  import("@/components/tools/backtest/HistoryRelevanceChart").then(module => module.HistoryRelevanceChart)
-);
 
 const EXTRA_STRATEGY_RULES = listSignalRules();
 
@@ -1431,7 +1426,6 @@ export function BacktestingPageContent({
               referenceData={strategyReferenceData}
               spxConfig={spxSmaConfig}
               ndxConfig={ndxSmaConfig}
-              comboResult={displayResult.etfResults.find((etf) => etf.id === LETF_FUND_RESULT_ID) ?? null}
               taxRates={resultTaxRates}
             />
             {smaMode !== 0 && displayResult.etfResults
@@ -1487,7 +1481,6 @@ export function BacktestingPageContent({
                           monthlyCpi={monthlyCpi}
                         />
                       )}
-                      <HistoryRelevanceChart path={etf} monthlyCpi={growthMonthlyCpi} />
                     </div>
                   )}
                 </div>

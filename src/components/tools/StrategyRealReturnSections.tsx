@@ -2,9 +2,9 @@
 
 import { RealYearlyGrowthTable } from "@/components/tools/RealYearlyGrowthTable";
 import { ForwardReturnVsSmaGapChart } from "@/components/tools/compare/ForwardReturnVsSmaGapChart";
-import { shortBacktestAssetLabel, type StrategyYearlyGrowthSeries } from "@/lib/strategy-page-data";
+import type { StrategyYearlyGrowthSeries } from "@/lib/strategy-page-data";
 import type { StrategyReferenceData } from "@/lib/hooks/use-strategy-reference-data";
-import type { EtfConfig, EtfResult } from "@/lib/simulation/types";
+import type { EtfConfig } from "@/lib/simulation/types";
 import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 
 interface StrategyRealReturnSectionsProps {
@@ -17,8 +17,6 @@ interface StrategyRealReturnSectionsProps {
   /** SMA strategy to plot on each index family's side of the forward chart. */
   spxConfig: EtfConfig | null;
   ndxConfig: EtfConfig | null;
-  /** The UPRO/TQQQ fund, when the run has one: the forward chart adds it as a third series. */
-  comboResult?: EtfResult | null;
   taxRates: FuturesTaxRates;
 }
 
@@ -30,15 +28,8 @@ function describeGrowthColumns(series: StrategyYearlyGrowthSeries | null): strin
 }
 
 /**
- * The two sections describing long-run real returns for the ETFs configured on the
- * page: the year-by-year real growth table and the 1-year forward real return by
- * SMA gap.
- *
- * Neither depends on a rolling window, which is why they sit on the backtest page
- * rather than the window-oriented Strategies page. Both follow the page's own ETF
- * configs. The forward chart plots one SMA strategy per index family, since its
- * raincloud has exactly two sides; with several LETFs on one index the caller
- * picks which one represents it.
+ * Real yearly growth and forward returns for the completed backtest. The SMA
+ * gap chart plots one strategy per index family.
  */
 export function StrategyRealReturnSections({
   growthSeries,
@@ -46,7 +37,6 @@ export function StrategyRealReturnSections({
   referenceData,
   spxConfig,
   ndxConfig,
-  comboResult,
   taxRates,
 }: StrategyRealReturnSectionsProps) {
   const showForwardChart = referenceData !== null && (spxConfig !== null || ndxConfig !== null);
@@ -70,7 +60,6 @@ export function StrategyRealReturnSections({
           monthlyCpi={referenceData.monthlyCpi}
           spxConfig={spxConfig}
           ndxConfig={ndxConfig}
-          fundLabel={comboResult ? shortBacktestAssetLabel(comboResult.name) : null}
           taxRates={taxRates}
           spxRiskOffValues={referenceData.spxRiskOffValues}
           spxRiskOffOpenValues={referenceData.spxRiskOffOpenValues}

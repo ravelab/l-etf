@@ -94,6 +94,21 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null, monthl
   const isDarkTheme = useIsDarkTheme();
 
   const labelTimes = useMemo(() => dates.map((date) => new Date(date).getTime()), [dates]);
+  const { startIndex, endIndex } = getVisibleIndexBounds(labelTimes, visibleRange);
+  const dollarYearShares = useMemo(() => {
+    // Integrate nominal holdings across calendar time using every close in view.
+    // The time conversion to years cancels when each area is divided by the total.
+    const areas = assets.map((asset) => {
+      const series = values[asset];
+      let area = 0;
+      for (let i = startIndex + 1; i <= endIndex; i++) {
+        area += (series[i - 1] + series[i]) / 2 * (labelTimes[i] - labelTimes[i - 1]);
+      }
+      return area;
+    });
+    const total = areas.reduce((sum, area) => sum + area, 0);
+    return total > 0 ? areas.map((area) => (area / total * 100).toFixed(2) + "%") : [];
+  }, [assets, values, labelTimes, startIndex, endIndex]);
   const totals = useMemo(
     () => dates.map((_, k) => assets.reduce((sum, asset) => sum + (values[asset][k] ?? 0), 0)),
     [dates, assets, values]
@@ -120,7 +135,6 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null, monthl
   // On Log a straight trend line through the points in view, re-fitted on zoom.
   // A focused close is always drawn, so its tooltip shows that day, not a neighbour.
   const { data, sourceIndices, floor, trendValues, rangeStats } = useMemo(() => {
-    const { startIndex, endIndex } = getVisibleIndexBounds(labelTimes, visibleRange);
     const sampled = selectSampledIndices(startIndex, endIndex, MAX_VISIBLE_POINTS);
     const indices = focusIndex !== null && focusIndex >= startIndex && focusIndex <= endIndex && !sampled.includes(focusIndex)
       ? [...sampled, focusIndex].sort((a, b) => a - b)
@@ -174,7 +188,7 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null, monthl
         : [])],
     };
     return { data: chartData, sourceIndices: indices, floor: axisFloor, trendValues: trend?.values ?? null, rangeStats: stats };
-  }, [labelTimes, visibleRange, logScale, totals, realTotals, assets, values, dates, isDarkTheme, focusIndex]);
+  }, [labelTimes, startIndex, endIndex, logScale, totals, realTotals, assets, values, dates, isDarkTheme, focusIndex]);
 
   const options = useMemo(() => {
     const base = createValueChartOptions(logScale, { formatValue: formatAmount });
@@ -186,7 +200,15 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null, monthl
         // Bands have no border to draw a line swatch with: show their fill instead.
         legend: {
           ...base.plugins?.legend,
-          labels: { ...base.plugins?.legend?.labels, pointStyle: "rect" as const },
+          labels: {
+            ...base.plugins?.legend?.labels,
+            pointStyle: "rect" as const,
+            generateLabels: (chart: ChartJS<"line">) =>
+              ChartJS.defaults.plugins.legend.labels.generateLabels(chart).map((item) => {
+                const share = dollarYearShares[item.datasetIndex ?? -1];
+                return share ? { ...item, text: `${item.text} ${share}` } : item;
+              }),
+          },
         },
         tooltip: {
           ...base.plugins?.tooltip,
@@ -236,14 +258,16 @@ function LetfHoldingsChartImpl({ holdings, caption, testId, focus = null, monthl
         },
       },
     };
-  }, [logScale, sourceIndices, values, assets, totals, realTotals, floor, trendValues]);
+  }, [logScale, sourceIndices, values, assets, totals, realTotals, floor, trendValues, dollarYearShares]);
 
   const resetKey = `${dates[0] ?? ""}|${dates[dates.length - 1] ?? ""}|${assets.join(",")}`;
 
   return (
     <div className="mb-4 scroll-mt-4" ref={containerRef}>
       <div className="flex items-center justify-between gap-3 mb-2">
-        <div className="min-w-0 text-xs text-muted">{caption}</div>
+        <div className="min-w-0 text-xs text-muted">
+          {caption} Legend percentages show each holding’s share of nominal dollar-years in view.
+        </div>
         <div className="flex shrink-0 gap-1">
           <Button variant={logScale ? "primary" : "ghost"} size="sm" onClick={() => setLogScale(true)}>
             Log

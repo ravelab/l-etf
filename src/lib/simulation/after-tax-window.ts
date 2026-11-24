@@ -331,7 +331,7 @@ export function withAfterTaxWindow(
 }
 
 /** The fund's tax ledger over fund days `[firstDay, firstDay + dayCount)`, when only its outcome is needed. */
-export function runLetfFundTaxLedger(params: {
+function runLetfFundTaxLedger(params: {
   sleeves: readonly [LetfFundPathSleeve, LetfFundPathSleeve];
   firstDay: number;
   dayCount: number;

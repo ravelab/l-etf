@@ -26,10 +26,7 @@ import { spaceChartLabels } from "@/lib/chart-label-layout";
 import type { EtfConfig, PricePoint, RatePoint } from "@/lib/simulation/types";
 import type { FuturesTaxRates } from "@/lib/simulation/futures-tax";
 import { simulateWithWarmUp } from "@/lib/simulation/engine";
-import {
-  buildForwardFundReturnPoints,
-  buildForwardSmaReturnPoints,
-} from "@/lib/simulation/forward-sma-returns";
+import { buildForwardSmaReturnPoints } from "@/lib/simulation/forward-sma-returns";
 import {
   FORWARD_GAP_BIN_MAX_PCT,
   FORWARD_GAP_BIN_MIN_PCT,
@@ -66,7 +63,6 @@ const BIN_MAX_PCT = FORWARD_GAP_BIN_MAX_PCT;
 // that the legend toggles as a unit.
 const SPX_SERIES_KEY = "spx";
 const NDX_SERIES_KEY = "ndx";
-const COMBO_SERIES_KEY = "tqqq-upro";
 
 interface PercentileStats {
   count: number;
@@ -129,8 +125,6 @@ interface ForwardReturnVsSmaGapChartProps {
   startDateSp: string;
   startDateNq: string;
   endDate: string;
-  /** The UPRO/TQQQ fund's display label when the run has one; null draws only the two sleeves. */
-  fundLabel: string | null;
   taxRates: FuturesTaxRates;
 }
 
@@ -555,11 +549,10 @@ export function ForwardReturnVsSmaGapChart({
   startDateSp,
   startDateNq,
   endDate,
-  fundLabel,
   taxRates,
 }: ForwardReturnVsSmaGapChartProps) {
   const colors = getChartThemeColors();
-  const [visibleSeriesCount, setVisibleSeriesCount] = useState(3);
+  const [visibleSeriesCount, setVisibleSeriesCount] = useState(2);
 
   const spxResult = useMemo(
     () => spxConfig
@@ -627,31 +620,12 @@ export function ForwardReturnVsSmaGapChart({
     [ndxPrices, ndxResult, ndxConfig, monthlyCpi, startDateNq, endDate, taxRates],
   );
 
-  // Same fund the backtest table shows, from the same two sleeves; null when the
-  // run is not the UPRO+TQQQ preset.
-  const comboPoints = useMemo(
-    () =>
-      fundLabel && spxConfig && ndxConfig
-        ? buildForwardFundReturnPoints({
-            spx: { indexPrices: spxPrices, strategyResult: spxResult, config: spxConfig },
-            ndx: { indexPrices: ndxPrices, strategyResult: ndxResult, config: ndxConfig },
-            monthlyCpi,
-            startDate: startDateSp > startDateNq ? startDateSp : startDateNq,
-            endDate,
-            taxRates,
-          })
-        : [],
-    [fundLabel, spxConfig, ndxConfig, spxPrices, ndxPrices, spxResult, ndxResult, monthlyCpi, startDateSp, startDateNq, endDate, taxRates],
-  );
-
   const spxBuckets = useMemo(() => bucketize(spxPoints), [spxPoints]);
   const ndxBuckets = useMemo(() => bucketize(ndxPoints), [ndxPoints]);
-  const comboBuckets = useMemo(() => bucketize(comboPoints), [comboPoints]);
 
   /** Series names track whichever LETF each index family is configured with. */
   const spxLabel = spxConfig ? `${spxConfig.name} SMA` : "SPX SMA";
   const ndxLabel = ndxConfig ? `${ndxConfig.name} SMA` : "NDX SMA";
-  const comboLabel = fundLabel ?? "";
 
   const binCount = Math.round((BIN_MAX_PCT - BIN_MIN_PCT) / BIN_WIDTH_PCT);
   const labels = useMemo(
@@ -667,16 +641,11 @@ export function ForwardReturnVsSmaGapChart({
     () => ndxBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
     [ndxBuckets],
   );
-  const comboStats = useMemo(
-    () => comboBuckets.map((bucket) => summarize(bucket.map((point) => point.realReturnFactor))),
-    [comboBuckets],
-  );
-
   // Y-axis bounds must include the full visible P10–P90 percentile range.
   const yBounds = useMemo(() => {
     let lo = Infinity;
     let hi = -Infinity;
-    for (const stats of [...spxStats, ...ndxStats, ...comboStats]) {
+    for (const stats of [...spxStats, ...ndxStats]) {
       if (!stats) continue;
       if (stats.min > 0 && stats.min < lo) lo = stats.min;
       if (stats.max > hi) hi = stats.max;
@@ -684,7 +653,7 @@ export function ForwardReturnVsSmaGapChart({
     if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo <= 0 || hi <= 0) return null;
     // 4% multiplicative pad on a log axis: divide low / multiply high by 1.04.
     return { min: lo / 1.04, max: hi * 1.04 };
-  }, [spxStats, ndxStats, comboStats]);
+  }, [spxStats, ndxStats]);
 
   const data = useMemo((): ChartData<"bar" | "line"> => {
     const spxTotal = spxStats.reduce((acc, s) => acc + (s ? s.count : 0), 0);
@@ -815,49 +784,12 @@ export function ForwardReturnVsSmaGapChart({
       tension: 0,
       spanGaps: false,
     };
-    const comboTotal = comboPoints.length;
-    const comboDataset: RaincloudDataset = {
-      ...spxDataset,
-      seriesKey: COMBO_SERIES_KEY,
-      label: `${comboLabel} — average SPX/NDX SMA gap`,
-      data: comboStats.map((s) => (s ? [s.min, s.max] as [number, number] : null)),
-      percentileStats: comboStats,
-      totalCount: comboTotal,
-      percentileColor: "rgba(34, 197, 94, 0.95)",
-      cloudProfiles: comboBuckets.map((bucket, index) => {
-        const stats = comboStats[index];
-        return stats ? buildLogRaincloudDensity(bucket.map((point) => point.realReturnFactor), stats.min, stats.max) : [];
-      }),
-      rainPoints: comboBuckets.map((bucket) => sampleRaincloudItems(bucket, (point) => point.realReturnFactor).map((point) => ({
-        date: point.date,
-        value: point.realReturnFactor,
-      }))),
-      cloudColor: "rgba(34, 197, 94, 0.32)",
-      rainColor: "rgba(34, 197, 94, 0.7)",
-    };
-    const comboMedianLine = {
-      ...spxMedianLine,
-      seriesKey: COMBO_SERIES_KEY,
-      label: `${comboLabel} median`,
-      data: comboStats.map((s) => s?.median ?? null),
-      borderColor: "rgba(34, 197, 94, 1)",
-      backgroundColor: "rgba(34, 197, 94, 1)",
-    };
-    const comboFreqLine = {
-      ...spxFreqLine,
-      seriesKey: COMBO_SERIES_KEY,
-      label: `${comboLabel} n/total`,
-      data: comboStats.map((s) => (s && comboTotal > 0 ? (s.count / comboTotal) * 100 : null)),
-      borderColor: "rgba(34, 197, 94, 0.55)",
-      backgroundColor: "rgba(34, 197, 94, 0.55)",
-    };
     // A family with nothing to plot contributes no datasets at all, so it takes no
     // legend entry and no raincloud side. Plugins iterate datasets rather than
     // indexing them, so a missing slot shifts nothing.
     const datasets = [
       ...(spxTotal > 0 ? [spxDataset, spxMedianLine, spxFreqLine] : []),
       ...(ndxTotal > 0 ? [ndxDataset, ndxMedianLine, ndxFreqLine] : []),
-      ...(comboTotal > 0 ? [comboDataset, comboMedianLine, comboFreqLine] : []),
     ];
     return {
       labels,
@@ -870,12 +802,8 @@ export function ForwardReturnVsSmaGapChart({
     spxStats,
     ndxBuckets,
     ndxStats,
-    comboBuckets,
-    comboStats,
-    comboPoints,
     spxLabel,
     ndxLabel,
-    comboLabel,
     spxConfig?.smaPeriod,
     ndxConfig?.smaPeriod,
     colors.tooltipBackground,
@@ -1053,8 +981,7 @@ export function ForwardReturnVsSmaGapChart({
 
   const totalSpx = spxPoints.length;
   const totalNdx = ndxPoints.length;
-  const totalCombo = comboPoints.length;
-  const labelColumns = Math.max(1, Math.min(visibleSeriesCount, Number(totalSpx > 0) + Number(totalNdx > 0) + Number(totalCombo > 0)));
+  const labelColumns = Math.max(1, Math.min(visibleSeriesCount, Number(totalSpx > 0) + Number(totalNdx > 0)));
   const chartMinWidth = 160 + PERCENTILE_LABEL_COLUMN_WIDTH * binCount * labelColumns;
 
   return (
@@ -1065,11 +992,9 @@ export function ForwardReturnVsSmaGapChart({
           {totalSpx > 0 && `${totalSpx} ${spxLabel}`}
           {totalSpx > 0 && totalNdx > 0 && " • "}
           {totalNdx > 0 && `${totalNdx} ${ndxLabel}`}
-          {totalCombo > 0 && " • "}
-          {totalCombo > 0 && `${totalCombo} ${comboLabel}`}
         </span>
       </div>
-      {totalSpx === 0 && totalNdx === 0 && totalCombo === 0 ? (
+      {totalSpx === 0 && totalNdx === 0 ? (
         <div className="text-sm text-muted">
           Loading or not enough forward data — the chart needs at least 252 trading days of history past each candidate
           date in the selected range.

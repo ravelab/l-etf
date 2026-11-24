@@ -12,7 +12,6 @@ import {
 } from "../src/lib/simulation/after-tax-window";
 import { afterTaxBuyAndHoldPath, afterTaxResultPath } from "../src/lib/simulation/after-tax-path";
 import { buildDrawdownRangeQuery } from "../src/lib/simulation/drawdown-range";
-import { buildForwardFundReturnPoints, buildForwardSmaReturnPoints } from "../src/lib/simulation/forward-sma-returns";
 import {
   composeLetfDualSleeveFund,
   heldRiskOnByDay,
@@ -22,7 +21,7 @@ import {
 import { buildLetfTaxSchedule, capitalGainsRates, runLetfTaxLedger } from "../src/lib/simulation/letf-tax";
 import { calcCagr, calcPathMetrics } from "../src/lib/simulation/metrics";
 import type { RollingSimulationPoint } from "../src/lib/simulation/rolling";
-import type { EtfConfig, EtfResult, LetfTaxEvent, PricePoint, SmaSignal } from "../src/lib/simulation/types";
+import type { EtfResult, LetfTaxEvent, SmaSignal } from "../src/lib/simulation/types";
 
 // A typical high bracket; the shipped default is 0% everywhere.
 const RATES = { ltcg: 15, stcg: 22, state: 8, medicare: 3.8 };
@@ -239,37 +238,4 @@ test("the fund taxed as one account agrees between the rolling walk and the tabl
   const scaled = afterTaxResultPath({ ...fund, dailyValues: fund.dailyValues.map((v) => v * 3), finalValue: fund.finalValue * 3 }, RATES)!;
   near(scaled.values[scaled.values.length - 1], 3 * table.values[table.values.length - 1]);
   near(scaled.cagr, table.cagr);
-});
-
-test("the forward fund return, untaxed and never switching, is the average of its sleeves' returns", () => {
-  const count = 400;
-  const dates = weekdays("2010-01-04", count);
-  const spxRaw = dates.map((_, i) => 100 * Math.pow(1.0006, i));
-  const ndxRaw = dates.map((_, i) => 100 * Math.pow(1.0003, i) * (1 + 0.05 * Math.sin(i / 20)));
-  const allOn = dates.map(() => true);
-  const config = (name: string): EtfConfig => ({
-    id: name, name, leverage: 3, expenseRatio: 0.9, simulated: true, smaEnabled: true, smaPeriod: 200,
-    smaUpperBuffer: 0, smaLowerBuffer: 0, smaIndex: "sp500", riskOffAsset: "SGOV",
-  } as EtfConfig);
-  const prices = (raw: number[]): PricePoint[] =>
-    dates.map((date, i) => ({ date, close: raw[i], adj_close: raw[i] } as PricePoint));
-  const monthlyCpi = [{ date: "2009-12-01", value: 100 }, { date: "2012-01-01", value: 100 }];
-  const spx = { indexPrices: prices(spxRaw), strategyResult: sleeveResult("UPRO", dates, spxRaw, allOn), config: config("UPRO") };
-  const ndx = { indexPrices: prices(ndxRaw), strategyResult: sleeveResult("TQQQ", dates, ndxRaw, allOn), config: config("TQQQ") };
-  const window = { monthlyCpi, startDate: dates[0], endDate: dates[count - 1] };
-
-  const fundPoints = buildForwardFundReturnPoints({ spx, ndx, ...window });
-  const spxPoints = buildForwardSmaReturnPoints({ ...spx, ...window });
-  const ndxPoints = buildForwardSmaReturnPoints({ ...ndx, ...window });
-  assert.equal(fundPoints.length, count - 252);
-  assert.equal(spxPoints.length, fundPoints.length);
-  fundPoints.forEach((point, i) => {
-    near(point.realReturnFactor, (spxPoints[i].realReturnFactor + ndxPoints[i].realReturnFactor) / 2);
-    near(point.gap, (spxPoints[i].gap + ndxPoints[i].gap) / 2);
-  });
-
-  // Taxed, every forward return is lower; a year-long hold is short-term.
-  const taxed = buildForwardFundReturnPoints({ spx, ndx, ...window, taxRates: RATES });
-  assert.equal(taxed.length, fundPoints.length);
-  taxed.forEach((point, i) => assert.ok(point.realReturnFactor < fundPoints[i].realReturnFactor));
 });
