@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { getDefaultSmaPeriod } from "@/lib/simulation/defaults";
+import type { SmaSignalResult } from "@/lib/sma-signals";
 import cagrPresets from "@/lib/tool-snapshots/sma-cagr-presets.json";
 import inflationCagrPresets from "@/lib/tool-snapshots/sma-cagr-presets-inflation.json";
 
@@ -20,7 +21,6 @@ const inputs = {
 vi.mock("@/lib/hooks/use-shared-inputs", () => ({
   getSharedInputs: () => ({ inputs, persist }),
 }));
-vi.mock("@/components/home/SignalCard", () => ({ SignalCard: () => null }));
 vi.mock("@/components/home/SmaPushAlertsCard", () => ({
   SmaPushAlertsCard: ({ useCalibratedDefaults, calibration }: { useCalibratedDefaults: boolean; calibration: unknown }) => (
     <div data-testid="calibrated-alerts">{String(useCalibratedDefaults)}:{String(Boolean(calibration))}</div>
@@ -41,6 +41,29 @@ describe("Signals page SMA inputs", () => {
     window.localStorage.clear();
     window.localStorage.setItem("signals-use-calibrated-defaults", "true");
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({}) })));
+  });
+
+  it("shows which regime each index holds inside its SMA band", async () => {
+    const hold = {
+      signal: "hold",
+      signalLabel: "Hold",
+      signalEmoji: "⏸️",
+      indexValue: 7201.09,
+      indexDate: "2026-11-24",
+      smaValue: 7419.16,
+      percentDiff: -2.94,
+    } satisfies SmaSignalResult;
+    vi.mocked(fetch).mockImplementation(async (url) => Response.json(
+      String(url).startsWith("/api/sma-signals?") ? {
+        sp500: { ...hold, regime: "risk-off" },
+        nasdaq100: { ...hold, regime: "risk-on" },
+      } : {},
+    ));
+
+    render(<SignalsPage />);
+
+    expect(await screen.findByText("Hold Risk-Off")).toBeVisible();
+    expect(screen.getByText("Hold Risk-On")).toBeVisible();
   });
 
   it("keeps shared inputs when the saved calibrated-alert preference and calibration load", async () => {

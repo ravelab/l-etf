@@ -74,6 +74,9 @@ export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = f
 
   const getSignalLabel = () => {
     if (!result) return "";
+    if (result.signal === "hold" && result.regime) {
+      return result.regime === "risk-on" ? "Hold Risk-On" : "Hold Risk-Off";
+    }
     if (result.signal === "hold" && (result.signalLabel === "Buy L-ETFs" || result.signalLabel === "Sell L-ETFs")) return "Hold";
     if (result.signalLabel === "Buy") return "Buy L-ETFs";
     if (result.signalLabel === "Sell") return "Sell L-ETFs";

@@ -45,8 +45,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   preview/production builds can load the same newer CSV tail and repeat the alert.
   Only production builds may send alerts or consume the production cron marker;
   local `notify:sma-alerts -- --force` remains an explicit operational override.
-- Signals display `Hold` within the SMA band. Use the raw `signal` for an
-  action and the separate `regime` for push deduplication and strategy state.
+- Signals cards display `Hold Risk-On` or `Hold Risk-Off` for an in-band Hold
+  with a known regime. Use the raw `signal` for an action and the separate
+  `regime` for push deduplication and strategy state.
 
 ## Branches and CI
 
