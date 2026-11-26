@@ -4,7 +4,9 @@ import { NDX_THREE_GATE_RULE } from "./three-gate";
 import { NDX_SMA_VOL_ARGMAX_RULE } from "./sma-vol-argmax";
 import { NDX_SMA_VOL_SHOCK_RULE } from "./sma-vol-shock";
 import { NDX_TREND_SHIELD_RULE } from "./trend-shield";
+import { NDX_DIP_BUY_SHIELD_RULE } from "./ndx-dip-buy-shield";
 import { SMA_RATE_SHOCK_RULE } from "./sma-rate-shock";
+import { SMA_DRAWDOWN_GATE_RULE } from "./sma-drawdown-gate";
 
 /**
  * Plug-in timing rules: anything that decides "hold the LETF or sit in risk-off"
@@ -32,7 +34,7 @@ export interface SignalRule {
   title: string;
   /** One or two sentences for the picker's help text. */
   description: string;
-  /** Where the rule comes from, linked from the picker. */
+  /** Original publication or project research for this rule, linked from the picker. */
   sourceUrl?: string;
   /**
    * Trading days of history the rule needs before its first decision. The line
@@ -66,7 +68,9 @@ const BUILT_IN_SIGNAL_RULES: readonly SignalRule[] = [
   NDX_SMA_VOL_ARGMAX_RULE,
   NDX_SMA_VOL_SHOCK_RULE,
   SMA_RATE_SHOCK_RULE,
+  SMA_DRAWDOWN_GATE_RULE,
   NDX_TREND_SHIELD_RULE,
+  NDX_DIP_BUY_SHIELD_RULE,
 ];
 
 /** Extra strategies ticked by default on the backtest page (and in its canned snapshot). */

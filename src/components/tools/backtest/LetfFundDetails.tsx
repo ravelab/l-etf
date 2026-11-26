@@ -3,19 +3,19 @@
 import { useCallback, useMemo, useState } from "react";
 import { LetfHoldingsChart, type HoldingsChartFocus } from "@/components/tools/backtest/LetfHoldingsChart";
 import { buildSmaTradeTableRows, SmaTradesTable, type SmaTradeTableRow } from "@/components/tools/backtest/SmaTradesTable";
-import { alignLetfComboSleeves, findLetfComboSleeves, LETF_FUND_RESULT_ID, type LetfComboRun } from "@/lib/simulation/letf-dual-sleeve";
+import { alignLetfComboSleeves, findLetfComboSleeves, type LetfComboRun } from "@/lib/simulation/letf-dual-sleeve";
 import { letfComboFundHoldings } from "@/lib/simulation/letf-fund-holdings";
 import { buildSmaTradeRows } from "@/lib/sma-trade-rows";
 import { riskOffSharePct } from "@/lib/sma-trade-metrics";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
-import type { BacktestResult, EtfConfig, PricePoint } from "@/lib/simulation/types";
+import type { BacktestResult, PricePoint, RiskOffAsset } from "@/lib/simulation/types";
 
 type SeriesById = Record<string, number[]>;
 
 export interface LetfFundDetailsProps {
   result: BacktestResult;
+  fundId: string;
   run: LetfComboRun | null;
-  etfConfigs: EtfConfig[];
   datesByEtfId: Record<string, string[]>;
   closePricesByEtfId: SeriesById;
   openPricesByEtfId: SeriesById;
@@ -42,26 +42,26 @@ const executionDay = (entry: SmaTradeTableRow) => entry.row.tradingDay ?? entry.
  * buy that re-opened the fund at 50/50 says so on its own row.
  */
 export function LetfFundDetails(props: LetfFundDetailsProps) {
-  const { result, run, etfConfigs, riskOffPricesByTicker, annualizedInflation } = props;
+  const { result, fundId, run, riskOffPricesByTicker, annualizedInflation } = props;
 
   const holdings = useMemo(
-    () => letfComboFundHoldings(result, run, riskOffPricesByTicker),
-    [result, run, riskOffPricesByTicker]
+    () => letfComboFundHoldings(result, run, riskOffPricesByTicker, fundId),
+    [result, run, riskOffPricesByTicker, fundId]
   );
 
   const sleeveTables = useMemo(() => {
-    const found = findLetfComboSleeves(result, run);
-    if (!found || !run) return [];
-    const { sleeves, letfNames } = alignLetfComboSleeves({ ...found, ...run });
-    return sleeves.map(({ result: sleeve }, s) => {
-      const id = `etf${s + 1}-sma`;
-      const config = etfConfigs.find((cfg) => cfg.id === `etf${s + 1}`);
+    const found = findLetfComboSleeves(result, run, fundId);
+    if (!found) return [];
+    const { sleeves, letfNames } = alignLetfComboSleeves(found);
+    return sleeves.map(({ result: sleeve, riskOffAsset }, s) => {
+      const id = sleeve.id;
+      const config = { name: letfNames[s], smaIndex: sleeve.sourceIndex, riskOffAsset: riskOffAsset as RiskOffAsset };
       const fullDates = props.datesByEtfId[id] ?? found[s === 0 ? "spxSleeve" : "ndxSleeve"].dates;
       const start = sleeve.dates[0];
       const dates = sliceFrom(fullDates, fullDates, start);
       const closePrices = sliceFrom(props.closePricesByEtfId[id], fullDates, start);
       const tradeClosePrices = sliceFrom(props.tradeClosePricesByEtfId[id], fullDates, start);
-      if (!config || closePrices.length === 0) return { name: letfNames[s], rows: [], riskOffPct: null };
+      if (closePrices.length === 0) return { name: letfNames[s], rows: [], riskOffPct: null };
       const tradeRows = buildSmaTradeRows({
         etf: sleeve,
         config,
@@ -84,7 +84,7 @@ export function LetfFundDetails(props: LetfFundDetailsProps) {
       });
       return { name: letfNames[s], rows, riskOffPct: riskOffSharePct(sleeve, dates) };
     });
-  }, [result, run, etfConfigs, props.datesByEtfId, props.closePricesByEtfId, props.openPricesByEtfId,
+  }, [result, run, fundId, props.datesByEtfId, props.closePricesByEtfId, props.openPricesByEtfId,
     props.tradeClosePricesByEtfId, props.tradeOpenPricesByEtfId, props.syntheticPriceScaleByEtfId,
     annualizedInflation, riskOffPricesByTicker]);
 
@@ -115,7 +115,7 @@ export function LetfFundDetails(props: LetfFundDetailsProps) {
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-muted mb-3">Fund Holdings — {shortBacktestAssetLabel(result.etfResults.find((etf) => etf.id === LETF_FUND_RESULT_ID)?.name ?? "TQQQ/UPRO")}</h3>
+      <h3 className="text-sm font-medium text-muted mb-3">Fund Holdings — {shortBacktestAssetLabel(result.etfResults.find((etf) => etf.id === fundId)?.name ?? "TQQQ/UPRO")}</h3>
       <LetfHoldingsChart
         holdings={holdings}
         testId="letf-fund-holdings-chart"

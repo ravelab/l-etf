@@ -30,7 +30,7 @@ import { computeRealizedVol } from "./vol-gate";
  * 96.0% -> 79.1%. 1930-85 loses 3.5pt with the drawdown unchanged (1929-32
  * ruins 3x regardless). It switches ~2.7 times a year.
  *
- * SPX has no gate: no cell's neighbourhood beats the default in both windows.
+ * No SPX-specific fit: no cell's neighbourhood beats the default in both windows.
  * The best-looking cell (10d/250d, out 1.4x, back below 1.3x, 2 closes) wins
  * in every era, but only 5 of its 107 neighbours do, so it is a spike.
  */

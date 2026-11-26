@@ -34,13 +34,12 @@ function trendShieldRegime(closes: number[]): boolean[] {
 export const NDX_TREND_SHIELD_RULE: SignalRule = {
   id: "ndx-trend-shield",
   label: "Trend & Shield",
-  title: "NDX Trend & Shield (VGSH)",
+  title: "Trend & Shield (VGSH)",
   description:
-    "Binary adaptation using a nominal 150-day SMA with a ±3% band. A bearish RSI(10) reading below 30 starts a " +
-    "bounce trade with a 2% stop measured from the NDX signal close. Above 50% annualized 10-day volatility, " +
+    "Binary adaptation of an earlier LETFtest rule using a nominal 150-day SMA with a ±3% band. A bearish RSI(10) reading below 30 starts a " +
+    "bounce trade with a 2% stop measured from the index signal close. Above 50% annualized 10-day volatility, " +
     "hold VGSH. Each position is fully in the leveraged ETF or VGSH.",
-  sourceUrl: "https://letftest.com/synthetic-trend-shield/",
-  indices: ["nasdaq100"],
+  sourceUrl: "https://github.com/ravelab/l-etf/blob/47226e5fa7853800a6b6161a6f7ecdc16b476eb0/src/lib/simulation/trend-shield.ts",
   warmUpDays: TREND_DAYS,
   riskOffAsset: "VGSH",
   regime: (_dates, closes) => trendShieldRegime(closes),

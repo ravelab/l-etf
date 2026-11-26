@@ -56,7 +56,10 @@ export function ExtraStrategiesSelect({
   }, [open]);
 
   const chosen = rules.filter((rule) => selected.includes(rule.id));
-  const summary = chosen.length === 0 ? "None" : chosen.map((rule) => rule.title).join(", ");
+  const allSelected = chosen.length === rules.length;
+  const summary = chosen.length === 0 ? "None"
+    : allSelected ? `All ${rules.length} selected`
+      : chosen.map((rule) => rule.title).join(", ");
   // Rebuilt in the rules' own order, so the selection never depends on click order.
   const toggle = (id: string, on: boolean) =>
     onChange(rules.map((rule) => rule.id).filter((ruleId) => (ruleId === id ? on : selected.includes(ruleId))));
@@ -67,8 +70,8 @@ export function ExtraStrategiesSelect({
         <span>Extra Strategies</span>
         <span className="ml-auto inline-flex items-center">
           <InfoPopoverButton label="Extra Strategies">
-            Other timing rules to run beside the SMA lines, on the same LETF and risk-off asset, so each pair
-            differs only in when it is invested. None run by default.
+            Optional timing rules that run beside the SMA lines. Each rule uses the same LETF and can specify
+            its own risk-off asset.
             {rules.map((rule) => (
               <span key={rule.id} className="mt-2 block">
                 <span className="text-foreground">{rule.title}:</span> {rule.description}{" "}
@@ -99,6 +102,24 @@ export function ExtraStrategiesSelect({
           aria-label="Extra strategies"
           className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-card-border bg-card-bg p-1 shadow-lg"
         >
+          <div className="mb-1 flex items-center gap-3 border-b border-card-border px-2 py-1.5 text-xs">
+            <button
+              type="button"
+              disabled={allSelected}
+              onClick={() => onChange(rules.map((rule) => rule.id))}
+              className="text-accent hover:underline disabled:text-muted disabled:no-underline"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              disabled={chosen.length === 0}
+              onClick={() => onChange([])}
+              className="text-accent hover:underline disabled:text-muted disabled:no-underline"
+            >
+              Clear all
+            </button>
+          </div>
           {rules.map((rule) => (
             <div key={rule.id} className="flex items-center gap-1 rounded hover:bg-white/5">
               <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-2 py-1.5 text-sm text-foreground">
@@ -112,7 +133,7 @@ export function ExtraStrategiesSelect({
               </label>
               {/* Outside the label, so following the link never toggles the box. */}
               <span className="shrink-0 pr-2 text-xs">
-                <SourceLink rule={rule}>↗</SourceLink>
+                <SourceLink rule={rule}>Source ↗</SourceLink>
               </span>
             </div>
           ))}

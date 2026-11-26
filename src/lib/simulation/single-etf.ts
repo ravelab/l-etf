@@ -286,7 +286,14 @@ export function simulateSingleEtf(
       dailyValues.findIndex((v) => !isFinite(v)));
   }
 
-  const identity = { id: config.id, name: config.name, sourceIndex: config.smaIndex, dates, dailyValues };
+  const identity = {
+    id: config.id,
+    name: config.name,
+    sourceIndex: config.smaIndex,
+    ...(config.smaEnabled && config.signalRule ? { signalRule: config.signalRule } : {}),
+    dates,
+    dailyValues,
+  };
   const smaFields = {
     smaSignals: execution.smaSignals,
     smaPrices: execution.smaPrices,

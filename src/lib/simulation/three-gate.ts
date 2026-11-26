@@ -1,10 +1,11 @@
 import type { SignalRule } from "./signal-rules";
 import { computeRealizedVol } from "./vol-gate";
+import { rollingHigh } from "./rolling-high";
 
 /**
  * "3-Gate": a third-party TQQQ timing rule ("Volatility-Gated Leverage",
  * willperryyy.github.io/tqqq-gate), offered as an extra strategy on the backtest
- * page. It has no SMA. Three gates are read on the NDX close, and all three must
+ * page. It has no SMA. Three gates are read on the index close, and all three must
  * pass to hold the LETF:
  *
  * 1. Absolute volatility: 20-day realized vol below 35% annualized.
@@ -41,20 +42,6 @@ export const THREE_GATE_PARAMS: ThreeGateParams = {
   reenterDrawdown: 0.1,
   confirmDays: 2,
 };
-
-/** Highest close over the trailing `window` closes, today included. */
-function rollingHigh(closes: number[], window: number): number[] {
-  const out = new Array<number>(closes.length);
-  const queue: number[] = [];
-  let head = 0;
-  for (let i = 0; i < closes.length; i++) {
-    while (queue.length > head && closes[queue[queue.length - 1]] <= closes[i]) queue.pop();
-    queue.push(i);
-    if (queue[head] <= i - window) head++;
-    out[i] = closes[queue[head]];
-  }
-  return out;
-}
 
 /** Advance the drawdown gate one close (true = out). A NaN reading keeps the state. */
 export function nextDrawdownGateOut(out: boolean, drawdown: number, p: ThreeGateParams): boolean {
@@ -100,13 +87,12 @@ export function confirmThreeGateRegime(verdict: boolean[], confirmDays: number):
 export const NDX_THREE_GATE_RULE: SignalRule = {
   id: "ndx-3-gate",
   label: "3-Gate",
-  title: "NDX 3-Gate",
+  title: "3-Gate",
   description:
-    "Third-party TQQQ rule with no SMA: hold only while NDX 20-day volatility is under 35%, under 1.10x its 250-day " +
+    "Originally published for TQQQ. Hold only while the index's 20-day volatility is under 35%, under 1.10x its 250-day " +
     "baseline, and the index has not fallen 20% below its 250-day high (back within 10% to re-enter). A change " +
-    "must hold two closes. Switches ~2.5 times a year.",
+    "must hold two closes.",
   sourceUrl: "https://willperryyy.github.io/tqqq-gate/whitepaper.html",
   warmUpDays: Math.max(THREE_GATE_PARAMS.baselineWindowDays, THREE_GATE_PARAMS.highWindowDays) + THREE_GATE_PARAMS.confirmDays,
-  indices: ["nasdaq100"],
   regime: (_dates, closes) => confirmThreeGateRegime(computeThreeGateVerdict(closes), THREE_GATE_PARAMS.confirmDays),
 };

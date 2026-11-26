@@ -24,6 +24,7 @@ function makeSmaVariant(
     label,
     title,
     description,
+    sourceUrl: "https://github.com/ravelab/l-etf/commit/5c9ebf353ac6f758bbab7a9bfd274de898565070",
     warmUpDays,
     regime: (dates, closes, line) =>
       generateSmaSignals(

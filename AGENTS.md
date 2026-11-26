@@ -422,7 +422,10 @@ stamp must always be the full book, never a delta.
 
 `letf-dual-sleeve.ts` composes the "TQQQ/UPRO SMA Vol" row from the run's two
 `-sma` sleeves on display (`withLetfComboFund`), so cached runs and the canned
-snapshot show it without storing it. Composing instead of re-simulating rests on
+snapshot show it without storing it. It also composes a separate fund for each
+extra strategy with both completed sleeves, joined by `EtfResult.signalRule` and
+index rather than the current form selection. Respect a rule's fixed risk-off
+asset when composing the fund and its holdings. Composing rests on
 two facts: an LETF sleeve has only proportional costs, so its path scales exactly
 with capital; and the held regime is derived from `smaSignals` assuming
 next-day-open execution. A fixed-dollar cost or another execution mode breaks the
@@ -443,7 +446,9 @@ regime array from index closes; `three-gate.ts` is the example) to
 ticked by default, and the canned snapshot uses `DEFAULT_EXTRA_STRATEGY_IDS`. A rule
 line must not lengthen the other lines' warm-up — the SMA band, vol gate and RSI
 brake carry state from the first loaded close, so it moves their results — which is
-why warm-up is per index (`warm-up-by-index.ts`). A rule that needs data other than
+why warm-up data is fetched per index and each line group gets its own simulation
+start (`warm-up-by-index.ts`). Set `sourceUrl` to the original publication or
+the project's research for that version of the rule. A rule that needs data other than
 index closes reads a bundle `fetch-data` derives from the CSV on every run, as
 `sma-rate-shock.ts` reads `rate-hike-shock.json` (and the inflation band reads
 `cpi-monthly.json`); a test pins each bundle to its CSV. Write a new bundle in

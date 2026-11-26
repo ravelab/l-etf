@@ -18,11 +18,17 @@ import { CONSTANT_INITIAL_INVESTMENT, formatRiskOffLiquidationAbbrev, getRiskOff
 import { createPresetEtfConfig, getComboSubPresets, DEFAULT_COMBO_PRESET } from "@/lib/simulation/presets";
 import { calcCagr, calcPathMetrics } from "@/lib/simulation/metrics";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
+import { listSignalRules, type SignalRule } from "@/lib/simulation/signal-rules";
 import type { BacktestResult, EtfResult, LetfTaxEvent, LetfTaxSchedule, RiskOffAsset } from "@/lib/simulation/types";
 import { trimEtfResultToStartDate } from "@/lib/simulation/trim-etf-result";
 import { taxDueDatesBetween } from "@/lib/simulation/safe-harbor";
 
 export const LETF_FUND_RESULT_ID = "dual-sleeve-letf-sma";
+const EXTRA_FUND_ID_PREFIX = `${LETF_FUND_RESULT_ID}:`;
+
+export function isLetfComboFundResultId(id: string): boolean {
+  return id === LETF_FUND_RESULT_ID || id.startsWith(EXTRA_FUND_ID_PREFIX);
+}
 
 export type LetfFundSleeve = { result: EtfResult; riskOffAsset: string };
 
@@ -311,57 +317,70 @@ export function buildLetfComboFund(params: {
   ndxSleeve: EtfResult;
   spxRiskOffAsset: string;
   ndxRiskOffAsset: string;
+  rule?: Pick<SignalRule, "id" | "title">;
 }): EtfResult | null {
-  const { spxRiskOffAsset, ndxRiskOffAsset } = params;
+  const { spxRiskOffAsset, ndxRiskOffAsset, rule } = params;
   const { sleeves: [primarySleeve, secondarySleeve] } = alignLetfComboSleeves(params);
   const primary = primarySleeve.result;
   const volRsi = primary.name.includes("(SMA Vol RSI") ? " Vol RSI" : "";
   const riskOff = [spxRiskOffAsset, ndxRiskOffAsset].map(formatRiskOffLiquidationAbbrev).join(" / ");
   return composeLetfDualSleeveFund({
-    id: LETF_FUND_RESULT_ID,
+    id: rule ? EXTRA_FUND_ID_PREFIX + rule.id : LETF_FUND_RESULT_ID,
     // The results table and chart shorten this to "TQQQ/UPRO SMA Vol RSI".
-    name: `TQQQ/UPRO (SMA${volRsi}, ${riskOff})`,
+    name: rule ? `TQQQ/UPRO 50/50 · ${rule.title}` : `TQQQ/UPRO (SMA${volRsi}, ${riskOff})`,
     primary: primarySleeve,
     secondary: secondarySleeve,
   });
 }
 
 /**
- * The backtest page's result with the fund appended, when the run was the
- * UPRO+TQQQ preset with SMA on (both `-sma` sleeves present). Everything else is
- * returned untouched. Derived on display, so a fresh run, a cached one and the
- * canned snapshot all get it without storing it.
+ * The run settings needed to compose UPRO/TQQQ from its completed sleeves.
  */
 export type LetfComboRun = { letf: string; spxRiskOffAsset: string; ndxRiskOffAsset: string };
 
-/** The two `-sma` sleeves the fund is built from, or null when the run has no fund. */
+/** Find the two completed sleeves of a fund, including their risk-off assets. */
 export function findLetfComboSleeves(
   result: BacktestResult | null,
-  run: LetfComboRun | null
-): { spxSleeve: EtfResult; ndxSleeve: EtfResult } | null {
-  if (!result || run?.letf !== DEFAULT_COMBO_PRESET) return null;
+  run: LetfComboRun | null,
+  fundId = LETF_FUND_RESULT_ID
+): Parameters<typeof alignLetfComboSleeves>[0] | null {
+  if (!result || run?.letf !== DEFAULT_COMBO_PRESET || !isLetfComboFundResultId(fundId)) return null;
+  const ruleId = fundId === LETF_FUND_RESULT_ID ? undefined : fundId.slice(EXTRA_FUND_ID_PREFIX.length);
+  const rule = ruleId ? listSignalRules().find((candidate) => candidate.id === ruleId) : undefined;
+  if (ruleId && !rule) return null;
+
   // The combo's sub-presets are configs etf1 and etf2, in this order.
   const [spxSleeve, ndxSleeve] = getComboSubPresets(DEFAULT_COMBO_PRESET).map((preset, k) => {
+    if (rule) {
+      return result.etfResults.find((etf) => etf.signalRule === rule.id &&
+        etf.sourceIndex === preset.index && etf.name.startsWith(`${preset.name} (`));
+    }
     const etf = findEtfResult(result, `etf${k + 1}-sma`);
     return etf && etf.name.startsWith(`${preset.name} (SMA`) ? etf : undefined;
   });
-  return spxSleeve && ndxSleeve ? { spxSleeve, ndxSleeve } : null;
+  return spxSleeve && ndxSleeve ? {
+    spxSleeve,
+    ndxSleeve,
+    spxRiskOffAsset: rule?.riskOffAsset ?? run.spxRiskOffAsset,
+    ndxRiskOffAsset: rule?.riskOffAsset ?? run.ndxRiskOffAsset,
+  } : null;
 }
 
+/** Compose the default fund and each selected extra with two completed sleeves. */
 export function withLetfComboFund(
   result: BacktestResult | null,
   run: LetfComboRun | null
 ): BacktestResult | null {
-  if (!result || result.etfResults.some((etf) => etf.id === LETF_FUND_RESULT_ID)) return result;
+  if (!result || result.etfResults.some((etf) => isLetfComboFundResultId(etf.id))) return result;
   const found = findLetfComboSleeves(result, run);
-  if (!found || !run) return result;
-  const { spxSleeve, ndxSleeve } = found;
-  const fund = buildLetfComboFund({
-    spxSleeve,
-    ndxSleeve,
-    spxRiskOffAsset: run.spxRiskOffAsset,
-    ndxRiskOffAsset: run.ndxRiskOffAsset,
+  if (!found) return result;
+  const fund = buildLetfComboFund(found);
+  const selected = new Set(result.etfResults.map((etf) => etf.signalRule));
+  const extraFunds = listSignalRules().filter((rule) => selected.has(rule.id)).flatMap((rule) => {
+    const sleeves = findLetfComboSleeves(result, run, EXTRA_FUND_ID_PREFIX + rule.id);
+    const extraFund = sleeves && buildLetfComboFund({ ...sleeves, rule });
+    return extraFund ? [extraFund] : [];
   });
-  // The fund leads every list and table: it is the strategy the site centres on.
-  return fund ? { ...result, etfResults: [fund, ...result.etfResults] } : result;
+  const funds = fund ? [fund, ...extraFunds] : extraFunds;
+  return funds.length ? { ...result, etfResults: [...funds, ...result.etfResults] } : result;
 }

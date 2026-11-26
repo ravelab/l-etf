@@ -452,7 +452,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
   const etfPricePointsByName = Object.fromEntries(
     etfRows.filter(([, points]) => points.length > 0)
   ) as Record<string, PricePoint[]>;
-  const primitiveRiskOffAssets = getUniquePrimitiveRiskOffAssets([shared.spxRiskOffAsset, shared.ndxRiskOffAsset]);
+  const primitiveRiskOffAssets = getUniquePrimitiveRiskOffAssets(resolvedEtfConfigs.map((cfg) => cfg.riskOffAsset));
   const riskOffPricesByAsset = Object.fromEntries(
     await Promise.all(
       primitiveRiskOffAssets.map(async (asset) => {
@@ -479,6 +479,7 @@ async function buildBacktestingSnapshot(shared: SharedInputs) {
     riskOffPricesByAsset,
     etfPricePointsByName,
     pricesByIndex,
+    warmUpStartForConfig: warmUp.startForConfig,
   });
   if (!canonicalRun || canonicalRun.dates.length < 2) {
     throw new Error("No backtest results produced for snapshot.");

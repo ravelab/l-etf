@@ -14,11 +14,13 @@ import {
   type SignalRule,
 } from "@/lib/simulation/signal-rules";
 import { NDX_THREE_GATE_RULE } from "@/lib/simulation/three-gate";
+import { sixMonthDrawdownRiskOff } from "@/lib/simulation/sma-drawdown-gate";
 import { SMA_ONLY_RULE, SMA_RSI_ONLY_RULE, SMA_VOL_ONLY_RULE } from "@/lib/simulation/sma-gate-variants";
 import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { generateSmaSignals } from "@/lib/simulation/sma";
 import { simulateBacktest } from "@/lib/simulation/engine";
+import { runParallelBacktest } from "@/lib/simulation/parallel-backtest";
 import { findEtfResult } from "@/lib/simulation/result-lookup";
 import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
@@ -67,7 +69,7 @@ function tqqq(id: string) {
   });
 }
 
-test("NDX 3-Gate is offered, and no extra strategy is ticked by default", () => {
+test("3-Gate is offered, and no extra strategy is ticked by default", () => {
   assert.deepEqual(DEFAULT_EXTRA_STRATEGY_IDS, []);
   assert.ok(listSignalRules().includes(NDX_THREE_GATE_RULE));
   assert.ok(listSignalRules().includes(SMA_ONLY_RULE));
@@ -75,6 +77,73 @@ test("NDX 3-Gate is offered, and no extra strategy is ticked by default", () => 
   assert.ok(listSignalRules().includes(SMA_RSI_ONLY_RULE));
   assert.equal(getSignalRule("ndx-3-gate"), NDX_THREE_GATE_RULE);
   assert.match(NDX_THREE_GATE_RULE.sourceUrl ?? "", /^https:\/\/willperryyy\.github\.io\/tqqq-gate\//);
+});
+
+test("the 200-day dip-buy shield requires a rising SMA and keeps the binary position out during a vol spike", () => {
+  const rule = getSignalRule("ndx-dip-buy-shield");
+  const tail = [115, 114, 113, 112.5, 112, 109, 108, ...Array.from({ length: 11 }, (_, i) => 145 + i)];
+  const rising = [...Array.from({ length: 260 }, (_, i) => 100 + i * 0.1), ...tail];
+  const falling = [...Array.from({ length: 260 }, (_, i) => 155 - i * 0.1), ...tail];
+  const evaluate = (prices: number[]) => runSignalRule(rule, isoDates(prices.length), prices, LINE).invested;
+  assert.deepEqual(evaluate(rising).slice(263, 268), [false, true, false, true, false]);
+  assert.deepEqual(evaluate(falling).slice(263, 267), [false, false, false, false]);
+  assert.equal(evaluate(rising).at(-1), true);
+  assert.equal(rule.riskOffAsset, "SGOV");
+  assert.match(rule.sourceUrl ?? "", /^https:\/\/www\.reddit\.com\/r\/TQQQ\/comments\//);
+});
+
+test("the six-month drawdown gate confirms consecutive closes and waits for both recovery and elapsed sessions", () => {
+  const prices = [100, 79, 79, 79, 79, 81, 79, 79, 79, 79, 79, 92, ...Array<number>(21).fill(89), 92];
+  const riskOff = sixMonthDrawdownRiskOff(prices);
+  assert.deepEqual(riskOff, prices.map((_, i) => i >= 10 && i < prices.length - 1));
+
+  const earlyRecovery = [...prices.slice(0, 11), ...Array<number>(21).fill(92)];
+  assert.deepEqual(
+    sixMonthDrawdownRiskOff(earlyRecovery),
+    earlyRecovery.map((_, i) => i >= 10 && i < 31),
+  );
+});
+
+test("the six-month drawdown gate releases when the old peak leaves the window", () => {
+  const prices = [100, ...Array<number>(126).fill(79)];
+  const riskOff = sixMonthDrawdownRiskOff(prices);
+  assert.equal(riskOff[125], true);
+  assert.equal(riskOff[126], false);
+});
+
+test("all built-in extras add a twin for both index families, with the rule's risk-off asset if specified", () => {
+  const upro = createPresetEtfConfig("etf1", ETF_PRESETS.UPRO, {
+    smaEnabled: true, riskOffAsset: "BRK.B+GLDM",
+  });
+  for (const rule of listSignalRules()) {
+    const configs = withSignalRuleLines([upro, tqqq("etf2")], [rule.id]);
+    assert.deepEqual(configs.slice(2).map((cfg) => [cfg.name, cfg.smaIndex, cfg.riskOffAsset]), [
+      ["UPRO", "sp500", rule.riskOffAsset ?? "BRK.B+GLDM"],
+      ["TQQQ", "nasdaq100", rule.riskOffAsset ?? "VGSH"],
+    ], rule.title);
+  }
+});
+
+test("loading an extra strategy's earlier history preserves the same-index SMA baseline", async () => {
+  const values = closes();
+  const dates = isoDates(values.length);
+  const prices = values.map((close, i) => ({ date: dates[i], adj_close: close, close, open: close, adj_open: close }));
+  const base = tqqq("etf1");
+  const configs = withSignalRuleLines([base], ["ndx-dip-buy-shield"]);
+  const common = {
+    startDate: dates[50],
+    endDate: dates[dates.length - 1],
+    rates: [{ date: dates[0], rateType: "borrow", rateValue: 0.02 }] as RatePoint[],
+  };
+  const standalone = await runParallelBacktest({ ...common, prices: prices.slice(30), configs: [base] });
+  const combined = await runParallelBacktest({
+    ...common,
+    prices,
+    configs,
+    warmUpStartForConfig: (config) => config.signalRule ? dates[0] : dates[30],
+  });
+  assert.deepEqual(findEtfResult(combined, "etf1-sma"), findEtfResult(standalone, "etf1-sma"));
+  assert.ok(findEtfResult(combined, "etf2-sma"));
 });
 
 test("SMA gate variants keep the same SMA line and select only their named layer", () => {

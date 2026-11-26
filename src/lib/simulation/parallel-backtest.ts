@@ -106,12 +106,20 @@ function capToCommonClose(
   };
 }
 
-function groupBySmaIndex(configs: EtfConfig[]): Array<[EtfConfig["smaIndex"], EtfConfig[]]> {
-  const groups = new Map<EtfConfig["smaIndex"], EtfConfig[]>();
+function groupByIndexAndWarmUp(
+  configs: EtfConfig[],
+  warmUpStartForConfig?: (config: EtfConfig) => string
+): Array<{ index: EtfConfig["smaIndex"]; warmUpStart?: string; configs: EtfConfig[] }> {
+  const groups = new Map<string, { index: EtfConfig["smaIndex"]; warmUpStart?: string; configs: EtfConfig[] }>();
   for (const config of configs) {
-    groups.set(config.smaIndex, [...(groups.get(config.smaIndex) ?? []), config]);
+    const index = config.smaIndex;
+    const warmUpStart = warmUpStartForConfig?.(config);
+    const key = `${index}|${warmUpStart ?? ""}`;
+    const group = groups.get(key);
+    if (group) group.configs.push(config);
+    else groups.set(key, { index, warmUpStart, configs: [config] });
   }
-  return Array.from(groups.entries());
+  return [...groups.values()];
 }
 
 function indexProgressLabel(smaIndex: EtfConfig["smaIndex"]): string {
@@ -135,6 +143,7 @@ export async function runParallelBacktest({
   riskOffPricesByAsset,
   etfPricePointsByName,
   pricesByIndex: requestedPricesByIndex,
+  warmUpStartForConfig,
   onProgress,
 }: {
   prices: PricePoint[];
@@ -145,6 +154,7 @@ export async function runParallelBacktest({
   riskOffPricesByAsset?: Partial<Record<EtfConfig["riskOffAsset"], PricePoint[]>>;
   etfPricePointsByName?: Record<string, PricePoint[]>;
   pricesByIndex?: Record<string, PricePoint[]>;
+  warmUpStartForConfig?: (config: EtfConfig) => string;
   onProgress?: (completedUnits: number, totalUnits: number, label?: string) => void;
 }): Promise<BacktestResult> {
   const { prices, endDate, pricesByIndex } = capToCommonClose(
@@ -153,11 +163,15 @@ export async function runParallelBacktest({
     startDate,
     etfPricePointsByName
   );
-  const groups = groupBySmaIndex(configs);
-  const pricesFor = (smaIndex: EtfConfig["smaIndex"]) => pricesByIndex?.[smaIndex] ?? prices;
-  const unitsFor = (smaIndex: EtfConfig["smaIndex"], groupConfigs: EtfConfig[]) =>
-    Math.max(1, pricesFor(smaIndex).length - 1) * expandedConfigCount(groupConfigs);
-  const totalUnits = groups.reduce((sum, [smaIndex, groupConfigs]) => sum + unitsFor(smaIndex, groupConfigs), 0);
+  const groups = groupByIndexAndWarmUp(configs, warmUpStartForConfig).map((group) => {
+    const indexPrices = pricesByIndex?.[group.index] ?? prices;
+    const { warmUpStart } = group;
+    const first = warmUpStart ? indexPrices.findIndex((point) => point.date >= warmUpStart) : 0;
+    const groupPrices = first > 0 ? indexPrices.slice(first) : indexPrices;
+    const units = Math.max(1, groupPrices.length - 1) * expandedConfigCount(group.configs);
+    return { ...group, prices: groupPrices, units };
+  });
+  const totalUnits = groups.reduce((sum, group) => sum + group.units, 0);
   let completedUnits = 0;
 
   // Run each index group through simulateWithWarmUp and collect etfResults.
@@ -168,8 +182,7 @@ export async function runParallelBacktest({
   // their alias maps merge without collision.
   const allEtfResultIdAliases: Record<string, string> = {};
 
-  for (const [smaIndex, groupConfigs] of groups) {
-    const groupPrices = pricesFor(smaIndex);
+  for (const { index: smaIndex, configs: groupConfigs, prices: groupPrices, units } of groups) {
     const label = indexProgressLabel(smaIndex);
     const result = simulateWithWarmUp(
       groupPrices,
@@ -200,7 +213,7 @@ export async function runParallelBacktest({
       allEtfResults.push(trimEtfResultToStartDate(etfResult, effectiveSeriesStartDate, groupConfig));
     }
     Object.assign(allEtfResultIdAliases, result.etfResultIdAliases);
-    completedUnits += unitsFor(smaIndex, groupConfigs);
+    completedUnits += units;
     onProgress?.(Math.min(totalUnits, completedUnits), totalUnits, label);
   }
 

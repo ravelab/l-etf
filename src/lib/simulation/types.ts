@@ -70,6 +70,8 @@ export interface EtfResult {
   id: string;
   name: string;
   sourceIndex: "sp500" | "nasdaq100";
+  /** Timing rule for a completed Extra Strategies sleeve. */
+  signalRule?: string;
   dates: string[];
   dailyValues: number[];
   finalValue: number;

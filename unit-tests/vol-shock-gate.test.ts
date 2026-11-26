@@ -70,9 +70,8 @@ test("added to SMA + vol + RSI, a calm-to-violent spike forces a shock exit and 
   assert.ok(exit > 451 && exit < 470, "exits during the spike");
 });
 
-test("registered as the NDX rule with the chosen gate, keeping its triggers", () => {
+test("registered with the NDX-tuned gate, keeping its triggers", () => {
   assert.equal(getSignalRule("ndx-sma-vol-shock"), NDX_SMA_VOL_SHOCK_RULE);
-  assert.deepEqual(NDX_SMA_VOL_SHOCK_RULE.indices, ["nasdaq100"]);
   assert.deepEqual(NDX_VOL_SHOCK_GATE, GATE);
   assert.equal(lineWarmUpDays({ smaEnabled: true, smaPeriod: 136, signalRule: NDX_SMA_VOL_SHOCK_RULE.id }), 378);
 

@@ -110,15 +110,17 @@ test("the rule's regime is the confirmed verdict, and it warms up for its longes
   assert.deepEqual(runSignalRule(NDX_THREE_GATE_RULE, dates, closes, LINE).signals.map((s) => s.type), ["buy", "sell", "buy"]);
 });
 
-test("ticked on a UPRO+TQQQ run, it adds one TQQQ 3-Gate line on the TQQQ line's risk-off", () => {
+test("ticked on a UPRO+TQQQ run, it adds a 3-Gate line on each line's risk-off asset", () => {
   const upro = createPresetEtfConfig("etf1", ETF_PRESETS.UPRO, { smaEnabled: true, riskOffAsset: "BRK.B+GLDM" });
   const tqqq = createPresetEtfConfig("etf2", ETF_PRESETS.TQQQ, {
     smaEnabled: true, smaPeriod: 136, smaUpperBuffer: 9.6, smaLowerBuffer: 17.9, smaVolGate: true, riskOffAsset: "VGSH",
   });
   const configs = withSignalRuleLines([upro, tqqq], [NDX_THREE_GATE_RULE.id]);
-  assert.equal(configs.length, 3);
-  assert.equal(configs[2].signalRule, "ndx-3-gate");
-  assert.equal(configs[2].riskOffAsset, "VGSH");
+  assert.equal(configs.length, 4);
+  assert.deepEqual(configs.slice(2).map((config) => [config.signalRule, config.riskOffAsset]), [
+    ["ndx-3-gate", "BRK.B+GLDM"],
+    ["ndx-3-gate", "VGSH"],
+  ]);
 
   const closes = path(DIP_AND_RECOVER);
   const dates = isoDates(closes.length);
@@ -126,10 +128,10 @@ test("ticked on a UPRO+TQQQ run, it adds one TQQQ 3-Gate line on the TQQQ line's
   const result = simulateBacktest(
     closes.map((close, i) => ({ date: dates[i], adj_close: close, close, open: close, adj_open: close })),
     [{ date: dates[0], rateType: "borrow", rateValue: 0.02 }],
-    configs.slice(1),
+    configs.filter((config) => config.smaIndex === "nasdaq100"),
     { riskOffValuesByAsset: { VGSH: vgsh }, riskOffOpenValuesByAsset: { VGSH: vgsh } }
   );
-  const line = findEtfResult(result, "etf3-sma");
+  const line = findEtfResult(result, "etf4-sma");
   assert.equal(line?.name, "TQQQ (3-Gate, VGSH)");
   assert.equal(shortBacktestAssetLabel(line!.name), "TQQQ 3-Gate");
   assert.deepEqual(line?.smaSignals, runSignalRule(NDX_THREE_GATE_RULE, dates, closes, LINE).signals);

@@ -37,6 +37,7 @@ export const SMA_RATE_SHOCK_RULE: SignalRule = {
     "The default SMA band, vol gate and RSI brake, plus a rate-hike exit: out while the short rate (21-day mean) is " +
     "up more than 2 points on 63 trading days earlier, back once that change turns negative. It has fired 13 times " +
     "since 1885, last in 1982, so it changes nothing after 1985: crash insurance for 1970s-style tightening.",
+  sourceUrl: "https://github.com/ravelab/l-etf/blob/44a32af78e483dbea742da11e61dd2cabafac4ca/src/lib/simulation/rate-hike-shock.ts",
   // The twin's own SMA warm-up: the band, vol gate and RSI brake must start from the
   // same first close as the line they twin, and the rate gate reads bundled episodes.
   warmUpDays: 0,

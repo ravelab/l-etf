@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import { getRiskOffSpread } from "@/lib/constants";
 import {
   composeLetfDualSleeveFund,
+  findLetfComboSleeves,
   heldRiskOnByDay,
   LETF_FUND_RESULT_ID,
   withLetfComboFund,
 } from "@/lib/simulation/letf-dual-sleeve";
+import { letfComboFundHoldings } from "@/lib/simulation/letf-fund-holdings";
 import { runParallelBacktest } from "@/lib/simulation/parallel-backtest";
+import { withSignalRuleLines } from "@/lib/simulation/signal-rules";
 import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
 import { shortBacktestAssetLabel } from "@/lib/strategy-page-data";
 import type { BacktestResult, EtfResult, PricePoint, SmaSignal } from "@/lib/simulation/types";
@@ -84,13 +87,14 @@ const NQ = points([200, 203, 206, 209, 212, 215, 180, 160, 150, 148, 147, 150, 1
 const SGOV = points(SP.map(() => 100));
 const RATES = [{ date: SP[0].date, rateType: "borrow", rateValue: 0.02 }];
 
-async function comboRun(displayStartDates: [string?, string?] = []): Promise<BacktestResult> {
+async function comboRun(displayStartDates: [string?, string?] = [], extras: string[] = []): Promise<BacktestResult> {
   const configs = (["UPRO", "TQQQ"] as const).map((name, k) => createPresetEtfConfig(`etf${k + 1}`, ETF_PRESETS[name], {
     smaEnabled: true, smaPeriod: 3, smaUpperBuffer: 0, smaLowerBuffer: 0, riskOffAsset: "SGOV",
     ...(displayStartDates[k] ? { displayStartDate: displayStartDates[k] } : {}),
   }));
   return runParallelBacktest({
-    prices: SP, rates: RATES, startDate: SP[0].date, endDate: SP.at(-1)!.date, configs,
+    prices: SP, rates: RATES, startDate: SP[0].date, endDate: SP.at(-1)!.date,
+    configs: withSignalRuleLines(configs, extras),
     pricesByIndex: { sp500: SP, nasdaq100: NQ }, riskOffPricesByAsset: { SGOV },
   });
 }
@@ -141,4 +145,33 @@ test("with SPX/NDX start the fund opens on the later sleeve's start", async () =
   assert.deepEqual(fund.dates, reference.dates);
   fund.dailyValues.forEach((value, i) => assert.ok(near(value, reference.dailyValues[i]), `${fund.dates[i]}: ${value} vs ${reference.dailyValues[i]}`));
   assert.ok(near(fund.finalValue, reference.finalValue));
+});
+
+test("each selected extra forms its own fund from matching sleeves, assets and dates", async () => {
+  const later = SP[4].date;
+  const run = { letf: "UPRO+TQQQ", spxRiskOffAsset: "SGOV", ndxRiskOffAsset: "SGOV" };
+  const gate = "sma-6mo-drawdown";
+  const shield = "ndx-trend-shield";
+  const result = await comboRun([later, SP[0].date], [gate, shield]);
+  const shown = withLetfComboFund(result, run)!;
+  const gateId = `${LETF_FUND_RESULT_ID}:${gate}`;
+  const shieldId = `${LETF_FUND_RESULT_ID}:${shield}`;
+  assert.deepEqual(shown.etfResults.slice(0, 3).map((etf) => etf.id), [LETF_FUND_RESULT_ID, gateId, shieldId]);
+  const found = findLetfComboSleeves(shown, run, gateId)!;
+  assert.deepEqual([found.spxSleeve.signalRule, found.ndxSleeve.signalRule], [gate, gate]);
+  assert.deepEqual([found.spxRiskOffAsset, found.ndxRiskOffAsset], ["SGOV", "SGOV"]);
+  const shieldSleeves = findLetfComboSleeves(shown, run, shieldId)!;
+  assert.deepEqual([shieldSleeves.spxRiskOffAsset, shieldSleeves.ndxRiskOffAsset], ["VGSH", "VGSH"]);
+  const fund = shown.etfResults[1];
+  assert.match(fund.name, /50\/50.*Drawdown Gate/);
+  assert.equal(fund.dates[0], later);
+  assert.equal(fund.taxSchedule?.startValues.length, 2);
+  const holdings = letfComboFundHoldings(shown, run, { SGOV }, gateId)!;
+  assert.deepEqual(holdings.dates, fund.dates);
+  fund.dailyValues.forEach((value, i) => {
+    assert.ok(near(value, holdings.assets.reduce((sum, asset) => sum + holdings.values[asset][i], 0)));
+  });
+
+  const missing = { ...result, etfResults: result.etfResults.filter((etf) => etf.id !== found.ndxSleeve.id) };
+  assert.equal(withLetfComboFund(missing, run)?.etfResults.some((etf) => etf.id === gateId), false);
 });

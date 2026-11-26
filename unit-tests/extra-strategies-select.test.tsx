@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { ExtraStrategiesSelect } from "@/components/tools/ExtraStrategiesSelect";
 
 const RULES = [
@@ -41,6 +42,25 @@ describe("ExtraStrategiesSelect", () => {
     expect(onChange).toHaveBeenLastCalledWith(["a", "b"]);
     fireEvent.click(screen.getByLabelText("Rule B"));
     expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("selects and clears all rules while keeping the dropdown open", () => {
+    function Picker() {
+      const [selected, setSelected] = useState<string[]>([]);
+      return <ExtraStrategiesSelect rules={RULES} selected={selected} onChange={setSelected} />;
+    }
+    render(<Picker />);
+    const panel = within(open());
+    const selectAll = panel.getByRole<HTMLButtonElement>("button", { name: "Select all" });
+    const clearAll = panel.getByRole<HTMLButtonElement>("button", { name: "Clear all" });
+    expect(clearAll.disabled).toBe(true);
+    fireEvent.click(selectAll);
+    expect(panel.getAllByRole<HTMLInputElement>("checkbox").every((box) => box.checked)).toBe(true);
+    expect(selectAll.disabled).toBe(true);
+    expect(screen.getByTestId("extra-strategies").textContent).toContain("All 2 selected");
+    fireEvent.click(clearAll);
+    expect(panel.getAllByRole<HTMLInputElement>("checkbox").every((box) => !box.checked)).toBe(true);
+    expect(screen.getByTestId("extra-strategies").textContent).toContain("None");
   });
 
   it("links a rule's source in a new tab, outside its checkbox label", () => {

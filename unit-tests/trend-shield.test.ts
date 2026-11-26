@@ -4,14 +4,15 @@ import { createPresetEtfConfig, ETF_PRESETS } from "@/lib/simulation/presets";
 import { runSignalRule, withSignalRuleLines } from "@/lib/simulation/signal-rules";
 import { NDX_TREND_SHIELD_RULE as rule } from "@/lib/simulation/trend-shield";
 
-test("Trend & Shield adds an NDX-only line with fixed VGSH", () => {
+test("Trend & Shield adds a line with fixed VGSH for each index", () => {
   const upro = createPresetEtfConfig("etf1", ETF_PRESETS.UPRO, { smaEnabled: true });
   const tqqq = createPresetEtfConfig("etf2", ETF_PRESETS.TQQQ, { smaEnabled: true, riskOffAsset: "SGOV" });
   const configs = withSignalRuleLines([upro, tqqq], [rule.id]);
-  assert.equal(configs.length, 3);
+  assert.equal(configs.length, 4);
   assert.equal(configs[1].riskOffAsset, "SGOV");
-  assert.equal(configs[2].smaIndex, "nasdaq100");
-  assert.equal(configs[2].riskOffAsset, "VGSH");
+  assert.deepEqual(configs.slice(2).map((config) => [config.smaIndex, config.riskOffAsset]), [
+    ["sp500", "VGSH"], ["nasdaq100", "VGSH"],
+  ]);
 });
 
 test("Trend & Shield takes an oversold bounce, stops out, and shields a volatility spike", () => {

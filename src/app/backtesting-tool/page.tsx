@@ -42,7 +42,6 @@ import { isAbortError, throwIfAborted } from "@/lib/abort";
 import { annualizedInflationForRange } from "@/lib/inflation";
 import { SharedToolInputs } from "@/components/tools/SharedToolInputs";
 import { StrategyRealReturnSections } from "@/components/tools/StrategyRealReturnSections";
-import { LETF_FUND_RESULT_ID } from "@/lib/simulation/letf-dual-sleeve";
 import { useStrategyReferenceData } from "@/lib/hooks/use-strategy-reference-data";
 import { SimulationRunSummary } from "@/components/tools/SimulationRunSummary";
 import type { RunSummary } from "@/lib/run-summary";
@@ -72,7 +71,7 @@ import {
 } from "@/lib/per-index-start";
 import { alignCloseSeriesToDates } from "@/lib/utils";
 import { effectiveStartDateFromAlignedSeries } from "@/lib/simulation/effective-start";
-import { withLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
+import { isLetfComboFundResultId, withLetfComboFund } from "@/lib/simulation/letf-dual-sleeve";
 import { getTaxRates, useTaxRates } from "@/lib/hooks/use-tax-rates";
 import {
   DEFAULT_EXTRA_STRATEGY_IDS,
@@ -595,8 +594,11 @@ export function BacktestingPageContent({
     setIndex(ETF_PRESETS[validPreset]?.index ?? "sp500");
   }, [letf, initialized, setIndex]);
 
+  // Compose from the completed run, including when restored from the cache or snapshot.
+  const displayResult = useMemo(() => withLetfComboFund(result, runSummary), [result, runSummary]);
+
   useEffect(() => {
-    if (!result) {
+    if (!displayResult) {
       if (expandedSmaCharts.length > 0) {
         Promise.resolve().then(() => {
           setExpandedSmaCharts([]);
@@ -604,15 +606,14 @@ export function BacktestingPageContent({
       }
       return;
     }
-    // The fund row is added on display, so its id is never in the raw result.
-    const validIds = new Set([...result.etfResults.map((etf) => etf.id), LETF_FUND_RESULT_ID]);
+    const validIds = new Set(displayResult.etfResults.map((etf) => etf.id));
     Promise.resolve().then(() => {
       setExpandedSmaCharts((current) => {
         const next = current.filter((id) => validIds.has(id));
         return next.length === current.length ? current : next;
       });
     });
-  }, [result, expandedSmaCharts.length]);
+  }, [displayResult, expandedSmaCharts.length]);
 
   const updateUrl = useCallback(() => {
     const urlParams = new URLSearchParams();
@@ -908,6 +909,7 @@ export function BacktestingPageContent({
         riskOffPricesByAsset: riskOffSeriesByAsset,
         etfPricePointsByName,
         pricesByIndex,
+        warmUpStartForConfig: warmUp.startForConfig,
         onProgress: (completedUnits, totalUnits, label) => {
           const fraction = totalUnits > 0 ? completedUnits / totalUnits : 0;
           const pct = 55 + Math.max(0, Math.min(1, fraction)) * 23;
@@ -1185,10 +1187,6 @@ export function BacktestingPageContent({
     max: INDEX_DATE_RANGES.sp500.max < INDEX_DATE_RANGES.nasdaq100.max ? INDEX_DATE_RANGES.sp500.max : INDEX_DATE_RANGES.nasdaq100.max,
   };
 
-  // The UPRO+TQQQ fund is derived from the run's two SMA sleeves, so cached runs and
-  // the canned snapshot show it too. Keyed on the last run's preset, not the form's.
-  const displayResult = useMemo(() => withLetfComboFund(result, runSummary), [result, runSummary]);
-
   const indexSeriesForDisplay = smaMode !== 0 ? underlyingIndexSeries : EMPTY_UNDERLYING_INDEX_SERIES;
 
   /**
@@ -1430,10 +1428,10 @@ export function BacktestingPageContent({
             />
             {smaMode !== 0 && displayResult.etfResults
               .map((etf, i) => ({ etf, i }))
-              .filter(({ etf }) => etf.smaPrices.length > 0 || etf.id === LETF_FUND_RESULT_ID)
+              .filter(({ etf }) => etf.smaPrices.length > 0 || isLetfComboFundResultId(etf.id))
               .map(({ etf, i }) => {
               const isExpanded = expandedSmaCharts.includes(etf.id);
-              const isFund = etf.id === LETF_FUND_RESULT_ID;
+              const isFund = isLetfComboFundResultId(etf.id);
               return (
                 <div key={etf.id} className="rounded-lg border border-card-border bg-card-bg">
                   <button
@@ -1452,8 +1450,8 @@ export function BacktestingPageContent({
                       {isFund ? (
                         <LetfFundDetails
                           result={displayResult}
+                          fundId={etf.id}
                           run={runSummary}
-                          etfConfigs={resolvedEtfConfigs}
                           datesByEtfId={datesByEtfId}
                           closePricesByEtfId={closePricesByEtfId}
                           openPricesByEtfId={openPricesByEtfId}

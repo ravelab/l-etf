@@ -99,11 +99,12 @@ function orderAssets(seen: Set<string>, sleeveAssets: ReadonlyArray<readonly str
 export function letfComboFundHoldings(
   result: BacktestResult | null,
   run: LetfComboRun | null,
-  pricesByTicker: Record<string, PricePoint[]>
+  pricesByTicker: Record<string, PricePoint[]>,
+  fundId?: string
 ): LetfFundHoldings | null {
-  const found = findLetfComboSleeves(result, run);
-  if (!found || !run) return null;
-  const { sleeves, letfNames } = alignLetfComboSleeves({ ...found, ...run });
+  const found = findLetfComboSleeves(result, run, fundId);
+  if (!found) return null;
+  const { sleeves, letfNames } = alignLetfComboSleeves(found);
   if (sleeves.some(({ result: r }) => r.dates.length < 2 || !(r.dailyValues[0] > 0))) return null;
   if (sleeves[0].result.dates[0] !== sleeves[1].result.dates[0]) return null;
 

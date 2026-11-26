@@ -14,20 +14,19 @@ function run(dates: string[], closes: number[], line: SignalRuleLine) {
 }
 
 /**
- * The default NDX SMA Vol strategy (band, vol gate and RSI brake) with the
- * volatility-shock gate added as a further exit, so the two lines differ only in
- * that gate. See `vol-shock-gate.ts` for how its parameters were chosen.
+ * Uses the line's nominal SMA band and index-specific vol gate and RSI brake,
+ * with an additional volatility-shock gate tuned on NDX.
  */
 export const NDX_SMA_VOL_SHOCK_RULE: SignalRule = {
   id: "ndx-sma-vol-shock",
   label: "SMA Vol RSI Shock",
-  title: "NDX SMA Vol RSI + Shock",
+  title: "SMA Vol RSI + Volatility Shock",
   description:
-    "The default NDX SMA band, vol gate and RSI brake, plus a volatility-shock exit: out while 20-day volatility " +
-    "is 1.2x or more its 375-day level, back once it is under 0.9x, each change held two closes. It trades about " +
-    "a point of CAGR for a much smaller drawdown and switches ~2.7 times a year.",
+    "Adds an NDX-tuned volatility shock gate to the line's nominal SMA band, vol gate and RSI brake. " +
+    "Go out when 20-day volatility reaches 1.2× its 375-day level and release below 0.9×. Each change " +
+    "requires two consecutive closes.",
+  sourceUrl: "https://github.com/ravelab/l-etf/blob/b21c33304a5cb2d9f2e729607aa5f03e5baa3c8a/src/lib/simulation/vol-shock-gate.ts",
   warmUpDays: NDX_VOL_SHOCK_GATE.baselineDays + NDX_VOL_SHOCK_GATE.confirmDays + 1,
-  indices: ["nasdaq100"],
   regime: (dates, closes, line) => run(dates, closes, line).invested,
   signals: (dates, closes, line) => run(dates, closes, line).signals,
   smaValues: (_dates, closes, line) => computeSma(closes, line.smaPeriod),

@@ -27,9 +27,8 @@ function path(): number[] {
   return out;
 }
 
-test("registered as the NDX-only 9d 46%/40% gate", () => {
+test("registered with the 9d 46%/40% gate", () => {
   assert.equal(getSignalRule("ndx-sma-vol-9d"), NDX_SMA_VOL_ARGMAX_RULE);
-  assert.deepEqual(NDX_SMA_VOL_ARGMAX_RULE.indices, ["nasdaq100"]);
   assert.deepEqual(NDX_ARGMAX_VOL_GATE, { windowDays: 9, exitAbove: 0.46, reenterBelow: 0.4 });
 });
 
@@ -38,10 +37,14 @@ test("it is the line's own SMA band and RSI brake with only the vol gate swapped
   const dates = isoDates(closes.length);
   const band = { upper: LINE.smaUpperBuffer, lower: LINE.smaLowerBuffer };
   const regime = NDX_SMA_VOL_ARGMAX_RULE.regime(dates, closes, LINE);
-  assert.deepEqual(
-    regime,
-    generateSmaSignals(dates, closes, LINE.smaPeriod, band, { volGate: NDX_ARGMAX_VOL_GATE, rsiBrake: SMA_RSI_BRAKE.nasdaq100 }).invested
-  );
+  for (const smaIndex of ["nasdaq100", "sp500"] as const) {
+    assert.deepEqual(
+      NDX_SMA_VOL_ARGMAX_RULE.regime(dates, closes, { ...LINE, smaIndex }),
+      generateSmaSignals(dates, closes, LINE.smaPeriod, band, {
+        volGate: NDX_ARGMAX_VOL_GATE, rsiBrake: SMA_RSI_BRAKE[smaIndex],
+      }).invested,
+    );
+  }
   const shipped = generateSmaSignals(dates, closes, LINE.smaPeriod, band, smaRiskOffGates("nasdaq100")).invested;
   assert.ok(shipped.slice(200).every(Boolean), "~48% vol never trips the shipped 50% exit");
   assert.ok(regime.slice(200).some((v) => !v), "but trips the 46% exit");
