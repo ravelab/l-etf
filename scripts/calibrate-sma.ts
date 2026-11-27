@@ -81,11 +81,15 @@ import {
 import { getLatestSharedTradeDate } from "./lib/sweep-data";
 import { rankStableSmaCandidates } from "../src/lib/simulation/sma-stability-score";
 import type { IndexKey } from "../src/lib/simulation/types";
-import { readSmaArtifact } from "./lib/sma-artifacts";
+import { readSmaArtifact, smaArtifactPath } from "./lib/sma-artifacts";
 import { buildSmaCalibrationResult, scoreSelectedCalibrationBand, selectedCalibrationBand } from "./lib/sma-calibration-result";
+import { rescoreSavedPresets } from "./lib/sma-preset-rescore";
+import { alternateGatesPreset } from "./lib/sma-preset-era-cagrs";
+import { DEFAULT_RISK_OFF_ASSETS } from "../src/lib/simulation/defaults";
 
 const savedPresets = readSmaArtifact("sma-cagr-presets");
 const savedCalibration = readSmaArtifact("sma-calibration");
+const refreshPublished = process.argv.includes("--refresh-published");
 
 const PERIOD_BOUNDS = { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD };
 const BUFFER_BOUNDS = { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER };
@@ -181,7 +185,7 @@ async function calibrateIndex(
     maxPeriod: SMA_SEARCH_MAX_PERIOD,
   });
   const selected = selectedCalibrationBand(indexKey, SMA_CALIBRATION_INFLATION_ADJUSTED[indexKey]);
-  if (selected) return scoreSelectedCalibrationBand(eras, selected);
+  if (selected || refreshPublished) return scoreSelectedCalibrationBand(eras, selected ?? savedCalibration[indexKey]);
 
   const seen = new Set<string>();
   const evaluated: EraEvaluatedCombo[] = [];
@@ -394,7 +398,7 @@ async function calibrateIndex(
 async function main(): Promise<void> {
   const endDate = await getLatestSharedTradeDate(["sp500", "nasdaq100", "risk:SGOV"]);
   const windowLength = calibrationYears("sp500", endDate);
-  const searchSpace = await readSmaSearchSpaceSnapshot();
+  const searchSpace = refreshPublished ? null : await readSmaSearchSpaceSnapshot();
 
   console.log(`[calibrate-sma] Calibrating to ${endDate} (one full observed window per index; no wrap)`);
   console.log(
@@ -406,7 +410,8 @@ async function main(): Promise<void> {
     );
   }
   console.log(
-    searchSpace
+    refreshPublished ? "[calibrate-sma] Refreshing published bands and presets"
+    : searchSpace
       ? `[calibrate-sma] Seeded by sma-search-space.json (generated ${searchSpace.generatedAt}, buffer step ${searchSpace.grid.bufferStep}%)`
       : "[calibrate-sma] No sma-search-space.json — using the coarse fallback scan. Run `npm run explore-sma` for a sharper search."
   );
@@ -424,6 +429,35 @@ async function main(): Promise<void> {
     sp500,
     nasdaq100,
   };
+
+  if (refreshPublished) {
+    const withBand = <T extends SmaCombo>(preset: T, { smaPeriod, smaUpperBuffer, smaLowerBuffer }: SmaCombo): T =>
+      ({ ...preset, smaPeriod, smaUpperBuffer, smaLowerBuffer });
+    const refreshed = await rescoreSavedPresets({
+      ...savedPresets,
+      endDate,
+      windowLength,
+      riskOffAssets: DEFAULT_RISK_OFF_ASSETS,
+      inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED,
+      presets: savedPresets.presets.map((preset) => preset.isCalibratedDefault
+        ? {
+            ...preset,
+            sp500: withBand(preset.sp500, sp500),
+            nasdaq100: withBand(preset.nasdaq100, nasdaq100),
+          }
+        : preset),
+    });
+    const presets = {
+      ...refreshed,
+      generatedAt: payload.generatedAt,
+      refreshedPublishedBandsAt: payload.generatedAt,
+      selection: "Published bands rescored with current prices. Alternative 3 preserves the former inflation-adjusted SPX band and gates.",
+      alternateGates: await alternateGatesPreset(payload, refreshed.startDate, endDate),
+    };
+    const path = smaArtifactPath("sma-cagr-presets");
+    writeFileSync(path, `${JSON.stringify(presets, null, 2)}\n`);
+    console.log(`[calibrate-sma] Wrote ${path}`);
+  }
 
   mkdirSync(dirname(SMA_CALIBRATION_SNAPSHOT_PATH), { recursive: true });
   // Trailing newline keeps the artifact POSIX-clean, so re-running does not show

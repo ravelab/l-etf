@@ -122,8 +122,10 @@ Fixing it moves every SMA result, the calibration and all snapshots.
 
 Monthly calibration becomes due on the first Monday in New York and stays due
 through month-end until a cron-triggered production build records success.
-Generate canned snapshots after both SMA calibrations: the generator reads the
-site default band from the calibration on disk.
+The production build runs `npm run calibrate-sma -- --refresh-published` for each variant
+to rescore the published bands and refresh Signals presets on the same observed
+end date. Generate canned snapshots after both runs so they use those bands.
+Manual searches can still reselect bands.
 
 The inflation-adjusted defaults use the selected 202-day SPX band (−11.5%/+0.5%)
 and 158-day NDX band (−19%/+7%). Calibration and preset generation take these

@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-27T19:42:53.253Z",
-  "endDate": "2026-11-19",
-  "windowLength": 38.620123203285424,
+  "generatedAt": "2026-11-27T19:47:53.636Z",
+  "endDate": "2026-11-23",
+  "windowLength": 38.63107460643395,
   "sp500": {
     "startDate": "1988-04-06",
-    "windowLength": 38.620123203285424,
+    "windowLength": 38.63107460643395,
     "historyWrap": false,
     "eraWeights": {
       "start": 100
@@ -12,26 +12,26 @@
     "riskOffAsset": "BRK.B+GLDM+VGSH",
     "inflationAdjusted": true,
     "scoresByEra": {
-      "start": 7353.737236971419
+      "start": 7341.220368195838
     },
     "smaPeriod": 202,
     "smaUpperBuffer": 0.5,
     "smaLowerBuffer": 11.5,
     "smaOnlySwitches": 19,
-    "score": 7353.737236971419,
-    "baseScore": 7353.737236971419,
+    "score": 7341.220368195838,
+    "baseScore": 7341.220368195838,
     "stabilityPenalty": 0,
-    "avgReturn": 22.683857125334338,
-    "worstReturn": 22.683857125334338,
+    "avgReturn": 22.671789901681816,
+    "worstReturn": 22.671789901681816,
     "avgMaxDrawdown": 50.26238511437675,
     "avgTrades": 48,
     "evaluatedCombos": 27,
-    "neighborhoodMinScore": 7249.7295209967415,
-    "neighborhoodMedianScore": 7353.737236971419
+    "neighborhoodMinScore": 7237.357476102425,
+    "neighborhoodMedianScore": 7341.220368195838
   },
   "nasdaq100": {
     "startDate": "1985-01-31",
-    "windowLength": 41.79876796714579,
+    "windowLength": 41.80971937029432,
     "historyWrap": false,
     "eraWeights": {
       "start": 100
@@ -39,21 +39,21 @@
     "riskOffAsset": "BRK.B+GLDM+VGSH",
     "inflationAdjusted": true,
     "scoresByEra": {
-      "start": 19719.36613146469
+      "start": 19686.503520217593
     },
     "smaPeriod": 158,
     "smaUpperBuffer": 7,
     "smaLowerBuffer": 19,
     "smaOnlySwitches": 10,
-    "score": 19719.36613146469,
-    "baseScore": 19719.36613146469,
+    "score": 19686.503520217593,
+    "baseScore": 19686.503520217593,
     "stabilityPenalty": 0,
-    "avgReturn": 35.9110145277759,
-    "worstReturn": 35.9110145277759,
+    "avgReturn": 35.895300419788946,
+    "worstReturn": 35.895300419788946,
     "avgMaxDrawdown": 54.077633915526334,
     "avgTrades": 113,
     "evaluatedCombos": 27,
-    "neighborhoodMinScore": 19003.07658381496,
-    "neighborhoodMedianScore": 19719.36613146469
+    "neighborhoodMinScore": 18971.07970405642,
+    "neighborhoodMedianScore": 19686.503520217593
   }
 }

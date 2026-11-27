@@ -190,9 +190,8 @@ async function main() {
     console.log(
       `[build:vercel] Running SMA calibration (${forceSmaCalibration ? "forced" : "monthly Deploy Hook build"})`
     );
-    run("npm run calibrate-sma");
-    // The inflation-adjusted set (`sma-calibration-variant.ts`), offered beside it on the Signals page.
-    run("SMA_CALIBRATION_VARIANT=inflation npm run calibrate-sma");
+    run("npm run calibrate-sma -- --refresh-published");
+    run("SMA_CALIBRATION_VARIANT=inflation npm run calibrate-sma -- --refresh-published");
   } else {
     console.log(
       `[build:vercel] Skipping SMA calibration (${monthly.reason})`

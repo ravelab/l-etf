@@ -196,7 +196,7 @@ test(`${variant} preset selection uses full-period scores, stability penalties a
     const selected = selectedCalibrationBand(index, inflationAdjusted);
     if (selected) {
       assert.equal(comboKey(actualDefault), comboKey(selected));
-    } else {
+    } else if (!Object.hasOwn(snapshot, "refreshedPublishedBandsAt")) {
       assert.ok(actualDefault.score >= snapshot.bestFound[index].score - 1e-8,
         `${index} calibrated default must include the manual search's strongest discovery`);
     }
