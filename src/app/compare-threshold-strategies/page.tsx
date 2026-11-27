@@ -417,22 +417,27 @@ export function CompareBufferStrategiesPageContent({
       smaVolGate, smaInflationAdjusted,
     });
 
-    // Append the coarse asymmetric (upper × lower) configs for this preset so the
-    // worker pool sees symmetric + coarse asym as one batch. precomputeAllConfigDailyValues
-    // runs once across the combined set instead of twice.
+    // Append the coarse asymmetric configs to the symmetric batch. Give each
+    // row type a separate range so low-upper cells cannot leak into the symmetric table.
+    const baselineParamValue = -1;
+    const paramValues = Object.fromEntries(items.map(({ config, paramValue }) => [
+      config.id, config.id === "baseline" ? baselineParamValue : paramValue,
+    ]));
+    const coarsePointByParam = new Map<number, { upper: number; lower: number; encoded: number }>();
     const coarseAsymPoints = asymCoarsePointsByPresetRef.current.get(presetDef.name) ?? [];
-    for (const p of coarseAsymPoints) {
-      items.push(
-        makeAsymmetricSweepItem({
-          preset: presetDef,
-          riskOffAsset: riskOffAssets[presetDef.index],
-          smaPeriod: period,
-          upper: p.upper,
-          lower: p.lower,
-          variant: "coarse",
-          smaVolGate, smaInflationAdjusted,
-        }),
-      );
+    for (const point of coarseAsymPoints) {
+      const item = makeAsymmetricSweepItem({
+        preset: presetDef,
+        riskOffAsset: riskOffAssets[presetDef.index],
+        smaPeriod: period,
+        ...point,
+        variant: "coarse",
+        smaVolGate, smaInflationAdjusted,
+      });
+      const sweepParam = -2 - item.paramValue;
+      coarsePointByParam.set(sweepParam, { ...point, encoded: item.paramValue });
+      paramValues[item.config.id] = sweepParam;
+      items.push(item);
     }
 
     const allSweepRows = await runParallelSimulations({
@@ -453,21 +458,17 @@ export function CompareBufferStrategiesPageContent({
         }),
     }) as SmaComparisonRow[];
 
-    // Split rows by parameterValue magnitude. Asym configs encode (upper, lower) as
-    // `upper*100 * 10000 + lower*100`, so any non-trivial pair is >= 10000 — well
-    // above the symmetric range (0..30). Threshold of 1000 is a safe boundary.
-    const ASYM_THRESHOLD = 1000;
     const symRows: SmaComparisonRow[] = [];
     const asymRowsForPreset: AsymmetricSweepRow[] = [];
     let bl: SmaComparisonRow | null = null;
     for (const row of allSweepRows) {
-      if (row.parameterValue >= ASYM_THRESHOLD) {
-        const encoded = row.parameterValue;
-        const l = encoded % 10000;
-        const u = (encoded - l) / 10000;
-        asymRowsForPreset.push({ ...row, upperBuffer: u / 100, lowerBuffer: l / 100, stage: "coarse" });
-      } else if (bl === null) {
-        bl = row;
+      const point = coarsePointByParam.get(row.parameterValue);
+      if (point) {
+        asymRowsForPreset.push({
+          ...row, parameterValue: point.encoded, upperBuffer: point.upper, lowerBuffer: point.lower, stage: "coarse",
+        });
+      } else if (row.parameterValue === baselineParamValue) {
+        bl = { ...row, parameterValue: 0 };
       } else {
         symRows.push(row);
       }

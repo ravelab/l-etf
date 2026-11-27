@@ -89,6 +89,8 @@ import {
 import { buildFuturesRunPlans, runFuturesPlan } from "../src/lib/simulation/futures-run-plan";
 import type { DailyAssetValues } from "../src/lib/simulation/futures-asset-values";
 import { DEFAULT_EXTRA_STRATEGY_IDS, withSignalRuleLines } from "../src/lib/simulation/signal-rules";
+import { getMarketDataWarmUpStartDate } from "../src/lib/fetch-market-data";
+import { buildSymmetricBufferSweepItems, makeAsymmetricSweepItem } from "../src/lib/simulation/sweep-items";
 import { warmUpStartDatesByIndex } from "../src/lib/simulation/warm-up-by-index";
 import { validateSimulationReadyPrices } from "../src/lib/utils";
 import { precomputeAllConfigDailyValues } from "../src/lib/simulation/precompute";
@@ -521,7 +523,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
   const leverageTolerancePct = DEFAULT_LEVERAGE_TOLERANCE_PCT;
   const microFutures = DEFAULT_MICRO_FUTURES;
 
-  const warmedStartDate = getSmaWarmupStartDate(
+  const warmedStartDate = getMarketDataWarmUpStartDate(
     startDate,
     Math.max(shared.smaSpPeriod, shared.smaNqPeriod),
   );
@@ -598,12 +600,14 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
         upperBuffer: shared.smaSpUpperBuffer,
         lowerBuffer: shared.smaSpLowerBuffer,
         volGate: shared.smaVolGate,
+        inflationAdjusted: shared.smaInflationAdjusted,
       },
       nasdaq100: {
         period: shared.smaNqPeriod,
         upperBuffer: shared.smaNqUpperBuffer,
         lowerBuffer: shared.smaNqLowerBuffer,
         volGate: shared.smaVolGate,
+        inflationAdjusted: shared.smaInflationAdjusted,
       },
     },
     dualRiskOffAssets,
@@ -628,6 +632,7 @@ async function buildFuturesSnapshot(shared: SharedInputs) {
     smaPeriod: sma.period,
     smaUpperBuffer: sma.upperBuffer, smaLowerBuffer: sma.lowerBuffer,
     smaVolGate: sma.volGate === true,
+    smaInflationAdjusted: sma.inflationAdjusted === true,
     riskOffAsset: riskOffAssetFor(shared, index),
     riskOffCloseByTicker: riskOffAlignedFor(index, sleeveStartDate).closeByTicker,
     riskOffOpenByTicker: riskOffAlignedFor(index, sleeveStartDate).openByTicker,
@@ -1203,7 +1208,7 @@ async function buildBufferSweepSnapshot(
   }
 ) {
   const comboSubs = getComboSubPresets(shared.preset);
-  const expandedStartDate = getSmaWarmupStartDate(
+  const expandedStartDate = getMarketDataWarmUpStartDate(
     shared.startDate,
     Math.max(shared.smaSpPeriod, shared.smaNqPeriod)
   );
@@ -1248,69 +1253,40 @@ async function buildBufferSweepSnapshot(
       endDateConstraint: shared.endDate,
     });
 
-    // Symmetric 1D sweep + baseline + coarse asymmetric grid in one precompute.
-    const allConfigs: EtfConfig[] = [];
-    for (let buffer = params.minBuffer; buffer <= params.maxBuffer + 1e-9; buffer += params.fineStep) {
-      const roundedBuffer = Number(buffer.toFixed(6));
-      allConfigs.push(createPresetEtfConfig(`buffer-${roundedBuffer}`, preset, {
-        name: `${preset.leverage}x SMA ${roundedBuffer}%`,
-        smaEnabled: true,
-        smaPeriod: period,
-        smaUpperBuffer: roundedBuffer, smaLowerBuffer: roundedBuffer,
-        smaVolGate: shared.smaVolGate,
-        smaInflationAdjusted: shared.smaInflationAdjusted,
-        riskOffAsset: riskOffAssetFor(shared, preset.index),
-        smaExecutionMode: shared.smaExecutionMode,
-      }));
-    }
-    allConfigs.push(createPresetEtfConfig("baseline", preset, {
-      name: `${preset.leverage}x Baseline`,
-      simulated: true,
-      smaEnabled: false,
-      smaPeriod: period,
-      smaUpperBuffer: 0, smaLowerBuffer: 0,
+    const sweepInputs = {
+      preset,
       riskOffAsset: riskOffAssetFor(shared, preset.index),
+      smaPeriod: period,
+      smaVolGate: shared.smaVolGate,
+      smaInflationAdjusted: shared.smaInflationAdjusted,
       smaExecutionMode: shared.smaExecutionMode,
-    }));
-    for (const { upper, lower } of coarsePoints) {
-      allConfigs.push(createPresetEtfConfig(`asym-${upper}-${lower}`, preset, {
-        name: `${preset.leverage}x SMA U${upper}/L${lower}`,
-        smaEnabled: true,
-        smaPeriod: period,
-        smaUpperBuffer: upper, smaLowerBuffer: lower,
-        smaVolGate: shared.smaVolGate,
-        smaInflationAdjusted: shared.smaInflationAdjusted,
-        riskOffAsset: riskOffAssetFor(shared, preset.index),
-        smaExecutionMode: shared.smaExecutionMode,
-      }));
-    }
-
+    };
+    // Use the same configs and ticker names as the live sweep for spread costs.
+    const [baseline, ...symmetric] = buildSymmetricBufferSweepItems({ ...sweepInputs, ...params });
+    const asymmetric = (points: typeof coarsePoints, variant: "coarse" | "fine") =>
+      points.map((point) => ({ ...point, ...makeAsymmetricSweepItem({ ...sweepInputs, ...point, variant }) }));
+    const coarse = asymmetric(coarsePoints, "coarse");
     const sweepResults = runPrecomputedSweep({
       prices,
       rates,
-      configs: allConfigs,
+      configs: [baseline, ...symmetric, ...coarse].map(({ config }) => config),
       windows,
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
     });
-
-    const rows: SmaComparisonRow[] = [];
-    for (let buffer = params.minBuffer; buffer <= params.maxBuffer + 1e-9; buffer += params.fineStep) {
-      const roundedBuffer = Number(buffer.toFixed(6));
-      const simulations = sweepResults.get(`buffer-${roundedBuffer}`) ?? [];
-      rows.push(summarizeSmaRow(roundedBuffer, simulations, inflationData.monthlyCpi));
-    }
-    const baselineSims = sweepResults.get("baseline") ?? [];
-
-    const coarseRows: AsymmetricSweepRow[] = coarsePoints.map(({ upper, lower }) => {
-      const simulations = sweepResults.get(`asym-${upper}-${lower}`) ?? [];
-      return {
-        ...summarizeSmaRow(upper, simulations, inflationData.monthlyCpi),
-        upperBuffer: upper,
-        lowerBuffer: lower,
-        stage: "coarse",
-      };
+    const summarize = (paramValue: number, resultId: string, results: typeof sweepResults) =>
+      summarizeSmaRow(paramValue, results.get(resultId) ?? [], inflationData.monthlyCpi);
+    const summarizeAsymmetric = (
+      { upper, lower, config }: ReturnType<typeof asymmetric>[number],
+      results: typeof sweepResults,
+      stage: "coarse" | "fine",
+    ): AsymmetricSweepRow => ({
+      ...summarize(upper, config.id, results), upperBuffer: upper, lowerBuffer: lower, stage,
     });
+
+    const rows = symmetric.map(({ paramValue, config }) => summarize(paramValue, config.id, sweepResults));
+    const baselineSims = sweepResults.get(baseline.config.id) ?? [];
+    const coarseRows = coarse.map((item) => summarizeAsymmetric(item, sweepResults, "coarse"));
 
     const topCoarse = pickTopCell(coarseRows, "score", inflPct);
     let asymRows: AsymmetricSweepRow[] = coarseRows;
@@ -1339,35 +1315,16 @@ async function buildBufferSweepSnapshot(
         coarsePoints
       );
       if (finePoints.length > 0) {
-        const fineConfigs = finePoints.map(({ upper, lower }) =>
-          createPresetEtfConfig(`asym-${upper}-${lower}`, preset, {
-            name: `${preset.leverage}x SMA U${upper}/L${lower} (fine)`,
-            smaEnabled: true,
-            smaPeriod: period,
-            smaUpperBuffer: upper, smaLowerBuffer: lower,
-            smaVolGate: shared.smaVolGate,
-            smaInflationAdjusted: shared.smaInflationAdjusted,
-            riskOffAsset: riskOffAssetFor(shared, preset.index),
-            smaExecutionMode: shared.smaExecutionMode,
-          })
-        );
+        const fine = asymmetric(finePoints, "fine");
         const fineResults = runPrecomputedSweep({
           prices,
           rates,
-          configs: fineConfigs,
+          configs: fine.map(({ config }) => config),
           windows,
           riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
           riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
         });
-        const fineRows: AsymmetricSweepRow[] = finePoints.map(({ upper, lower }) => {
-          const simulations = fineResults.get(`asym-${upper}-${lower}`) ?? [];
-          return {
-            ...summarizeSmaRow(upper, simulations, inflationData.monthlyCpi),
-            upperBuffer: upper,
-            lowerBuffer: lower,
-            stage: "fine",
-          };
-        });
+        const fineRows = fine.map((item) => summarizeAsymmetric(item, fineResults, "fine"));
         asymRows = [...coarseRows, ...fineRows];
       }
     }
