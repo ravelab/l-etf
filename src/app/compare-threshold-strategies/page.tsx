@@ -444,7 +444,7 @@ export function CompareBufferStrategiesPageContent({
       prices, rates,
       windowLength, startDate: startDateForIndex(presetDef.index), endDate,
       configs: items.map(i => i.config),
-      paramValues: Object.fromEntries(items.map((i) => [i.config.id, i.paramValue])),
+      paramValues,
       riskOffValuesByAsset: riskOffSeries.closeValuesByAsset,
       riskOffOpenValuesByAsset: riskOffSeries.openValuesByAsset,
       monthlyCpi: cpiData,
