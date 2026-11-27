@@ -39,6 +39,8 @@ export interface EtfConfig {
    * through `smaRiskOffGates`.
    */
   smaVolGate?: boolean;
+  /** Use the higher-turnover volatility gate and RSI brake when enabled. */
+  smaHigherTurnover?: boolean;
   /** Run the SMA band on the CPI-deflated index (`generateSmaSignals`' `inflationAdjusted`). */
   smaInflationAdjusted?: boolean;
   /**

@@ -833,9 +833,14 @@ A 1%-per-5-days penalty beyond 200d was removed in 2026-11 by choice; long
 periods now compete on score alone. The same month the drawdown-over-80%
 term in `score.ts` went from (DD−80)^4 to (DD−80)^2.7: at 4 a 0.7-point deeper
 worst drawdown outweighed any return gap (GLDM outranked VGSH as risk-off).
-Keep one default and three alternatives per index. The calibrated default stays first. Alternatives in `sma-cagr-presets.json`
-rank each index by descending stability-adjusted full-period score and
-pair the SPX/NDX rules by rank through `sma-preset-ranking.ts`. CAGR is only a
+Keep one default and three alternatives per index. The calibrated default stays first.
+Alternatives 1 and 2 in `sma-cagr-presets.json` rank each index by descending
+stability-adjusted full-period score and pair the SPX/NDX rules by rank through
+`sma-preset-ranking.ts`. Alternative 3 uses the calibrated band of its card
+with the opt-in higher-turnover gates in `risk-off-gates.ts`. Keep its CAGR
+and switch histories computed from the calibrated band and both alternate gates
+in the `higherTurnover` artifact entry. Signals and push alerts resolve the
+same per-index gate settings. CAGR is only a
 comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
 weakest NDX rule despite its terrible pre-launch era. Preserve the score order through
 selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder

@@ -1,12 +1,12 @@
 import type { SmaSignalResult } from "@/lib/sma-signals";
-import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
-import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
+import { smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 import type { IndexKey } from "@/lib/simulation/types";
 
 interface SignalCardProps {
   indexName: string;
   indexKey: IndexKey;
   smaPeriod: number;
+  higherTurnover?: boolean;
   result?: SmaSignalResult | null;
   loading?: boolean;
 }
@@ -47,9 +47,8 @@ function SignalIcon({ signal }: { signal?: SmaSignalResult["signal"] }) {
   );
 }
 
-export function SignalCard({ indexName, indexKey, smaPeriod, result, loading = false }: SignalCardProps) {
-  const gate = SMA_VOL_GATE[indexKey];
-  const brake = SMA_RSI_BRAKE[indexKey];
+export function SignalCard({ indexName, indexKey, smaPeriod, higherTurnover, result, loading = false }: SignalCardProps) {
+  const { volGate: gate, rsiBrake: brake } = smaRiskOffGates(indexKey, higherTurnover);
   const placeholderSignal = "No Action";
   const placeholderPercent = "00.00% below SMA";
   const placeholderDate = "Sep 30, 2026";

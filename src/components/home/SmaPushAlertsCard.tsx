@@ -22,7 +22,7 @@ import type { PushSmaConfig } from "@/lib/push/types";
 import { applyCalibratedSmaDefaults } from "@/lib/sma-calibration-apply";
 import { formatSmaSummary } from "@/lib/buffer-format";
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
-import { SMA_RISK_OFF_GATES_PARAMS_TEXT } from "@/lib/simulation/risk-off-gates";
+import { describeSmaRiskOffGates, SMA_RISK_OFF_GATES_PARAMS_TEXT } from "@/lib/simulation/risk-off-gates";
 
 type PushState = {
   status: "checking" | "unsupported" | "ready" | "subscribed" | "install-first" | "error";
@@ -48,7 +48,14 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
     parts.push(`NDX: ${config.smaNqPeriod}/−${config.smaNqLowerBuffer}/${config.smaNqUpperBuffer}%`);
   }
   if (parts.length === 0) return " (Disabled)";
-  if (config.smaVolGate) parts.push(`vol ${SMA_RISK_OFF_GATES_PARAMS_TEXT}`);
+  if (config.smaVolGate) {
+    if (config.smaSpHigherTurnover || config.smaNqHigherTurnover) {
+      if (config.smaSpEnabled) parts.push(`SPX ${describeSmaRiskOffGates("sp500", config.smaSpHigherTurnover)}`);
+      if (config.smaNqEnabled) parts.push(`NDX ${describeSmaRiskOffGates("nasdaq100", config.smaNqHigherTurnover)}`);
+    } else {
+      parts.push(`vol ${SMA_RISK_OFF_GATES_PARAMS_TEXT}`);
+    }
+  }
   if (config.smaInflationAdjusted) parts.push("inflation adjusted");
   return ` (${parts.join(", ")})`;
 }
@@ -162,6 +169,7 @@ export function SmaPushAlertsCard({ smaConfig: pageConfig, calibration, onConfig
     subscriptionConfig.smaSpPeriod !== smaConfig.smaSpPeriod ||
     subscriptionConfig.smaSpUpperBuffer !== smaConfig.smaSpUpperBuffer ||
     subscriptionConfig.smaSpLowerBuffer !== smaConfig.smaSpLowerBuffer ||
+    Boolean(subscriptionConfig.smaVolGate && subscriptionConfig.smaSpHigherTurnover) !== Boolean(smaConfig.smaVolGate && smaConfig.smaSpHigherTurnover) ||
     calibratedDefaultsChanged
   );
 
@@ -170,6 +178,7 @@ export function SmaPushAlertsCard({ smaConfig: pageConfig, calibration, onConfig
     subscriptionConfig.smaNqPeriod !== smaConfig.smaNqPeriod ||
     subscriptionConfig.smaNqUpperBuffer !== smaConfig.smaNqUpperBuffer ||
     subscriptionConfig.smaNqLowerBuffer !== smaConfig.smaNqLowerBuffer ||
+    Boolean(subscriptionConfig.smaVolGate && subscriptionConfig.smaNqHigherTurnover) !== Boolean(smaConfig.smaVolGate && smaConfig.smaNqHigherTurnover) ||
     calibratedDefaultsChanged
   );
 

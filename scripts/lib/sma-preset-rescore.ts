@@ -76,7 +76,7 @@ async function stableScores(index: IndexKey, saved: SavedPresets, combos: SmaCom
 }
 
 /** Smallest share of days on which two presets' regimes differ, over the displayed modern range. */
-async function minRegimeDifferencePct(index: IndexKey, rules: SmaCombo[], startDate: string, endDate: string): Promise<number> {
+export async function minRegimeDifferencePct(index: IndexKey, rules: SmaCombo[], startDate: string, endDate: string): Promise<number> {
   const modernStart = index === "sp500" ? startDate : CONSTANT_NASDAQ100_SHORTCUT_DATE;
   const dates = (await loadIndexPrices(index, modernStart, endDate)).map((row) => row.date);
   const regimes: boolean[][] = [];

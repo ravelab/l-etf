@@ -41,6 +41,9 @@ export const SMA_VOL_GATE: Record<IndexKey, VolGateParams> = {
   nasdaq100: { windowDays: 10, exitAbove: 0.5, reenterBelow: 0.31 },
 };
 
+/** The higher-turnover NDX volatility gate from the stability-ranked search above. */
+export const NDX_ARGMAX_VOL_GATE: VolGateParams = { windowDays: 9, exitAbove: 0.46, reenterBelow: 0.4 };
+
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 function volGateParamsText(index: IndexKey): string {

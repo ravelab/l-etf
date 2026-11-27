@@ -2,19 +2,16 @@
 
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { describeSmaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 import { formatSmaSummary } from "@/lib/buffer-format";
 import type nominalPresets from "@/lib/tool-snapshots/sma-cagr-presets.json";
 
 /** One artifact set's presets: the nominal file's shape, shared by the inflation-adjusted one. */
-export type SmaPresetSet = Pick<typeof nominalPresets, "presets" | "startDate" | "endDate">;
-export type SmaPreset = SmaPresetSet["presets"][number];
-
-/** "Set default", then "Set alternative 1".."3" in the file's (score) order. */
-function presetLabel(set: SmaPresetSet, index: number): string {
-  const preset = set.presets[index];
-  return preset.isCalibratedDefault ? "Set default"
-    : `Set alternative ${set.presets.slice(0, index + 1).filter((row) => !row.isCalibratedDefault).length}`;
-}
+export type SmaPresetSet = Pick<typeof nominalPresets, "presets" | "higherTurnover">;
+export type SmaPreset = (SmaPresetSet["presets"][number] | SmaPresetSet["higherTurnover"]) & {
+  useDefaultBand?: boolean;
+  higherTurnover?: boolean;
+};
 
 /**
  * The calibrated default and three alternatives of one artifact set, each button
@@ -43,8 +40,11 @@ export function SmaPresetsCard({
         <p className="text-sm text-muted mb-4">{description}</p>
         <div className="flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
           <div className="flex w-full min-w-0 flex-col gap-2">
-            {set.presets.map((preset, index) => {
-              const label = presetLabel(set, index);
+            {[
+              ...set.presets.map((preset) => ({ ...preset, useDefaultBand: preset.isCalibratedDefault })),
+              { ...set.higherTurnover, useDefaultBand: true, higherTurnover: true },
+            ].map((preset: SmaPreset, index) => {
+              const label = index === 0 ? "Set default" : `Set alternative ${index}`;
               return (
                 <div key={`cagr-preset-${index}`} data-sma-preset={index} className="grid min-w-0 grid-cols-1 items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums md:grid-cols-2 md:gap-6">
                   {(["sp500", "nasdaq100"] as const).map((indexKey) => {
@@ -64,14 +64,15 @@ export function SmaPresetsCard({
                           <span className="font-medium text-foreground">
                             {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
                           </span>
+                          {preset.higherTurnover && <span> · {describeSmaRiskOffGates(indexKey, true)}</span>}
                           <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
                           {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
                             <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>
                               {" · "}{eraKey === "proto" ? "Proto" : "Proxy"}: {era.realCagr.toFixed(2)}%
                             </span>
                           ))}
-                          <span title={`${indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.startDate : set.startDate}–${set.endDate}`}>
-                            {" · "}{indexKey === "nasdaq100" ? preset.nasdaq100.switchHistory.count : rule.trades} switches
+                          <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}>
+                            {" · "}{rule.trades} switches
                           </span>
                         </span>
                       </div>

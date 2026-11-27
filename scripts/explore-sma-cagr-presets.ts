@@ -25,8 +25,8 @@ import { findPlateau, PLATEAU_TOLERANCE } from "../src/lib/simulation/plateau";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
 import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_INFLATION_ADJUSTED, SMA_CALIBRATION_VOL_GATE } from "../src/lib/simulation/sma-calibration-eras";
 import { type EraEvaluatedCombo } from "./lib/sma-sweep-context";
-import { withEraCagrs } from "./lib/sma-preset-era-cagrs";
-import { rescoreSavedPresets } from "./lib/sma-preset-rescore";
+import { higherTurnoverPreset, withEraCagrs } from "./lib/sma-preset-era-cagrs";
+import { minRegimeDifferencePct as measureRegimeDifference, rescoreSavedPresets } from "./lib/sma-preset-rescore";
 import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapPresetCombo, refinePresetGrid, sweepPresetPeriods, preferStablePresetCenter } from "./lib/sma-preset-grid";
 import { presetScoreCache } from "./lib/sma-preset-cache";
 import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
@@ -37,6 +37,8 @@ import { readSmaArtifact, smaArtifactPath } from "./lib/sma-artifacts";
 const seeds = readSmaArtifact("sma-search-space");
 const calibration = readSmaArtifact("sma-calibration");
 const currentPresets = readSmaArtifact("sma-cagr-presets");
+const RANKED_PRESET_COUNT = 3;
+const PRESET_SELECTION = "Calibrated default plus two distinct SMA alternatives selected by stability-adjusted full-period score. Alternative 3 uses the default band with higher-turnover gates.";
 
 interface Candidate extends SmaCombo {
   cagr: number; finalMultiple: number; maxDrawdown: number; trades: number;
@@ -192,12 +194,12 @@ async function main(): Promise<void> {
         });
       };
       let candidates = await stability(await evaluate(knownCombos, "saved presets", true), "saved stability", true);
-      // A new default can overlap two old presets. Find a fully checked fourth
+      // A new default can overlap two old presets. Find a fully checked third
       // distinct rule before optional refinement, even with a zero-minute budget.
       const seedScores = new Map(seeds[index].periodSeeds.map((seed) => [comboKey(seed), seed.score]));
       for (const combo of [...seedCombos].sort((a, b) => (seedScores.get(comboKey(b)) ?? -Infinity) - (seedScores.get(comboKey(a)) ?? -Infinity))) {
-        const proven = pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 4);
-        if (proven.length === 4) break;
+        const proven = pickDistinct(candidates.filter((candidate) => candidate.score >= 0), RANKED_PRESET_COUNT);
+        if (proven.length === RANKED_PRESET_COUNT) break;
         if (candidates.some((candidate) => comboKey(candidate) === comboKey(combo))) continue;
         if (!proven.every((candidate) => Math.abs(candidate.smaPeriod - combo.smaPeriod) >= 20
           || Math.abs(candidate.smaUpperBuffer - combo.smaUpperBuffer) >= 3
@@ -208,8 +210,8 @@ async function main(): Promise<void> {
         if (!proven.every((candidate) => separated(candidate, preview))) continue;
         candidates.push(...await stability(rows, "fallback stability", true));
       }
-      if (pickDistinct(candidates.filter((candidate) => candidate.score >= 0), 4).length < 4) {
-        throw new Error(`Could not establish four fully checked positive ${index} presets within the saved seed space`);
+      if (pickDistinct(candidates.filter((candidate) => candidate.score >= 0), RANKED_PRESET_COUNT).length < RANKED_PRESET_COUNT) {
+        throw new Error(`Could not establish three fully checked positive ${index} presets within the saved seed space`);
       }
       const initialFloor = Math.min(...candidates.map((candidate) => candidate.score));
       const seedRows = await evaluate(seedCombos, "every period");
@@ -226,11 +228,11 @@ async function main(): Promise<void> {
         const distinctFloor = [defaultRule];
         for (const row of [...candidates].sort((a, b) => b.score - a.score)) {
           if (distinctFloor.every((previous) => separated(row, previous))) distinctFloor.push(row);
-          if (distinctFloor.length === 4) break;
+          if (distinctFloor.length === RANKED_PRESET_COUNT) break;
         }
         // Base score bounds stable score above. A candidate below an already
-        // proven fourth distinct rule cannot improve the selected four.
-        const floor = distinctFloor.length === 4 ? Math.min(...distinctFloor.map((row) => row.score)) : -Infinity;
+        // proven third distinct rule cannot improve the selected three.
+        const floor = distinctFloor.length === RANKED_PRESET_COUNT ? Math.min(...distinctFloor.map((row) => row.score)) : -Infinity;
         const refined = await stability([...new Map(rows.filter((row) => row.score >= floor)
           .map((row) => [comboKey(row.combo), row])).values()], `${stage} stability`);
         candidates = [...new Map([...candidates, ...refined].map((row) => [comboKey(row), row])).values()];
@@ -251,7 +253,7 @@ async function main(): Promise<void> {
         }
         return found;
       };
-      candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 4).map((candidate) => candidate.score))));
+      candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, RANKED_PRESET_COUNT).map((candidate) => candidate.score))));
       // Keep walking joint one-day/0.1% neighborhoods until every leading basin
       // stops improving. A single fixed refinement box can end at its boundary.
       let converged = false;
@@ -264,7 +266,7 @@ async function main(): Promise<void> {
             { minBuffer: SMA_SEARCH_MIN_BUFFER, maxBuffer: SMA_SEARCH_MAX_BUFFER }), new Set<string>()))], `joint polish ${round}`);
         const refined = await stability(rows.filter((row) => row.score >= Math.min(...leaders.map((leader) => leader.score))), `polish stability ${round}`);
         candidates = [...new Map([...candidates, ...refined].map((row) => [comboKey(row), row])).values()];
-        candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, 4).map((candidate) => candidate.score))));
+        candidates.push(...harvestFineCandidates(Math.min(...pickDistinct(candidates, RANKED_PRESET_COUNT).map((candidate) => candidate.score))));
         if (pickDistinct(candidates, 9).map(comboKey).join(";") === signature) { converged = true; break; }
       }
       budgetReached[index] = !budget.canRefine();
@@ -298,16 +300,16 @@ async function main(): Promise<void> {
           // replace a higher stable score with a weaker point on a broad plateau.
           const center = plateau?.peak.item === candidate ? preferStablePresetCenter(candidate, plateau.center.item) : candidate;
           leaders.push(leaders.every((previous) => separated(center, previous)) ? center : candidate);
-          if (leaders.length === 4) break;
+          if (leaders.length === RANKED_PRESET_COUNT) break;
         }
         return leaders;
       };
       let leaders = chooseLeaders();
-      // The fallback above proved four distinct rules around the best RAW
+      // The fallback above proved three distinct rules around the best RAW
       // candidate; a centred default can overlap one of them, so keep adding
-      // seeds distinct from the default's own leaders until a fourth exists.
+      // seeds distinct from the default's own leaders until a third exists.
       for (const combo of [...seedCombos].sort((a, b) => (seedScores.get(comboKey(b)) ?? -Infinity) - (seedScores.get(comboKey(a)) ?? -Infinity))) {
-        if (leaders.length === 4) break;
+        if (leaders.length === RANKED_PRESET_COUNT) break;
         if (candidates.some((candidate) => comboKey(candidate) === comboKey(combo))) continue;
         if (!leaders.every((leader) => Math.abs(leader.smaPeriod - combo.smaPeriod) >= 20
           || Math.abs(leader.smaUpperBuffer - combo.smaUpperBuffer) >= 3
@@ -319,7 +321,7 @@ async function main(): Promise<void> {
         candidates.push(...await stability(rows, "leader fallback stability", true));
         leaders = chooseLeaders();
       }
-      if (leaders.length !== 4) throw new Error(`Only ${leaders.length} distinct ${index} rules`);
+      if (leaders.length !== RANKED_PRESET_COUNT) throw new Error(`Only ${leaders.length} distinct ${index} rules`);
       selected[index] = [defaultCandidate, ...leaders.slice(1).sort((a, b) => b.score - a.score)];
       evaluated[index] = cache.size;
       candidatesTested[index] = candidates.length;
@@ -337,7 +339,7 @@ async function main(): Promise<void> {
     selected[index].slice(i + 1).map((right) => regimeDistance(left, right))));
   const payload = { generatedAt: new Date().toISOString(), startDate, endDate, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED,
     executionMode: "next-day-open", windowLength: calibrationYears("sp500", endDate),
-    selection: "Calibrated default plus three distinct alternatives selected by stability-adjusted full-period score from per-period search seeds with joint buffer refinement",
+    selection: PRESET_SELECTION,
     grid: { periodStep: PRESET_PERIOD_STEP, bufferStep: PRESET_BUFFER_STEP, basinBufferHalfWidth: PRESET_BUFFER_HALF_WIDTH },
     ranking: SMA_PRESET_RANKING,
     searchBudget: { minutes: budgetMinutes, reached: budgetReached },
@@ -345,7 +347,8 @@ async function main(): Promise<void> {
       Object.fromEntries(SMA_CALIBRATION_ERAS[index].map((era) => [era.key, era.weight]))])),
     distinctness: "At least 5% different risk-on days AND at least 20 days or 3 percentage points of parameter separation",
     minRegimeDifferencePct: { sp500: minRegimeDifferencePct("sp500"), nasdaq100: minRegimeDifferencePct("nasdaq100") },
-    evaluated, candidatesTested, bestFound, presets: await withEraCagrs(presets, startDate, endDate) };
+    evaluated, candidatesTested, bestFound, presets: await withEraCagrs(presets, startDate, endDate),
+    higherTurnover: await higherTurnoverPreset(calibratedDefaults, startDate, endDate) };
   if (process.argv.includes("--write-presets")) {
     writeFileSync(SMA_CALIBRATION_SNAPSHOT_PATH, JSON.stringify({ generatedAt: payload.generatedAt,
       endDate, windowLength: calibrationYears("sp500", endDate), ...calibratedDefaults }, null, 2) + "\n");
@@ -355,8 +358,13 @@ async function main(): Promise<void> {
   }
 }
 async function refreshEraCagrs(): Promise<void> {
-  const payload = { ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED,
-    presets: await withEraCagrs(rankSmaPresetSets(currentPresets.presets), currentPresets.startDate, currentPresets.endDate) };
+  const { startDate, endDate } = currentPresets;
+  const presets = await withEraCagrs(rankSmaPresetSets(currentPresets.presets).slice(0, RANKED_PRESET_COUNT), startDate, endDate);
+  const minRegimeDifferencePct = Object.fromEntries(await Promise.all((["sp500", "nasdaq100"] as const).map(async (index) =>
+    [index, await measureRegimeDifference(index, presets.map((preset) => preset[index]), startDate, endDate)] as const)));
+  const payload = { ...currentPresets, selection: PRESET_SELECTION, ranking: SMA_PRESET_RANKING,
+    riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED, presets,
+    minRegimeDifferencePct, higherTurnover: await higherTurnoverPreset(calibration, startDate, endDate) };
   const path = smaArtifactPath("sma-cagr-presets");
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Refreshed era CAGRs in ${path}`);
@@ -368,7 +376,10 @@ async function rerankPresets(): Promise<void> {
   console.log(`Ranked presets by full-period score in ${path}`);
 }
 async function rescorePresets(): Promise<void> {
-  const payload = await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED });
+  const payload = {
+    ...await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED }),
+    higherTurnover: await higherTurnoverPreset(calibration, currentPresets.startDate, currentPresets.endDate),
+  };
   const path = smaArtifactPath("sma-cagr-presets");
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Re-scored saved presets under the current engine in ${path}`);

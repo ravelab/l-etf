@@ -1,17 +1,7 @@
 import type { SignalRule } from "./signal-rules";
 import { computeSma, generateSmaSignals } from "./sma";
 import { SMA_RSI_BRAKE } from "./rsi-brake";
-import type { VolGateParams } from "./vol-gate";
-
-/**
- * NDX's stable-argmax volatility gate, which calibration found and deliberately
- * did not ship (see `SMA_VOL_GATE` in `vol-gate.ts`). On band 136d -17.9%/+9.6%
- * it scored ~6% base / ~3.5% stable higher than the shipped 10d 50%/31%, with
- * +0.6pt real CAGR at the same max drawdown, but traded 42 times instead of 24,
- * the extra 18 being short gate flips mostly in 1998-2003. SPX's own stable-score
- * leader is the shipped 20d 32%/22%; the extra applies the NDX parameters to either index.
- */
-export const NDX_ARGMAX_VOL_GATE: VolGateParams = { windowDays: 9, exitAbove: 0.46, reenterBelow: 0.4 };
+import { NDX_ARGMAX_VOL_GATE } from "./vol-gate";
 
 /**
  * Uses the line's nominal SMA band and index-specific RSI brake, with the vol

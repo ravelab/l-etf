@@ -84,7 +84,8 @@ describe("Signals page SMA inputs", () => {
   it("applies each index independently from every multi-era-ranked preset and displays compact real returns", () => {
     render(<SignalsPage />);
     const expected = { ...inputs };
-    cagrPresets.presets.forEach((preset, index) => {
+    const presets = [...cagrPresets.presets, { ...cagrPresets.higherTurnover, isCalibratedDefault: false }];
+    presets.forEach((preset, index) => {
       const label = preset.isCalibratedDefault ? "Set default" : `Set alternative ${index}`;
       for (const indexKey of ["sp500", "nasdaq100"] as const) {
         const button = screen.getByRole("button", { name: `${indexKey === "sp500" ? "SPX" : "NDX"} ${label}` });
@@ -136,6 +137,27 @@ describe("Signals page SMA inputs", () => {
     fireEvent.click(screen.getByRole("button", { name: "SPX Set default (inflation adjusted)" }));
     expect(screen.getByLabelText("SPX SMA Period")).toHaveValue(String(inflationCagrPresets.presets.find((p) => p.isCalibratedDefault)!.sp500.smaPeriod));
     expect(checkbox).toBeChecked();
+  });
+
+  it("enables the higher-turnover gates only for the selected index and restores default gates when requested", async () => {
+    const signalParams = () => {
+      const url = vi.mocked(fetch).mock.calls.map(([url]) => String(url))
+        .filter((url) => url.startsWith("/api/sma-signals?")).at(-1);
+      return new URLSearchParams(url?.split("?")[1]);
+    };
+    render(<SignalsPage />);
+    fireEvent.click(screen.getByTestId("sma-vol-gate"));
+    fireEvent.click(screen.getByRole("button", { name: "NDX Set alternative 3 (inflation adjusted)" }));
+    expect(screen.getByTestId("sma-vol-gate")).toBeChecked();
+    expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(inflationCagrPresets.higherTurnover.nasdaq100.smaPeriod));
+    await waitFor(() => {
+      expect(signalParams().get("smaNqHigherTurnover")).toBe("1");
+      expect(signalParams().has("smaSpHigherTurnover")).toBe(false);
+      expect(signalParams().get("smaVolGate")).toBe("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "NDX Set default (inflation adjusted)" }));
+    await waitFor(() => expect(signalParams().has("smaNqHigherTurnover")).toBe(false));
   });
 
   it("asks the signal API for the nominal SMA when unchecked, since an absent flag means the default (on)", async () => {

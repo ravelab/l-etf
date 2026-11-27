@@ -21,57 +21,53 @@ async function realReturn(finalMultiple: number, startDate: string, endDate: str
     inflation: { startDate: startCpi.date, endDate: endCpi.date, ratio } };
 }
 
-interface EraCagr { startDate: string; endDate: string; cagr: number;
-  realCagr: number; inflation: { startDate: string; endDate: string; ratio: number } }
+/** Calculate every displayed return with the index's default risk-off asset and next-open fills. */
+async function withRuleCagrs<T extends SmaCombo>(index: IndexKey, combo: T, startDate: string, endDate: string, higherTurnover = false) {
+  const backtest = (from: string, to: string) => runBacktestCore({
+    preset: index === "sp500" ? "UPRO" : "TQQQ", smaEnabled: true,
+    startDate: from, endDate: to,
+    smaPeriod: combo.smaPeriod, smaUpperBuffer: combo.smaUpperBuffer, smaLowerBuffer: combo.smaLowerBuffer,
+    smaVolGate: higherTurnover || SMA_CALIBRATION_VOL_GATE[index], smaHigherTurnover: higherTurnover,
+    smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[index],
+    riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
+  });
+  const eraCagrs = Object.fromEntries(await Promise.all(
+    SMA_HISTORICAL_ERAS[index].filter((era) => era.key !== "start").map(async (era) => {
+      // Every era is a separate backtest with its own SMA warm-up.
+      const result = await backtest(era.startDate, era.endDate ?? endDate);
+      return [era.key, { startDate: result.startDate, endDate: result.endDate, cagr: result.cagrPct,
+        ...await realReturn(result.finalMultiple, result.startDate, result.endDate) }] as const;
+    }),
+  ));
+  const modern = await backtest(index === "sp500" ? startDate : CONSTANT_NASDAQ100_SHORTCUT_DATE, endDate);
+  return { ...combo, ...await realReturn(modern.finalMultiple, modern.startDate, modern.endDate),
+    cagr: modern.cagrPct, finalMultiple: modern.finalMultiple, maxDrawdown: modern.maxDrawdownPct, trades: modern.numTrades,
+    realCagrStartDate: modern.startDate, realCagrEndDate: modern.endDate, eraCagrs };
+}
 
-async function eraCagrs(index: IndexKey, combo: SmaCombo, endDate: string): Promise<Record<string, EraCagr>> {
-  const out: Record<string, EraCagr> = {};
-  for (const era of SMA_HISTORICAL_ERAS[index].filter((era) => era.key !== "start")) {
-    // An era is its own backtest with its own warm-up, never a slice of a
-    // longer series. These nominal whole-era CAGRs differ from rolling scores.
-    const result = await runBacktestCore({
-      preset: index === "sp500" ? "UPRO" : "TQQQ", smaEnabled: true,
-      startDate: era.startDate, endDate: era.endDate ?? endDate, ...combo,
-      smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[index], riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
+async function withNdxCagrs<T extends SmaCombo>(combo: T, startDate: string, endDate: string, higherTurnover = false) {
+  const rule = await withRuleCagrs("nasdaq100", combo, startDate, endDate, higherTurnover);
+  return { ...rule, switchHistory: { startDate: rule.realCagrStartDate, endDate: rule.realCagrEndDate, count: rule.trades } };
+}
+
+export async function withEraCagrs<T extends Record<IndexKey, SmaCombo>>(presets: T[], startDate: string, endDate: string) {
+  const out = [];
+  for (const preset of presets) {
+    out.push({ ...preset,
+      sp500: await withRuleCagrs("sp500", preset.sp500, startDate, endDate),
+      nasdaq100: await withNdxCagrs(preset.nasdaq100, startDate, endDate),
     });
-    out[era.key] = { startDate: result.startDate, endDate: result.endDate, cagr: result.cagrPct,
-      ...await realReturn(result.finalMultiple, result.startDate, result.endDate) };
   }
   return out;
 }
 
-/**
- * Every CAGR the Signals page displays is re-run here with each index's site default risk-off
- * asset (`DEFAULT_RISK_OFF_ASSETS`), the basket a visitor's backtest of the same rule holds and
- * the one the search scores on.
- */
-export async function withEraCagrs<T extends { sp500: SmaCombo & { finalMultiple: number }; nasdaq100: SmaCombo & { finalMultiple: number } }>(presets: T[], startDate: string, endDate: string) {
-  const out = [];
-  for (const preset of presets) {
-    const sp500 = await eraCagrs("sp500", preset.sp500, endDate);
-    const nasdaq100 = await eraCagrs("nasdaq100", preset.nasdaq100, endDate);
-    const spxModern = await runBacktestCore({
-      preset: "UPRO", smaEnabled: true, startDate, endDate,
-      smaPeriod: preset.sp500.smaPeriod, smaUpperBuffer: preset.sp500.smaUpperBuffer,
-      smaLowerBuffer: preset.sp500.smaLowerBuffer, smaVolGate: SMA_CALIBRATION_VOL_GATE.sp500, smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED.sp500,
-      riskOffAsset: DEFAULT_RISK_OFF_ASSETS.sp500, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
-    });
-    const ndxModern = await runBacktestCore({
-      preset: "TQQQ", smaEnabled: true, startDate: CONSTANT_NASDAQ100_SHORTCUT_DATE, endDate,
-      smaPeriod: preset.nasdaq100.smaPeriod, smaUpperBuffer: preset.nasdaq100.smaUpperBuffer,
-      smaLowerBuffer: preset.nasdaq100.smaLowerBuffer, smaVolGate: SMA_CALIBRATION_VOL_GATE.nasdaq100, smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED.nasdaq100,
-      riskOffAsset: DEFAULT_RISK_OFF_ASSETS.nasdaq100, smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
-    });
-    out.push({ ...preset,
-      sp500: { ...preset.sp500, ...await realReturn(spxModern.finalMultiple, spxModern.startDate, spxModern.endDate),
-        cagr: spxModern.cagrPct, finalMultiple: spxModern.finalMultiple,
-        maxDrawdown: spxModern.maxDrawdownPct, trades: spxModern.numTrades,
-        realCagrStartDate: spxModern.startDate, realCagrEndDate: spxModern.endDate, eraCagrs: sp500 },
-      nasdaq100: { ...preset.nasdaq100, ...await realReturn(ndxModern.finalMultiple, ndxModern.startDate, ndxModern.endDate),
-        cagr: ndxModern.cagrPct, finalMultiple: ndxModern.finalMultiple,
-        maxDrawdown: ndxModern.maxDrawdownPct, trades: ndxModern.numTrades,
-        realCagrStartDate: ndxModern.startDate, realCagrEndDate: ndxModern.endDate, eraCagrs: nasdaq100,
-        switchHistory: { startDate: ndxModern.startDate, endDate: ndxModern.endDate, count: ndxModern.numTrades } } });
-  }
-  return out;
+export async function higherTurnoverPreset(bands: Record<IndexKey, SmaCombo>, startDate: string, endDate: string) {
+  const bandFor = (index: IndexKey): SmaCombo => {
+    const { smaPeriod, smaUpperBuffer, smaLowerBuffer } = bands[index];
+    return { smaPeriod, smaUpperBuffer, smaLowerBuffer };
+  };
+  return {
+    sp500: await withRuleCagrs("sp500", bandFor("sp500"), startDate, endDate, true),
+    nasdaq100: await withNdxCagrs(bandFor("nasdaq100"), startDate, endDate, true),
+  };
 }

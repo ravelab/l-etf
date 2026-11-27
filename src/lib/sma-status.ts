@@ -9,7 +9,7 @@ import {
 import { getSmaSignal, type SmaRegime, type SmaSignalResult } from "@/lib/sma-signals";
 import { volGateParamsTextFor } from "@/lib/simulation/vol-gate";
 import { rsiBrakeParamsTextFor } from "@/lib/simulation/rsi-brake";
-import { smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
+import { describeSmaRiskOffGates, smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 import type { IndexKey } from "@/lib/simulation/types";
 
 export type SmaSignalConfig = {
@@ -23,6 +23,8 @@ export type SmaSignalConfig = {
   smaNqEnabled: boolean;
   /** Risk-off gate switch (volatility gate + RSI crash brake, see risk-off-gates.ts) on top of both SMAs. Absent on older stored subscriptions. */
   smaVolGate?: boolean;
+  smaSpHigherTurnover?: boolean;
+  smaNqHigherTurnover?: boolean;
   /** Run both SMA bands on the CPI-deflated index (`cpi-deflator.ts`). Absent on older stored subscriptions. */
   smaInflationAdjusted?: boolean;
   /** If true, deliver a push every market close regardless of whether the SMA signal changed. */
@@ -85,6 +87,8 @@ export function buildSmaSignalConfigFingerprint(config: SmaSignalConfig): string
     config.notifyEveryClose ? "1" : "0",
     // Appended only when on so every existing subscription keeps its fingerprint.
     ...(config.smaVolGate ? ["vg"] : []),
+    ...(config.smaVolGate && config.smaSpHigherTurnover ? ["sp-alt3"] : []),
+    ...(config.smaVolGate && config.smaNqHigherTurnover ? ["nq-alt3"] : []),
     ...(config.smaInflationAdjusted ? ["ia"] : []),
   ].join("|");
 }
@@ -142,11 +146,16 @@ export function describeSmaSignalStatus(snapshot: SmaSignalSnapshot, config?: Sm
 }
 
 /** The gate-switch label (vol gate + RSI brake) for the indices this config alerts on. */
-function volGateLabelFor(config: Pick<SmaSignalConfig, "smaSpEnabled" | "smaNqEnabled">): string {
+function volGateLabelFor(config: SmaSignalConfig): string {
   const enabled: IndexKey[] = [
     ...(config.smaSpEnabled !== false ? (["sp500"] as const) : []),
     ...(config.smaNqEnabled !== false ? (["nasdaq100"] as const) : []),
   ];
+  if (config.smaSpHigherTurnover || config.smaNqHigherTurnover) {
+    return enabled.map((index) => index === "sp500"
+      ? `SPX ${describeSmaRiskOffGates(index, config.smaSpHigherTurnover)}`
+      : `NDX ${describeSmaRiskOffGates(index, config.smaNqHigherTurnover)}`).join("; ");
+  }
   return `vol ${volGateParamsTextFor(enabled)}; ${rsiBrakeParamsTextFor(enabled)}`;
 }
 
@@ -233,7 +242,7 @@ export function computeSmaSignalSnapshot(params: {
 }): SmaSignalSnapshot {
   const { sp500Prices, nasdaqPrices, config, timestamp = new Date().toISOString() } = params;
   const options = (index: IndexKey) => ({
-    ...(config.smaVolGate === true ? smaRiskOffGates(index) : {}),
+    ...(config.smaVolGate === true ? smaRiskOffGates(index, index === "sp500" ? config.smaSpHigherTurnover : config.smaNqHigherTurnover) : {}),
     ...(config.smaInflationAdjusted === true ? { inflationAdjusted: true } : {}),
   });
 

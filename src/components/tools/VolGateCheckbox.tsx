@@ -2,6 +2,8 @@
 
 import { useId } from "react";
 import { InfoPopoverButton } from "@/components/ui/InfoPopoverButton";
+import type { IndexKey } from "@/lib/simulation/types";
+import { describeSmaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 import { SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT, volGateParamsTextFor } from "@/lib/simulation/vol-gate";
 import { SMA_RSI_BRAKE, SMA_RSI_BRAKE_PARAMS_TEXT, rsiBrakeParamsTextFor } from "@/lib/simulation/rsi-brake";
 
@@ -26,11 +28,14 @@ const BRAKE_LINES = sharedBrake
 export function VolGateCheckbox({
   checked,
   onChange,
+  higherTurnover,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  higherTurnover?: Record<IndexKey, boolean>;
 }) {
   const id = useId();
+  const hasHigherTurnover = higherTurnover?.sp500 || higherTurnover?.nasdaq100;
   return (
     <div className="@container flex flex-col gap-1">
       <div className="text-xs text-muted font-medium flex items-center gap-1.5">
@@ -39,10 +44,9 @@ export function VolGateCheckbox({
           <InfoPopoverButton label="Volatility and RSI brake">
             Adds a second risk-off rule on top of each SMA. At every close the index&apos;s realized volatility
             is measured (standard deviation of the last N daily log returns × √252). Above the exit level the
-            strategy moves to the risk-off asset even if the SMA says invested; it stays there until volatility
-            closes below the re-entry level, and then the SMA decides again. It never buys on its own. Each
-            index has its own window, exit and re-entry, calibrated jointly with its SMA band:
-            {(["sp500", "nasdaq100"] as const).map((index) => (
+            strategy moves to the risk-off asset even if the SMA says invested. When volatility closes below
+            the re-entry level, the SMA can allow re-entry.
+            {!hasHigherTurnover && GATE_INDICES.map((index) => (
               <span key={index} className="block">
                 {index === "sp500" ? "SPX" : "NDX"}: {SMA_VOL_GATE[index].windowDays} days, exit above{" "}
                 {pct(SMA_VOL_GATE[index].exitAbove)}, re-enter below {pct(SMA_VOL_GATE[index].reenterBelow)}.
@@ -52,8 +56,13 @@ export function VolGateCheckbox({
               The same switch adds an RSI crash brake for steady, grinding sell-offs whose daily moves are too
               even to lift volatility: when the index&apos;s Wilder RSI closes below the exit level the strategy
               also moves risk-off, and the brake releases once RSI closes above the re-entry level. It never buys
-              on its own either. Both indices: {SMA_RSI_BRAKE_PARAMS_TEXT}.
+              on its own either. {!hasHigherTurnover && `Both indices: ${SMA_RSI_BRAKE_PARAMS_TEXT}.`}
             </span>
+            {hasHigherTurnover && GATE_INDICES.map((index) => (
+              <span key={index} className="block">
+                {GATE_LINE_LABEL[index]} {describeSmaRiskOffGates(index, higherTurnover?.[index])}
+              </span>
+            ))}
           </InfoPopoverButton>
         </span>
       </div>
@@ -69,7 +78,11 @@ export function VolGateCheckbox({
           checked={checked}
           onChange={(e) => onChange(e.currentTarget.checked)}
         />
-        <span className="flex min-w-0 flex-1 flex-col text-[10px] leading-none @min-[13rem]:flex-row @min-[13rem]:items-center @min-[13rem]:justify-between @min-[13rem]:gap-2 @min-[13rem]:text-xs @min-[13rem]:leading-tight">
+        {hasHigherTurnover ? (
+          <span className="text-[10px] leading-tight">
+            Alternative 3 · {GATE_INDICES.filter((index) => higherTurnover?.[index]).map((index) => GATE_LINE_LABEL[index]).join(", ")}
+          </span>
+        ) : <span className="flex min-w-0 flex-1 flex-col text-[10px] leading-none @min-[13rem]:flex-row @min-[13rem]:items-center @min-[13rem]:justify-between @min-[13rem]:gap-2 @min-[13rem]:text-xs @min-[13rem]:leading-tight">
           {/* Per-index gates differ: one short line each, where the joined text would
               truncate away NDX entirely. */}
           <span className="flex min-w-0 flex-col">
@@ -87,7 +100,7 @@ export function VolGateCheckbox({
               <span key={line} className="hidden whitespace-nowrap @min-[13rem]:block">{line}</span>
             ))}
           </span>
-        </span>
+        </span>}
       </label>
     </div>
   );

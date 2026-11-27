@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { NDX_ARGMAX_VOL_GATE, NDX_SMA_VOL_ARGMAX_RULE } from "@/lib/simulation/sma-vol-argmax";
+import { NDX_SMA_VOL_ARGMAX_RULE } from "@/lib/simulation/sma-vol-argmax";
+import { NDX_ARGMAX_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { getSignalRule, lineWarmUpDays, runSignalRule, withSignalRuleLines } from "@/lib/simulation/signal-rules";
 import { computeSma, generateSmaSignals } from "@/lib/simulation/sma";
 import { smaRiskOffGates } from "@/lib/simulation/risk-off-gates";

@@ -71,7 +71,7 @@ const snapshot = readArtifact<typeof nominalPresets>("sma-cagr-presets", variant
 const calibration = readArtifact<typeof nominalCalibration>("sma-calibration", variant);
 
 test(`${variant} CAGR presets retain their actual engine returns, rank and distinct trade regimes`, async () => {
-  assert.equal(snapshot.presets.length, 4);
+  assert.equal(snapshot.presets.length, 3);
   assert.equal(snapshot.grid.bufferStep, 0.1);
   assert.equal(snapshot.grid.periodStep, 1);
   assert.deepEqual(snapshot.riskOffAssets, DEFAULT_RISK_OFF_ASSETS, "presets are scored and displayed with each index's default risk-off asset");
@@ -90,9 +90,15 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
     const modernStartDate = index === "sp500" ? snapshot.startDate : CONSTANT_NASDAQ100_SHORTCUT_DATE;
     const dates = (await loadIndexPrices(index, modernStartDate, snapshot.endDate)).map((row) => row.date);
     const regimes: boolean[][] = [];
-    for (const preset of snapshot.presets) {
+    const higherTurnover = { ...snapshot.higherTurnover, isCalibratedDefault: false };
+    for (const preset of [...snapshot.presets, higherTurnover]) {
+      const isHigherTurnover = preset === higherTurnover;
       const expected = preset[index];
-      if (!preset.isCalibratedDefault) {
+      if (isHigherTurnover) {
+        for (const field of ["smaPeriod", "smaUpperBuffer", "smaLowerBuffer"] as const) {
+          assert.equal(expected[field], calibration[index][field]);
+        }
+      } else if (!preset.isCalibratedDefault) {
         assert.equal(expected.smaPeriod % snapshot.grid.periodStep, 0);
         for (const buffer of [expected.smaLowerBuffer, expected.smaUpperBuffer])
           assert.ok(Math.abs(buffer * 10 - Math.round(buffer * 10)) < 1e-9);
@@ -101,7 +107,7 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
         preset: index === "sp500" ? "UPRO" : "TQQQ",
         startDate: modernStartDate, endDate: snapshot.endDate, smaEnabled: true,
         smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
-        smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaInflationAdjusted: inflationAdjusted,
+        smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaHigherTurnover: isHigherTurnover, smaInflationAdjusted: inflationAdjusted,
         riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
       });
       assert.equal(result.startDate, modernStartDate);
@@ -139,7 +145,7 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
           preset: index === "sp500" ? "UPRO" : "TQQQ", smaEnabled: true,
           startDate: era.startDate, endDate: era.endDate,
           smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
-          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaInflationAdjusted: inflationAdjusted,
+          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaHigherTurnover: isHigherTurnover, smaInflationAdjusted: inflationAdjusted,
           riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
         });
         assert.equal(recorded.startDate, historical.startDate);
@@ -150,6 +156,7 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
         assert.ok(Math.abs(recorded.realCagr - calcCagr(1, historical.finalMultiple / ratio, historical.startDate, historical.endDate)) < 1e-9);
         assert.ok(Math.abs(recorded.cagr - historical.cagrPct) < 1e-9, `${index} ${era.key} CAGR differs from its own era backtest`);
       }
+      if (isHigherTurnover) continue;
       let invested = result.smaStartInvested ?? true;
       let trade = 0;
       regimes.push(dates.map((date) => {
