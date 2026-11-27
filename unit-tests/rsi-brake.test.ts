@@ -55,11 +55,16 @@ function calmSlide(): { prices: number[]; slideStart: number; slideEnd: number }
   return { prices, slideStart, slideEnd };
 }
 
-test("the shipped brake is RSI(14) below 18, released above 62, on both indices", () => {
-  for (const index of ["sp500", "nasdaq100"] as const) {
-    assert.deepEqual(SMA_RSI_BRAKE[index], { periodDays: 14, exitBelow: 18, reenterAbove: 62 });
-  }
-  assert.equal(rsiBrakeParamsTextFor(["sp500", "nasdaq100"]), "RSI 14d <18 >62");
+test("SPX defaults to the promoted gates and Alternative 3 restores its former default", () => {
+  assert.deepEqual(smaRiskOffGates("sp500"), {
+    volGate: { windowDays: 21, exitAbove: 0.26, reenterBelow: 0.23 },
+    rsiBrake: { periodDays: 5, exitBelow: 4, reenterAbove: 79 },
+  });
+  assert.deepEqual(smaRiskOffGates("sp500", true), {
+    volGate: { windowDays: 20, exitAbove: 0.32, reenterBelow: 0.22 },
+    rsiBrake: { periodDays: 14, exitBelow: 18, reenterAbove: 62 },
+  });
+  assert.equal(rsiBrakeParamsTextFor(["sp500", "nasdaq100"]), "SPX RSI 5d <4 >79; NDX RSI 14d <18 >62");
 });
 
 test("smaRiskOffGates bundles each index's vol gate with its RSI brake", () => {
@@ -94,11 +99,11 @@ test("computeWilderRsi treats a missing close as no change rather than poisoning
 });
 
 test("nextRsiBrakeRiskOff trips below the exit level and releases only above the re-entry level", () => {
-  assert.equal(nextRsiBrakeRiskOff(false, 18, BRAKE), false);
-  assert.equal(nextRsiBrakeRiskOff(false, 17.9, BRAKE), true);
+  assert.equal(nextRsiBrakeRiskOff(false, BRAKE.exitBelow, BRAKE), false);
+  assert.equal(nextRsiBrakeRiskOff(false, BRAKE.exitBelow - 0.1, BRAKE), true);
   assert.equal(nextRsiBrakeRiskOff(true, 40, BRAKE), true);
-  assert.equal(nextRsiBrakeRiskOff(true, 62, BRAKE), true);
-  assert.equal(nextRsiBrakeRiskOff(true, 62.1, BRAKE), false);
+  assert.equal(nextRsiBrakeRiskOff(true, BRAKE.reenterAbove, BRAKE), true);
+  assert.equal(nextRsiBrakeRiskOff(true, BRAKE.reenterAbove + 0.1, BRAKE), false);
   assert.equal(nextRsiBrakeRiskOff(true, NaN, BRAKE), true);
   assert.equal(nextRsiBrakeRiskOff(false, NaN, BRAKE), false);
 });
@@ -146,7 +151,7 @@ test("the brake never buys while the SMA band says risk-off", () => {
   for (let i = 0; i < 20; i++) push(0.006);
   const dates = isoDates(prices.length);
   const { invested, signals } = generateSmaSignals(dates, prices, 50, { upper: 5, lower: 2 }, smaRiskOffGates("sp500"));
-  assert.ok(computeWilderRsi(prices, 14).at(-1)! > BRAKE.reenterAbove, "the brake itself has released");
+  assert.ok(computeWilderRsi(prices, BRAKE.periodDays).at(-1)! > BRAKE.reenterAbove, "the brake itself has released");
   assert.equal(invested.at(-1), false);
   assert.equal(signals.filter((s) => s.type === "buy").length, 0);
 });

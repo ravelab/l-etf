@@ -25,7 +25,7 @@ import { findPlateau, PLATEAU_TOLERANCE } from "../src/lib/simulation/plateau";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
 import { SMA_CALIBRATION_ERAS, SMA_CALIBRATION_INFLATION_ADJUSTED, SMA_CALIBRATION_VOL_GATE } from "../src/lib/simulation/sma-calibration-eras";
 import { type EraEvaluatedCombo } from "./lib/sma-sweep-context";
-import { higherTurnoverPreset, withEraCagrs } from "./lib/sma-preset-era-cagrs";
+import { alternateGatesPreset, withEraCagrs } from "./lib/sma-preset-era-cagrs";
 import { minRegimeDifferencePct as measureRegimeDifference, rescoreSavedPresets } from "./lib/sma-preset-rescore";
 import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapPresetCombo, refinePresetGrid, sweepPresetPeriods, preferStablePresetCenter } from "./lib/sma-preset-grid";
 import { presetScoreCache } from "./lib/sma-preset-cache";
@@ -38,7 +38,8 @@ const seeds = readSmaArtifact("sma-search-space");
 const calibration = readSmaArtifact("sma-calibration");
 const currentPresets = readSmaArtifact("sma-cagr-presets");
 const RANKED_PRESET_COUNT = 3;
-const PRESET_SELECTION = "Calibrated default plus two distinct SMA alternatives selected by stability-adjusted full-period score. Alternative 3 uses the default band with higher-turnover gates.";
+const PRESET_SELECTION = "Calibrated default plus two distinct SMA alternatives selected by stability-adjusted full-period score. Alternative 3 uses the default band with alternate gates.";
+const PRESET_DISTINCTNESS = "New selections require at least 5% different risk-on days and at least 20 days or 3 percentage points of parameter separation. Rescoring preserves the selected bands.";
 
 interface Candidate extends SmaCombo {
   cagr: number; finalMultiple: number; maxDrawdown: number; trades: number;
@@ -345,10 +346,10 @@ async function main(): Promise<void> {
     searchBudget: { minutes: budgetMinutes, reached: budgetReached },
     eraWeights: Object.fromEntries((["sp500", "nasdaq100"] as const).map((index) => [index,
       Object.fromEntries(SMA_CALIBRATION_ERAS[index].map((era) => [era.key, era.weight]))])),
-    distinctness: "At least 5% different risk-on days AND at least 20 days or 3 percentage points of parameter separation",
+    distinctness: PRESET_DISTINCTNESS,
     minRegimeDifferencePct: { sp500: minRegimeDifferencePct("sp500"), nasdaq100: minRegimeDifferencePct("nasdaq100") },
     evaluated, candidatesTested, bestFound, presets: await withEraCagrs(presets, startDate, endDate),
-    higherTurnover: await higherTurnoverPreset(calibratedDefaults, startDate, endDate) };
+    alternateGates: await alternateGatesPreset(calibratedDefaults, startDate, endDate) };
   if (process.argv.includes("--write-presets")) {
     writeFileSync(SMA_CALIBRATION_SNAPSHOT_PATH, JSON.stringify({ generatedAt: payload.generatedAt,
       endDate, windowLength: calibrationYears("sp500", endDate), ...calibratedDefaults }, null, 2) + "\n");
@@ -364,7 +365,7 @@ async function refreshEraCagrs(): Promise<void> {
     [index, await measureRegimeDifference(index, presets.map((preset) => preset[index]), startDate, endDate)] as const)));
   const payload = { ...currentPresets, selection: PRESET_SELECTION, ranking: SMA_PRESET_RANKING,
     riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED, presets,
-    minRegimeDifferencePct, higherTurnover: await higherTurnoverPreset(calibration, startDate, endDate) };
+    minRegimeDifferencePct, alternateGates: await alternateGatesPreset(calibration, startDate, endDate) };
   const path = smaArtifactPath("sma-cagr-presets");
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");
   console.log(`Refreshed era CAGRs in ${path}`);
@@ -378,7 +379,9 @@ async function rerankPresets(): Promise<void> {
 async function rescorePresets(): Promise<void> {
   const payload = {
     ...await rescoreSavedPresets({ ...currentPresets, ranking: SMA_PRESET_RANKING, riskOffAssets: DEFAULT_RISK_OFF_ASSETS, inflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED }),
-    higherTurnover: await higherTurnoverPreset(calibration, currentPresets.startDate, currentPresets.endDate),
+    selection: PRESET_SELECTION,
+    distinctness: PRESET_DISTINCTNESS,
+    alternateGates: await alternateGatesPreset(calibration, currentPresets.startDate, currentPresets.endDate),
   };
   const path = smaArtifactPath("sma-cagr-presets");
   writeFileSync(path, JSON.stringify(payload, null, 2) + "\n");

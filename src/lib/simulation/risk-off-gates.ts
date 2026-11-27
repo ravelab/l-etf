@@ -2,11 +2,11 @@ import type { IndexKey } from "./types";
 import { NDX_ARGMAX_VOL_GATE, SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT, type VolGateParams } from "./vol-gate";
 import { SMA_RSI_BRAKE, SMA_RSI_BRAKE_PARAMS_TEXT, type RsiBrakeParams } from "./rsi-brake";
 
-// Opt-in Signals alternative using the calibrated SMA band with more responsive gates.
-const HIGHER_TURNOVER_GATES = {
+// Alternative 3 uses each card’s calibrated band. SPX uses its former default gates.
+const ALTERNATE_GATES = {
   sp500: {
-    volGate: { windowDays: 21, exitAbove: 0.26, reenterBelow: 0.23 },
-    rsiBrake: { periodDays: 5, exitBelow: 4, reenterAbove: 79 },
+    volGate: { windowDays: 20, exitAbove: 0.32, reenterBelow: 0.22 },
+    rsiBrake: { periodDays: 14, exitBelow: 18, reenterAbove: 62 },
   },
   nasdaq100: {
     volGate: NDX_ARGMAX_VOL_GATE,
@@ -20,13 +20,13 @@ const HIGHER_TURNOVER_GATES = {
  * Every signal generator resolves the switch through this, so a new layer is
  * added in one place rather than at each call site.
  */
-export function smaRiskOffGates(index: IndexKey, higherTurnover = false): { volGate: VolGateParams; rsiBrake: RsiBrakeParams } {
-  if (higherTurnover) return HIGHER_TURNOVER_GATES[index];
+export function smaRiskOffGates(index: IndexKey, alternateGates = false): { volGate: VolGateParams; rsiBrake: RsiBrakeParams } {
+  if (alternateGates) return ALTERNATE_GATES[index];
   return { volGate: SMA_VOL_GATE[index], rsiBrake: SMA_RSI_BRAKE[index] };
 }
 
-export function describeSmaRiskOffGates(index: IndexKey, higherTurnover = false): string {
-  const { volGate, rsiBrake } = smaRiskOffGates(index, higherTurnover);
+export function describeSmaRiskOffGates(index: IndexKey, alternateGates = false): string {
+  const { volGate, rsiBrake } = smaRiskOffGates(index, alternateGates);
   return `Vol ${volGate.windowDays}d ${Math.round(volGate.exitAbove * 100)}%/${Math.round(volGate.reenterBelow * 100)}%, RSI ${rsiBrake.periodDays}d <${rsiBrake.exitBelow}/>${rsiBrake.reenterAbove}`;
 }
 

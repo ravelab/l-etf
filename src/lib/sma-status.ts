@@ -23,7 +23,7 @@ export type SmaSignalConfig = {
   smaNqEnabled: boolean;
   /** Risk-off gate switch (volatility gate + RSI crash brake, see risk-off-gates.ts) on top of both SMAs. Absent on older stored subscriptions. */
   smaVolGate?: boolean;
-  smaSpHigherTurnover?: boolean;
+  smaSpAlternateGates?: boolean;
   smaNqHigherTurnover?: boolean;
   /** Run both SMA bands on the CPI-deflated index (`cpi-deflator.ts`). Absent on older stored subscriptions. */
   smaInflationAdjusted?: boolean;
@@ -87,7 +87,7 @@ export function buildSmaSignalConfigFingerprint(config: SmaSignalConfig): string
     config.notifyEveryClose ? "1" : "0",
     // Appended only when on so every existing subscription keeps its fingerprint.
     ...(config.smaVolGate ? ["vg"] : []),
-    ...(config.smaVolGate && config.smaSpHigherTurnover ? ["sp-alt3"] : []),
+    ...(config.smaVolGate && config.smaSpAlternateGates ? ["sp-alternate-gates"] : []),
     ...(config.smaVolGate && config.smaNqHigherTurnover ? ["nq-alt3"] : []),
     ...(config.smaInflationAdjusted ? ["ia"] : []),
   ].join("|");
@@ -151,9 +151,9 @@ function volGateLabelFor(config: SmaSignalConfig): string {
     ...(config.smaSpEnabled !== false ? (["sp500"] as const) : []),
     ...(config.smaNqEnabled !== false ? (["nasdaq100"] as const) : []),
   ];
-  if (config.smaSpHigherTurnover || config.smaNqHigherTurnover) {
+  if (config.smaSpAlternateGates || config.smaNqHigherTurnover) {
     return enabled.map((index) => index === "sp500"
-      ? `SPX ${describeSmaRiskOffGates(index, config.smaSpHigherTurnover)}`
+      ? `SPX ${describeSmaRiskOffGates(index, config.smaSpAlternateGates)}`
       : `NDX ${describeSmaRiskOffGates(index, config.smaNqHigherTurnover)}`).join("; ");
   }
   return `vol ${volGateParamsTextFor(enabled)}; ${rsiBrakeParamsTextFor(enabled)}`;
@@ -242,7 +242,7 @@ export function computeSmaSignalSnapshot(params: {
 }): SmaSignalSnapshot {
   const { sp500Prices, nasdaqPrices, config, timestamp = new Date().toISOString() } = params;
   const options = (index: IndexKey) => ({
-    ...(config.smaVolGate === true ? smaRiskOffGates(index, index === "sp500" ? config.smaSpHigherTurnover : config.smaNqHigherTurnover) : {}),
+    ...(config.smaVolGate === true ? smaRiskOffGates(index, index === "sp500" ? config.smaSpAlternateGates : config.smaNqHigherTurnover) : {}),
     ...(config.smaInflationAdjusted === true ? { inflationAdjusted: true } : {}),
   });
 

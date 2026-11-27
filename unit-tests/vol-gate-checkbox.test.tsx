@@ -20,11 +20,12 @@ describe("VolGateCheckbox", () => {
     const box = screen.getByTestId("sma-vol-gate").closest("label")!;
     const gate = SMA_VOL_GATE.nasdaq100;
     expect(box.textContent).toContain(`${gate.windowDays}d`);
-    const brake = SMA_RSI_BRAKE.sp500;
     const params = screen.getByTestId("sma-rsi-brake-params");
     expect(box.contains(params)).toBe(true);
-    expect(params.textContent).toContain(`RSI ${brake.periodDays}d`);
-    expect(params.textContent).toContain(`<${brake.exitBelow} >${brake.reenterAbove}`);
+    for (const [index, label] of [["sp500", "SPX"], ["nasdaq100", "NDX"]] as const) {
+      const brake = SMA_RSI_BRAKE[index];
+      expect(params.textContent).toContain(`${label} ${brake.periodDays}d <${brake.exitBelow} >${brake.reenterAbove}`);
+    }
   });
 
   it("keeps the box at the standard input height at every width", () => {

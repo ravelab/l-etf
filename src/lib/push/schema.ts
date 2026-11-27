@@ -19,7 +19,7 @@ export const pushSmaConfigSchema = z.object({
   smaNqUpperBuffer: z.number().min(0).max(30),
   smaNqLowerBuffer: z.number().min(0).max(30),
   smaNqEnabled: z.boolean().default(true),
-  smaSpHigherTurnover: z.boolean().optional(),
+  smaSpAlternateGates: z.boolean().optional(),
   smaNqHigherTurnover: z.boolean().optional(),
   smaVolGate: z.boolean().default(false),
   smaInflationAdjusted: z.boolean().default(false),

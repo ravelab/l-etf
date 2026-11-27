@@ -23,19 +23,22 @@ const GATE_LINES = gateLinesDiffer
 const sharedBrake = new Set(GATE_INDICES.map((index) => rsiBrakeParamsTextFor([index]))).size === 1;
 const BRAKE_LINES = sharedBrake
   ? [`RSI ${SMA_RSI_BRAKE.sp500.periodDays}d`, `<${SMA_RSI_BRAKE.sp500.exitBelow} >${SMA_RSI_BRAKE.sp500.reenterAbove}`]
-  : GATE_INDICES.map((index) => `${GATE_LINE_LABEL[index]} ${rsiBrakeParamsTextFor([index])}`);
+  : GATE_INDICES.map((index) => {
+    const brake = SMA_RSI_BRAKE[index];
+    return `${GATE_LINE_LABEL[index]} ${brake.periodDays}d <${brake.exitBelow} >${brake.reenterAbove}`;
+  });
 
 export function VolGateCheckbox({
   checked,
   onChange,
-  higherTurnover,
+  alternateGates,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
-  higherTurnover?: Record<IndexKey, boolean>;
+  alternateGates?: Record<IndexKey, boolean>;
 }) {
   const id = useId();
-  const hasHigherTurnover = higherTurnover?.sp500 || higherTurnover?.nasdaq100;
+  const hasAlternateGates = alternateGates?.sp500 || alternateGates?.nasdaq100;
   return (
     <div className="@container flex flex-col gap-1">
       <div className="text-xs text-muted font-medium flex items-center gap-1.5">
@@ -46,7 +49,7 @@ export function VolGateCheckbox({
             is measured (standard deviation of the last N daily log returns × √252). Above the exit level the
             strategy moves to the risk-off asset even if the SMA says invested. When volatility closes below
             the re-entry level, the SMA can allow re-entry.
-            {!hasHigherTurnover && GATE_INDICES.map((index) => (
+            {!hasAlternateGates && GATE_INDICES.map((index) => (
               <span key={index} className="block">
                 {index === "sp500" ? "SPX" : "NDX"}: {SMA_VOL_GATE[index].windowDays} days, exit above{" "}
                 {pct(SMA_VOL_GATE[index].exitAbove)}, re-enter below {pct(SMA_VOL_GATE[index].reenterBelow)}.
@@ -56,11 +59,14 @@ export function VolGateCheckbox({
               The same switch adds an RSI crash brake for steady, grinding sell-offs whose daily moves are too
               even to lift volatility: when the index&apos;s Wilder RSI closes below the exit level the strategy
               also moves risk-off, and the brake releases once RSI closes above the re-entry level. It never buys
-              on its own either. {!hasHigherTurnover && `Both indices: ${SMA_RSI_BRAKE_PARAMS_TEXT}.`}
+              on its own either.
+              {!hasAlternateGates && GATE_INDICES.map((index) => (
+                <span key={index} className="block">{GATE_LINE_LABEL[index]} {rsiBrakeParamsTextFor([index])}</span>
+              ))}
             </span>
-            {hasHigherTurnover && GATE_INDICES.map((index) => (
+            {hasAlternateGates && GATE_INDICES.map((index) => (
               <span key={index} className="block">
-                {GATE_LINE_LABEL[index]} {describeSmaRiskOffGates(index, higherTurnover?.[index])}
+                {GATE_LINE_LABEL[index]} {describeSmaRiskOffGates(index, alternateGates?.[index])}
               </span>
             ))}
           </InfoPopoverButton>
@@ -78,9 +84,9 @@ export function VolGateCheckbox({
           checked={checked}
           onChange={(e) => onChange(e.currentTarget.checked)}
         />
-        {hasHigherTurnover ? (
+        {hasAlternateGates ? (
           <span className="text-[10px] leading-tight">
-            Alternative 3 · {GATE_INDICES.filter((index) => higherTurnover?.[index]).map((index) => GATE_LINE_LABEL[index]).join(", ")}
+            Alternative 3 · {GATE_INDICES.filter((index) => alternateGates?.[index]).map((index) => GATE_LINE_LABEL[index]).join(", ")}
           </span>
         ) : <span className="flex min-w-0 flex-1 flex-col text-[10px] leading-none @min-[13rem]:flex-row @min-[13rem]:items-center @min-[13rem]:justify-between @min-[13rem]:gap-2 @min-[13rem]:text-xs @min-[13rem]:leading-tight">
           {/* Per-index gates differ: one short line each, where the joined text would
@@ -95,9 +101,9 @@ export function VolGateCheckbox({
             title={`RSI crash brake: ${SMA_RSI_BRAKE_PARAMS_TEXT}`}
             className="flex min-w-0 flex-col @min-[13rem]:shrink-0 @min-[13rem]:text-right"
           >
-            <span className="truncate @min-[13rem]:hidden">{SMA_RSI_BRAKE_PARAMS_TEXT}</span>
+            {sharedBrake && <span className="truncate @min-[13rem]:hidden">{SMA_RSI_BRAKE_PARAMS_TEXT}</span>}
             {BRAKE_LINES.map((line) => (
-              <span key={line} className="hidden whitespace-nowrap @min-[13rem]:block">{line}</span>
+              <span key={line} className={sharedBrake ? "hidden whitespace-nowrap @min-[13rem]:block" : "truncate"}>{line}</span>
             ))}
           </span>
         </span>}

@@ -26,7 +26,7 @@ export interface BacktestInput {
   /** Omitted means `DEFAULT_SMA_VOL_GATE`; the SMA preset scripts pass it explicitly to match calibration. */
   smaVolGate?: boolean;
   /** Used by the Signals preset generator. */
-  smaHigherTurnover?: boolean;
+  smaAlternateGates?: boolean;
   /** Band on the CPI-deflated index; only the calibration scripts set it. */
   smaInflationAdjusted?: boolean;
   riskOffAsset?: RiskOffAsset;
@@ -105,7 +105,7 @@ export function resolveBacktest(input: BacktestInput): ResolvedBacktest {
     smaUpperBuffer,
     smaLowerBuffer,
     smaVolGate,
-    smaHigherTurnover: input.smaHigherTurnover,
+    smaAlternateGates: input.smaAlternateGates,
     ...(input.smaInflationAdjusted ? { smaInflationAdjusted: true } : {}),
     smaIndex: index,
     smaExecutionMode: input.smaExecutionMode ?? DEFAULT_SMA_EXECUTION_MODE,

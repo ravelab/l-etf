@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T02:53:27.736Z",
+  "generatedAt": "2026-11-27T10:10:57.384Z",
   "endDate": "2026-11-19",
   "windowLength": 38.620123203285424,
   "sp500": {
@@ -12,22 +12,22 @@
     "riskOffAsset": "BRK.B+GLDM",
     "inflationAdjusted": true,
     "scoresByEra": {
-      "start": 6720.175732160535
+      "start": 7104.252293286869
     },
     "smaPeriod": 239,
     "smaUpperBuffer": 2.2,
     "smaLowerBuffer": 5.4,
     "smaOnlySwitches": 25,
-    "score": 6628.680885966708,
-    "baseScore": 6720.175732160535,
-    "stabilityPenalty": 91.49484619382656,
-    "avgReturn": 21.788094332982745,
-    "worstReturn": 21.788094332982745,
-    "avgMaxDrawdown": 50.59958928309284,
-    "avgTrades": 29,
-    "evaluatedCombos": 27775,
-    "neighborhoodMinScore": 6201.177253164855,
-    "neighborhoodMedianScore": 6535.7140544849735
+    "score": 7044.609540358168,
+    "baseScore": 7104.252293286869,
+    "stabilityPenalty": 59.64275292870116,
+    "avgReturn": 22.193042930934382,
+    "worstReturn": 22.193042930934382,
+    "avgMaxDrawdown": 50.59958928309282,
+    "avgTrades": 35,
+    "evaluatedCombos": 27,
+    "neighborhoodMinScore": 6629.754172765123,
+    "neighborhoodMedianScore": 7002.861623963054
   },
   "nasdaq100": {
     "startDate": "1985-01-31",

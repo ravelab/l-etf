@@ -13,13 +13,14 @@ import type { IndexKey } from "./types";
  * exit 25-90%) under the full-period calibration score, ranked by
  * `stabilityAdjustedSmaScore` over the ±1d/±1% neighbourhood. No shared gate
  * beat the old common 11d 49%/31% on both indices: SPX's best halves NDX's
- * score. SPX 20d 32%/22% (2026-11-18, band 193d −5.1%/+3.3%, risk-off BRK.B+GLDM)
- * is the stable-score leader: 5,579 vs 5,420 for the previous 11d 42%/23%, with
+ * score. The former SPX default, 20d 32%/22% (2026-11-18, band 193d −5.1%/+3.3%, risk-off BRK.B+GLDM)
+ * was the stable-score leader: 5,579 vs 5,420 for the previous 11d 42%/23%, with
  * the same 27 trades and max drawdown and +0.5pt real CAGR from 1988 and from
  * 1926-88 (−0.2pt 1885-1926). It exits on the same days in 1997, 2000 and 2020
  * but re-enters about two weeks later, and adds no risk-off shorter than a month.
  * It is a narrow peak (worst ±1 neighbour −19%), not a plateau; the band
- * recalibrates to the same 193d −5.1%/+3.3% under it and every other leader. NDX's
+ * recalibrated to the same 193d −5.1%/+3.3% under it and every other leader.
+ * SPX now defaults to the former Alternative 3 gate (21d 26%/23%). NDX's
  * 11d 49%/31% sat one step from a cliff (12d lost 22-36%); 10d 50%/31% keeps
  * its trade count and steps away. The NDX stable argmax, 9d 46%/40%, was
  * rejected: on band 136d −17.9%/+9.6% (data to 2026-11-02, with or without the
@@ -37,7 +38,7 @@ export interface VolGateParams {
 }
 
 export const SMA_VOL_GATE: Record<IndexKey, VolGateParams> = {
-  sp500: { windowDays: 20, exitAbove: 0.32, reenterBelow: 0.22 },
+  sp500: { windowDays: 21, exitAbove: 0.26, reenterBelow: 0.23 },
   nasdaq100: { windowDays: 10, exitAbove: 0.5, reenterBelow: 0.31 },
 };
 

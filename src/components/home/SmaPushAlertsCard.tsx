@@ -49,8 +49,8 @@ function formatConfigSuffix(config: PushSmaConfig | null): string {
   }
   if (parts.length === 0) return " (Disabled)";
   if (config.smaVolGate) {
-    if (config.smaSpHigherTurnover || config.smaNqHigherTurnover) {
-      if (config.smaSpEnabled) parts.push(`SPX ${describeSmaRiskOffGates("sp500", config.smaSpHigherTurnover)}`);
+    if (config.smaSpAlternateGates || config.smaNqHigherTurnover) {
+      if (config.smaSpEnabled) parts.push(`SPX ${describeSmaRiskOffGates("sp500", config.smaSpAlternateGates)}`);
       if (config.smaNqEnabled) parts.push(`NDX ${describeSmaRiskOffGates("nasdaq100", config.smaNqHigherTurnover)}`);
     } else {
       parts.push(`vol ${SMA_RISK_OFF_GATES_PARAMS_TEXT}`);
@@ -169,7 +169,7 @@ export function SmaPushAlertsCard({ smaConfig: pageConfig, calibration, onConfig
     subscriptionConfig.smaSpPeriod !== smaConfig.smaSpPeriod ||
     subscriptionConfig.smaSpUpperBuffer !== smaConfig.smaSpUpperBuffer ||
     subscriptionConfig.smaSpLowerBuffer !== smaConfig.smaSpLowerBuffer ||
-    Boolean(subscriptionConfig.smaVolGate && subscriptionConfig.smaSpHigherTurnover) !== Boolean(smaConfig.smaVolGate && smaConfig.smaSpHigherTurnover) ||
+    Boolean(subscriptionConfig.smaVolGate && subscriptionConfig.smaSpAlternateGates) !== Boolean(smaConfig.smaVolGate && smaConfig.smaSpAlternateGates) ||
     calibratedDefaultsChanged
   );
 

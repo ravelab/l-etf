@@ -86,7 +86,7 @@ test("disabled, active and insufficient brakes do not fabricate an exit close", 
   for (const [overrides, status] of [
     [{ rsiBrakeEnabled: false }, "disabled"],
     [{ rsiBrakeRiskOff: true }, "already-risk-off"],
-    [{ prices: prices.slice(0, 10) }, "insufficient-data"],
+    [{ prices: prices.slice(0, SMA_RSI_BRAKE[brakeBase.index].periodDays) }, "insufficient-data"],
     [{ prices: [...prices.slice(0, -1), { date: "bad", close: 0 }] }, "insufficient-data"],
   ] as const) {
     const result = signalExitThresholds({ ...brakeBase, ...overrides });

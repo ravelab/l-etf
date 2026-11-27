@@ -7,10 +7,10 @@ import { formatSmaSummary } from "@/lib/buffer-format";
 import type nominalPresets from "@/lib/tool-snapshots/sma-cagr-presets.json";
 
 /** One artifact set's presets: the nominal file's shape, shared by the inflation-adjusted one. */
-export type SmaPresetSet = Pick<typeof nominalPresets, "presets" | "higherTurnover">;
-export type SmaPreset = (SmaPresetSet["presets"][number] | SmaPresetSet["higherTurnover"]) & {
+export type SmaPresetSet = Pick<typeof nominalPresets, "presets" | "alternateGates">;
+export type SmaPreset = (SmaPresetSet["presets"][number] | SmaPresetSet["alternateGates"]) & {
   useDefaultBand?: boolean;
-  higherTurnover?: boolean;
+  alternateGates?: boolean;
 };
 
 /**
@@ -42,7 +42,7 @@ export function SmaPresetsCard({
           <div className="flex w-full min-w-0 flex-col gap-2">
             {[
               ...set.presets.map((preset) => ({ ...preset, useDefaultBand: preset.isCalibratedDefault })),
-              { ...set.higherTurnover, useDefaultBand: true, higherTurnover: true },
+              { ...set.alternateGates, useDefaultBand: true, alternateGates: true },
             ].map((preset: SmaPreset, index) => {
               const label = index === 0 ? "Set default" : `Set alternative ${index}`;
               return (
@@ -64,7 +64,7 @@ export function SmaPresetsCard({
                           <span className="font-medium text-foreground">
                             {formatSmaSummary(indexKey === "sp500" ? "SPX" : "NDX", rule.smaPeriod, rule.smaLowerBuffer, rule.smaUpperBuffer)}
                           </span>
-                          {preset.higherTurnover && <span> · {describeSmaRiskOffGates(indexKey, true)}</span>}
+                          {preset.alternateGates && <span> · {describeSmaRiskOffGates(indexKey, true)}</span>}
                           <span title={`${rule.realCagrStartDate}–${rule.realCagrEndDate}`}> · Real CAGR: {rule.realCagr.toFixed(2)}%</span>
                           {Object.entries(rule.eraCagrs).sort(([a], [b]) => b.localeCompare(a)).map(([eraKey, era]) => (
                             <span key={eraKey} title={`${era.startDate}–${era.endDate}`}>

@@ -9,7 +9,7 @@ const querySchema = z.object({
   smaNqPeriod: z.coerce.number().min(5).max(500).optional(),
   smaNqUpperBuffer: z.coerce.number().min(0).max(30).optional(),
   smaNqLowerBuffer: z.coerce.number().min(0).max(30).optional(),
-  smaSpHigherTurnover: z.literal("1").transform(() => true).optional(),
+  smaSpAlternateGates: z.literal("1").transform(() => true).optional(),
   smaNqHigherTurnover: z.literal("1").transform(() => true).optional(),
   smaVolGate: z.enum(["0", "1"]).transform(value => value === "1").optional(),
   smaInflationAdjusted: z.enum(["0", "1"]).transform(value => value === "1").optional(),

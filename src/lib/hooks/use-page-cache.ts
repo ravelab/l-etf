@@ -1,3 +1,4 @@
+import { PAGE_CACHE_PREFIX } from "@/lib/tools-route";
 import { SHARED_KEYS } from "./use-shared-inputs";
 
 /**
@@ -10,13 +11,10 @@ import { SHARED_KEYS } from "./use-shared-inputs";
  */
 const caches = new Map<string, Record<string, unknown>>();
 
-export const PAGE_CACHE_PREFIX = "pageCache:v3:";
-const LS_PREFIX = PAGE_CACHE_PREFIX;
-
 // Throws on quota exceeded so caller can fallback.
 function savePersistentCache(pageKey: string, data: Record<string, unknown>) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(LS_PREFIX + pageKey, JSON.stringify(data));
+  window.localStorage.setItem(PAGE_CACHE_PREFIX + pageKey, JSON.stringify(data));
 }
 
 export function usePageCache<T extends Record<string, unknown>>(

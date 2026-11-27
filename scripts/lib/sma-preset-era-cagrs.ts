@@ -22,12 +22,12 @@ async function realReturn(finalMultiple: number, startDate: string, endDate: str
 }
 
 /** Calculate every displayed return with the index's default risk-off asset and next-open fills. */
-async function withRuleCagrs<T extends SmaCombo>(index: IndexKey, combo: T, startDate: string, endDate: string, higherTurnover = false) {
+async function withRuleCagrs<T extends SmaCombo>(index: IndexKey, combo: T, startDate: string, endDate: string, alternateGates = false) {
   const backtest = (from: string, to: string) => runBacktestCore({
     preset: index === "sp500" ? "UPRO" : "TQQQ", smaEnabled: true,
     startDate: from, endDate: to,
     smaPeriod: combo.smaPeriod, smaUpperBuffer: combo.smaUpperBuffer, smaLowerBuffer: combo.smaLowerBuffer,
-    smaVolGate: higherTurnover || SMA_CALIBRATION_VOL_GATE[index], smaHigherTurnover: higherTurnover,
+    smaVolGate: alternateGates || SMA_CALIBRATION_VOL_GATE[index], smaAlternateGates: alternateGates,
     smaInflationAdjusted: SMA_CALIBRATION_INFLATION_ADJUSTED[index],
     riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
   });
@@ -45,8 +45,8 @@ async function withRuleCagrs<T extends SmaCombo>(index: IndexKey, combo: T, star
     realCagrStartDate: modern.startDate, realCagrEndDate: modern.endDate, eraCagrs };
 }
 
-async function withNdxCagrs<T extends SmaCombo>(combo: T, startDate: string, endDate: string, higherTurnover = false) {
-  const rule = await withRuleCagrs("nasdaq100", combo, startDate, endDate, higherTurnover);
+async function withNdxCagrs<T extends SmaCombo>(combo: T, startDate: string, endDate: string, alternateGates = false) {
+  const rule = await withRuleCagrs("nasdaq100", combo, startDate, endDate, alternateGates);
   return { ...rule, switchHistory: { startDate: rule.realCagrStartDate, endDate: rule.realCagrEndDate, count: rule.trades } };
 }
 
@@ -61,7 +61,7 @@ export async function withEraCagrs<T extends Record<IndexKey, SmaCombo>>(presets
   return out;
 }
 
-export async function higherTurnoverPreset(bands: Record<IndexKey, SmaCombo>, startDate: string, endDate: string) {
+export async function alternateGatesPreset(bands: Record<IndexKey, SmaCombo>, startDate: string, endDate: string) {
   const bandFor = (index: IndexKey): SmaCombo => {
     const { smaPeriod, smaUpperBuffer, smaLowerBuffer } = bands[index];
     return { smaPeriod, smaUpperBuffer, smaLowerBuffer };

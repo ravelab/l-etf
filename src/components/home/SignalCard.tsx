@@ -6,7 +6,7 @@ interface SignalCardProps {
   indexName: string;
   indexKey: IndexKey;
   smaPeriod: number;
-  higherTurnover?: boolean;
+  alternateGates?: boolean;
   result?: SmaSignalResult | null;
   loading?: boolean;
 }
@@ -47,8 +47,8 @@ function SignalIcon({ signal }: { signal?: SmaSignalResult["signal"] }) {
   );
 }
 
-export function SignalCard({ indexName, indexKey, smaPeriod, higherTurnover, result, loading = false }: SignalCardProps) {
-  const { volGate: gate, rsiBrake: brake } = smaRiskOffGates(indexKey, higherTurnover);
+export function SignalCard({ indexName, indexKey, smaPeriod, alternateGates, result, loading = false }: SignalCardProps) {
+  const { volGate: gate, rsiBrake: brake } = smaRiskOffGates(indexKey, alternateGates);
   const placeholderSignal = "No Action";
   const placeholderPercent = "00.00% below SMA";
   const placeholderDate = "Sep 30, 2026";

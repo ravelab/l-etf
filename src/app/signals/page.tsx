@@ -20,7 +20,8 @@ import inflationCagrPresets from "@/lib/tool-snapshots/sma-cagr-presets-inflatio
 import { SmaPresetsCard, type SmaPreset } from "@/components/home/SmaPresetsCard";
 import type { SmaCalibrationVariant } from "@/lib/sma-calibration-variant";
 
-const HIGHER_TURNOVER_KEY = "signals-higher-turnover";
+const ALTERNATE_GATES_KEY = "signals-higher-turnover";
+const ALTERNATE_GATES_STORAGE_ID = { sp500: "sp500-alternate", nasdaq100: "nasdaq100" } as const;
 const USE_CALIBRATED_DEFAULTS_KEY = "signals-use-calibrated-defaults";
 interface SmaSignalsResponse {
   sp500: SmaSignalResult;
@@ -66,9 +67,9 @@ function SignalsPageContent() {
   const [smaNqLowerBuffer, setSmaNqLowerBuffer] = useState(inputs.smaNqLowerBuffer ?? 12);
   const [smaNqEnabled, setSmaNqEnabled] = useState(inputs.smaNqEnabled ?? true);
   const [smaVolGate, setSmaVolGate] = useState(inputs.smaVolGate ?? true);
-  const [higherTurnover, setHigherTurnover] = useState(() => {
-    const saved = window.localStorage.getItem(HIGHER_TURNOVER_KEY)?.split(",") ?? [];
-    return { sp500: saved.includes("sp500"), nasdaq100: saved.includes("nasdaq100") };
+  const [alternateGates, setAlternateGates] = useState(() => {
+    const saved = window.localStorage.getItem(ALTERNATE_GATES_KEY)?.split(",") ?? [];
+    return { sp500: saved.includes(ALTERNATE_GATES_STORAGE_ID.sp500), nasdaq100: saved.includes(ALTERNATE_GATES_STORAGE_ID.nasdaq100) };
   });
   const [smaInflationAdjusted, setSmaInflationAdjusted] = useState(inputs.smaInflationAdjusted ?? DEFAULT_SMA_INFLATION_ADJUSTED);
   // notifyEveryClose is push-only, persisted under the push alert config blob,
@@ -91,8 +92,8 @@ function SignalsPageContent() {
     smaNqUpperBuffer, smaNqLowerBuffer,
     smaNqEnabled,
     smaVolGate,
-    smaSpHigherTurnover: higherTurnover.sp500,
-    smaNqHigherTurnover: higherTurnover.nasdaq100,
+    smaSpAlternateGates: alternateGates.sp500,
+    smaNqHigherTurnover: alternateGates.nasdaq100,
     smaInflationAdjusted,
     notifyEveryClose,
     useCalibratedDefaults,
@@ -130,8 +131,8 @@ function SignalsPageContent() {
       setSmaNqUpperBuffer(rule.smaUpperBuffer);
       setSmaNqLowerBuffer(rule.smaLowerBuffer);
     }
-    setHigherTurnover((current) => ({ ...current, [indexKey]: preset.higherTurnover === true }));
-    if (preset.higherTurnover) setSmaVolGate(true);
+    setAlternateGates((current) => ({ ...current, [indexKey]: preset.alternateGates === true }));
+    if (preset.useDefaultBand) setSmaVolGate(true);
     setSmaInflationAdjusted(variant === "inflation");
   }, []);
 
@@ -159,9 +160,9 @@ function SignalsPageContent() {
   }, [smaSpPeriod, smaSpUpperBuffer, smaSpLowerBuffer, smaSpEnabled, smaNqPeriod, smaNqUpperBuffer, smaNqLowerBuffer, smaNqEnabled, smaVolGate, smaInflationAdjusted, persist]);
 
   useEffect(() => {
-    window.localStorage.setItem(HIGHER_TURNOVER_KEY,
-      (["sp500", "nasdaq100"] as const).filter((index) => higherTurnover[index]).join(","));
-  }, [higherTurnover]);
+    window.localStorage.setItem(ALTERNATE_GATES_KEY,
+      (["sp500", "nasdaq100"] as const).filter((index) => alternateGates[index]).map((index) => ALTERNATE_GATES_STORAGE_ID[index]).join(","));
+  }, [alternateGates]);
 
   const params = new URLSearchParams({
     smaSpPeriod: String(smaSpPeriod),
@@ -173,8 +174,8 @@ function SignalsPageContent() {
     smaVolGate: smaVolGate ? "1" : "0",
     smaInflationAdjusted: smaInflationAdjusted ? "1" : "0",
   });
-  if (higherTurnover.sp500) params.set("smaSpHigherTurnover", "1");
-  if (higherTurnover.nasdaq100) params.set("smaNqHigherTurnover", "1");
+  if (alternateGates.sp500) params.set("smaSpAlternateGates", "1");
+  if (alternateGates.nasdaq100) params.set("smaNqHigherTurnover", "1");
   const query = params.toString();
   const signals = signalResponse?.query === query ? signalResponse.data : null;
 
@@ -254,14 +255,14 @@ function SignalsPageContent() {
               onUpperChange={setSmaNqUpperBuffer}
             />
             <InflationAdjustedCheckbox checked={smaInflationAdjusted} onChange={setSmaInflationAdjusted} />
-            <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} higherTurnover={higherTurnover} />
+            <VolGateCheckbox checked={smaVolGate} onChange={setSmaVolGate} alternateGates={alternateGates} />
           </fieldset>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           <SignalCard
             indexName="SPX"
             indexKey="sp500"
             smaPeriod={smaSpPeriod}
-            higherTurnover={higherTurnover.sp500}
+            alternateGates={alternateGates.sp500}
             result={signals?.sp500 ?? null}
             loading={loading}
           />
@@ -269,7 +270,7 @@ function SignalsPageContent() {
             indexName="NDX"
             indexKey="nasdaq100"
             smaPeriod={smaNqPeriod}
-            higherTurnover={higherTurnover.nasdaq100}
+            alternateGates={alternateGates.nasdaq100}
             result={signals?.nasdaq100 ?? null}
             loading={loading}
           />

@@ -90,11 +90,11 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
     const modernStartDate = index === "sp500" ? snapshot.startDate : CONSTANT_NASDAQ100_SHORTCUT_DATE;
     const dates = (await loadIndexPrices(index, modernStartDate, snapshot.endDate)).map((row) => row.date);
     const regimes: boolean[][] = [];
-    const higherTurnover = { ...snapshot.higherTurnover, isCalibratedDefault: false };
-    for (const preset of [...snapshot.presets, higherTurnover]) {
-      const isHigherTurnover = preset === higherTurnover;
+    const alternateGates = { ...snapshot.alternateGates, isCalibratedDefault: false };
+    for (const preset of [...snapshot.presets, alternateGates]) {
+      const isAlternateGates = preset === alternateGates;
       const expected = preset[index];
-      if (isHigherTurnover) {
+      if (isAlternateGates) {
         for (const field of ["smaPeriod", "smaUpperBuffer", "smaLowerBuffer"] as const) {
           assert.equal(expected[field], calibration[index][field]);
         }
@@ -107,7 +107,7 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
         preset: index === "sp500" ? "UPRO" : "TQQQ",
         startDate: modernStartDate, endDate: snapshot.endDate, smaEnabled: true,
         smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
-        smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaHigherTurnover: isHigherTurnover, smaInflationAdjusted: inflationAdjusted,
+        smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaAlternateGates: isAlternateGates, smaInflationAdjusted: inflationAdjusted,
         riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
       });
       assert.equal(result.startDate, modernStartDate);
@@ -145,7 +145,7 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
           preset: index === "sp500" ? "UPRO" : "TQQQ", smaEnabled: true,
           startDate: era.startDate, endDate: era.endDate,
           smaPeriod: expected.smaPeriod, smaUpperBuffer: expected.smaUpperBuffer, smaLowerBuffer: expected.smaLowerBuffer,
-          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaHigherTurnover: isHigherTurnover, smaInflationAdjusted: inflationAdjusted,
+          smaVolGate: SMA_CALIBRATION_VOL_GATE[index], smaAlternateGates: isAlternateGates, smaInflationAdjusted: inflationAdjusted,
           riskOffAsset: DEFAULT_RISK_OFF_ASSETS[index], smaExecutionMode: DEFAULT_SMA_EXECUTION_MODE,
         });
         assert.equal(recorded.startDate, historical.startDate);
@@ -156,7 +156,7 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
         assert.ok(Math.abs(recorded.realCagr - calcCagr(1, historical.finalMultiple / ratio, historical.startDate, historical.endDate)) < 1e-9);
         assert.ok(Math.abs(recorded.cagr - historical.cagrPct) < 1e-9, `${index} ${era.key} CAGR differs from its own era backtest`);
       }
-      if (isHigherTurnover) continue;
+      if (isAlternateGates) continue;
       let invested = result.smaStartInvested ?? true;
       let trade = 0;
       regimes.push(dates.map((date) => {
@@ -168,7 +168,11 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
     for (let a = 0; a < regimes.length; a++) for (let b = a + 1; b < regimes.length; b++) {
       const difference = regimes[a].filter((invested, day) => invested !== regimes[b][day]).length / dates.length;
       minDifference = Math.min(minDifference, difference);
-      assert.ok(difference >= 0.05, `${index} presets ${a}/${b} behave too similarly`);
+      assert.ok(difference > 0, `${index} presets ${a}/${b} have identical regimes`);
+      // A gate-only rescore keeps the saved bands and records their new separation.
+      if (!Object.hasOwn(snapshot, "rescoredAt")) {
+        assert.ok(difference >= 0.05, `${index} presets ${a}/${b} behave too similarly`);
+      }
       const left = snapshot.presets[a][index];
       const right = snapshot.presets[b][index];
       assert.ok(Math.abs(left.smaPeriod - right.smaPeriod) >= 20

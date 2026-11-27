@@ -84,7 +84,7 @@ describe("Signals page SMA inputs", () => {
   it("applies each index independently from every multi-era-ranked preset and displays compact real returns", () => {
     render(<SignalsPage />);
     const expected = { ...inputs };
-    const presets = [...cagrPresets.presets, { ...cagrPresets.higherTurnover, isCalibratedDefault: false }];
+    const presets = [...cagrPresets.presets, { ...cagrPresets.alternateGates, isCalibratedDefault: false }];
     presets.forEach((preset, index) => {
       const label = preset.isCalibratedDefault ? "Set default" : `Set alternative ${index}`;
       for (const indexKey of ["sp500", "nasdaq100"] as const) {
@@ -139,7 +139,7 @@ describe("Signals page SMA inputs", () => {
     expect(checkbox).toBeChecked();
   });
 
-  it("enables the higher-turnover gates only for the selected index and restores default gates when requested", async () => {
+  it("enables the alternate gates only for the selected index and restores default gates when requested", async () => {
     const signalParams = () => {
       const url = vi.mocked(fetch).mock.calls.map(([url]) => String(url))
         .filter((url) => url.startsWith("/api/sma-signals?")).at(-1);
@@ -149,11 +149,23 @@ describe("Signals page SMA inputs", () => {
     fireEvent.click(screen.getByTestId("sma-vol-gate"));
     fireEvent.click(screen.getByRole("button", { name: "NDX Set alternative 3 (inflation adjusted)" }));
     expect(screen.getByTestId("sma-vol-gate")).toBeChecked();
-    expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(inflationCagrPresets.higherTurnover.nasdaq100.smaPeriod));
+    expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(inflationCagrPresets.alternateGates.nasdaq100.smaPeriod));
     await waitFor(() => {
       expect(signalParams().get("smaNqHigherTurnover")).toBe("1");
-      expect(signalParams().has("smaSpHigherTurnover")).toBe(false);
+      expect(signalParams().has("smaSpAlternateGates")).toBe(false);
       expect(signalParams().get("smaVolGate")).toBe("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "SPX Set alternative 3 (inflation adjusted)" }));
+    await waitFor(() => {
+      expect(signalParams().get("smaSpAlternateGates")).toBe("1");
+      expect(signalParams().get("smaNqHigherTurnover")).toBe("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "SPX Set default (inflation adjusted)" }));
+    await waitFor(() => {
+      expect(signalParams().has("smaSpAlternateGates")).toBe(false);
+      expect(signalParams().get("smaNqHigherTurnover")).toBe("1");
     });
 
     fireEvent.click(screen.getByRole("button", { name: "NDX Set default (inflation adjusted)" }));

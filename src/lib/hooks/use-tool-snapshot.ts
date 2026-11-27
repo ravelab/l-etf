@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { hasMeaningfulSearchParams, persistedToolStateMatchesUrl } from "@/lib/tools-route";
-import { PAGE_CACHE_PREFIX } from "./use-page-cache";
+import { hasMeaningfulSearchParams, PAGE_CACHE_PREFIX, persistedToolStateMatchesUrl } from "@/lib/tools-route";
 import { getStoredEndDate } from "./use-shared-inputs";
 import { getTaxRates } from "./use-tax-rates";
 import { taxesApply } from "@/lib/simulation/after-tax-window";

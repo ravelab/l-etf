@@ -44,7 +44,7 @@ const VOL_GATE_FAQ_ROWS = [
 
 const formatGatePct = (value: number) => `${Math.round(value * 100)}%`;
 
-/** Same for both indices today; listed per index so a split shows up here too. */
+/** Rendered from each index’s default brake. */
 const RSI_BRAKE_FAQ_ROWS = [
   { label: "SPX", brake: SMA_RSI_BRAKE.sp500 },
   { label: "NDX", brake: SMA_RSI_BRAKE.nasdaq100 },

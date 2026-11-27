@@ -17,10 +17,10 @@ import type { IndexKey } from "./types";
  * 1971-1985 on the since-retired Nasdaq Composite backfill), also with a
  * Treasury-only risk-off. Neighbouring settings
  * (RSI7 < 7, RSI10 < 12, RSI14 < 18-20 with re-entry 44-66) pass too.
- * The evidence is thin: its whole gain comes from those three episodes. It
- * leaves the best vol gate and the calibrated SMA bands unchanged, so the three
- * layers can be tuned independently. Changing it changes every stored result
- * that has the gate switch on.
+ * The original brake's gain came from those three episodes, and it left the
+ * best vol gate and calibrated SMA bands unchanged. SPX now defaults to the
+ * former Alternative 3 brake (5d <4/>79). Changing either brake changes stored
+ * results that have the gate switch on.
  */
 export interface RsiBrakeParams {
   periodDays: number;
@@ -31,7 +31,7 @@ export interface RsiBrakeParams {
 }
 
 export const SMA_RSI_BRAKE: Record<IndexKey, RsiBrakeParams> = {
-  sp500: { periodDays: 14, exitBelow: 18, reenterAbove: 62 },
+  sp500: { periodDays: 5, exitBelow: 4, reenterAbove: 79 },
   nasdaq100: { periodDays: 14, exitBelow: 18, reenterAbove: 62 },
 };
 

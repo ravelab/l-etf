@@ -796,7 +796,9 @@ default. Ungated, NDX ranks 182/−18.1%/+6.9% first; gated, 115/−20%/+16% win
 by a wide margin, so flipping that flag reorders the whole NDX preset set.
 Gate parameters are PER INDEX (`SMA_VOL_GATE[index]`), resolved from
 `smaIndex` wherever signals are generated; one UI switch turns both on.
-SPX 20d 32%/22%, NDX 10d 50%/31% (2026-11), each picked from a full 1d/1% grid
+SPX defaults to 21d 26%/23% after promoting its original Alternative 3.
+The previous SPX default 20d 32%/22% and the NDX default 10d 50%/31%
+were picked from a full 1d/1% grid
 (5-30d, exit 25-90%) under the full-period score with that index's band held at
 its calibration, ranked by `stabilityAdjustedSmaScore` over ±1d/±1%. No single
 gate beat the old shared 11d 49%/31% on BOTH indices (SPX's best halves NDX's
@@ -805,18 +807,18 @@ score), so they differ; labels show both and collapse only when they match
 42%/23% the SPX band widened its lower buffer (−3.5 → −5.5%, 35 → 23 SMA
 switches), and that band scored worse than the old one under the old gate. The
 2026-11-18 re-pick recalibrated the band under each leading gate first; all kept
-193d −5.1%/+3.3%. Candidates that add a risk-off shorter than 21 trading days
-are rejected before ranking. So they are constants, not
-searched monthly; re-pick them only together with a band recalibration
-(`npm run refresh-sma`), never alone. A gate-only rule (no SMA exits) loses
+193d −5.1%/+3.3%. Gate searches normally reject candidates that add a
+risk-off shorter than 21 trading days. The SPX Alternative 3 swap was an
+explicit exception and preserved the existing SMA bands. Gate constants are
+outside the monthly search. A gate-only rule (no SMA exits) loses
 badly on both indices in the pre-1988/1985 eras.
-The same switch also applies the RSI crash brake (`rsi-brake.ts`: Wilder RSI
-14d, out below 18, back above 62, both indices, 2026-11). Resolve the switch
+The same switch also applies the RSI crash brake (`rsi-brake.ts`: SPX Wilder
+RSI 5d below 4/above 79, NDX 14d below 18/above 62). Resolve the switch
 with `smaRiskOffGates(index)` (`risk-off-gates.ts`); a call site that spreads
 `{ volGate }` alone silently drops the brake. `getSmaSignal` (Signals page,
 push alerts) replays both state machines apart from `generateSmaSignals`, so
 keep the two in step. Brake trades are gate trades, excluded from the
-sparse-switch count like vol trades. It was the only RSI family, out of ~15k
+sparse-switch count like vol trades. The original 14d brake was the only RSI family, out of ~15k
 add-ons, that beat the defaults on both indices without lowering real CAGR in
 SPX 1885–1988 or NDX 1971–85 (measured on the since-removed Composite backfill;
 not re-run on the NDX proxy); its gain rests on three episodes (SPX Q4 2018,
@@ -837,15 +839,18 @@ Keep one default and three alternatives per index. The calibrated default stays 
 Alternatives 1 and 2 in `sma-cagr-presets.json` rank each index by descending
 stability-adjusted full-period score and pair the SPX/NDX rules by rank through
 `sma-preset-ranking.ts`. Alternative 3 uses the calibrated band of its card
-with the opt-in higher-turnover gates in `risk-off-gates.ts`. Keep its CAGR
+with the opt-in alternate gates in `risk-off-gates.ts`. SPX uses the former
+default gates in Alternative 3. Keep its CAGR
 and switch histories computed from the calibrated band and both alternate gates
-in the `higherTurnover` artifact entry. Signals and push alerts resolve the
+in the `alternateGates` artifact entry. Signals and push alerts resolve the
 same per-index gate settings. CAGR is only a
 comparison metric: re-sorting by modern sleeve or portfolio CAGR promoted the
 weakest NDX rule despite its terrible pre-launch era. Preserve the score order through
 selection, pairing and display. Refresh with `npm run explore-sma-cagr`; reorder
 saved selections without searching via `npm run explore-sma-cagr -- --rerank-presets`;
 re-score them in place after an engine or gate change via `-- --rescore-presets`.
+A rescore preserves the selected SMA bands and records their new regime
+separation. The 5% minimum applies when the search selects new bands.
 The manual search must visit all 231 integer periods (50–280; shorter SMAs are excluded), both at their
 per-period seeds and at each saved fine buffer pair: restricting to five-day
 periods missed NDX 177/−12.1%/+7.8%, which beats the saved 150-day rule on the

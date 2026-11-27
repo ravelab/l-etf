@@ -35,9 +35,6 @@ function smaBufferUrlEntries(source) {
   if (lowerSp != null) entries.smatspL = lowerSp;
   if (upperNq != null) entries.smatnqU = upperNq;
   if (lowerNq != null) entries.smatnqL = lowerNq;
-  // A link carrying the SMA buffers but no `vg` flag means the gate is off
-  // (`parseSmaVolGateUrlParam`), so a snapshot taken with it on must say so.
-  if (source.smaVolGate === true) entries.vg = 1;
   return entries;
 }
 
@@ -207,6 +204,12 @@ function withCommonParams(entries, pageState) {
   }
   if (pageState.endDate) params.set("ed", pageState.endDate);
   if (pageState.historyWrap === false) params.set("tw", "0");
+  // A link with SMA buffers needs the gate and inflation flags to reproduce the snapshot.
+  if (pageState.smaVolGate === true) params.set("vg", "1");
+  if (pageState.smaInflationAdjusted === true) params.set("ia", "1");
+  if (pageState.spxRiskOffAsset) params.set("ros", pageState.spxRiskOffAsset);
+  if (pageState.ndxRiskOffAsset) params.set("ron", pageState.ndxRiskOffAsset);
+  if (pageState.smaExecutionMode) params.set("smaExec", pageState.smaExecutionMode);
   params.set("autorun", "1");
   return params;
 }

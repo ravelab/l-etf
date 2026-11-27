@@ -2,6 +2,7 @@ import { urlSmaBuffersMatchState } from "@/lib/sma-buffer-url-params";
 import { readPerIndexStartUrlParam } from "@/lib/per-index-start";
 import { readMicroFuturesUrlParam } from "@/lib/micro-futures-url";
 import { riskOffUrlParamsMatchState } from "@/lib/risk-off-url-params";
+import { SMA_RISK_OFF_GATES_PARAMS_TEXT } from "@/lib/simulation/risk-off-gates";
 
 export const TOOL_TABS = [
   "strategies",
@@ -17,6 +18,10 @@ export type ToolTab = (typeof TOOL_TABS)[number];
 
 export const DEFAULT_TOOL_TAB: ToolTab = "strategies";
 export const TOOLS_AUTORUN_PARAM = "autorun";
+
+// A gate change must invalidate cached calculations even when the URL and form
+// values still match. Shared inputs and saved run links use their own keys.
+export const PAGE_CACHE_PREFIX = `pageCache:v3:${SMA_RISK_OFF_GATES_PARAMS_TEXT}:`;
 
 const TOOL_TAB_PAGE_KEYS: Record<ToolTab, string> = {
   strategies: "compare-letfs",
@@ -219,7 +224,7 @@ export function persistedPageCacheMatchesToolUrl(tab: ToolTab, params: URLSearch
   const pageKey = TOOL_TAB_PAGE_KEYS[tab];
   if (!pageKey) return false;
   try {
-    const raw = window.localStorage.getItem("pageCache:v3:" + pageKey);
+    const raw = window.localStorage.getItem(PAGE_CACHE_PREFIX + pageKey);
     if (!raw) return false;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return false;
