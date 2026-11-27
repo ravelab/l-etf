@@ -22,6 +22,7 @@ export function SmaPresetsCard({
   description,
   set,
   ariaSuffix = "",
+  showAllAlternatives = true,
   testId,
   onSet,
 }: {
@@ -30,9 +31,13 @@ export function SmaPresetsCard({
   set: SmaPresetSet;
   /** Appended to each button's accessible name, to tell the two cards' buttons apart. */
   ariaSuffix?: string;
+  showAllAlternatives?: boolean;
   testId: string;
   onSet: (indexKey: "sp500" | "nasdaq100", preset: SmaPreset) => void;
 }) {
+  const ranked = showAllAlternatives ? set.presets : set.presets.slice(0, 2);
+  const presets: SmaPreset[] = ranked.map((preset) => ({ ...preset, useDefaultBand: preset.isCalibratedDefault }));
+  if (showAllAlternatives) presets.push({ ...set.alternateGates, alternateGates: true });
   return (
     <Card>
       <div data-testid={testId}>
@@ -40,10 +45,7 @@ export function SmaPresetsCard({
         <p className="text-sm text-muted mb-4">{description}</p>
         <div className="flex flex-col items-start gap-2 text-[11px] md:text-sm text-muted">
           <div className="flex w-full min-w-0 flex-col gap-2">
-            {[
-              ...set.presets.map((preset) => ({ ...preset, useDefaultBand: preset.isCalibratedDefault })),
-              { ...set.alternateGates, useDefaultBand: true, alternateGates: true },
-            ].map((preset: SmaPreset, index) => {
+            {presets.map((preset, index) => {
               const label = index === 0 ? "Set default" : `Set alternative ${index}`;
               return (
                 <div key={`cagr-preset-${index}`} data-sma-preset={index} className="grid min-w-0 grid-cols-1 items-start gap-1.5 border-b border-card-border pb-2 last:border-0 tabular-nums md:grid-cols-2 md:gap-6">

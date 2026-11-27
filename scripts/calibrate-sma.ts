@@ -40,6 +40,7 @@ import { dirname } from "node:path";
 import { calibrationYears } from "../src/lib/simulation/sma-calibration-eras";
 import {
   SMA_CALIBRATION_ERAS,
+  SMA_CALIBRATION_INFLATION_ADJUSTED,
   describeEraWeights,
 } from "../src/lib/simulation/sma-calibration-eras";
 import { buildAxis } from "../src/lib/simulation/grid-axis";
@@ -81,7 +82,7 @@ import { getLatestSharedTradeDate } from "./lib/sweep-data";
 import { rankStableSmaCandidates } from "../src/lib/simulation/sma-stability-score";
 import type { IndexKey } from "../src/lib/simulation/types";
 import { readSmaArtifact } from "./lib/sma-artifacts";
-import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
+import { buildSmaCalibrationResult, scoreSelectedCalibrationBand, selectedCalibrationBand } from "./lib/sma-calibration-result";
 
 const savedPresets = readSmaArtifact("sma-cagr-presets");
 const savedCalibration = readSmaArtifact("sma-calibration");
@@ -179,6 +180,8 @@ async function calibrateIndex(
     windowLength,
     maxPeriod: SMA_SEARCH_MAX_PERIOD,
   });
+  const selected = selectedCalibrationBand(indexKey, SMA_CALIBRATION_INFLATION_ADJUSTED[indexKey]);
+  if (selected) return scoreSelectedCalibrationBand(eras, selected);
 
   const seen = new Set<string>();
   const evaluated: EraEvaluatedCombo[] = [];

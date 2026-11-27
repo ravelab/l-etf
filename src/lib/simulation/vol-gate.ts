@@ -20,7 +20,7 @@ import type { IndexKey } from "./types";
  * but re-enters about two weeks later, and adds no risk-off shorter than a month.
  * It is a narrow peak (worst ±1 neighbour −19%), not a plateau; the band
  * recalibrated to the same 193d −5.1%/+3.3% under it and every other leader.
- * SPX now defaults to the former Alternative 3 gate (21d 26%/23%). NDX's
+ * SPX's prior default (21d 26%/23%) is available in Alternative 3. NDX's
  * 11d 49%/31% sat one step from a cliff (12d lost 22-36%); 10d 50%/31% keeps
  * its trade count and steps away. The NDX stable argmax, 9d 46%/40%, was
  * rejected: on band 136d −17.9%/+9.6% (data to 2026-11-02, with or without the
@@ -29,7 +29,8 @@ import type { IndexKey } from "./types";
  * gate flips mostly in 1998-2003. It was identical in 1971-85 on the
  * since-retired Composite backfill, where neither gate changed a trade, so the
  * gain had no out-of-sample support there.
- * Changing either set changes every stored result that has the gate on.
+ * NDX now defaults to 7d 42%/21% with the faster RSI brake and the selected
+ * inflation-adjusted band. Changing either gate changes stored gated results.
  */
 export interface VolGateParams {
   windowDays: number;
@@ -38,8 +39,8 @@ export interface VolGateParams {
 }
 
 export const SMA_VOL_GATE: Record<IndexKey, VolGateParams> = {
-  sp500: { windowDays: 21, exitAbove: 0.26, reenterBelow: 0.23 },
-  nasdaq100: { windowDays: 10, exitAbove: 0.5, reenterBelow: 0.31 },
+  sp500: { windowDays: 5, exitAbove: 0.4, reenterBelow: 0.1 },
+  nasdaq100: { windowDays: 7, exitAbove: 0.42, reenterBelow: 0.21 },
 };
 
 /** The higher-turnover NDX volatility gate from the stability-ranked search above. */

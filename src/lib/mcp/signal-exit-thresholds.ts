@@ -37,13 +37,18 @@ export function signalExitThresholds(input: {
     : input.volGateRiskOff ? "already-risk-off" as const
     : volTail.length < gate.windowDays || !valid(volTail) ? "insufficient-data" as const
     : "available" as const;
-  const scenarios: Array<{ tradingDays: number; dailyReturnPctAtHorizon: number; dailyReturnPctByHorizon: number }> = [];
+  const scenarios: Array<{ tradingDays: number; dailyReturnPctAtHorizon: number | null; dailyReturnPctByHorizon: number }> = [];
   let nextVolExitRisePct: number | null = null;
   if (status === "available") {
     const returns = volTail.slice(1).map((value, i) => Math.log(value / volTail[i]));
     let byHorizon = -Infinity;
     for (let days = 1; days <= 7; days++) {
       const n = gate.windowDays;
+      // Once identical returns fill the window, volatility at the horizon is zero.
+      if (days >= n) {
+        scenarios.push({ tradingDays: days, dailyReturnPctAtHorizon: null, dailyReturnPctByHorizon: byHorizon });
+        continue;
+      }
       const retained = returns.slice(-(n - days));
       const sum = retained.reduce((s, r) => s + r, 0);
       const sumSq = retained.reduce((s, r) => s + r * r, 0);
@@ -73,7 +78,7 @@ export function signalExitThresholds(input: {
       constantDeclineScenarios: scenarios,
     },
     rsiBrake,
-    note: (input.inflationAdjusted ? "The SMA boundary assumes the latest known CPI remains in force. " : "") + "Boundaries, not probabilities. Signed close-to-close returns; each scenario repeats the same percentage return every day. AtHorizon measures volatility on that close; ByHorizon means on any close up to that day. Zero means a flat path reaches the boundary. Volatility must exceed its threshold; price must fall below the SMA exit close; the RSI brake trips when the next close is below its exit close (Wilder RSI below the exit level). SMA updates with the next close. Whichever rule's boundary is nearest exits first. Already-active or disabled gates have no new-exit boundary. Default execution is the following trading day's open.",
+    note: (input.inflationAdjusted ? "The SMA boundary assumes the latest known CPI remains in force. " : "") + "Boundaries, not probabilities. Signed close-to-close returns; each scenario repeats the same percentage return every day. AtHorizon measures volatility on that close; ByHorizon means on any close up to that day. AtHorizon is null once identical returns fill the volatility window. Zero means a flat path reaches the boundary. Volatility must exceed its threshold; price must fall below the SMA exit close; the RSI brake trips when the next close is below its exit close (Wilder RSI below the exit level). SMA updates with the next close. Whichever rule's boundary is nearest exits first. Already-active or disabled gates have no new-exit boundary. Default execution is the following trading day's open.",
   };
 }
 

@@ -13,13 +13,13 @@ it.each(["Buy L-ETFs", "Sell L-ETFs", "Hold"])("displays a neutral Hold for %s",
 });
 
 it.each([
-  [0.259626, false, "25.96% · exit > 26%"],
-  [0.25999, false, "Just below 26% · exit > 26%"],
-  [0.26, false, "26.0% · exit > 26%"],
-  [0.2304, true, "23.04% · re-enter < 23%"],
-  [0.265315, false, "26.5% · exit > 26%"],
+  [0.399626, false, "39.96% · exit > 40%"],
+  [0.39999, false, "Just below 40% · exit > 40%"],
+  [0.4, false, "40.0% · exit > 40%"],
+  [0.1004, true, "10.04% · re-enter < 10%"],
+  [0.405315, false, "40.5% · exit > 40%"],
 ])("displays volatility %s with gate state %s", (volatility, volGateRiskOff, label) => {
-  render(<SignalCard indexName="S&P 500" indexKey="sp500" smaPeriod={239} result={{
+  render(<SignalCard indexName="S&P 500" indexKey="sp500" smaPeriod={202} result={{
     signal: "hold", signalLabel: "Hold", signalEmoji: "⏸️", indexValue: 102, indexDate: "2026-11-23",
     smaValue: 100, percentDiff: 2, volatility, volGateRiskOff,
   }} />);

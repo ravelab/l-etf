@@ -18,12 +18,12 @@ function isoDates(count: number): string[] {
   return Array.from({ length: count }, (_, i) => new Date(start + i * 86_400_000).toISOString().slice(0, 10));
 }
 
-/** Calm uptrend, a ~48%-vol stretch that still trends up, then calm again. */
+/** Calm uptrend, a ~45%-vol stretch that still trends up, then calm again. */
 function path(): number[] {
   const out = [100];
   const push = (r: number) => out.push(out[out.length - 1] * (1 + r));
   for (let i = 0; i < 200; i++) push(0.001 + (i % 2 ? -0.005 : 0.005));
-  for (let i = 0; i < 20; i++) push(0.003 + (i % 2 ? -0.029 : 0.029));
+  for (let i = 0; i < 20; i++) push(0.003 + (i % 2 ? -0.027 : 0.027));
   for (let i = 0; i < 80; i++) push(0.001 + (i % 2 ? -0.005 : 0.005));
   return out;
 }
@@ -47,8 +47,8 @@ test("it is the line's own SMA band and RSI brake with only the vol gate swapped
     );
   }
   const shipped = generateSmaSignals(dates, closes, LINE.smaPeriod, band, smaRiskOffGates("nasdaq100")).invested;
-  assert.ok(shipped.slice(200).every(Boolean), "~48% vol never trips the shipped 50% exit");
-  assert.ok(regime.slice(200).some((v) => !v), "but trips the 46% exit");
+  assert.ok(shipped.slice(200).some((v) => !v), "the storm trips the default 42% exit");
+  assert.ok(regime.slice(200).every(Boolean), "the 46% gate stays risk-on");
 });
 
 test("it charts the band's SMA and warms up for the band's period", () => {

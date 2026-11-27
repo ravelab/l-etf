@@ -125,6 +125,14 @@ through month-end until a cron-triggered production build records success.
 Generate canned snapshots after both SMA calibrations: the generator reads the
 site default band from the calibration on disk.
 
+The inflation-adjusted defaults use the selected 202-day SPX band (−11.5%/+0.5%)
+and 158-day NDX band (−19%/+7%). Calibration and preset generation take these
+bands from `scripts/lib/sma-calibration-result.ts` and recompute their scores
+on each refresh. SPX Alternative 3 restores the former 239-day inflation-adjusted
+band and its gates through `risk-off-gates.ts`. Its button applies the
+band saved in the preset artifact. Push subscriptions that follow calibrated
+bands resolve the same alternative band.
+
 `DeployVersionWatcher` must compare the server version with the loaded build's
 `BUILD_DEPLOY_VERSION`, frozen by `next.config.ts` and shared with
 `/api/deploy-version`. Never use localStorage as the running version: a fresh
@@ -139,13 +147,15 @@ across pages by `use-shared-inputs.ts`; every config takes its own `smaIndex`'s
 asset, futures rungs and their Check Emulations twins included. Read and write
 the URL through `risk-off-url-params.ts`: it still reads the legacy single `ro`
 as both, which old history links and MCP permalinks carry. The MCP tools' single
-`riskOffAsset` keeps `DEFAULT_RISK_OFF_ASSET`. The SMA calibration (seeds, band,
+`riskOffAsset` uses `DEFAULT_RISK_OFF_ASSET`, which is also the starting basket
+for both tool-page indices. The SMA calibration (seeds, band,
 Signals presets) scores each index on its `DEFAULT_RISK_OFF_ASSETS` entry, the
 basket the page holds, and records it as `riskOffAsset(s)`. Canned snapshots load
-only into a form whose pair matches, so changing the defaults means
-`npm run explore-sma` and `npm run refresh-sma` (the artifact tests fail on a
-basket mismatch), `npm run snapshots:generate`, and re-measuring the worst-time
-windows (`scripts/find-worst-drawdowns.ts`).
+only into a form whose pair matches. After a basket change, regenerate the
+calibration artifacts, tool snapshots, and worst-time windows
+(`scripts/find-worst-drawdowns.ts`). Use `npm run explore-sma` and
+`npm run refresh-sma` when reselecting bands. When retaining selected bands,
+rescore the saved seeds, calibration neighborhoods, and presets on the new basket.
 
 ## Tool pages: Start Date and "SPX/NDX start"
 

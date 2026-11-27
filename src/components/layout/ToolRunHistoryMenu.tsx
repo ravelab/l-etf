@@ -73,12 +73,12 @@ const HISTORY_TYPE_COLORS: Record<ToolTab, { accent: string; bg: string; hover: 
  * per-index `DEFAULT_RISK_OFF_ASSETS`, imported, so changing those defaults also means regenerating.
  */
 const WORST_TIME_BACKTEST_BASE_PARAMS = {
-  smaPsp: "239",
-  smaPnq: "139",
-  smaSpUpperBuffer: 2.2,
-  smaSpLowerBuffer: 5.4,
-  smaNqUpperBuffer: 9,
-  smaNqLowerBuffer: 18.2,
+  smaPsp: "202",
+  smaPnq: "158",
+  smaSpUpperBuffer: 0.5,
+  smaSpLowerBuffer: 11.5,
+  smaNqUpperBuffer: 7,
+  smaNqLowerBuffer: 19,
   smaVolGate: true,
   smaInflationAdjusted: true,
 } as const;
@@ -94,20 +94,18 @@ const WORST_TIME_BACKTEST_BASE_PARAMS = {
  * and sells on the worst possible day, with none of the recovery to soften it. `drawdown` is
  * that peak-to-bottom decline, so it is what the window itself returns.
  *
- * The window is the decline, not the era around it, so an anchor can run well past the event it
- * is named for: TQQQ SMA Vol RSI rode through the 1987 crash and kept sliding until November 1988,
- * so its 1987 window ends there at -77.5%, its deepest decline on record. (Before the RSI brake
- * stepped it aside in August 1990, the slide ran on into the 1990 bear at -82.2%.)
+ * An anchor can extend past its starting year. The TQQQ decline that starts
+ * before the 1987 crash reaches its lowest close in December 1988.
  *
  * Regenerate with `node --import tsx scripts/find-worst-drawdowns.ts` after any change to
  * the calibrated SMA defaults or the price data — these windows move when the strategy does.
  */
 const WORST_TIME_TO_INVEST_ITEMS = [
-  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1931-12-17", days: 835, drawdown: "-51.9%" },
-  { letf: "UPRO" as const, startDate: "1998-07-17", endDate: "1998-09-11", days: 56, drawdown: "-50.6%" },
-  { letf: "UPRO" as const, startDate: "2007-07-19", endDate: "2008-11-20", days: 490, drawdown: "-46.1%" },
-  { letf: "TQQQ" as const, startDate: "1987-10-05", endDate: "1988-11-21", days: 413, drawdown: "-77.5%" },
-  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-04-25", days: 522, drawdown: "-62.3%" },
+  { letf: "UPRO" as const, startDate: "1929-09-03", endDate: "1931-12-17", days: 835, drawdown: "-37.8%" },
+  { letf: "UPRO" as const, startDate: "1998-07-17", endDate: "1998-09-11", days: 56, drawdown: "-50.3%" },
+  { letf: "UPRO" as const, startDate: "2007-02-20", endDate: "2007-02-27", days: 7, drawdown: "-13.5%" },
+  { letf: "TQQQ" as const, startDate: "1987-08-26", endDate: "1988-12-13", days: 475, drawdown: "-47.7%" },
+  { letf: "TQQQ" as const, startDate: "2021-11-19", endDate: "2023-03-10", days: 476, drawdown: "-49.4%" },
 ] as const;
 
 /** Years once a window runs a year or longer, then months, then days — "0.16y" reads as a typo. */

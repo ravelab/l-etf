@@ -44,9 +44,8 @@ const METHODOLOGY = `# l-etf simulation methodology (summary)
   not also earn cash-sweep interest. Existing SGOV/VGSH collateral counts toward
   a Treasury risk-off target rather than being swapped, so a futures sleeve
   risk-off into VGSH mostly holds SGOV and can diverge from the LETF twin.
-- **Default risk-off allocation**: MCP backtest tools retain the shared
-  BRK.B+GLDM+VGSH basket. Tool pages default to SPX BRK.B+GLDM and NDX VGSH;
-  specify riskOffAsset explicitly for comparable single-strategy runs.
+- **Default risk-off allocation**: MCP backtest tools and both index sleeves
+  on the tool pages default to the equal-weight BRK.B+GLDM+VGSH basket.
 - **Risk-off assets** may be single tickers (SGOV, VGSH, GLDM, BRK.B, VOO, QQQ)
   or composites (e.g. BRK.B+GLDM+VGSH) held in equal weight.
 - **Rolling-window analysis** evaluates a strategy across every historical

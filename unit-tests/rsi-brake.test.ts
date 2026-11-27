@@ -57,14 +57,14 @@ function calmSlide(): { prices: number[]; slideStart: number; slideEnd: number }
 
 test("SPX defaults to the promoted gates and Alternative 3 restores its former default", () => {
   assert.deepEqual(smaRiskOffGates("sp500"), {
+    volGate: { windowDays: 5, exitAbove: 0.4, reenterBelow: 0.1 },
+    rsiBrake: { periodDays: 3, exitBelow: 4, reenterAbove: 93 },
+  });
+  assert.deepEqual(smaRiskOffGates("sp500", true), {
     volGate: { windowDays: 21, exitAbove: 0.26, reenterBelow: 0.23 },
     rsiBrake: { periodDays: 5, exitBelow: 4, reenterAbove: 79 },
   });
-  assert.deepEqual(smaRiskOffGates("sp500", true), {
-    volGate: { windowDays: 20, exitAbove: 0.32, reenterBelow: 0.22 },
-    rsiBrake: { periodDays: 14, exitBelow: 18, reenterAbove: 62 },
-  });
-  assert.equal(rsiBrakeParamsTextFor(["sp500", "nasdaq100"]), "SPX RSI 5d <4 >79; NDX RSI 14d <18 >62");
+  assert.equal(rsiBrakeParamsTextFor(["sp500", "nasdaq100"]), "SPX RSI 3d <4 >93; NDX RSI 4d <9 >81");
 });
 
 test("smaRiskOffGates bundles each index's vol gate with its RSI brake", () => {

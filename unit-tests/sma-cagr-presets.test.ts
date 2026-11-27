@@ -14,6 +14,7 @@ import {
   smaReentryClimbPct, smaReentryPenaltyFraction,
 } from "../src/lib/simulation/sma-search-bounds";
 import { stabilityAdjustedSmaScore } from "../src/lib/simulation/sma-stability-score";
+import { selectedCalibrationBand } from "../scripts/lib/sma-calibration-result";
 import { cpiIndexRatioEndOverStart } from "../src/lib/inflation";
 import { fetchInflationData } from "../scripts/lib/sweep-data";
 import { calcCagr } from "../src/lib/simulation/metrics";
@@ -95,9 +96,10 @@ test(`${variant} CAGR presets retain their actual engine returns, rank and disti
       const isAlternateGates = preset === alternateGates;
       const expected = preset[index];
       if (isAlternateGates) {
-        for (const field of ["smaPeriod", "smaUpperBuffer", "smaLowerBuffer"] as const) {
-          assert.equal(expected[field], calibration[index][field]);
-        }
+        const band = index === "sp500" && inflationAdjusted
+          ? { smaPeriod: 239, smaUpperBuffer: 2.2, smaLowerBuffer: 5.4 }
+          : calibration[index];
+        assert.equal(comboKey(expected), comboKey(band));
       } else if (!preset.isCalibratedDefault) {
         assert.equal(expected.smaPeriod % snapshot.grid.periodStep, 0);
         for (const buffer of [expected.smaLowerBuffer, expected.smaUpperBuffer])
@@ -191,8 +193,13 @@ test(`${variant} preset selection uses full-period scores, stability penalties a
     assert.deepEqual(snapshot.eraWeights[index], Object.fromEntries(SMA_CALIBRATION_ERAS[index].map((era) => [era.key, era.weight])));
     const expectedDefault = calibration[index];
     const actualDefault = defaults[0][index];
-    assert.ok(actualDefault.score >= snapshot.bestFound[index].score - 1e-8,
-      `${index} calibrated default must include the manual search's strongest discovery`);
+    const selected = selectedCalibrationBand(index, inflationAdjusted);
+    if (selected) {
+      assert.equal(comboKey(actualDefault), comboKey(selected));
+    } else {
+      assert.ok(actualDefault.score >= snapshot.bestFound[index].score - 1e-8,
+        `${index} calibrated default must include the manual search's strongest discovery`);
+    }
     for (const field of ["smaPeriod", "smaUpperBuffer", "smaLowerBuffer"] as const) assert.equal(actualDefault[field], expectedDefault[field]);
     const contexts = await buildSmaEraContexts({ indexKey: index, endDate: snapshot.endDate,
       windowLength: snapshot.windowLength, maxPeriod: SMA_SEARCH_MAX_PERIOD, inflationAdjusted });

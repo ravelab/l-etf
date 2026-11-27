@@ -8,16 +8,20 @@
 
 import type { SmaCalibrationResult } from "@/lib/sma-calibration";
 import type { SmaSignalConfig } from "@/lib/sma-status";
+import { smaAlternateBand } from "@/lib/simulation/risk-off-gates";
 
 export function applyCalibratedSmaDefaults(
   config: SmaSignalConfig,
   calibration: SmaCalibrationResult
 ): SmaSignalConfig {
+  const sp = (config.smaVolGate && config.smaSpAlternateGates
+    ? smaAlternateBand("sp500", config.smaInflationAdjusted === true)
+    : undefined) ?? calibration.sp500;
   return {
     ...config,
-    smaSpPeriod: calibration.sp500.smaPeriod,
-    smaSpUpperBuffer: calibration.sp500.smaUpperBuffer,
-    smaSpLowerBuffer: calibration.sp500.smaLowerBuffer,
+    smaSpPeriod: sp.smaPeriod,
+    smaSpUpperBuffer: sp.smaUpperBuffer,
+    smaSpLowerBuffer: sp.smaLowerBuffer,
     smaNqPeriod: calibration.nasdaq100.smaPeriod,
     smaNqUpperBuffer: calibration.nasdaq100.smaUpperBuffer,
     smaNqLowerBuffer: calibration.nasdaq100.smaLowerBuffer,

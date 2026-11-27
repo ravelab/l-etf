@@ -1,5 +1,6 @@
 import { SMA_HISTORICAL_ERAS, SMA_CALIBRATION_INFLATION_ADJUSTED, SMA_CALIBRATION_VOL_GATE } from "../../src/lib/simulation/sma-calibration-eras";
 import { DEFAULT_RISK_OFF_ASSETS } from "../../src/lib/simulation/defaults";
+import { smaAlternateBand } from "../../src/lib/simulation/risk-off-gates";
 import { DEFAULT_SMA_EXECUTION_MODE } from "../../src/lib/input-normalization";
 import { runBacktestCore } from "../../src/lib/mcp/tools/run-backtest";
 import type { SmaCombo } from "../../src/lib/simulation/sma-search";
@@ -63,7 +64,7 @@ export async function withEraCagrs<T extends Record<IndexKey, SmaCombo>>(presets
 
 export async function alternateGatesPreset(bands: Record<IndexKey, SmaCombo>, startDate: string, endDate: string) {
   const bandFor = (index: IndexKey): SmaCombo => {
-    const { smaPeriod, smaUpperBuffer, smaLowerBuffer } = bands[index];
+    const { smaPeriod, smaUpperBuffer, smaLowerBuffer } = smaAlternateBand(index, SMA_CALIBRATION_INFLATION_ADJUSTED[index]) ?? bands[index];
     return { smaPeriod, smaUpperBuffer, smaLowerBuffer };
   };
   return {

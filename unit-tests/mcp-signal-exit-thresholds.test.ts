@@ -14,6 +14,11 @@ test("exit roots match the engine's rolling sample volatility for both indices",
     const gate = SMA_VOL_GATE[index];
     const closes = prices.map(p => p.close);
     for (const scenario of result.volatility.constantDeclineScenarios) {
+      if (scenario.tradingDays >= gate.windowDays) {
+        assert.equal(scenario.dailyReturnPctAtHorizon, null);
+        continue;
+      }
+      assert.ok(scenario.dailyReturnPctAtHorizon !== null);
       const path = [...closes];
       for (let day = 0; day < scenario.tradingDays; day++) path.push(path.at(-1)! * (1 + scenario.dailyReturnPctAtHorizon / 100));
       const vol = computeRealizedVol(path, gate.windowDays).at(-1)!;

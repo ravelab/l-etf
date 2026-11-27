@@ -6,7 +6,7 @@ import { getSwapSpreadModel } from "@/lib/simulation/swap-spread";
 import { ETF_PRESETS } from "@/lib/simulation/presets";
 import { SMA_VOL_GATE } from "@/lib/simulation/vol-gate";
 import { SMA_RSI_BRAKE } from "@/lib/simulation/rsi-brake";
-import { DEFAULT_RISK_OFF_ASSET, DEFAULT_RISK_OFF_ASSETS } from "@/lib/simulation/defaults";
+import { DEFAULT_RISK_OFF_ASSET } from "@/lib/simulation/defaults";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata } from "@/lib/seo";
 import {
@@ -337,13 +337,11 @@ const FAQ_DATA: FAQItem[] = [
           <li><strong className="text-foreground">QQQ</strong> — Nasdaq 100 exposure.</li>
         </ul>
         <p className="mt-3">
-          Tool pages choose a risk-off asset separately for SPX and NDX, so each sleeve can use the
-          defensive asset that matches its index. The current tool-page defaults are
-          <strong className="text-foreground"> {formatRiskOffAsset(DEFAULT_RISK_OFF_ASSETS.sp500)}</strong> for SPX and
-          <strong className="text-foreground"> {formatRiskOffAsset(DEFAULT_RISK_OFF_ASSETS.nasdaq100)}</strong> for NDX,
-          and the SMA calibration scores each index with these same defaults. The MCP API for AI
-          agents takes a single risk-off asset, defaulting to
-          <strong className="text-foreground"> {formatRiskOffAsset(DEFAULT_RISK_OFF_ASSET)}</strong>.
+          SPX and NDX both default to an equal-weight
+          <strong className="text-foreground"> {formatRiskOffAsset(DEFAULT_RISK_OFF_ASSET)}</strong> basket.
+          The SMA calibration uses that basket for each index. You can choose a different
+          risk-off asset for each index on the tool pages. The MCP API uses the same default
+          and takes a single risk-off asset.
         </p>
         <p className="mt-3">
           For long backtests, the app extends these series backward with historical proxy data when

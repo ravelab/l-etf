@@ -81,10 +81,14 @@ describe("Signals page SMA inputs", () => {
     expect(screen.getByLabelText("NDX SMA Period")).toHaveValue(String(getDefaultSmaPeriod("nasdaq100")));
   });
 
-  it("applies each index independently from every multi-era-ranked preset and displays compact real returns", () => {
+  it("shows the nominal default and first alternative and applies each index independently", () => {
     render(<SignalsPage />);
     const expected = { ...inputs };
-    const presets = [...cagrPresets.presets, { ...cagrPresets.alternateGates, isCalibratedDefault: false }];
+    const presets = cagrPresets.presets.slice(0, 2);
+    for (const label of ["SPX", "NDX"]) {
+      expect(screen.queryByRole("button", { name: `${label} Set alternative 2` })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: `${label} Set alternative 3` })).not.toBeInTheDocument();
+    }
     presets.forEach((preset, index) => {
       const label = preset.isCalibratedDefault ? "Set default" : `Set alternative ${index}`;
       for (const indexKey of ["sp500", "nasdaq100"] as const) {
@@ -157,6 +161,9 @@ describe("Signals page SMA inputs", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "SPX Set alternative 3 (inflation adjusted)" }));
+    expect(screen.getByLabelText("SPX SMA Period")).toHaveValue("239");
+    expect(screen.getByLabelText("SPX SMA Buffer lower")).toHaveValue("5.4");
+    expect(screen.getByLabelText("SPX SMA Buffer upper")).toHaveValue("2.2");
     await waitFor(() => {
       expect(signalParams().get("smaSpAlternateGates")).toBe("1");
       expect(signalParams().get("smaNqHigherTurnover")).toBe("1");

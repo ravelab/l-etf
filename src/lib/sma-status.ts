@@ -9,7 +9,7 @@ import {
 import { getSmaSignal, type SmaRegime, type SmaSignalResult } from "@/lib/sma-signals";
 import { volGateParamsTextFor } from "@/lib/simulation/vol-gate";
 import { rsiBrakeParamsTextFor } from "@/lib/simulation/rsi-brake";
-import { describeSmaRiskOffGates, smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
+import { describeSmaRiskOffGates, smaAlternateBand, smaRiskOffGates } from "@/lib/simulation/risk-off-gates";
 import type { IndexKey } from "@/lib/simulation/types";
 
 export type SmaSignalConfig = {
@@ -194,7 +194,19 @@ export function describeSmaSignalChange(
 export class SmaMarketDataUnavailable extends Error {}
 
 export async function loadCurrentSmaSignals(overrides: Partial<SmaSignalConfig> = {}) {
-  const config = { ...getDefaultSmaSignalConfig(overrides.smaInflationAdjusted), ...overrides };
+  const defaults = getDefaultSmaSignalConfig(overrides.smaInflationAdjusted);
+  const alternate = overrides.smaSpAlternateGates && overrides.smaVolGate !== false
+    ? smaAlternateBand("sp500", defaults.smaInflationAdjusted === true)
+    : undefined;
+  const config = {
+    ...defaults,
+    ...(alternate && {
+      smaSpPeriod: alternate.smaPeriod,
+      smaSpUpperBuffer: alternate.smaUpperBuffer,
+      smaSpLowerBuffer: alternate.smaLowerBuffer,
+    }),
+    ...overrides,
+  };
   const marketData = await fetchSmaMarketData();
   const signals = computeSmaSignalSnapshot({ ...marketData, config });
   return { ...marketData, config, signals };

@@ -18,9 +18,9 @@ import type { IndexKey } from "./types";
  * Treasury-only risk-off. Neighbouring settings
  * (RSI7 < 7, RSI10 < 12, RSI14 < 18-20 with re-entry 44-66) pass too.
  * The original brake's gain came from those three episodes, and it left the
- * best vol gate and calibrated SMA bands unchanged. SPX now defaults to the
- * former Alternative 3 brake (5d <4/>79). Changing either brake changes stored
- * results that have the gate switch on.
+ * best vol gate and calibrated SMA bands unchanged. The current SPX brake is
+ * 3d <4/>93 and the current NDX brake is 4d <9/>81. Changing either brake
+ * changes gated results.
  */
 export interface RsiBrakeParams {
   periodDays: number;
@@ -31,8 +31,8 @@ export interface RsiBrakeParams {
 }
 
 export const SMA_RSI_BRAKE: Record<IndexKey, RsiBrakeParams> = {
-  sp500: { periodDays: 5, exitBelow: 4, reenterAbove: 79 },
-  nasdaq100: { periodDays: 14, exitBelow: 18, reenterAbove: 62 },
+  sp500: { periodDays: 3, exitBelow: 4, reenterAbove: 93 },
+  nasdaq100: { periodDays: 4, exitBelow: 9, reenterAbove: 81 },
 };
 
 const INDEX_SHORT_NAME: Record<IndexKey, string> = { sp500: "SPX", nasdaq100: "NDX" };

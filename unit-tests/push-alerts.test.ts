@@ -282,6 +282,12 @@ test("applyCalibratedSmaDefaults overwrites only the period/buffer fields", () =
     smaNqPeriod: 90, smaNqUpperBuffer: 8, smaNqLowerBuffer: 8, smaNqEnabled: true,
     notifyEveryClose: true, useCalibratedDefaults: true,
   });
+
+  const alt = applyCalibratedSmaDefaults({
+    ...config, smaVolGate: true, smaInflationAdjusted: true, smaSpAlternateGates: true,
+  }, calibration);
+  assert.deepEqual([alt.smaSpPeriod, alt.smaSpLowerBuffer, alt.smaSpUpperBuffer], [239, 5.4, 2.2]);
+  assert.equal(alt.smaNqPeriod, calibration.nasdaq100.smaPeriod);
 });
 
 test("sends alerts with non-deferrable urgency", () => {

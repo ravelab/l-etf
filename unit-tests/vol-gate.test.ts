@@ -61,11 +61,13 @@ test("computeRealizedVol of a constant-return series is zero", () => {
 });
 
 test("nextVolGateRiskOff trips above the exit level and releases only below the re-entry level", () => {
-  assert.equal(nextVolGateRiskOff(false, 0.45, GATE), false);
-  assert.equal(nextVolGateRiskOff(false, 0.51, GATE), true);
-  assert.equal(nextVolGateRiskOff(true, 0.4, GATE), true);
-  assert.equal(nextVolGateRiskOff(true, 0.32, GATE), true);
-  assert.equal(nextVolGateRiskOff(true, 0.3, GATE), false);
+  const inBand = (GATE.exitAbove + GATE.reenterBelow) / 2;
+  assert.equal(nextVolGateRiskOff(false, inBand, GATE), false);
+  assert.equal(nextVolGateRiskOff(false, GATE.exitAbove, GATE), false);
+  assert.equal(nextVolGateRiskOff(false, GATE.exitAbove + 0.01, GATE), true);
+  assert.equal(nextVolGateRiskOff(true, inBand, GATE), true);
+  assert.equal(nextVolGateRiskOff(true, GATE.reenterBelow, GATE), true);
+  assert.equal(nextVolGateRiskOff(true, GATE.reenterBelow - 0.01, GATE), false);
   assert.equal(nextVolGateRiskOff(true, NaN, GATE), true);
   assert.equal(nextVolGateRiskOff(false, NaN, GATE), false);
 });

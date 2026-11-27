@@ -32,8 +32,8 @@ export const DEFAULT_RISK_OFF_ASSET = "BRK.B+GLDM+VGSH" as const;
  * `DEFAULT_RISK_OFF_ASSET`.
  */
 export const DEFAULT_RISK_OFF_ASSETS = {
-  sp500: "BRK.B+GLDM",
-  nasdaq100: "VGSH",
+  sp500: DEFAULT_RISK_OFF_ASSET,
+  nasdaq100: DEFAULT_RISK_OFF_ASSET,
 } as const satisfies Record<IndexKey, RiskOffAsset>;
 
 /** Whether the volatility risk-off gate (`vol-gate.ts`) is on when nobody chose. */

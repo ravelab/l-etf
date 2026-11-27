@@ -1,18 +1,26 @@
 import type { IndexKey } from "./types";
+import type { SmaCombo } from "./sma-search";
 import { NDX_ARGMAX_VOL_GATE, SMA_VOL_GATE, SMA_VOL_GATE_PARAMS_TEXT, type VolGateParams } from "./vol-gate";
 import { SMA_RSI_BRAKE, SMA_RSI_BRAKE_PARAMS_TEXT, type RsiBrakeParams } from "./rsi-brake";
 
-// Alternative 3 uses each card’s calibrated band. SPX uses its former default gates.
+// SPX Alternative 3 preserves the former default gates.
 const ALTERNATE_GATES = {
   sp500: {
-    volGate: { windowDays: 20, exitAbove: 0.32, reenterBelow: 0.22 },
-    rsiBrake: { periodDays: 14, exitBelow: 18, reenterAbove: 62 },
+    volGate: { windowDays: 21, exitAbove: 0.26, reenterBelow: 0.23 },
+    rsiBrake: { periodDays: 5, exitBelow: 4, reenterAbove: 79 },
   },
   nasdaq100: {
     volGate: NDX_ARGMAX_VOL_GATE,
     rsiBrake: { periodDays: 5, exitBelow: 6, reenterAbove: 54 },
   },
 } satisfies Record<IndexKey, { volGate: VolGateParams; rsiBrake: RsiBrakeParams }>;
+
+/** The inflation-adjusted SPX Alternative 3 retains its former default band. */
+export function smaAlternateBand(index: IndexKey, inflationAdjusted: boolean): SmaCombo | undefined {
+  if (index === "sp500" && inflationAdjusted) {
+    return { smaPeriod: 239, smaLowerBuffer: 5.4, smaUpperBuffer: 2.2 };
+  }
+}
 
 /**
  * Everything the `smaVolGate` switch turns on for one index's signals: the

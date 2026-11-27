@@ -29,7 +29,7 @@ import { alternateGatesPreset, withEraCagrs } from "./lib/sma-preset-era-cagrs";
 import { minRegimeDifferencePct as measureRegimeDifference, rescoreSavedPresets } from "./lib/sma-preset-rescore";
 import { PRESET_BUFFER_STEP, PRESET_PERIOD_STEP, PRESET_BUFFER_HALF_WIDTH, snapPresetCombo, refinePresetGrid, sweepPresetPeriods, preferStablePresetCenter } from "./lib/sma-preset-grid";
 import { presetScoreCache } from "./lib/sma-preset-cache";
-import { buildSmaCalibrationResult } from "./lib/sma-calibration-result";
+import { buildSmaCalibrationResult, selectedCalibrationBand } from "./lib/sma-calibration-result";
 import { SMA_CALIBRATION_SNAPSHOT_PATH, type SmaCalibrationIndexResult } from "../src/lib/sma-calibration";
 import { SmaSearchBudget, smaBudgetMinutes } from "./lib/sma-search-budget";
 import { readSmaArtifact, smaArtifactPath } from "./lib/sma-artifacts";
@@ -38,7 +38,7 @@ const seeds = readSmaArtifact("sma-search-space");
 const calibration = readSmaArtifact("sma-calibration");
 const currentPresets = readSmaArtifact("sma-cagr-presets");
 const RANKED_PRESET_COUNT = 3;
-const PRESET_SELECTION = "Calibrated default plus two distinct SMA alternatives selected by stability-adjusted full-period score. Alternative 3 uses the default band with alternate gates.";
+const PRESET_SELECTION = "Default plus two distinct SMA alternatives selected by stability-adjusted full-period score. Alternative 3 preserves the former inflation-adjusted SPX band and gates.";
 const PRESET_DISTINCTNESS = "New selections require at least 5% different risk-on days and at least 20 days or 3 percentage points of parameter separation. Rescoring preserves the selected bands.";
 
 interface Candidate extends SmaCombo {
@@ -145,12 +145,14 @@ async function main(): Promise<void> {
           return row ? [row] : [];
         });
       };
-      const knownCombos = [...currentPresets.presets.map((preset) => preset[index]), calibration[index]].map(snapPresetCombo)
+      const selectedBand = selectedCalibrationBand(index, SMA_CALIBRATION_INFLATION_ADJUSTED[index]);
+      const defaultBand = selectedBand ?? calibration[index];
+      const knownCombos = [...currentPresets.presets.map((preset) => preset[index]), defaultBand].map(snapPresetCombo)
         .filter((combo) => combo.smaPeriod >= SMA_SEARCH_MIN_PERIOD);
       const seedCombos = [...new Map([...seeds[index].periodSeeds,
         ...sweepPresetPeriods(knownCombos),
         ...currentPresets.presets.filter((preset) => !preset.isCalibratedDefault).map((preset) => preset[index])]
-        .map(snapPresetCombo).concat(calibration[index]).map((combo) => [comboKey(combo), {
+        .map(snapPresetCombo).concat(defaultBand).map((combo) => [comboKey(combo), {
           smaPeriod: combo.smaPeriod, smaUpperBuffer: combo.smaUpperBuffer, smaLowerBuffer: combo.smaLowerBuffer,
         }])).values()].filter((combo) => combo.smaPeriod >= SMA_SEARCH_MIN_PERIOD);
       const warmStart = getMarketDataWarmUpStartDate(modernStartDate, SMA_SEARCH_MAX_PERIOD);
@@ -225,7 +227,7 @@ async function main(): Promise<void> {
         const basins = pickDistinct(candidates, 9);
         const points = basins.flatMap((basin) => refinePresetGrid(basin, step, halfWidth));
         const rows = await evaluate(points, stage);
-        const defaultRule = candidates.find((row) => comboKey(row) === comboKey(calibration[index]))!;
+        const defaultRule = candidates.find((row) => comboKey(row) === comboKey(defaultBand))!;
         const distinctFloor = [defaultRule];
         for (const row of [...candidates].sort((a, b) => b.score - a.score)) {
           if (distinctFloor.every((previous) => separated(row, previous))) distinctFloor.push(row);
@@ -275,12 +277,12 @@ async function main(): Promise<void> {
       if (budgetReached[index]) console.log(`[${index}] refinement budget reached; retaining fully checked candidates`);
       const best = [...candidates].sort((a, b) => b.score - a.score)[0];
       bestFound[index] = { smaPeriod: best.smaPeriod, smaUpperBuffer: best.smaUpperBuffer, smaLowerBuffer: best.smaLowerBuffer, score: best.score };
-      const savedDefault = candidates.find((row) => comboKey(row) === comboKey(calibration[index]))!;
+      const savedDefault = candidates.find((row) => comboKey(row) === comboKey(defaultBand))!;
       const bestPlateau = findPlateau(candidates.map((item) => ({ item,
         coords: [item.smaPeriod, item.smaUpperBuffer, item.smaLowerBuffer], score: item.score })),
       { tolerance: PLATEAU_TOLERANCE, steps: [PRESET_PERIOD_STEP, PRESET_BUFFER_STEP, PRESET_BUFFER_STEP] });
       const bestCentered = bestPlateau ? preferStablePresetCenter(best, bestPlateau.center.item) : best;
-      const defaultCandidate = savedDefault.score >= best.score - 1e-8 ? savedDefault : bestCentered;
+      const defaultCandidate = selectedBand || savedDefault.score >= best.score - 1e-8 ? savedDefault : bestCentered;
       const defaultRow = cache.get(comboKey(defaultCandidate))!;
       const defaultNeighbors = planCombos(
         planPeriodNeighborhood(defaultCandidate.smaPeriod, 1, { minPeriod: SMA_SEARCH_MIN_PERIOD, maxPeriod: SMA_SEARCH_MAX_PERIOD }),

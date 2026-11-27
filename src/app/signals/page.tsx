@@ -132,7 +132,7 @@ function SignalsPageContent() {
       setSmaNqLowerBuffer(rule.smaLowerBuffer);
     }
     setAlternateGates((current) => ({ ...current, [indexKey]: preset.alternateGates === true }));
-    if (preset.useDefaultBand) setSmaVolGate(true);
+    if (preset.useDefaultBand || preset.alternateGates) setSmaVolGate(true);
     setSmaInflationAdjusted(variant === "inflation");
   }, []);
 
@@ -321,6 +321,7 @@ function SignalsPageContent() {
         title="Nominal SMA defaults and alternatives"
         description="Calibrated with each band run on the index as quoted; choosing one clears “SMA buffer inflation adjusted”."
         set={cagrPresets}
+        showAllAlternatives={false}
         testId="sma-presets-nominal"
         onSet={(indexKey, preset) => handleSetPreset(indexKey, preset, "nominal")}
       />
